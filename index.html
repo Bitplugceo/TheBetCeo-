@@ -1,198 +1,193 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Basketball Prediction Engine</title>
 
 <style>
-body {
-  background:#111;
-  color:#d4af37;
-  font-family:Segoe UI, sans-serif;
+body{
   margin:0;
+  font-family:Georgia, serif;
+  background: radial-gradient(circle at top, #111 0%, #000 60%);
+  color:#d4af37;
 }
 
-.wrapper {
-  max-width:760px;
-  margin:10px auto 40px auto;
-  padding:0 12px;
-}
-
-h1 {
+h1{
   text-align:center;
-  font-size:22px;
-  margin:18px 0;
+  padding:18px 10px 8px;
+  font-size:26px;
 }
 
-.section {
-  border:1px solid #d4af37;
-  background:#1a1a1a;
-  padding:14px 12px;
-  margin:14px auto;
-  width:95%;
-  box-sizing:border-box;
+.section{
+  border:1.5px solid #d4af37;
+  margin:14px;
+  padding:14px 16px 18px;
 }
 
-.section h2 {
-  font-size:18px;
-  margin-bottom:10px;
-  text-align:left;
+.section h2{
+  margin:0 0 10px;
+  font-size:20px;
 }
 
-label {
+label{
   display:block;
-  font-size:13px;
-  margin-bottom:4px;
+  margin:8px 0 4px;
+  font-size:14px;
 }
 
-input[type="number"], input[type="text"] {
-  width:100%;
+input{
+  width:85%;
   max-width:420px;
-  margin:4px auto 12px auto;
-  display:block;
   padding:8px;
-  background:#111;
-  border:1px solid #d4af37;
+  background:#151515;
+  border:1.5px solid #d4af37;
   color:#fff;
   font-size:14px;
-  box-sizing:border-box;
 }
 
-input[type="checkbox"] {
+input[type=checkbox]{
+  width:auto;
   margin-right:6px;
 }
 
-.buttons {
+.button-row{
   text-align:center;
-  margin-top:10px;
+  margin:18px 0;
 }
 
-.btn {
-  padding:8px 18px;
-  margin:8px;
-  font-size:13px;
-  font-weight:bold;
+button{
   background:#d4af37;
-  color:#111;
+  color:#000;
   border:none;
+  padding:10px 26px;
+  margin:0 10px;
+  font-weight:bold;
+  font-size:14px;
   cursor:pointer;
 }
 
-.table-wrap {
-  overflow-x:auto;
-  margin-top:20px;
-}
-
-#results {
-  width:95%;
-  margin:auto;
+table{
+  width:94%;
+  margin:10px auto 30px;
   border-collapse:collapse;
-  font-size:13px;
   display:none;
 }
 
-#results th, #results td {
-  border:1px solid #d4af37;
-  padding:8px;
+th, td{
+  border:1.5px solid #d4af37;
+  padding:10px;
   text-align:center;
+  font-size:14px;
 }
 
-.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
-.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
-.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
+.pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
+.pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
+.pred-noplay{background:#444;color:#bbb;font-weight:bold;}
 </style>
 </head>
 
 <body>
-<div class="wrapper">
 
 <h1>🏀 Basketball Prediction Engine</h1>
 
 <div class="section">
-  <h2>Market Lines</h2>
-  <label>FT Total Market</label><input id="ftMarket" type="number">
-  <label>1H Total Market</label><input id="h1Market" type="number">
-  <label>Team A Total Market</label><input id="teamAMarket" type="number">
-  <label>Team B Total Market</label><input id="teamBMarket" type="number">
+<h2>Market Lines</h2>
+<label>FT Total Market</label><input id="ftMarket">
+<label>1H Total Market</label><input id="h1Market">
+<label>Team A Total Market</label><input id="teamAMarket">
+<label>Team B Total Market</label><input id="teamBMarket">
 </div>
 
 <div class="section">
-  <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average</label><input id="teamAAvg" type="number">
-  <label>Team B FT Average</label><input id="teamBAvg" type="number">
+<h2>Team Scoring Averages</h2>
+<label>Team A FT Average</label><input id="teamAAvg">
+<label>Team B FT Average</label><input id="teamBAvg">
 </div>
 
 <div class="section">
-  <h2>Head to Head (Optional)</h2>
-  <label><input type="checkbox" id="useH2HFT"> Use H2H FT</label>
-  <input id="h2hA" type="number" placeholder="Team A H2H FT Avg">
-  <input id="h2hB" type="number" placeholder="Team B H2H FT Avg">
+<h2>Head to Head (Optional)</h2>
+<label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
+<input id="h2hA" placeholder="Team A H2H FT Avg">
+<input id="h2hB" placeholder="Team B H2H FT Avg">
 
-  <label><input type="checkbox" id="useH2H1H"> Use H2H 1H</label>
-  <input id="h2h1H" type="number" placeholder="1H H2H Avg Total">
+<label style="margin-top:10px;"><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
+<input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
 <div class="section">
-  <h2>Team Metrics</h2>
-  <label>Team A Points Allowed</label><input id="aAllowed" type="number">
-  <label>Team B Points Allowed</label><input id="bAllowed" type="number">
+<h2>Team Metrics</h2>
+<label>Team A Points Allowed</label><input id="teamAAllowed">
+<label>Team B Points Allowed</label><input id="teamBAllowed">
 </div>
 
-<div class="buttons">
-  <button class="btn" onclick="runEngine()">RUN</button>
-  <button class="btn" onclick="clearAll()">CLEAR</button>
+<div class="button-row">
+<button onclick="runEngine()">RUN</button>
+<button onclick="clearAll()">CLEAR</button>
 </div>
 
-<div class="table-wrap">
 <table id="results">
 <tr>
-  <th>Market</th>
-  <th>Engine</th>
-  <th>Edge</th>
-  <th>Pick</th>
-  <th>Confidence</th>
+<th>Pick</th>
+<th>Engine</th>
+<th>Edge</th>
+<th>Prediction</th>
+<th>Conf%</th>
 </tr>
-<tr id="resultRow"></tr>
-</table>
-</div>
 
-</div>
+<tr id="rowFT"><td>FT Total</td><td></td><td></td><td></td><td></td></tr>
+<tr id="row1H"><td>1H Total</td><td></td><td></td><td></td><td></td></tr>
+<tr id="rowA"><td>Team A</td><td></td><td></td><td></td><td></td></tr>
+<tr id="rowB"><td>Team B</td><td></td><td></td><td></td><td></td></tr>
+</table>
 
 <script>
-function runEngine(){
-  let market = parseFloat(ftMarket.value);
-  let aAvg = parseFloat(teamAAvg.value);
-  let bAvg = parseFloat(teamBAvg.value);
-  let aDef = parseFloat(aAllowed.value);
-  let bDef = parseFloat(bAllowed.value);
+function val(id){ return parseFloat(document.getElementById(id).value) || 0 }
 
-  if(isNaN(market)||isNaN(aAvg)||isNaN(bAvg)||isNaN(aDef)||isNaN(bDef)){
-    alert("Fill required fields");
-    return;
+function predict(row, market, engine){
+  const cells = document.querySelectorAll("#"+row+" td")
+  if(!market || !engine){ 
+    cells[1].innerText="NaN"
+    cells[2].innerText="NaN"
+    cells[3].innerText="NO PLAY"
+    cells[4].innerText="0%"
+    cells[3].className="pred-noplay"
+    return
   }
 
-  let engine = ((aAvg + bAvg) + (bDef + aDef)) / 2;
-  let edge = engine - market;
-  let pick = "NO PLAY";
-  let conf = "—";
-  let cls = "pred-noplay";
+  let edge = engine - market
+  let pick = "OVER"
+  let cls = "pred-over"
+  if(edge < 0){ pick="UNDER"; cls="pred-under" }
 
-  if(edge > 5){ pick="OVER"; conf="High"; cls="pred-over"; }
-  else if(edge < -5){ pick="UNDER"; conf="High"; cls="pred-under"; }
+  cells[1].innerText = engine.toFixed(1)
+  cells[2].innerText = edge.toFixed(1)
+  cells[3].innerText = pick
+  cells[3].className = cls
+  cells[4].innerText = Math.min(95, Math.abs(edge)*3).toFixed(0)+"%"
+}
 
-  resultRow.innerHTML =
-    `<td>${market}</td>
-     <td>${engine.toFixed(1)}</td>
-     <td>${edge.toFixed(1)}</td>
-     <td class="${cls}">${pick}</td>
-     <td>${conf}</td>`;
+function runEngine(){
+  document.getElementById("results").style.display="table"
 
-  results.style.display="table";
+  let teamA = val("teamAAvg")
+  let teamB = val("teamBAvg")
+  let allowedA = val("teamAAllowed")
+  let allowedB = val("teamBAllowed")
+
+  let ftEngine = (teamA + teamB + allowedA + allowedB) / 2
+  let h1Engine = ftEngine * 0.48
+  let teamAEngine = (teamA + allowedB)/2
+  let teamBEngine = (teamB + allowedA)/2
+
+  predict("rowFT", val("ftMarket"), ftEngine)
+  predict("row1H", val("h1Market"), h1Engine)
+  predict("rowA", val("teamAMarket"), teamAEngine)
+  predict("rowB", val("teamBMarket"), teamBEngine)
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>i.value="");
-  results.style.display="none";
+  document.querySelectorAll("input").forEach(i=>i.value="")
+  document.getElementById("results").style.display="none"
 }
 </script>
 
