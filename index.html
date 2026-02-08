@@ -285,7 +285,25 @@ function clearAll(){
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+// Auto check if this device already unlocked access
+window.addEventListener("load", async () => {
+  const deviceId = getDeviceId();
+  const savedCode = localStorage.getItem("savedCode");
 
+  if (!savedCode) return;
+
+  const docRef = db.collection("accesscodes").doc(savedCode);
+  const docSnap = await docRef.get();
+
+  if (docSnap.exists) {
+    const data = docSnap.data();
+
+    if (data.deviceId === deviceId && data.active) {
+      document.getElementById("codeGate").style.display = "none";
+      document.getElementById("appContent").style.display = "block";
+    }
+  }
+});
   async function checkCode() {
   const code = document.getElementById("accessCodeInput").value.trim();
   const message = document.getElementById("codeMessage");
@@ -322,7 +340,7 @@ function clearAll(){
     deviceId: deviceId,
     used: true
   });
-
+localStorage.setItem("savedCode", code);
   document.getElementById("codeGate").style.display = "none";
   document.getElementById("appContent").style.display = "block";
 }
