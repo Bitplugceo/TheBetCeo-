@@ -286,6 +286,14 @@ function clearAll(){
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 // Auto check if this device already unlocked access
+  document.addEventListener("DOMContentLoaded", function () {
+  const input = document.getElementById("accessCodeInput");
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      checkCode();
+    }
+  });
+});
 window.addEventListener("load", async () => {
   const deviceId = getDeviceId();
   const savedCode = localStorage.getItem("savedCode");
