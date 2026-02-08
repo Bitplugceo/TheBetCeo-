@@ -47,7 +47,8 @@ label {
 }
 
 input {
-  width: 100%;
+  width: 92%;
+  max-width: 260px;   /* keeps them compact */
   padding: 5px 6px;
   font-size: 12px;
   background: #262626;
@@ -106,8 +107,11 @@ input[type="checkbox"] {
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
 .lock {
-  font-size: 9px;
-  margin-left: 4px;
+  font-size: 8px;          /* VERY small */
+  margin-left: 3px;
+  vertical-align: middle;  /* aligns with text center */
+  position: relative;
+  top: -1px;               /* tiny lift so it sits perfectly */
 }
 </style>
 </head>
