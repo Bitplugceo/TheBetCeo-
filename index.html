@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- CRITICAL FOR HOME SCREEN SCALING -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
 <title>Basketball Prediction Engine</title>
 
 <style>
@@ -14,40 +17,40 @@ body {
 }
 
 .wrapper {
-  max-width: 480px;   /* keeps it phone-sized when added to Home Screen */
+  max-width: 680px;
   margin: auto;
-  padding: 12px;
+  padding: 12px 14px 40px;
 }
 
 h1 {
   text-align: center;
-  font-size: 20px;
-  margin-bottom: 14px;
+  font-size: 18px;
+  margin-bottom: 12px;
 }
 
 .section {
   border: 1px solid #d4af37;
-  background: #222;
-  padding: 10px;
-  margin-bottom: 12px;
+  background: #202020;
+  padding: 8px 10px;
+  margin-bottom: 10px;
 }
 
 .section h2 {
-  font-size: 15px;
+  font-size: 14px;
   margin-bottom: 6px;
 }
 
 label {
   display: block;
   font-size: 12px;
-  margin: 6px 0 2px;
+  margin: 5px 0 2px;
 }
 
 input {
   width: 100%;
-  padding: 6px;
-  font-size: 13px;
-  background: #2a2a2a;
+  padding: 5px 6px;
+  font-size: 12px;
+  background: #262626;
   color: #d4af37;
   border: 1px solid #d4af37;
   margin-bottom: 6px;
@@ -59,15 +62,20 @@ input[type="checkbox"] {
   margin-right: 6px;
 }
 
+/* FORCE METRICS TO STACK VERTICALLY */
+.metrics {
+  display: block;
+}
+
 .buttons {
   text-align: center;
   margin-top: 10px;
 }
 
 .btn {
-  padding: 7px 16px;
+  padding: 6px 18px;
   margin: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: bold;
   background: #d4af37;
   color: #111;
@@ -77,7 +85,7 @@ input[type="checkbox"] {
 
 .table-wrap {
   overflow-x: auto;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 #results {
@@ -111,16 +119,22 @@ input[type="checkbox"] {
 
 <div class="section">
   <h2>Market Lines</h2>
-  <label>FT Total Market</label><input id="ftMarket">
-  <label>1H Total Market</label><input id="h1Market">
-  <label>Team A Total Market</label><input id="teamAMarket">
-  <label>Team B Total Market</label><input id="teamBMarket">
+  <label>FT Total Market (150.5 - 160.5)</label>
+  <input id="ftMarket">
+  <label>1H Total Market (75.5 - 85.5)</label>
+  <input id="h1Market">
+  <label>Team A Total Market</label>
+  <input id="teamAMarket">
+  <label>Team B Total Market</label>
+  <input id="teamBMarket">
 </div>
 
 <div class="section">
   <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average</label><input id="teamAAvg">
-  <label>Team B FT Average</label><input id="teamBAvg">
+  <label>Team A FT Average</label>
+  <input id="teamAAvg">
+  <label>Team B FT Average</label>
+  <input id="teamBAvg">
 </div>
 
 <div class="section">
@@ -128,21 +142,22 @@ input[type="checkbox"] {
   <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
   <input id="h2hA" placeholder="Team A H2H FT Avg">
   <input id="h2hB" placeholder="Team B H2H FT Avg">
-
   <label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
   <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
-<div class="section">
+<div class="section metrics">
   <h2>Team A Metrics</h2>
-  <label>Team A Pace</label><input id="paceA">
-  <label>Team A Points Allowed</label><input id="papgA">
-</div>
+  <label>Team A Pace</label>
+  <input id="paceA">
+  <label>Team A Points Allowed</label>
+  <input id="papgA">
 
-<div class="section">
   <h2>Team B Metrics</h2>
-  <label>Team B Pace</label><input id="paceB">
-  <label>Team B Points Allowed</label><input id="papgB">
+  <label>Team B Pace</label>
+  <input id="paceB">
+  <label>Team B Points Allowed</label>
+  <input id="papgB">
 </div>
 
 <div class="buttons">
@@ -166,68 +181,74 @@ input[type="checkbox"] {
 
 <script>
 function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
-function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(a+b)/2;}
+function mid(r){if(!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
 
 function runEngine(){
-const t=document.getElementById("results");t.style.display="table";
-t.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
+  const table=document.getElementById("results");
+  table.style.display="table";
+  table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
-let ftM=mid(ftMarket.value),h1M=mid(h1Market.value),aM=mid(teamAMarket.value),bM=mid(teamBMarket.value);
-let [ftL,ftH]=ftMarket.value.split("-").map(Number);
-let [h1L,h1H]=h1Market.value.split("-").map(Number);
-let [aL,aH]=teamAMarket.value.split("-").map(Number);
-let [bL,bH]=teamBMarket.value.split("-").map(Number);
+  let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
+  let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
+  let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
+  let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
-let aAvg=num("teamAAvg"),bAvg=num("teamBAvg"),papgA=num("papgA"),papgB=num("papgB");
-let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+  let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
+  let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+  let papgA=num("papgA"),papgB=num("papgB");
 
-let aOff=useH2HFT.checked?(0.7*aAvg+0.3*h2hA):aAvg;
-let bOff=useH2HFT.checked?(0.7*bAvg+0.3*h2hB):bAvg;
+  let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-let aEng=(aOff+papgB)/2;
-let bEng=(bOff+papgA)/2;
+  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
+  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-let ftOff=aAvg+bAvg;
-if(useH2HFT.checked)ftOff=(0.7*ftOff+0.3*(h2hA+h2hB));
-let ftEng=(ftOff+papgA+papgB)/2;
+  let aEng=(aOff+papgB)/2;
+  let bEng=(bOff+papgA)/2;
 
-let h1Eng=ftEng*0.48;
-if(useH2H1H.checked)h1Eng=(0.7*h1Eng+0.3*h2h1H);
+  let ftBase=useFT?(0.7*(aAvg+bAvg)+0.3*(h2hA+h2hB)):(aAvg+bAvg);
+  let ftEng=(ftBase+papgA+papgB)/2;
 
-function pick(n,e,m,l,h){
-let edge=e-m,conf=confidence(edge),pred="NO PLAY";
-if(conf>=70&&!isNaN(edge)){
-if(edge>0)pred="OVER "+clamp(m-3,l,h).toFixed(1);
-else pred="UNDER "+clamp(m+3,l,h).toFixed(1);
-}
-return{name:n,eng:e.toFixed(2),edge:edge.toFixed(2),pred,conf,raw:edge};
-}
+  let h1Eng=ftEng*0.48;
+  if(use1H)h1Eng=0.7*h1Eng+0.3*h2h1H;
 
-let picks=[
-pick("FT Total",ftEng,ftM,ftL,ftH),
-pick("1H Total",h1Eng,h1M,h1L,h1H),
-pick("Team A Total",aEng,aM,aL,aH),
-pick("Team B Total",bEng,bM,bL,bH)
-];
+  function make(name,eng,mkt,low,high){
+    let edge=eng-mkt,conf=confidence(edge),pred="NO PLAY";
+    if(!isNaN(edge)){
+      if(edge>0)pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
+      else if(edge<0)pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
+    }
+    if(conf<70)pred="NO PLAY";
+    return{name,eng:eng.toFixed(2),edge:edge.toFixed(2),pred,conf,raw:edge};
+  }
 
-let lock=-1,max=0;
-picks.forEach((p,i)=>{if(Math.abs(p.raw)>max&&p.conf>=70){max=Math.abs(p.raw);lock=i;}});
+  let picks=[
+    make("FT Total",ftEng,ft,ftL,ftH),
+    make("1H Total",h1Eng,h1,h1L,h1H),
+    make("Team A Total",aEng,aM,aL,aH),
+    make("Team B Total",bEng,bM,bL,bH)
+  ];
 
-picks.forEach((p,i)=>{
-let r=t.insertRow();
-let pred=p.pred+(i===lock&&p.pred!=="NO PLAY"?" <span class='lock'>🔒</span>":"");
-r.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
-<td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
-<td>${p.conf}%</td>`;
-});
+  let lock=-1,max=0;
+  picks.forEach((p,i)=>{if(Math.abs(p.raw)>max&&p.conf>=70){max=Math.abs(p.raw);lock=i;}});
+  picks.forEach((p,i)=>{
+    let row=table.insertRow();
+    let pr=p.pred;
+    if(i===lock&&p.pred!=="NO PLAY")pr+=` <span class="lock">🔒</span>`;
+    row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
+    <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
+    <td>${p.conf}%</td>`;
+  });
 }
 
 function clearAll(){
-document.querySelectorAll("input").forEach(i=>i.type==="checkbox"?i.checked=false:i.value="");
-results.style.display="none";
+  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
+  results.style.display="none";
 }
 </script>
+
 </body>
 </html>
