@@ -287,48 +287,44 @@ function clearAll(){
   const db = firebase.firestore();
 
   async function checkCode() {
-    const code = document.getElementById("accessCodeInput").value.trim();
-    const message = document.getElementById("codeMessage");
+  const code = document.getElementById("accessCodeInput").value.trim();
+  const message = document.getElementById("codeMessage");
+  const deviceId = getDeviceId();
 
-    if (!code) {
-      message.textContent = "Enter a code.";
-      return;
-    }
-
-    const doc = await db.collection("accesscodes").doc(code).get();
-
-    if (!doc.exists) {
-      message.textContent = "Invalid code.";
-      return;
-    }
-
-    const data = doc.data();
-
-    if (!data.active) {
-      message.textContent = "Code expired.";
-      return;
-    }
-
-    if (data.used) {
-      message.textContent = "Code already used.";
-      return;
-    }
-
-    // Mark code as used
-    await db.collection("accesscodes").doc(code).update({ used: true });
-
-    document.getElementById("codeGate").style.display = "none";
-    document.getElementById("appContent").style.display = "block";
+  if (!code) {
+    message.textContent = "Enter a code.";
+    return;
   }
-</script>
-  // Create or get a unique ID for this device
-function getDeviceId() {
-  let deviceId = localStorage.getItem("deviceId");
-  if (!deviceId) {
-    deviceId = crypto.randomUUID();
-    localStorage.setItem("deviceId", deviceId);
+
+  const docRef = db.collection("accesscodes").doc(code);
+  const docSnap = await docRef.get();
+
+  if (!docSnap.exists) {
+    message.textContent = "Invalid code.";
+    return;
   }
-  return deviceId;
+
+  const data = docSnap.data();
+
+  if (!data.active) {
+    message.textContent = "Code expired.";
+    return;
+  }
+
+  // ✅ If code already locked to a device
+  if (data.deviceId && data.deviceId !== deviceId) {
+    message.textContent = "Code already used on another device.";
+    return;
+  }
+
+  // ✅ First time use on THIS device — lock it
+  await docRef.update({
+    deviceId: deviceId,
+    used: true
+  });
+
+  document.getElementById("codeGate").style.display = "none";
+  document.getElementById("appContent").style.display = "block";
 }
 </body>
 </html>
