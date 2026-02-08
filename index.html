@@ -321,5 +321,14 @@ function clearAll(){
     document.getElementById("appContent").style.display = "block";
   }
 </script>
+  // Create or get a unique ID for this device
+function getDeviceId() {
+  let deviceId = localStorage.getItem("deviceId");
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem("deviceId", deviceId);
+  }
+  return deviceId;
+}
 </body>
 </html>
