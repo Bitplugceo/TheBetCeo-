@@ -1,167 +1,198 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Basketball Prediction Engine</title>
 
 <style>
 body {
-  font-family: Arial, sans-serif;
   background:#111;
-  color:#f5c542;
-  padding:15px;
+  color:#d4af37;
+  font-family:Segoe UI, sans-serif;
+  margin:0;
 }
-h1 { text-align:center; }
+
+.wrapper {
+  max-width:760px;
+  margin:10px auto 40px auto;
+  padding:0 12px;
+}
+
+h1 {
+  text-align:center;
+  font-size:22px;
+  margin:18px 0;
+}
 
 .section {
-  border:1px solid #f5c542;
-  padding:12px;
-  margin-bottom:15px;
-  border-radius:6px;
+  border:1px solid #d4af37;
+  background:#1a1a1a;
+  padding:14px 12px;
+  margin:14px auto;
+  width:95%;
+  box-sizing:border-box;
 }
 
-input {
+.section h2 {
+  font-size:18px;
+  margin-bottom:10px;
+  text-align:left;
+}
+
+label {
+  display:block;
+  font-size:13px;
+  margin-bottom:4px;
+}
+
+input[type="number"], input[type="text"] {
   width:100%;
-  padding:6px;
-  margin:4px 0 10px 0;
-  background:#222;
-  border:1px solid #f5c542;
+  max-width:420px;
+  margin:4px auto 12px auto;
+  display:block;
+  padding:8px;
+  background:#111;
+  border:1px solid #d4af37;
   color:#fff;
+  font-size:14px;
+  box-sizing:border-box;
 }
 
-button {
-  width:48%;
-  padding:10px;
+input[type="checkbox"] {
+  margin-right:6px;
+}
+
+.buttons {
+  text-align:center;
   margin-top:10px;
-  background:#f5c542;
-  border:none;
+}
+
+.btn {
+  padding:8px 18px;
+  margin:8px;
+  font-size:13px;
   font-weight:bold;
+  background:#d4af37;
+  color:#111;
+  border:none;
+  cursor:pointer;
+}
+
+.table-wrap {
+  overflow-x:auto;
+  margin-top:20px;
 }
 
 #results {
-  margin-top:20px;
-  width:100%;
+  width:95%;
+  margin:auto;
   border-collapse:collapse;
+  font-size:13px;
   display:none;
 }
 
 #results th, #results td {
-  border:1px solid #f5c542;
-  padding:6px;
+  border:1px solid #d4af37;
+  padding:8px;
   text-align:center;
 }
 
-.pred-over { background:#1e7d3a; }
-.pred-under { background:#8b1e1e; }
-.pred-noplay { background:#444; }
-
-.lock { font-size:12px; }
+.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
+.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
+.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 </style>
 </head>
 
 <body>
+<div class="wrapper">
 
 <h1>🏀 Basketball Prediction Engine</h1>
 
 <div class="section">
-<h2>Market Lines</h2>
-FT Total Market<input id="ftMarket" placeholder="210 - 215">
-1H Total Market<input id="h1Market" placeholder="105 - 108">
-Team A Total Market<input id="teamAMarket" placeholder="104 - 108">
-Team B Total Market<input id="teamBMarket" placeholder="102 - 107">
+  <h2>Market Lines</h2>
+  <label>FT Total Market</label><input id="ftMarket" type="number">
+  <label>1H Total Market</label><input id="h1Market" type="number">
+  <label>Team A Total Market</label><input id="teamAMarket" type="number">
+  <label>Team B Total Market</label><input id="teamBMarket" type="number">
 </div>
 
 <div class="section">
-<h2>Team Scoring Averages</h2>
-Team A FT Average<input id="teamAAvg">
-Team B FT Average<input id="teamBAvg">
+  <h2>Team Scoring Averages</h2>
+  <label>Team A FT Average</label><input id="teamAAvg" type="number">
+  <label>Team B FT Average</label><input id="teamBAvg" type="number">
 </div>
 
 <div class="section">
-<h2>Head to Head (Optional)</h2>
-<label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-Team A H2H FT Avg<input id="h2hA">
-Team B H2H FT Avg<input id="h2hB">
+  <h2>Head to Head (Optional)</h2>
+  <label><input type="checkbox" id="useH2HFT"> Use H2H FT</label>
+  <input id="h2hA" type="number" placeholder="Team A H2H FT Avg">
+  <input id="h2hB" type="number" placeholder="Team B H2H FT Avg">
 
-<label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-1H H2H Avg Total<input id="h2h1H">
+  <label><input type="checkbox" id="useH2H1H"> Use H2H 1H</label>
+  <input id="h2h1H" type="number" placeholder="1H H2H Avg Total">
 </div>
 
 <div class="section">
-<h2>Team Defense</h2>
-Team A Points Allowed<input id="papgA">
-Team B Points Allowed<input id="papgB">
+  <h2>Team Metrics</h2>
+  <label>Team A Points Allowed</label><input id="aAllowed" type="number">
+  <label>Team B Points Allowed</label><input id="bAllowed" type="number">
 </div>
 
-<button onclick="runEngine()">RUN</button>
-<button onclick="clearAll()">CLEAR</button>
+<div class="buttons">
+  <button class="btn" onclick="runEngine()">RUN</button>
+  <button class="btn" onclick="clearAll()">CLEAR</button>
+</div>
 
-<table id="results"></table>
+<div class="table-wrap">
+<table id="results">
+<tr>
+  <th>Market</th>
+  <th>Engine</th>
+  <th>Edge</th>
+  <th>Pick</th>
+  <th>Confidence</th>
+</tr>
+<tr id="resultRow"></tr>
+</table>
+</div>
+
+</div>
 
 <script>
-function num(id){ let v=parseFloat(document.getElementById(id).value); return isNaN(v)?NaN:v; }
-function mid(r){ if(!r||!r.includes("-")) return NaN; let [a,b]=r.split("-").map(x=>parseFloat(x)); return (a+b)/2; }
-function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
-function conf(edge){ if(isNaN(edge)) return 0; return Math.min(95, Math.round(70+(Math.abs(edge)-3)*5)); }
-
 function runEngine(){
-let table=document.getElementById("results");
-table.style.display="table";
-table.innerHTML=`<tr><th>Pick</th><th>Engine</th><th>Edge</th><th>Prediction</th><th>Conf%</th></tr>`;
+  let market = parseFloat(ftMarket.value);
+  let aAvg = parseFloat(teamAAvg.value);
+  let bAvg = parseFloat(teamBAvg.value);
+  let aDef = parseFloat(aAllowed.value);
+  let bDef = parseFloat(bAllowed.value);
 
-let ftM=mid(ftMarket.value), h1M=mid(h1Market.value), aM=mid(teamAMarket.value), bM=mid(teamBMarket.value);
-let [ftL,ftH]=ftMarket.value.split("-").map(Number);
-let [h1L,h1H]=h1Market.value.split("-").map(Number);
-let [aL,aH]=teamAMarket.value.split("-").map(Number);
-let [bL,bH]=teamBMarket.value.split("-").map(Number);
+  if(isNaN(market)||isNaN(aAvg)||isNaN(bAvg)||isNaN(aDef)||isNaN(bDef)){
+    alert("Fill required fields");
+    return;
+  }
 
-let aAvg=num("teamAAvg"), bAvg=num("teamBAvg");
-let h2hA=num("h2hA"), h2hB=num("h2hB"), h2h1H=num("h2h1H");
-let papgA=num("papgA"), papgB=num("papgB");
+  let engine = ((aAvg + bAvg) + (bDef + aDef)) / 2;
+  let edge = engine - market;
+  let pick = "NO PLAY";
+  let conf = "—";
+  let cls = "pred-noplay";
 
-let aOff=useH2HFT.checked?(0.7*aAvg+0.3*h2hA):aAvg;
-let bOff=useH2HFT.checked?(0.7*bAvg+0.3*h2hB):bAvg;
+  if(edge > 5){ pick="OVER"; conf="High"; cls="pred-over"; }
+  else if(edge < -5){ pick="UNDER"; conf="High"; cls="pred-under"; }
 
-let aEng=(aOff+papgB)/2;
-let bEng=(bOff+papgA)/2;
-let ftEng=(aEng+bEng);
-let h1Eng=useH2H1H.checked?(0.7*(ftEng*0.48)+0.3*h2h1H):(ftEng*0.48);
+  resultRow.innerHTML =
+    `<td>${market}</td>
+     <td>${engine.toFixed(1)}</td>
+     <td>${edge.toFixed(1)}</td>
+     <td class="${cls}">${pick}</td>
+     <td>${conf}</td>`;
 
-function pick(name,eng,mkt,low,high){
- let edge=eng-mkt;
- let c=conf(edge);
- let pred="NO PLAY";
- if(!isNaN(edge)){
-   if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
-   if(edge<0) pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
- }
- if(c<70) pred="NO PLAY";
- return {name,eng:eng.toFixed(2),edge:edge.toFixed(2),pred,conf:c,raw:edge};
-}
-
-let picks=[
- pick("FT Total",ftEng,ftM,ftL,ftH),
- pick("1H Total",h1Eng,h1M,h1L,h1H),
- pick("Team A",aEng,aM,aL,aH),
- pick("Team B",bEng,bM,bL,bH)
-];
-
-let lock=-1,max=0;
-picks.forEach((p,i)=>{ if(Math.abs(p.raw)>max && p.conf>=70){max=Math.abs(p.raw);lock=i;} });
-
-picks.forEach((p,i)=>{
- let r=table.insertRow();
- let pr=p.pred;
- if(i===lock && pr!=="NO PLAY") pr+=" 🔒";
- r.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
- <td class="${pr.startsWith('OVER')?'pred-over':pr.startsWith('UNDER')?'pred-under':'pred-noplay'}">${pr}</td>
- <td>${p.conf}%</td>`;
-});
+  results.style.display="table";
 }
 
 function clearAll(){
-document.querySelectorAll("input").forEach(i=>i.type==="checkbox"?i.checked=false:i.value="");
-results.style.display="none";
+  document.querySelectorAll("input").forEach(i=>i.value="");
+  results.style.display="none";
 }
 </script>
 
