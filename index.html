@@ -11,6 +11,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
 <title>Basketball Prediction Engine</title>
+  <!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <style>
 body {
@@ -122,6 +125,15 @@ input[type="checkbox"] {
 </head>
 
 <body>
+  <!-- ACCESS CODE GATE -->
+<div id="codeGate" style="text-align:center; padding:40px;">
+  <h2>Enter Access Code</h2>
+  <input id="accessCodeInput" placeholder="Enter your code" style="padding:10px; font-size:16px;">
+  <button onclick="checkCode()" style="padding:10px 20px; font-size:16px; margin-left:10px;">Enter</button>
+  <p id="codeMessage" style="color:red;"></p>
+</div>
+
+<div id="appContent" style="display:none;">
 <div class="wrapper">
 
 <h1>🏀 Basketball Prediction Engine</h1>
@@ -258,6 +270,56 @@ function clearAll(){
   results.style.display="none";
 }
 </script>
+</div> <!-- closes appContent -->
 
+<script>
+  // Your Firebase config (PASTE YOURS HERE)
+  const firebaseConfig = {
+    apiKey: "PASTE_HERE",
+    authDomain: "PASTE_HERE",
+    projectId: "PASTE_HERE",
+    storageBucket: "PASTE_HERE",
+    messagingSenderId: "PASTE_HERE",
+    appId: "PASTE_HERE"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  async function checkCode() {
+    const code = document.getElementById("accessCodeInput").value.trim();
+    const message = document.getElementById("codeMessage");
+
+    if (!code) {
+      message.textContent = "Enter a code.";
+      return;
+    }
+
+    const doc = await db.collection("accesscodes").doc(code).get();
+
+    if (!doc.exists) {
+      message.textContent = "Invalid code.";
+      return;
+    }
+
+    const data = doc.data();
+
+    if (!data.active) {
+      message.textContent = "Code expired.";
+      return;
+    }
+
+    if (data.used) {
+      message.textContent = "Code already used.";
+      return;
+    }
+
+    // Mark code as used
+    await db.collection("accesscodes").doc(code).update({ used: true });
+
+    document.getElementById("codeGate").style.display = "none";
+    document.getElementById("appContent").style.display = "block";
+  }
+</script>
 </body>
 </html>
