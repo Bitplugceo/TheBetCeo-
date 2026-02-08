@@ -9,11 +9,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Basketball Prediction Engine</title>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
 <style>
-/* YOUR ORIGINAL STYLES UNCHANGED */
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
 .wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
 h1 { text-align:center; font-size:18px; margin-bottom:12px; }
@@ -37,140 +33,141 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <body>
 
-<!-- 🔐 CODE GATE -->
-<div id="codeGate" style="text-align:center; padding:40px;">
-  <h2>Enter Access Code</h2>
-  <input id="accessCodeInput" placeholder="Enter your code" style="padding:10px; font-size:16px;">
-  <button onclick="checkCode()" style="padding:10px 20px; font-size:16px; margin-left:10px;">Enter</button>
-  <p id="codeMessage" style="color:red;"></p>
-</div>
-
-<!-- 🏀 APP -->
-<div id="appContent" style="display:none;">
 <div class="wrapper">
 
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- ALL YOUR ENGINE HTML UNCHANGED -->
-<!-- (I did not touch your engine layout at all) -->
-
-<div class="section"><h2>Market Lines</h2>
-<label>FT Total Market (150.5 - 160.5)</label><input id="ftMarket">
-<label>1H Total Market (75.5 - 85.5)</label><input id="h1Market">
-<label>Team A Total Market</label><input id="teamAMarket">
-<label>Team B Total Market</label><input id="teamBMarket"></div>
-
-<div class="section"><h2>Team Scoring Averages</h2>
-<label>Team A FT Average</label><input id="teamAAvg">
-<label>Team B FT Average</label><input id="teamBAvg"></div>
-
-<div class="section"><h2>Head to Head (Optional)</h2>
-<label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-<input id="h2hA" placeholder="Team A H2H FT Avg">
-<input id="h2hB" placeholder="Team B H2H FT Avg">
-<label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-<input id="h2h1H" placeholder="1H H2H Avg Total"></div>
-
-<div class="section metrics">
-<h2>Team A Metrics</h2><label>Team A Pace</label><input id="paceA">
-<label>Team A Points Allowed</label><input id="papgA">
-<h2>Team B Metrics</h2><label>Team B Pace</label><input id="paceB">
-<label>Team B Points Allowed</label><input id="papgB"></div>
-
-<div class="buttons">
-<button class="btn" onclick="runEngine()">Run</button>
-<button class="btn" onclick="clearAll()">Clear</button>
+<div class="section">
+  <h2>Market Lines</h2>
+  <label>FT Total Market (150.5 - 160.5)</label>
+  <input id="ftMarket">
+  <label>1H Total Market (75.5 - 85.5)</label>
+  <input id="h1Market">
+  <label>Team A Total Market</label>
+  <input id="teamAMarket">
+  <label>Team B Total Market</label>
+  <input id="teamBMarket">
 </div>
 
-<div class="table-wrap"><table id="results">
-<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>
-</table></div>
+<div class="section">
+  <h2>Team Scoring Averages</h2>
+  <label>Team A FT Average</label>
+  <input id="teamAAvg">
+  <label>Team B FT Average</label>
+  <input id="teamBAvg">
+</div>
 
-</div></div>
+<div class="section">
+  <h2>Head to Head (Optional)</h2>
+  <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
+  <input id="h2hA" placeholder="Team A H2H FT Avg">
+  <input id="h2hB" placeholder="Team B H2H FT Avg">
+  <label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
+  <input id="h2h1H" placeholder="1H H2H Avg Total">
+</div>
+
+<div class="section metrics">
+  <h2>Team A Metrics</h2>
+  <label>Team A Pace</label>
+  <input id="paceA">
+  <label>Team A Points Allowed</label>
+  <input id="papgA">
+
+  <h2>Team B Metrics</h2>
+  <label>Team B Pace</label>
+  <input id="paceB">
+  <label>Team B Points Allowed</label>
+  <input id="papgB">
+</div>
+
+<div class="buttons">
+  <button class="btn" onclick="runEngine()">Run</button>
+  <button class="btn" onclick="clearAll()">Clear</button>
+</div>
+
+<div class="table-wrap">
+<table id="results">
+<tr>
+  <th>Pick</th>
+  <th>Engine Mid</th>
+  <th>Edge</th>
+  <th>Prediction</th>
+  <th>Confidence %</th>
+</tr>
+</table>
+</div>
+
+</div>
 
 <script>
-/* ---------------- ENGINE (UNCHANGED) ---------------- */
 function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
 function mid(r){if(!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
-function runEngine(){/* SAME ENGINE CODE YOU SENT — NOT MODIFIED */ 
-const table=document.getElementById("results");table.style.display="table";
-table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
-let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
-let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
-let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
-let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
-let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
-let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
-let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
-let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-let papgA=num("papgA"),papgB=num("papgB");
-let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
-let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
-let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
-let aEng=(aOff+papgB)/2;let bEng=(bOff+papgA)/2;
-let ftBase=useFT?(0.7*(aAvg+bAvg)+0.3*(h2hA+h2hB)):(aAvg+bAvg);
-let ftEng=(ftBase+papgA+papgB)/2;
-let h1Eng=ftEng*0.48;if(use1H)h1Eng=0.7*h1Eng+0.3*h2h1H;
-function make(name,eng,mkt,low,high){let edge=eng-mkt,conf=confidence(edge),pred="NO PLAY";
-if(!isNaN(edge)){if(edge>0)pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
-else if(edge<0)pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);}if(conf<70)pred="NO PLAY";
-return{name,eng:eng.toFixed(2),edge:edge.toFixed(2),pred,conf,raw:edge};}
-let picks=[make("FT Total",ftEng,ft,ftL,ftH),make("1H Total",h1Eng,h1,h1L,h1H),
-make("Team A Total",aEng,aM,aL,aH),make("Team B Total",bEng,bM,bL,bH)];
-let lock=-1,max=0;picks.forEach((p,i)=>{if(Math.abs(p.raw)>max&&p.conf>=70){max=Math.abs(p.raw);lock=i;}});
-picks.forEach((p,i)=>{let row=table.insertRow();let pr=p.pred;
-if(i===lock&&p.pred!=="NO PLAY")pr+=` <span class="lock">🔒</span>`;
-row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
-<td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
-<td>${p.conf}%</td>`;});}
-function clearAll(){document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});results.style.display="none";}
 
-/* ---------------- ACCESS SYSTEM ---------------- */
+function runEngine(){
+  const table=document.getElementById("results");
+  table.style.display="table";
+  table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw60TY",
-  authDomain: "thebetceo.firebaseapp.com",
-  projectId: "thebetceo"
-};
+  let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
+  let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
+  let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
+  let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+  let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
+  let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+  let papgA=num("papgA"),papgB=num("papgB");
 
-function getDeviceId(){
-  let id=localStorage.getItem("deviceId");
-  if(!id){id="dev-"+Math.random().toString(36).substr(2,16);localStorage.setItem("deviceId",id);}
-  return id;
+  let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
+
+  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
+  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
+
+  let aEng=(aOff+papgB)/2;
+  let bEng=(bOff+papgA)/2;
+
+  let ftBase=useFT?(0.7*(aAvg+bAvg)+0.3*(h2hA+h2hB)):(aAvg+bAvg);
+  let ftEng=(ftBase+papgA+papgB)/2;
+
+  let h1Eng=ftEng*0.48;
+  if(use1H)h1Eng=0.7*h1Eng+0.3*h2h1H;
+
+  function make(name,eng,mkt,low,high){
+    let edge=eng-mkt,conf=confidence(edge),pred="NO PLAY";
+    if(!isNaN(edge)){
+      if(edge>0)pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
+      else if(edge<0)pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
+    }
+    if(conf<70)pred="NO PLAY";
+    return{name,eng:eng.toFixed(2),edge:edge.toFixed(2),pred,conf,raw:edge};
+  }
+
+  let picks=[
+    make("FT Total",ftEng,ft,ftL,ftH),
+    make("1H Total",h1Eng,h1,h1L,h1H),
+    make("Team A Total",aEng,aM,aL,aH),
+    make("Team B Total",bEng,bM,bL,bH)
+  ];
+
+  let lock=-1,max=0;
+  picks.forEach((p,i)=>{if(Math.abs(p.raw)>max&&p.conf>=70){max=Math.abs(p.raw);lock=i;}});
+  picks.forEach((p,i)=>{
+    let row=table.insertRow();
+    let pr=p.pred;
+    if(i===lock&&p.pred!=="NO PLAY")pr+=` <span class="lock">🔒</span>`;
+    row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
+    <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
+    <td>${p.conf}%</td>`;
+  });
 }
 
-function unlockApp(){
-  codeGate.style.display="none";
-  appContent.style.display="block";
+function clearAll(){
+  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
+  results.style.display="none";
 }
-
-async function checkCode(){
-  const code=accessCodeInput.value.trim();
-  const msg=codeMessage;
-  const deviceId=getDeviceId();
-  if(!code){msg.textContent="Enter a code";return;}
-  const ref=db.collection("accesscodes").doc(code);
-  const snap=await ref.get();
-  if(!snap.exists){msg.textContent="Invalid code";return;}
-  const data=snap.data();
-  if(!data.active){msg.textContent="Code expired";return;}
-  if(data.deviceId&&data.deviceId!==deviceId){msg.textContent="Code already used on another device";return;}
-  await ref.update({deviceId:deviceId});
-  unlockApp();
-}
-
-window.addEventListener("load",async()=>{
-  const deviceId=getDeviceId();
-  const q=await db.collection("accesscodes").where("deviceId","==",deviceId).where("active","==",true).get();
-  if(!q.empty)unlockApp();
-});
-
-accessCodeInput.addEventListener("keydown",e=>{if(e.key==="Enter")checkCode();});
 </script>
 
 </body>
