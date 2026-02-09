@@ -1,127 +1,133 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TheBetCeo Access</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIP Access</title>
+
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
   <style>
     body {
-      margin: 0;
-      background: #000;
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      color: white;
+      background:#111;
+      color:gold;
+      font-family:Arial, sans-serif;
+      text-align:center;
+      padding-top:100px;
     }
-
-    .box {
-      background: #111;
-      padding: 30px;
-      border-radius: 12px;
-      text-align: center;
-      width: 90%;
-      max-width: 350px;
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
-    }
-
-    h2 { margin-bottom: 20px; }
-
     input {
-      width: 100%;
-      padding: 12px;
-      border-radius: 6px;
-      border: 1px solid gold;
-      background: #000;
-      color: gold;
-      font-size: 16px;
-      text-align: center;
-      margin-bottom: 15px;
+      padding:10px;
+      font-size:18px;
+      width:200px;
+      text-align:center;
     }
-
     button {
-      width: 100%;
-      padding: 12px;
-      border-radius: 6px;
-      border: none;
-      background: gold;
-      font-weight: bold;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    .error {
-      color: red;
-      margin-top: 10px;
+      padding:10px 20px;
+      font-size:18px;
+      background:gold;
+      border:none;
+      margin-top:10px;
+      cursor:pointer;
     }
   </style>
 </head>
 <body>
 
-<div class="box">
-  <h2>Enter Access Code</h2>
-  <input type="text" id="codeInput" placeholder="Enter Code" />
-  <button onclick="checkCode()">Enter</button>
-  <div id="error" class="error"></div>
-</div>
+<h2>Enter VIP Access Code</h2>
+<input type="text" id="codeInput" placeholder="Enter Code">
+<br>
+<button onclick="checkCode()">ENTER</button>
 
-<!-- Firebase SDK -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // ✅ YOUR FIREBASE CONFIG (already correct)
-  const firebaseConfig = {
-    apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw6OtYiZWd9jU",
-    authDomain: "thebetceo.firebaseapp.com",
-    projectId: "thebetceo",
-    storageBucket: "thebetceo.firebasestorage.app",
-    messagingSenderId: "658499922259",
-    appId: "1:658499922259:web:da04736d6427feb95499a6"
+const firebaseConfig = {
+  apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw6OtYiZWd9jU",
+  authDomain: "thebetceo.firebaseapp.com",
+  projectId: "thebetceo",
+  storageBucket: "thebetceo.firebasestorage.app",
+  messagingSenderId: "658499922259",
+  appId: "1:658499922259:web:da04736d6427feb95499a6",
+  measurementId: "G-8R7EXBB26H"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+
+
+// ===== DEVICE MEMORY USING INDEXEDDB =====
+function saveDeviceAccess() {
+  const request = indexedDB.open("VIPAppDB", 1);
+  request.onupgradeneeded = function(e) {
+    const db = e.target.result;
+    db.createObjectStore("access", { keyPath: "id" });
   };
+  request.onsuccess = function(e) {
+    const db = e.target.result;
+    const tx = db.transaction("access", "readwrite");
+    const store = tx.objectStore("access");
+    store.put({ id: "granted", status: true });
+  };
+}
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+function checkDeviceAccess(callback) {
+  const request = indexedDB.open("VIPAppDB", 1);
+  request.onsuccess = function(e) {
+    const db = e.target.result;
+    const tx = db.transaction("access", "readonly");
+    const store = tx.objectStore("access");
+    const getReq = store.get("granted");
+    getReq.onsuccess = function() {
+      callback(getReq.result && getReq.result.status === true);
+    };
+    getReq.onerror = function() { callback(false); };
+  };
+  request.onerror = function() { callback(false); };
+}
 
-  // ✅ AUTO-LOGIN IF DEVICE ALREADY VERIFIED
-  if (localStorage.getItem("vipAccessGranted") === "true") {
+// Auto-skip login if device already unlocked
+checkDeviceAccess(function(granted){
+  if(granted){
     window.location.href = "prediction.html";
   }
+});
 
-  // ✅ CHECK CODE FUNCTION
-  window.checkCode = async function () {
-    const code = document.getElementById("codeInput").value.trim();
-    const errorDiv = document.getElementById("error");
-    errorDiv.textContent = "";
 
-    if (!code) {
-      errorDiv.textContent = "Enter a code";
-      return;
-    }
 
-    try {
-      const docRef = doc(db, "accessCodes", code);
-      const docSnap = await getDoc(docRef);
+// ===== CODE CHECK FUNCTION =====
+window.checkCode = async function() {
+  const code = document.getElementById("codeInput").value.trim();
 
-      if (docSnap.exists() && docSnap.data().active === true) {
+  if (!code) {
+    alert("Enter a code");
+    return;
+  }
 
-        // ✅ SAVE DEVICE LOGIN
-        localStorage.setItem("vipAccessGranted", "true");
+  const ref = doc(db, "accessCodes", code);
+  const snap = await getDoc(ref);
 
-        // ✅ GO TO PREDICTION PAGE
-        window.location.href = "prediction.html";
+  if (!snap.exists()) {
+    alert("Invalid code");
+    return;
+  }
 
-      } else {
-        errorDiv.textContent = "Invalid code";
-      }
+  if (snap.data().active !== true) {
+    alert("Code expired");
+    return;
+  }
 
-    } catch (err) {
-      errorDiv.textContent = "Connection error";
-      console.error(err);
-    }
-  };
+  // Mark code as used (expire it)
+  await updateDoc(ref, { active: false });
+
+  // Save device permanently
+  saveDeviceAccess();
+
+  // Go to prediction page
+  window.location.href = "prediction.html";
+};
 </script>
 
 </body>
