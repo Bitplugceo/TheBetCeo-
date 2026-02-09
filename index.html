@@ -1,67 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>TheBetCeo 🔥</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TheBetCeo Access</title>
 
-  <!-- App Icon -->
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-  <link rel="icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg" type="image/jpeg">
-
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #000000, #111111);
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-
-    .box {
-      text-align: center;
-      background: #0a0a0a;
-      padding: 30px;
-      border-radius: 15px;
-      width: 90%;
-      max-width: 400px;
-      box-shadow: 0 0 20px rgba(255, 200, 0, 0.3);
-    }
-
-    h1 { margin-bottom: 10px; }
-
-    input {
-      width: 80%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 2px solid gold;
-      background: black;
-      color: white;
-      margin-bottom: 10px;
-      font-size: 16px;
-    }
-
-    button {
-      padding: 12px 20px;
-      border-radius: 8px;
-      border: none;
-      background: gold;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    #message {
-      margin-top: 10px;
-      color: red;
-    }
-  </style>
+<style>
+body{
+  margin:0;
+  background:#111;
+  color:white;
+  font-family:Segoe UI, sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.box{
+  background:#1c1c1c;
+  padding:30px;
+  border-radius:12px;
+  text-align:center;
+  width:300px;
+  box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+input{
+  width:100%;
+  padding:10px;
+  margin:15px 0;
+  border-radius:6px;
+  border:1px solid gold;
+  background:#222;
+  color:gold;
+  text-align:center;
+}
+button{
+  padding:10px 20px;
+  background:gold;
+  border:none;
+  border-radius:6px;
+  font-weight:bold;
+  cursor:pointer;
+}
+#error{
+  color:red;
+  margin-top:10px;
+}
+</style>
 </head>
 <body>
+
+<div class="box">
+  <h2>Enter Access Code</h2>
+  <input id="codeInput" placeholder="Enter code">
+  <button onclick="checkCode()">Enter</button>
+  <div id="error"></div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw6OtYiZWd9jU",
+  authDomain: "thebetceo.firebaseapp.com",
+  projectId: "thebetceo",
+  storageBucket: "thebetceo.firebasestorage.app",
+  messagingSenderId: "658499922259",
+  appId: "1:658499922259:web:da04736d6427feb95499a6"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+window.checkCode = async function(){
+  const code = document.getElementById("codeInput").value.trim();
+  const errorDiv = document.getElementById("error");
+
+  if(!code){
+    errorDiv.textContent = "Enter a code";
+    return;
+  }
+
+  const ref = doc(db, "accessCodes", code);
+  const snap = await getDoc(ref);
+
+  if(!snap.exists()){
+    errorDiv.textContent = "Invalid code";
+    return;
+  }
+
+  if(snap.data().used){
+    errorDiv.textContent = "Code already used";
+    return;
+  }
+
+  await updateDoc(ref, { used: true });
+
+  localStorage.setItem("betAccess","granted");
+  window.location.href = "prediction.html";
+};
 </script>
 
 </body>
