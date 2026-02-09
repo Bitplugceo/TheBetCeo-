@@ -143,10 +143,5 @@ window.checkCode = async function () {
   }
 };
 </script>
-</script>
-// ✅ Skip login if already verified on this device
-if (localStorage.getItem("vipAccessGranted") === "true") {
-  window.location.href = "prediction.html";
-}
 </body>
 </html>
