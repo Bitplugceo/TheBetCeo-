@@ -171,6 +171,10 @@ function clearAll(){
   results.style.display="none";
 }
 </script>
-
+<script>
+if (localStorage.getItem("betAccess") !== "granted") {
+  window.location.href = "index.html";
+}
+</script>
 </body>
 </html>
