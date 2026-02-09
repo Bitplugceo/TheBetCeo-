@@ -56,7 +56,31 @@ button{
   <button onclick="checkCode()">Enter</button>
   <div id="error"></div>
 </div>
+<script>
+if (localStorage.getItem("vipAccessGranted") === "true") {
+  window.location.href = "prediction.html";
+}
 
+function checkCode() {
+  const code = document.getElementById("accessCode").value.trim();
+
+  db.collection("accessCodes").doc(code).get().then(doc => {
+    if (!doc.exists) {
+      document.getElementById("error").innerText = "Invalid code";
+      return;
+    }
+
+    if (doc.data().used) {
+      document.getElementById("error").innerText = "Code already used";
+      return;
+    }
+
+    db.collection("accessCodes").doc(code).update({ used: true });
+    localStorage.setItem("vipAccessGranted", "true");
+    window.location.href = "prediction.html";
+  });
+}
+</script>
 <!-- Firebase -->
 <script type="module">
 <script type="module">
