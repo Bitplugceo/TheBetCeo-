@@ -58,8 +58,10 @@ const db = getFirestore(app);
 
 
 
-// ===== DEVICE MEMORY USING INDEXEDDB =====
+// ===== PERMANENT DEVICE UNLOCK SYSTEM =====
 function saveDeviceAccess() {
+  localStorage.setItem("vipDeviceUnlocked", "yes");
+
   const request = indexedDB.open("VIPAppDB", 1);
   request.onupgradeneeded = function(e) {
     const db = e.target.result;
@@ -73,24 +75,31 @@ function saveDeviceAccess() {
   };
 }
 
-function checkDeviceAccess(callback) {
-  const request = indexedDB.open("VIPAppDB", 1);
-  request.onsuccess = function(e) {
-    const db = e.target.result;
-    const tx = db.transaction("access", "readonly");
-    const store = tx.objectStore("access");
-    const getReq = store.get("granted");
-    getReq.onsuccess = function() {
-      callback(getReq.result && getReq.result.status === true);
+function checkDeviceAccess() {
+  return new Promise((resolve) => {
+    if (localStorage.getItem("vipDeviceUnlocked") === "yes") {
+      resolve(true);
+      return;
+    }
+
+    const request = indexedDB.open("VIPAppDB", 1);
+    request.onsuccess = function(e) {
+      const db = e.target.result;
+      const tx = db.transaction("access", "readonly");
+      const store = tx.objectStore("access");
+      const getReq = store.get("granted");
+      getReq.onsuccess = function() {
+        resolve(getReq.result && getReq.result.status === true);
+      };
+      getReq.onerror = function() { resolve(false); };
     };
-    getReq.onerror = function() { callback(false); };
-  };
-  request.onerror = function() { callback(false); };
+    request.onerror = function() { resolve(false); };
+  });
 }
 
-// Auto-skip login if device already unlocked
-checkDeviceAccess(function(granted){
-  if(granted){
+// Auto skip login if device already unlocked
+checkDeviceAccess().then(granted => {
+  if (granted) {
     window.location.href = "prediction.html";
   }
 });
@@ -119,13 +128,13 @@ window.checkCode = async function() {
     return;
   }
 
-  // Mark code as used (expire it)
+  // Expire code immediately
   await updateDoc(ref, { active: false });
 
-  // Save device permanently
+  // Save this device permanently
   saveDeviceAccess();
 
-  // Go to prediction page
+  // Enter the app
   window.location.href = "prediction.html";
 };
 </script>
