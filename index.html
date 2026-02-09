@@ -1,36 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VIP Access</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIP Access</title>
 
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
-  <style>
-    body {
-      background:#111;
-      color:gold;
-      font-family:Arial, sans-serif;
-      text-align:center;
-      padding-top:100px;
-    }
-    input {
-      padding:10px;
-      font-size:18px;
-      width:200px;
-      text-align:center;
-    }
-    button {
-      padding:10px 20px;
-      font-size:18px;
-      background:gold;
-      border:none;
-      margin-top:10px;
-      cursor:pointer;
-    }
-  </style>
+<style>
+body{background:#111;color:gold;font-family:Arial;text-align:center;padding-top:100px}
+input{padding:10px;font-size:18px;width:200px;text-align:center}
+button{padding:10px 20px;font-size:18px;background:gold;border:none;margin-top:10px;cursor:pointer}
+</style>
 </head>
 <body>
 
@@ -39,6 +21,14 @@
 <br>
 <button onclick="checkCode()">ENTER</button>
 
+<script>
+/* ================= DEVICE UNLOCK CHECK (RUNS FIRST) ================= */
+if (localStorage.getItem("vipUnlocked") === "yes") {
+  window.location.replace("prediction.html");
+}
+</script>
+
+<!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -49,93 +39,31 @@ const firebaseConfig = {
   projectId: "thebetceo",
   storageBucket: "thebetceo.firebasestorage.app",
   messagingSenderId: "658499922259",
-  appId: "1:658499922259:web:da04736d6427feb95499a6",
-  measurementId: "G-8R7EXBB26H"
+  appId: "1:658499922259:web:da04736d6427feb95499a6"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-
-
-// ===== PERMANENT DEVICE UNLOCK SYSTEM =====
-function saveDeviceAccess() {
-  localStorage.setItem("vipDeviceUnlocked", "yes");
-
-  const request = indexedDB.open("VIPAppDB", 1);
-  request.onupgradeneeded = function(e) {
-    const db = e.target.result;
-    db.createObjectStore("access", { keyPath: "id" });
-  };
-  request.onsuccess = function(e) {
-    const db = e.target.result;
-    const tx = db.transaction("access", "readwrite");
-    const store = tx.objectStore("access");
-    store.put({ id: "granted", status: true });
-  };
-}
-
-function checkDeviceAccess() {
-  return new Promise((resolve) => {
-    if (localStorage.getItem("vipDeviceUnlocked") === "yes") {
-      resolve(true);
-      return;
-    }
-
-    const request = indexedDB.open("VIPAppDB", 1);
-    request.onsuccess = function(e) {
-      const db = e.target.result;
-      const tx = db.transaction("access", "readonly");
-      const store = tx.objectStore("access");
-      const getReq = store.get("granted");
-      getReq.onsuccess = function() {
-        resolve(getReq.result && getReq.result.status === true);
-      };
-      getReq.onerror = function() { resolve(false); };
-    };
-    request.onerror = function() { resolve(false); };
-  });
-}
-
-// Auto skip login if device already unlocked
-checkDeviceAccess().then(granted => {
-  if (granted) {
-    window.location.href = "prediction.html";
-  }
-});
-
-
-
-// ===== CODE CHECK FUNCTION =====
-window.checkCode = async function() {
+window.checkCode = async function () {
   const code = document.getElementById("codeInput").value.trim();
 
-  if (!code) {
-    alert("Enter a code");
-    return;
-  }
+  if (!code) return alert("Enter a code");
 
   const ref = doc(db, "accessCodes", code);
   const snap = await getDoc(ref);
 
-  if (!snap.exists()) {
-    alert("Invalid code");
-    return;
-  }
+  if (!snap.exists()) return alert("Invalid code");
+  if (snap.data().active !== true) return alert("Code expired");
 
-  if (snap.data().active !== true) {
-    alert("Code expired");
-    return;
-  }
-
-  // Expire code immediately
+  // expire code
   await updateDoc(ref, { active: false });
 
-  // Save this device permanently
-  saveDeviceAccess();
+  // unlock THIS device permanently
+  localStorage.setItem("vipUnlocked", "yes");
 
-  // Enter the app
-  window.location.href = "prediction.html";
+  // go to app
+  window.location.replace("prediction.html");
 };
 </script>
 
