@@ -1,142 +1,131 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TheBetCeo Prediction Engine</title>
+  <title>TheBetCeo 🔥</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- App Icon -->
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+  <link rel="icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg" type="image/jpeg">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
 
   <style>
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #111;
+      background: linear-gradient(135deg, #000000, #111111);
       color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
       text-align: center;
+      background: #0a0a0a;
+      padding: 30px;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 0 20px rgba(255, 200, 0, 0.3);
     }
 
-    #codeGate {
-      margin-top: 120px;
-    }
-
-    h1 {
-      font-size: 32px;
-      margin-bottom: 20px;
-    }
+    h1 { margin-bottom: 10px; }
 
     input {
+      width: 80%;
       padding: 12px;
-      width: 260px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 2px solid gold;
-      background: #222;
+      background: black;
       color: white;
+      margin-bottom: 10px;
       font-size: 16px;
     }
 
     button {
       padding: 12px 20px;
-      margin-left: 10px;
-      background: gold;
+      border-radius: 8px;
       border: none;
-      border-radius: 6px;
+      background: gold;
       font-weight: bold;
       cursor: pointer;
     }
 
     #message {
-      margin-top: 20px;
-      font-size: 18px;
+      margin-top: 10px;
       color: red;
-    }
-
-    #mainContent {
-      display: none;
-      padding: 40px;
     }
   </style>
 </head>
-
 <body>
 
-  <!-- 🔐 ACCESS GATE -->
-  <div id="codeGate">
-    <h1>Enter Access Code</h1>
-    <input id="accessCodeInput" placeholder="Enter code" />
-    <button onclick="checkCode()">Enter</button>
-    <div id="message"></div>
-  </div>
+<div class="box">
+  <h1>Enter Access Code</h1>
+  <input type="text" id="codeInput" placeholder="Enter code">
+  <br>
+  <button id="enterBtn">Enter</button>
+  <p id="message"></p>
+</div>
 
-  <!-- 🔓 MAIN APP CONTENT -->
-  <div id="mainContent">
-    <h1>Welcome to TheBetCeo 🔥</h1>
-    <p>Your prediction engine is now unlocked.</p>
-  </div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  <!-- 🔥 FIREBASE + ACCESS LOGIC -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  databaseURL: "YOUR_DB_URL",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_BUCKET",
+  messagingSenderId: "YOUR_MSG_ID",
+  appId: "YOUR_APP_ID"
+};
 
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "thebetceo.firebaseapp.com",
-      projectId: "thebetceo",
-      storageBucket: "thebetceo.appspot.com",
-      messagingSenderId: "6584992225",
-      appId: "1:6584992225:web:da04736d6427"
-    };
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+document.getElementById("enterBtn").addEventListener("click", async () => {
+  const code = document.getElementById("codeInput").value.trim();
+  const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
+  localStorage.setItem("deviceId", deviceId);
 
-    window.checkCode = async function () {
-      const code = document.getElementById("accessCodeInput").value.trim();
-      const msg = document.getElementById("message");
+  const codeRef = ref(db, "codes/" + code);
+  const snap = await get(codeRef);
 
-      if (!code) {
-        msg.innerText = "Enter a code";
-        return;
-      }
+  if (!snap.exists()) {
+    showMessage("Invalid code");
+    return;
+  }
 
-      const ref = doc(db, "codes", code);
-      const snap = await getDoc(ref);
+  const data = snap.val();
 
-      if (!snap.exists()) {
-        msg.innerText = "Invalid code";
-        return;
-      }
+  if (!data.used) {
+    await update(codeRef, { used: true, device: deviceId });
+    unlock();
+    return;
+  }
 
-      const data = snap.data();
+  if (data.device === deviceId) {
+    unlock();
+    return;
+  }
 
-      if (!data.active) {
-        msg.innerText = "Code expired";
-        return;
-      }
+  showMessage("Code already used on another device");
+});
 
-      // 🔒 Device lock
-      let deviceId = localStorage.getItem("deviceId");
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem("deviceId", deviceId);
-      }
+function unlock() {
+  localStorage.setItem("accessGranted", "true");
+  window.location.href = "prediction.html";
+}
 
-      if (data.deviceId && data.deviceId !== deviceId) {
-        msg.innerText = "Code already used on another device";
-        return;
-      }
-
-      await updateDoc(ref, {
-        active: false,
-        deviceId: deviceId
-      });
-
-      msg.style.color = "lightgreen";
-      msg.innerText = "Access granted!";
-
-      document.getElementById("codeGate").style.display = "none";
-      document.getElementById("mainContent").style.display = "block";
-    };
-  </script>
+function showMessage(msg) {
+  document.getElementById("message").innerText = msg;
+}
+</script>
 
 </body>
 </html>
