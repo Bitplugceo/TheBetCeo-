@@ -97,26 +97,57 @@ window.addEventListener("load", async () => {
 
 // 🔑 CHECK CODE
 async function checkCode() {
-  const code = codeInput.value.trim();
+  const code = document.getElementById("accessCodeInput").value.trim();
+  const message = document.getElementById("codeMessage");
   const deviceId = getDeviceId();
-  const msg = document.getElementById("msg");
 
-  if (!code) { msg.textContent="Enter a code"; return; }
+  if (!code) {
+    message.textContent = "Enter a code.";
+    return;
+  }
 
   const ref = db.collection("accesscodes").doc(code);
   const snap = await ref.get();
 
-  if (!snap.exists) { msg.textContent="Invalid code"; return; }
-
-  const data = snap.data();
-
-  if (!data.active) { msg.textContent="Code expired"; return; }
-
-  if (data.deviceId && data.deviceId !== deviceId) {
-    msg.textContent="Code already used on another device";
+  if (!snap.exists) {
+    message.textContent = "Invalid code.";
     return;
   }
 
+  const data = snap.data();
+
+  // If already locked to THIS device → allow
+  if (data.deviceId === deviceId) {
+    unlockApp(code);
+    return;
+  }
+
+  // If locked to ANOTHER device → block
+  if (data.deviceId && data.deviceId !== deviceId) {
+    message.textContent = "Code already used on another device.";
+    return;
+  }
+
+  // If not active and not claimed → expired
+  if (!data.active) {
+    message.textContent = "Code expired.";
+    return;
+  }
+
+  // First-time use — lock to this device & expire
+  await ref.update({
+    deviceId: deviceId,
+    active: false
+  });
+
+  unlockApp(code);
+}
+
+function unlockApp(code) {
+  localStorage.setItem("savedCode", code);
+  document.getElementById("codeGate").style.display = "none";
+  document.getElementById("appContent").style.display = "block";
+}
   // 🔒 Lock code to device & expire for others
   await ref.update({ deviceId: deviceId, active: false });
   await db.collection("devices").doc(deviceId).set({ unlocked:true });
