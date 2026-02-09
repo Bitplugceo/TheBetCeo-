@@ -59,6 +59,7 @@ button{
 
 <!-- Firebase -->
 <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -68,40 +69,60 @@ const firebaseConfig = {
   projectId: "thebetceo",
   storageBucket: "thebetceo.firebasestorage.app",
   messagingSenderId: "658499922259",
-  appId: "1:658499922259:web:da04736d6427feb95499a6"
+  appId: "1:658499922259:web:da04736d6427feb95499a6",
+  measurementId: "G-8R7EXBB26H"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-window.checkCode = async function(){
-  const code = document.getElementById("codeInput").value.trim();
-  const errorDiv = document.getElementById("error");
-
-  if(!code){
-    errorDiv.textContent = "Enter a code";
-    return;
-  }
-
-  const ref = doc(db, "accessCodes", code);
-  const snap = await getDoc(ref);
-
-  if(!snap.exists()){
-    errorDiv.textContent = "Invalid code";
-    return;
-  }
-
-  if(snap.data().used){
-    errorDiv.textContent = "Code already used";
-    return;
-  }
-
-  await updateDoc(ref, { used: true });
-
-  localStorage.setItem("betAccess","granted");
+// ✅ Skip login if already unlocked on this device
+if (localStorage.getItem("vipAccessGranted") === "true") {
   window.location.href = "prediction.html";
+}
+
+window.checkCode = async function () {
+  const codeInput = document.getElementById("codeInput").value.trim();
+  const errorText = document.getElementById("errorText");
+
+  if (!codeInput) {
+    errorText.textContent = "Enter a code";
+    return;
+  }
+
+  try {
+    const ref = doc(db, "accessCodes", codeInput);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      errorText.textContent = "Invalid code";
+      return;
+    }
+
+    if (snap.data().active !== true) {
+      errorText.textContent = "Code already used";
+      return;
+    }
+
+    // 🔐 Save access on this device
+    localStorage.setItem("vipAccessGranted", "true");
+
+    // ❌ Deactivate code so others can't reuse
+    await updateDoc(ref, { active: false });
+
+    // 🚀 Go to prediction page
+    window.location.href = "prediction.html";
+
+  } catch (err) {
+    console.error(err);
+    errorText.textContent = "Connection error";
+  }
 };
 </script>
-
+</script>
+// ✅ Skip login if already verified on this device
+if (localStorage.getItem("vipAccessGranted") === "true") {
+  window.location.href = "prediction.html";
+}
 </body>
 </html>
