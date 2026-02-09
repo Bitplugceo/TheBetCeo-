@@ -62,69 +62,6 @@
   </style>
 </head>
 <body>
-
-<div class="box">
-  <h1>Enter Access Code</h1>
-  <input type="text" id="codeInput" placeholder="Enter code">
-  <br>
-  <button id="enterBtn">Enter</button>
-  <p id="message"></p>
-</div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw6OtYiZWd9jU",
-  authDomain: "thebetceo.firebaseapp.com",
-  projectId: "thebetceo",
-  storageBucket: "thebetceo.firebasestorage.app",
-  messagingSenderId: "658499922259",
-  appId: "1:658499922259:web:da04736d6427feb95499a6",
-  measurementId: "G-8R7EXBB26H"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-document.getElementById("enterBtn").addEventListener("click", async () => {
-  const code = document.getElementById("codeInput").value.trim();
-  const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
-  localStorage.setItem("deviceId", deviceId);
-
-  const codeRef = ref(db, "codes/" + code);
-  const snap = await get(codeRef);
-
-  if (!snap.exists()) {
-    showMessage("Invalid code");
-    return;
-  }
-
-  const data = snap.val();
-
-  if (!data.used) {
-    await update(codeRef, { used: true, device: deviceId });
-    unlock();
-    return;
-  }
-
-  if (data.device === deviceId) {
-    unlock();
-    return;
-  }
-
-  showMessage("Code already used on another device");
-});
-
-function unlock() {
-  localStorage.setItem("accessGranted", "true");
-  window.location.href = "prediction.html";
-}
-
-function showMessage(msg) {
-  document.getElementById("message").innerText = msg;
-}
 </script>
 
 </body>
