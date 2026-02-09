@@ -1,201 +1,137 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Basketball Prediction Engine</title>
+  <meta charset="UTF-8">
+  <title>Basketball Prediction Engine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-
-<style>
-body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI, sans-serif; margin:0; }
-.wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
-h1 { text-align:center; font-size:18px; margin-bottom:12px; }
-.section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
-.section h2 { font-size:14px; margin-bottom:6px; }
-label { display:block; font-size:12px; margin:5px 0 2px; }
-input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
-input[type="checkbox"] { width:auto; margin-right:6px; }
-.buttons { text-align:center; margin-top:10px; }
-.btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
-.table-wrap { overflow-x:auto; margin-top:12px; }
-#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
-#results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
-.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
-.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
-.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock { font-size:10px; margin-left:4px; }
-#gate { text-align:center; padding:40px; }
-</style>
+  <style>
+    body { background:#111; color:#f5f5f5; font-family:Arial, sans-serif; margin:0; }
+    .wrapper { max-width:700px; margin:auto; padding:20px; }
+    h1 { text-align:center; }
+    section { background:#1c1c1c; padding:15px; margin-bottom:15px; border-radius:8px; }
+    input, select { width:100%; padding:8px; margin:5px 0 10px; border-radius:4px; border:none; }
+    button { padding:10px 15px; border:none; border-radius:5px; cursor:pointer; }
+    #codeGate { text-align:center; padding:60px 20px; }
+    #appContent { display:none; }
+    .btn { background:#e7b008; color:#000; font-weight:bold; }
+  </style>
 </head>
 
 <body>
 
-<!-- 🔐 PASSWORD GATE -->
-<div id="gate">
-  <h2>Enter Access Code</h2>
-  <input id="codeInput" placeholder="Enter your code">
-  <button onclick="checkCode()">Enter</button>
-  <p id="msg" style="color:red;"></p>
+<!-- 🔐 CODE GATE -->
+<div id="codeGate">
+  <h1>Enter Access Code</h1>
+  <input id="accessCodeInput" placeholder="Enter your code">
+  <button class="btn" onclick="checkCode()">Enter</button>
+  <p id="errorMsg" style="color:red;"></p>
 </div>
 
-<!-- 🏀 APP -->
-<div id="app" style="display:none;">
-<div class="wrapper">
-<h1>🏀 Basketball Prediction Engine</h1>
+<!-- 🏀 MAIN APP -->
+<div id="appContent" class="wrapper">
+  <h1>Basketball Prediction Engine</h1>
 
-<div class="section">
-  <h2>Market Lines</h2>
-  <label>FT Total Market</label><input id="ftMarket">
-  <label>1H Total Market</label><input id="h1Market">
-  <label>Team A Total Market</label><input id="teamAMarket">
-  <label>Team B Total Market</label><input id="teamBMarket">
-</div>
+  <section>
+    <h3>Team Stats Input</h3>
+    <label>Team A Points Per Game</label>
+    <input type="number" id="teamA">
 
-<div class="section">
-  <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average</label><input id="teamAAvg">
-  <label>Team B FT Average</label><input id="teamBAvg">
-</div>
+    <label>Team B Points Per Game</label>
+    <input type="number" id="teamB">
 
-<div class="buttons">
-  <button class="btn" onclick="runEngine()">Run</button>
-  <button class="btn" onclick="clearAll()">Clear</button>
+    <button class="btn" onclick="predict()">Run Prediction</button>
+  </section>
+
+  <section>
+    <h3>Prediction Result</h3>
+    <div id="result">No prediction yet</div>
+  </section>
 </div>
 
-<div class="table-wrap">
-<table id="results">
-<tr><th>Pick</th><th>Engine</th><th>Edge</th><th>Prediction</th><th>Conf %</th></tr>
-</table>
-</div>
-</div>
-</div>
+<!-- 🔥 FIREBASE v8 -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
 <script>
-// 🔥 FIREBASE CONFIG
-const firebaseConfig = {
-  apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw60TY",
-  authDomain: "thebetceo.firebaseapp.com",
-  projectId: "thebetceo"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+  const firebaseConfig = {
+    apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw6OY",
+    authDomain: "thebetceo.firebaseapp.com",
+    projectId: "thebetceo"
+  };
 
-// 📱 DEVICE FINGERPRINT (survives cache clears better than localStorage)
-function getDeviceId() {
-  return btoa(navigator.userAgent + navigator.platform);
-}
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-// 🔓 AUTO LOGIN IF DEVICE ALREADY APPROVED
-window.addEventListener("load", async () => {
-  const savedCode = localStorage.getItem("savedCode");
-  if (!savedCode) return;
-
-  const deviceId = getDeviceId();
-  const ref = db.collection("accesscodes").doc(savedCode);
-  const snap = await ref.get();
-
-  if (!snap.exists) return;
-
-  const data = snap.data();
-
-  // If this device already owns the code → unlock
-  if (data.deviceId === deviceId) {
-    unlockApp(savedCode);
+  // 📱 DEVICE ID SYSTEM
+  function getDeviceId() {
+    let id = localStorage.getItem("deviceId");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("deviceId", id);
+    }
+    return id;
   }
-});
-// 🔑 CHECK CODE
-async function checkCode() {
-  const code = document.getElementById("accessCodeInput").value.trim();
-  const message = document.getElementById("codeMessage");
   const deviceId = getDeviceId();
 
-  if (!code) {
-    message.textContent = "Enter a code.";
-    return;
+  // 🔓 CHECK ACCESS CODE
+  async function checkCode() {
+    const code = document.getElementById("accessCodeInput").value.trim();
+    const errorMsg = document.getElementById("errorMsg");
+    errorMsg.innerText = "";
+
+    if (!code) return;
+
+    const docRef = db.collection("codes").doc(code);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      errorMsg.innerText = "Invalid code";
+      return;
+    }
+
+    const data = doc.data();
+
+    // Already used on THIS device
+    if (data.deviceId === deviceId) {
+      unlockApp();
+      return;
+    }
+
+    // Code already used elsewhere
+    if (!data.active) {
+      errorMsg.innerText = "Code expired";
+      return;
+    }
+
+    // First-time use → lock to device
+    await docRef.update({
+      active: false,
+      deviceId: deviceId
+    });
+
+    unlockApp();
   }
 
-  const ref = db.collection("accesscodes").doc(code);
-  const snap = await ref.get();
-
-  if (!snap.exists) {
-    message.textContent = "Invalid code.";
-    return;
+  function unlockApp() {
+    document.getElementById("codeGate").style.display = "none";
+    document.getElementById("appContent").style.display = "block";
   }
 
-  const data = snap.data();
+  // 🧠 SIMPLE PREDICTION LOGIC
+  function predict() {
+    const a = parseFloat(document.getElementById("teamA").value);
+    const b = parseFloat(document.getElementById("teamB").value);
 
-  // If already locked to THIS device → allow
-  if (data.deviceId === deviceId) {
-    unlockApp(code);
-    return;
+    if (isNaN(a) || isNaN(b)) {
+      document.getElementById("result").innerText = "Enter both team stats.";
+      return;
+    }
+
+    const winner = a > b ? "Team A likely wins" : "Team B likely wins";
+    document.getElementById("result").innerText = winner;
   }
-
-  // If locked to ANOTHER device → block
-  if (data.deviceId && data.deviceId !== deviceId) {
-    message.textContent = "Code already used on another device.";
-    return;
-  }
-
-  // If not active and not claimed → expired
-  if (!data.active) {
-    message.textContent = "Code expired.";
-    return;
-  }
-
-  // First-time use — lock to this device & expire
-  await ref.update({
-    deviceId: deviceId,
-    active: false
-  });
-
-  unlockApp(code);
-}
-
-function unlockApp(code) {
-  localStorage.setItem("savedCode", code);
-  document.getElementById("codeGate").style.display = "none";
-  document.getElementById("appContent").style.display = "block";
-}
-  // 🔒 Lock code to device & expire for others
-  await ref.update({ deviceId: deviceId, active: false });
-  await db.collection("devices").doc(deviceId).set({ unlocked:true });
-
-  unlockApp();
-}
-
-function unlockApp(){
-  gate.style.display="none";
-  app.style.display="block";
-}
-
-// 🧠 ENGINE (same logic simplified)
-function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?0:v;}
-function mid(r){if(!r.includes("-"))return 0;let[a,b]=r.split("-").map(Number);return(a+b)/2;}
-
-function runEngine(){
-  const table=results;
-  table.style.display="table";
-  table.innerHTML=`<tr><th>Pick</th><th>Engine</th><th>Edge</th><th>Prediction</th><th>Conf %</th></tr>`;
-
-  let ft=mid(ftMarket.value);
-  let eng=num("teamAAvg")+num("teamBAvg");
-  let edge=eng-ft;
-  let pred=edge>0?"OVER":"UNDER";
-  let conf=Math.min(95,70+Math.abs(edge)*3);
-
-  let row=table.insertRow();
-  row.innerHTML=`<td>FT Total</td><td>${eng.toFixed(1)}</td><td>${edge.toFixed(1)}</td>
-  <td class="${pred==='OVER'?'pred-over':'pred-under'}">${pred} <span class="lock">🔒</span></td>
-  <td>${conf}%</td>`;
-}
-
-function clearAll(){
-  document.querySelectorAll("input").forEach(i=>i.value="");
-  results.style.display="none";
-}
 </script>
+
 </body>
 </html>
