@@ -90,11 +90,22 @@ function getDeviceId() {
 
 // 🔓 AUTO LOGIN IF DEVICE ALREADY APPROVED
 window.addEventListener("load", async () => {
-  const deviceId = getDeviceId();
-  const snap = await db.collection("devices").doc(deviceId).get();
-  if (snap.exists) unlockApp();
-});
+  const savedCode = localStorage.getItem("savedCode");
+  if (!savedCode) return;
 
+  const deviceId = getDeviceId();
+  const ref = db.collection("accesscodes").doc(savedCode);
+  const snap = await ref.get();
+
+  if (!snap.exists) return;
+
+  const data = snap.data();
+
+  // If this device already owns the code → unlock
+  if (data.deviceId === deviceId) {
+    unlockApp(savedCode);
+  }
+});
 // 🔑 CHECK CODE
 async function checkCode() {
   const code = document.getElementById("accessCodeInput").value.trim();
