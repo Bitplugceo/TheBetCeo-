@@ -1,137 +1,142 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Basketball Prediction Engine</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TheBetCeo Prediction Engine</title>
 
   <style>
-    body { background:#111; color:#f5f5f5; font-family:Arial, sans-serif; margin:0; }
-    .wrapper { max-width:700px; margin:auto; padding:20px; }
-    h1 { text-align:center; }
-    section { background:#1c1c1c; padding:15px; margin-bottom:15px; border-radius:8px; }
-    input, select { width:100%; padding:8px; margin:5px 0 10px; border-radius:4px; border:none; }
-    button { padding:10px 15px; border:none; border-radius:5px; cursor:pointer; }
-    #codeGate { text-align:center; padding:60px 20px; }
-    #appContent { display:none; }
-    .btn { background:#e7b008; color:#000; font-weight:bold; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+    }
+
+    #codeGate {
+      margin-top: 120px;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+
+    input {
+      padding: 12px;
+      width: 260px;
+      border-radius: 6px;
+      border: 2px solid gold;
+      background: #222;
+      color: white;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 12px 20px;
+      margin-left: 10px;
+      background: gold;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #message {
+      margin-top: 20px;
+      font-size: 18px;
+      color: red;
+    }
+
+    #mainContent {
+      display: none;
+      padding: 40px;
+    }
   </style>
 </head>
 
 <body>
 
-<!-- 🔐 CODE GATE -->
-<div id="codeGate">
-  <h1>Enter Access Code</h1>
-  <input id="accessCodeInput" placeholder="Enter your code">
-  <button class="btn" onclick="checkCode()">Enter</button>
-  <p id="errorMsg" style="color:red;"></p>
-</div>
+  <!-- 🔐 ACCESS GATE -->
+  <div id="codeGate">
+    <h1>Enter Access Code</h1>
+    <input id="accessCodeInput" placeholder="Enter code" />
+    <button onclick="checkCode()">Enter</button>
+    <div id="message"></div>
+  </div>
 
-<!-- 🏀 MAIN APP -->
-<div id="appContent" class="wrapper">
-  <h1>Basketball Prediction Engine</h1>
+  <!-- 🔓 MAIN APP CONTENT -->
+  <div id="mainContent">
+    <h1>Welcome to TheBetCeo 🔥</h1>
+    <p>Your prediction engine is now unlocked.</p>
+  </div>
 
-  <section>
-    <h3>Team Stats Input</h3>
-    <label>Team A Points Per Game</label>
-    <input type="number" id="teamA">
+  <!-- 🔥 FIREBASE + ACCESS LOGIC -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    <label>Team B Points Per Game</label>
-    <input type="number" id="teamB">
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "thebetceo.firebaseapp.com",
+      projectId: "thebetceo",
+      storageBucket: "thebetceo.appspot.com",
+      messagingSenderId: "6584992225",
+      appId: "1:6584992225:web:da04736d6427"
+    };
 
-    <button class="btn" onclick="predict()">Run Prediction</button>
-  </section>
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-  <section>
-    <h3>Prediction Result</h3>
-    <div id="result">No prediction yet</div>
-  </section>
-</div>
+    window.checkCode = async function () {
+      const code = document.getElementById("accessCodeInput").value.trim();
+      const msg = document.getElementById("message");
 
-<!-- 🔥 FIREBASE v8 -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+      if (!code) {
+        msg.innerText = "Enter a code";
+        return;
+      }
 
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyCpObC1uRpj__5tjsjqrHaw6OY",
-    authDomain: "thebetceo.firebaseapp.com",
-    projectId: "thebetceo"
-  };
+      const ref = doc(db, "codes", code);
+      const snap = await getDoc(ref);
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+      if (!snap.exists()) {
+        msg.innerText = "Invalid code";
+        return;
+      }
 
-  // 📱 DEVICE ID SYSTEM
-  function getDeviceId() {
-    let id = localStorage.getItem("deviceId");
-    if (!id) {
-      id = crypto.randomUUID();
-      localStorage.setItem("deviceId", id);
-    }
-    return id;
-  }
-  const deviceId = getDeviceId();
+      const data = snap.data();
 
-  // 🔓 CHECK ACCESS CODE
-  async function checkCode() {
-    const code = document.getElementById("accessCodeInput").value.trim();
-    const errorMsg = document.getElementById("errorMsg");
-    errorMsg.innerText = "";
+      if (!data.active) {
+        msg.innerText = "Code expired";
+        return;
+      }
 
-    if (!code) return;
+      // 🔒 Device lock
+      let deviceId = localStorage.getItem("deviceId");
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem("deviceId", deviceId);
+      }
 
-    const docRef = db.collection("codes").doc(code);
-    const doc = await docRef.get();
+      if (data.deviceId && data.deviceId !== deviceId) {
+        msg.innerText = "Code already used on another device";
+        return;
+      }
 
-    if (!doc.exists) {
-      errorMsg.innerText = "Invalid code";
-      return;
-    }
+      await updateDoc(ref, {
+        active: false,
+        deviceId: deviceId
+      });
 
-    const data = doc.data();
+      msg.style.color = "lightgreen";
+      msg.innerText = "Access granted!";
 
-    // Already used on THIS device
-    if (data.deviceId === deviceId) {
-      unlockApp();
-      return;
-    }
-
-    // Code already used elsewhere
-    if (!data.active) {
-      errorMsg.innerText = "Code expired";
-      return;
-    }
-
-    // First-time use → lock to device
-    await docRef.update({
-      active: false,
-      deviceId: deviceId
-    });
-
-    unlockApp();
-  }
-
-  function unlockApp() {
-    document.getElementById("codeGate").style.display = "none";
-    document.getElementById("appContent").style.display = "block";
-  }
-
-  // 🧠 SIMPLE PREDICTION LOGIC
-  function predict() {
-    const a = parseFloat(document.getElementById("teamA").value);
-    const b = parseFloat(document.getElementById("teamB").value);
-
-    if (isNaN(a) || isNaN(b)) {
-      document.getElementById("result").innerText = "Enter both team stats.";
-      return;
-    }
-
-    const winner = a > b ? "Team A likely wins" : "Team B likely wins";
-    document.getElementById("result").innerText = winner;
-  }
-</script>
+      document.getElementById("codeGate").style.display = "none";
+      document.getElementById("mainContent").style.display = "block";
+    };
+  </script>
 
 </body>
 </html>
