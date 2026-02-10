@@ -27,14 +27,12 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock { font-size:3px; margin-left:3px; vertical-align:middle; position:relative; top:-1px; }
+.lock { font-size:10px; margin-left:3px; vertical-align:middle; }
 </style>
 </head>
 
 <body>
-
 <div class="wrapper">
-
 <h1>🏀 Basketball Prediction Engine</h1>
 
 <div class="section">
@@ -72,7 +70,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="paceA">
   <label>Team A Points Allowed</label>
   <input id="papgA">
-
   <h2>Team B Metrics</h2>
   <label>Team B Pace</label>
   <input id="paceB">
@@ -96,12 +93,11 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </tr>
 </table>
 </div>
-
 </div>
 
 <script>
 function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
-function mid(r){if(!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
+function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
 
@@ -126,41 +122,26 @@ function runEngine(){
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  let aEng = (aOff*0.55 + papgB*0.45);
-  let bEng = (bOff*0.55 + papgA*0.45);
+  let aEng=(aOff*0.55 + papgB*0.45);
+  let bEng=(bOff*0.55 + papgA*0.45);
 
-  let ftBase = useFT ? (0.65*(aAvg+bAvg) + 0.35*(h2hA+h2hB)) : (aAvg+bAvg);
-let ftEng  = (ftBase*0.6 + (papgA+papgB)*0.4);
+  let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
+  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
 
-  let h1Eng = ftEng * 0.47;
-if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
+  let h1Eng=ftEng*0.47;
+  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
-    let edge = eng - mkt,
-        conf = confidence(edge),
-        pred = "NO PLAY";
+    let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
 
-    // RULE 4 — Skip weak edges
-    if (Math.abs(edge) < 4) {
-        return {name, eng: eng.toFixed(2), edge: edge.toFixed(2), pred: "NO PLAY", conf};
-    }
+    if(Math.abs(edge)<4 || conf<70)
+      return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
 
-    // RULE 5 — Require strong confidence
-    if (conf < 70) {
-        return {name, eng: eng.toFixed(2), edge: edge.toFixed(2), pred: "NO PLAY", conf};
-    }
+    if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
+    else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
 
-    if(edge > 0) pred = "OVER " + clamp(mkt-3, low, high).toFixed(1);
-    else if(edge < 0) pred = "UNDER " + clamp(mkt+3, low, high).toFixed(1);
-
-    return {
-  name,
-  eng: eng.toFixed(2),
-  edge: edge.toFixed(2),
-  pred,
-  conf,
-  rawEdge: edge   // ⭐ THIS POWERS THE LOCK
-};
+    return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
+  }
 
   let picks=[
     make("FT Total",ftEng,ft,ftL,ftH),
@@ -169,18 +150,12 @@ if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
     make("Team B Total",bEng,bM,bL,bH)
   ];
 
-  let lock = -1, max = 0;
-
-picks.forEach((p, i) => {
-  if (!isNaN(p.rawEdge) && Math.abs(p.rawEdge) > max && p.pred !== "NO PLAY") {
-    max = Math.abs(p.rawEdge);
-    lock = i;
-  }
-});
+  let lock=-1,max=0;
+  picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw);lock=i;}});
   picks.forEach((p,i)=>{
     let row=table.insertRow();
     let pr=p.pred;
-    if(i===lock&&p.pred!=="NO PLAY")pr+=` <span class="lock">🔒</span>`;
+    if(i===lock) pr+=` <span class="lock">🔒</span>`;
     row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
     <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
     <td>${p.conf}%</td>`;
@@ -192,6 +167,5 @@ function clearAll(){
   results.style.display="none";
 }
 </script>
-
 </body>
 </html>
