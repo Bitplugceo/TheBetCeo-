@@ -126,24 +126,35 @@ function runEngine(){
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  let aEng=(aOff+papgB)/2;
-  let bEng=(bOff+papgA)/2;
+  let aEng = (aOff*0.55 + papgB*0.45);
+  let bEng = (bOff*0.55 + papgA*0.45);
 
-  let ftBase=useFT?(0.7*(aAvg+bAvg)+0.3*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=(ftBase+papgA+papgB)/2;
+  let ftBase = useFT ? (0.65*(aAvg+bAvg) + 0.35*(h2hA+h2hB)) : (aAvg+bAvg);
+let ftEng  = (ftBase*0.6 + (papgA+papgB)*0.4);
 
-  let h1Eng=ftEng*0.48;
-  if(use1H)h1Eng=0.7*h1Eng+0.3*h2h1H;
+  let h1Eng = ftEng * 0.47;
+if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
 
-  function make(name,eng,mkt,low,high){
-    let edge=eng-mkt,conf=confidence(edge),pred="NO PLAY";
-    if(!isNaN(edge)){
-      if(edge>0)pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
-      else if(edge<0)pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
+  function make(name, eng, mkt, low, high){
+    let edge = eng - mkt,
+        conf = confidence(edge),
+        pred = "NO PLAY";
+
+    // RULE 4 — Skip weak edges
+    if (Math.abs(edge) < 4) {
+        return {name, eng: eng.toFixed(2), edge: edge.toFixed(2), pred: "NO PLAY", conf};
     }
-    if(conf<70)pred="NO PLAY";
-    return{name,eng:eng.toFixed(2),edge:edge.toFixed(2),pred,conf,raw:edge};
-  }
+
+    // RULE 5 — Require strong confidence
+    if (conf < 70) {
+        return {name, eng: eng.toFixed(2), edge: edge.toFixed(2), pred: "NO PLAY", conf};
+    }
+
+    if(edge > 0) pred = "OVER " + clamp(mkt-3, low, high).toFixed(1);
+    else if(edge < 0) pred = "UNDER " + clamp(mkt+3, low, high).toFixed(1);
+
+    return {name, eng: eng.toFixed(2), edge: edge.toFixed(2), pred, conf};
+}
 
   let picks=[
     make("FT Total",ftEng,ft,ftL,ftH),
