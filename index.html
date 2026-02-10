@@ -153,8 +153,14 @@ if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
     if(edge > 0) pred = "OVER " + clamp(mkt-3, low, high).toFixed(1);
     else if(edge < 0) pred = "UNDER " + clamp(mkt+3, low, high).toFixed(1);
 
-    return {name, eng: eng.toFixed(2), edge: edge.toFixed(2), pred, conf};
-}
+    return {
+  name,
+  eng: eng.toFixed(2),
+  edge: edge.toFixed(2),
+  pred,
+  conf,
+  rawEdge: edge   // ⭐ THIS POWERS THE LOCK
+};
 
   let picks=[
     make("FT Total",ftEng,ft,ftL,ftH),
@@ -163,8 +169,14 @@ if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
     make("Team B Total",bEng,bM,bL,bH)
   ];
 
-  let lock=-1,max=0;
-  picks.forEach((p,i)=>{if(Math.abs(p.raw)>max&&p.conf>=70){max=Math.abs(p.raw);lock=i;}});
+  let lock = -1, max = 0;
+
+picks.forEach((p, i) => {
+  if (!isNaN(p.rawEdge) && Math.abs(p.rawEdge) > max && p.pred !== "NO PLAY") {
+    max = Math.abs(p.rawEdge);
+    lock = i;
+  }
+});
   picks.forEach((p,i)=>{
     let row=table.insertRow();
     let pr=p.pred;
