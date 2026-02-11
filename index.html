@@ -65,23 +65,23 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
-<!-- Team Metrics including PPG (always used) and optional Pace -->
+<!-- Team Metrics: PPG → PAPG → Pace -->
 <div class="section metrics">
   <h2>Team A Metrics</h2>
   <label>Team A PPG</label>
-  <input id="ppgA"> <!-- always used -->
-  <label>Team A Pace (Optional)</label>
-  <input id="paceA">
+  <input id="ppgA">
   <label>Team A Points Allowed</label>
   <input id="papgA">
+  <label>Team A Pace</label>
+  <input id="paceA">
 
   <h2>Team B Metrics</h2>
   <label>Team B PPG</label>
-  <input id="ppgB"> <!-- always used -->
-  <label>Team B Pace (Optional)</label>
-  <input id="paceB">
+  <input id="ppgB">
   <label>Team B Points Allowed</label>
   <input id="papgB">
+  <label>Team B Pace</label>
+  <input id="paceB">
 </div>
 
 <div class="buttons">
@@ -121,15 +121,15 @@ function runEngine(){
   let [bL,bH]=teamBMarket.value.split("-").map(x=>parseFloat(x)||NaN);
 
   // Inputs
-  let teamAFT=num("teamAAvg"),teamBFT=num("teamBAvg");
   let ppgA=num("ppgA"),ppgB=num("ppgB");
   let papgA=num("papgA"),papgB=num("papgB");
   let paceA=num("paceA"),paceB=num("paceB");
 
+  let teamAFT=num("teamAAvg"),teamBFT=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  // Offensive calculations: PPG + optional Pace
+  // Offensive calculations: PPG always, Pace optional
   let aOff = ppgA;
   if(!isNaN(paceA)) aOff = (ppgA + paceA)/2;
   let bOff = ppgB;
