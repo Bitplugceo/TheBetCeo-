@@ -72,12 +72,12 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section metrics">
   <h2>Team A Metrics</h2>
-  <label>Team A Pace</label>
+  <label>Team A Pace (Optional)</label>
   <input id="paceA">
   <label>Team A Points Allowed</label>
   <input id="papgA">
   <h2>Team B Metrics</h2>
-  <label>Team B Pace</label>
+  <label>Team B Pace (Optional)</label>
   <input id="paceB">
   <label>Team B Points Allowed</label>
   <input id="papgB">
@@ -122,17 +122,23 @@ function runEngine(){
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
   let papgA=num("papgA"),papgB=num("papgB");
+  let paceA=num("paceA"), paceB=num("paceB");
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  let aEng=(aOff*0.55 + papgB*0.45);
-  let bEng=(bOff*0.55 + papgA*0.45);
+  // Engine calculation with optional pace factor
+  let aFactor = paceA ? paceA/100 : 1;
+  let bFactor = paceB ? paceB/100 : 1;
+
+  let aEng=(aOff*0.55 + papgB*0.45)*aFactor;
+  let bEng=(bOff*0.55 + papgA*0.45)*bFactor;
 
   let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
+  let paceFactor = (paceA && paceB) ? ((paceA+paceB)/2)/100 : 1;
+  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4)*paceFactor;
 
   let h1Eng=ftEng*0.47;
   if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
