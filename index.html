@@ -2,10 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Basketball Prediction Engine</title>
-<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
@@ -33,7 +31,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- Market Inputs -->
 <div class="section">
   <h2>Market Lines</h2>
   <label>FT Total Market (150.5 - 160.5)</label>
@@ -46,16 +43,14 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="teamBMarket">
 </div>
 
-<!-- Team Scoring Averages -->
 <div class="section">
   <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average</label>
+  <label>Team A FT Average (PPG)</label>
   <input id="teamAAvg">
-  <label>Team B FT Average</label>
+  <label>Team B FT Average (PPG)</label>
   <input id="teamBAvg">
 </div>
 
-<!-- Head to Head Optional -->
 <div class="section">
   <h2>Head to Head (Optional)</h2>
   <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
@@ -65,22 +60,21 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
-<!-- Team Metrics: PPG → PAPG → Pace -->
 <div class="section metrics">
   <h2>Team A Metrics</h2>
-  <label>Team A PPG</label>
+  <label>PPG</label>
   <input id="ppgA">
-  <label>Team A Points Allowed</label>
+  <label>PAPG</label>
   <input id="papgA">
-  <label>Team A Pace</label>
+  <label>Pace (Optional)</label>
   <input id="paceA">
 
   <h2>Team B Metrics</h2>
-  <label>Team B PPG</label>
+  <label>PPG</label>
   <input id="ppgB">
-  <label>Team B Points Allowed</label>
+  <label>PAPG</label>
   <input id="papgB">
-  <label>Team B Pace</label>
+  <label>Pace (Optional)</label>
   <input id="paceB">
 </div>
 
@@ -113,54 +107,50 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
-  // Market Midpoints
-  let ft=mid(ftMarket.value),h1=mid(h1Market.value),aM=mid(teamAMarket.value),bM=mid(teamBMarket.value);
-  let [ftL,ftH]=ftMarket.value.split("-").map(x=>parseFloat(x)||NaN);
-  let [h1L,h1H]=h1Market.value.split("-").map(x=>parseFloat(x)||NaN);
-  let [aL,aH]=teamAMarket.value.split("-").map(x=>parseFloat(x)||NaN);
-  let [bL,bH]=teamBMarket.value.split("-").map(x=>parseFloat(x)||NaN);
+  let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
+  let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
+  let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
+  let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
-  // Inputs
-  let ppgA=num("ppgA"),ppgB=num("ppgB");
-  let papgA=num("papgA"),papgB=num("papgB");
-  let paceA=num("paceA"),paceB=num("paceB");
-
-  let teamAFT=num("teamAAvg"),teamBFT=num("teamBAvg");
+  let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+
+  // New Team Metrics Inputs
+  let ppgA=num("ppgA"), papgA=num("papgA"), paceA=num("paceA");
+  let ppgB=num("ppgB"), papgB=num("papgB"), paceB=num("paceB");
+
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  // Offensive calculations: PPG always, Pace optional
-  let aOff = ppgA;
-  if(!isNaN(paceA)) aOff = (ppgA + paceA)/2;
-  let bOff = ppgB;
-  if(!isNaN(paceB)) bOff = (ppgB + paceB)/2;
+  // Offensive engine calculations for each team
+  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
+  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  // Apply H2H adjustments
-  if(useFT) { aOff = 0.7*aOff + 0.3*h2hA; bOff = 0.7*bOff + 0.3*h2hB; }
+  // Incorporate PPG, PAPG, optional pace
+  let aEng = (aOff*0.5 + papgB*0.35 + (isNaN(ppgA)?0:ppgA*0.15) + (isNaN(paceA)?0:paceA*0.0));
+  let bEng = (bOff*0.5 + papgA*0.35 + (isNaN(ppgB)?0:ppgB*0.15) + (isNaN(paceB)?0:paceB*0.0));
 
-  let aEng = aOff*0.55 + papgB*0.45;
-  let bEng = bOff*0.55 + papgA*0.45;
+  // FT and 1H engine
+  let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
+  let ftEng=(ftBase*0.5 + (papgA+papgB)*0.35 + (isNaN(ppgA)?0:ppgA*0.075) + (isNaN(ppgB)?0:ppgB*0.075));
 
-  // Full Game Total
-  let ftBase = useFT ? 0.65*(teamAFT+teamBFT) + 0.35*(h2hA+h2hB) : teamAFT+teamBFT;
-  let ftEng = (ftBase*0.6 + (papgA+papgB)*0.4);
-
-  // 1H Total
-  let h1Eng = ftEng*0.47;
-  if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
+  let h1Eng=ftEng*0.47;
+  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
     if(Math.abs(edge)<4 || conf<70) return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
-    pred = edge>0 ? "OVER "+clamp(mkt-3,low,high).toFixed(1) : "UNDER "+clamp(mkt+3,low,high).toFixed(1);
+    if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
+    else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
 
   let picks=[
-    make("FT Total",ftEng,ft,ftL,ftH),
-    make("1H Total",h1Eng,h1,h1L,h1H),
-    make("Team A Total",aEng,aM,aL,aH),
-    make("Team B Total",bEng,bM,bL,bH)
+    make("FT Total", ftEng, ft, ftL, ftH),
+    make("1H Total", h1Eng, h1, h1L, h1H),
+    make("Team A Total", aEng, aM, aL, aH),
+    make("Team B Total", bEng, bM, bL, bH)
   ];
 
   let lock=-1,max=0;
@@ -170,8 +160,8 @@ function runEngine(){
     let pr=p.pred;
     if(i===lock) pr+=` <span class="lock">🔒</span>`;
     row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
-      <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
-      <td>${p.conf}%</td>`;
+    <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
+    <td>${p.conf}%</td>`;
   });
 }
 
