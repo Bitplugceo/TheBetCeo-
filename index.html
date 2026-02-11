@@ -26,6 +26,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </style>
 </head>
 <body>
+
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
@@ -113,29 +114,38 @@ function runEngine(){
 
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-  let ppgA=num("ppgA"),ppgB=num("ppgB"),papgA=num("papgA"),papgB=num("papgB");
+
+  let ppgA=num("ppgA"),ppgB=num("ppgB");
+  let papgA=num("papgA"),papgB=num("papgB");
   let paceA=num("paceA"),paceB=num("paceB");
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
+  // Team Offense
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  // Engine uses PPG + PAPG + Pace
-  let aEng=((ppgA||aOff)*0.5 + papgB*0.35 + (paceA||0)*0.15);
-  let bEng=((ppgB||bOff)*0.5 + papgA*0.35 + (paceB||0)*0.15);
+  // Individual Team Engine totals
+  let aEng=(ppgA || aOff)*0.55 + (papgB || 0)*0.45;
+  let bEng=(ppgB || bOff)*0.55 + (papgA || 0)*0.45;
 
+  // Full Game FT Engine incorporates PPG if available
   let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
+  let ftEng=((ppgA||aAvg)+(ppgB||bAvg))*0.4 + ftBase*0.6;
 
+  // 1H derived from FT
   let h1Eng=ftEng*0.47;
   if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
-    if(Math.abs(edge)<4 || conf<70) return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
+
+    if(Math.abs(edge)<4 || conf<70)
+      return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
+
     if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
     else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
+
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
 
