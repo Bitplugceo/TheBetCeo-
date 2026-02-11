@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Basketball Prediction Engine</title>
+<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
@@ -27,13 +25,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock{
-  font-size:4px;
-  margin-left:2px;
-  display:inline-flex;
-  align-items:center;
-  transform:translateY(-2px);
-}
+.lock { font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
 </style>
 </head>
 
@@ -41,6 +33,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
+<!-- Market Inputs -->
 <div class="section">
   <h2>Market Lines</h2>
   <label>FT Total Market (150.5 - 160.5)</label>
@@ -53,6 +46,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="teamBMarket">
 </div>
 
+<!-- Team Scoring Averages -->
 <div class="section">
   <h2>Team Scoring Averages</h2>
   <label>Team A FT Average</label>
@@ -61,6 +55,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="teamBAvg">
 </div>
 
+<!-- Head to Head Optional -->
 <div class="section">
   <h2>Head to Head (Optional)</h2>
   <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
@@ -70,13 +65,19 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
+<!-- Team Metrics including PPG (always used) and optional Pace -->
 <div class="section metrics">
   <h2>Team A Metrics</h2>
+  <label>Team A PPG</label>
+  <input id="ppgA"> <!-- always used -->
   <label>Team A Pace (Optional)</label>
   <input id="paceA">
   <label>Team A Points Allowed</label>
   <input id="papgA">
+
   <h2>Team B Metrics</h2>
+  <label>Team B PPG</label>
+  <input id="ppgB"> <!-- always used -->
   <label>Team B Pace (Optional)</label>
   <input id="paceB">
   <label>Team B Points Allowed</label>
@@ -112,46 +113,46 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
-  let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
-  let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
-  let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
-  let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
-  let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
-  let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
+  // Market Midpoints
+  let ft=mid(ftMarket.value),h1=mid(h1Market.value),aM=mid(teamAMarket.value),bM=mid(teamBMarket.value);
+  let [ftL,ftH]=ftMarket.value.split("-").map(x=>parseFloat(x)||NaN);
+  let [h1L,h1H]=h1Market.value.split("-").map(x=>parseFloat(x)||NaN);
+  let [aL,aH]=teamAMarket.value.split("-").map(x=>parseFloat(x)||NaN);
+  let [bL,bH]=teamBMarket.value.split("-").map(x=>parseFloat(x)||NaN);
 
-  let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
-  let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+  // Inputs
+  let teamAFT=num("teamAAvg"),teamBFT=num("teamBAvg");
+  let ppgA=num("ppgA"),ppgB=num("ppgB");
   let papgA=num("papgA"),papgB=num("papgB");
-  let paceA=num("paceA"), paceB=num("paceB");
+  let paceA=num("paceA"),paceB=num("paceB");
 
+  let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
-  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
+  // Offensive calculations: PPG + optional Pace
+  let aOff = ppgA;
+  if(!isNaN(paceA)) aOff = (ppgA + paceA)/2;
+  let bOff = ppgB;
+  if(!isNaN(paceB)) bOff = (ppgB + paceB)/2;
 
-  // Engine calculation with optional pace factor
-  let aFactor = paceA ? paceA/100 : 1;
-  let bFactor = paceB ? paceB/100 : 1;
+  // Apply H2H adjustments
+  if(useFT) { aOff = 0.7*aOff + 0.3*h2hA; bOff = 0.7*bOff + 0.3*h2hB; }
 
-  let aEng=(aOff*0.55 + papgB*0.45)*aFactor;
-  let bEng=(bOff*0.55 + papgA*0.45)*bFactor;
+  let aEng = aOff*0.55 + papgB*0.45;
+  let bEng = bOff*0.55 + papgA*0.45;
 
-  let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let paceFactor = (paceA && paceB) ? ((paceA+paceB)/2)/100 : 1;
-  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4)*paceFactor;
+  // Full Game Total
+  let ftBase = useFT ? 0.65*(teamAFT+teamBFT) + 0.35*(h2hA+h2hB) : teamAFT+teamBFT;
+  let ftEng = (ftBase*0.6 + (papgA+papgB)*0.4);
 
-  let h1Eng=ftEng*0.47;
-  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
+  // 1H Total
+  let h1Eng = ftEng*0.47;
+  if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
-
-    if(Math.abs(edge)<4 || conf<70)
-      return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
-
-    if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
-    else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
-
+    if(Math.abs(edge)<4 || conf<70) return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
+    pred = edge>0 ? "OVER "+clamp(mkt-3,low,high).toFixed(1) : "UNDER "+clamp(mkt+3,low,high).toFixed(1);
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
 
@@ -169,8 +170,8 @@ function runEngine(){
     let pr=p.pred;
     if(i===lock) pr+=` <span class="lock">🔒</span>`;
     row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
-    <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
-    <td>${p.conf}%</td>`;
+      <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
+      <td>${p.conf}%</td>`;
   });
 }
 
