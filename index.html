@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Basketball Prediction Engine</title>
-
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
 .wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
@@ -26,7 +25,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .lock { font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
 </style>
 </head>
-
 <body>
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
@@ -45,9 +43,9 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section">
   <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average (PPG)</label>
+  <label>Team A FT Average</label>
   <input id="teamAAvg">
-  <label>Team B FT Average (PPG)</label>
+  <label>Team B FT Average</label>
   <input id="teamBAvg">
 </div>
 
@@ -62,19 +60,18 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section metrics">
   <h2>Team A Metrics</h2>
-  <label>PPG</label>
+  <label>Team A PPG</label>
   <input id="ppgA">
-  <label>PAPG</label>
+  <label>Team A PAPG</label>
   <input id="papgA">
-  <label>Pace (Optional)</label>
+  <label>Team A Pace</label>
   <input id="paceA">
-
   <h2>Team B Metrics</h2>
-  <label>PPG</label>
+  <label>Team B PPG</label>
   <input id="ppgB">
-  <label>PAPG</label>
+  <label>Team B PAPG</label>
   <input id="papgB">
-  <label>Pace (Optional)</label>
+  <label>Team B Pace</label>
   <input id="paceB">
 </div>
 
@@ -116,24 +113,20 @@ function runEngine(){
 
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-
-  // New Team Metrics Inputs
-  let ppgA=num("ppgA"), papgA=num("papgA"), paceA=num("paceA");
-  let ppgB=num("ppgB"), papgB=num("papgB"), paceB=num("paceB");
+  let ppgA=num("ppgA"),ppgB=num("ppgB"),papgA=num("papgA"),papgB=num("papgB");
+  let paceA=num("paceA"),paceB=num("paceB");
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  // Offensive engine calculations for each team
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  // Incorporate PPG, PAPG, optional pace
-  let aEng = (aOff*0.5 + papgB*0.35 + (isNaN(ppgA)?0:ppgA*0.15) + (isNaN(paceA)?0:paceA*0.0));
-  let bEng = (bOff*0.5 + papgA*0.35 + (isNaN(ppgB)?0:ppgB*0.15) + (isNaN(paceB)?0:paceB*0.0));
+  // Engine uses PPG + PAPG + Pace
+  let aEng=((ppgA||aOff)*0.5 + papgB*0.35 + (paceA||0)*0.15);
+  let bEng=((ppgB||bOff)*0.5 + papgA*0.35 + (paceB||0)*0.15);
 
-  // FT and 1H engine
   let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=(ftBase*0.5 + (papgA+papgB)*0.35 + (isNaN(ppgA)?0:ppgA*0.075) + (isNaN(ppgB)?0:ppgB*0.075));
+  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
 
   let h1Eng=ftEng*0.47;
   if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
@@ -147,10 +140,10 @@ function runEngine(){
   }
 
   let picks=[
-    make("FT Total", ftEng, ft, ftL, ftH),
-    make("1H Total", h1Eng, h1, h1L, h1H),
-    make("Team A Total", aEng, aM, aL, aH),
-    make("Team B Total", bEng, bM, bL, bH)
+    make("FT Total",ftEng,ft,ftL,ftH),
+    make("1H Total",h1Eng,h1,h1L,h1H),
+    make("Team A Total",aEng,aM,aL,aH),
+    make("Team B Total",bEng,bM,bL,bH)
   ];
 
   let lock=-1,max=0;
