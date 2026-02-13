@@ -126,9 +126,16 @@ function runEngine(){
   let bOff = useFT && !isNaN(h2hB) ? 0.7*bAvg + 0.3*h2hB : bAvg;
 
   // Individual Team Engine totals with fallback if PAPG missing
-  let aEng = (ppgA || aOff) * 0.55 + (papgB || 0 ? 0.45*papgB : 0.45*aOff);
-  let bEng = (ppgB || bOff) * 0.55 + (papgA || 0 ? 0.45*papgA : 0.45*bOff);
+  let aEng = calcTeamEng(ppgA, papgB, aOff);
+let bEng = calcTeamEng(ppgB, papgA, bOff);
 
+function calcTeamEng(ppg, papg, off) {
+    let eng = 0, totalWeight = 0;
+    if(!isNaN(ppg)) { eng += ppg * 0.55; totalWeight += 0.55; }
+    if(!isNaN(papg)) { eng += papg * 0.45; totalWeight += 0.45; }
+    if(totalWeight === 0) return off;
+    return eng / totalWeight;
+}
   // Full Game FT Engine
   let ftBase = useFT && !isNaN(h2hA) && !isNaN(h2hB) ? 0.65*(aAvg+bAvg) + 0.35*(h2hA+h2hB) : aAvg+bAvg;
   let ftEng = ((ppgA || aAvg) + (ppgB || bAvg))*0.4 + ftBase*0.6;
