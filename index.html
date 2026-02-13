@@ -22,7 +22,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock { font-size:10px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); font-weight:bold; color:gold; }
+.lock { font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
 </style>
 </head>
 <body>
@@ -121,11 +121,11 @@ function runEngine(){
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  // Team Offense including H2H if checked
-  let aOff = useFT && !isNaN(h2hA) ? 0.7*aAvg + 0.3*h2hA : aAvg;
-  let bOff = useFT && !isNaN(h2hB) ? 0.7*bAvg + 0.3*h2hB : bAvg;
+  // Team Offense
+  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
+  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  // Individual Team Engine totals with fallback if PAPG missing
+  // Individual Team Engine totals
   let aEng = calcTeamEng(ppgA, papgB, aOff);
 let bEng = calcTeamEng(ppgB, papgA, bOff);
 
@@ -136,20 +136,19 @@ function calcTeamEng(ppg, papg, off) {
     if(totalWeight === 0) return off;
     return eng / totalWeight;
 }
-  // Full Game FT Engine
-  let ftBase = useFT && !isNaN(h2hA) && !isNaN(h2hB) ? 0.65*(aAvg+bAvg) + 0.35*(h2hA+h2hB) : aAvg+bAvg;
-  let ftEng = ((ppgA || aAvg) + (ppgB || bAvg))*0.4 + ftBase*0.6;
+  // Full Game FT Engine incorporates PPG if available
+  let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
+  let ftEng=((ppgA||aAvg)+(ppgB||bAvg))*0.4 + ftBase*0.6;
 
   // 1H derived from FT
-  let h1Eng = ftEng*0.47;
-  if(use1H && !isNaN(h2h1H)) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
+  let h1Eng=ftEng*0.47;
+  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
-    let edge = eng - mkt;
-    let conf = confidence(edge);
-    let pred = "NO PLAY";
+    let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
 
-    if(Math.abs(edge)<4 || conf<70) return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
+    if(Math.abs(edge)<4 || conf<70)
+      return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
 
     if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
     else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
@@ -157,21 +156,19 @@ function calcTeamEng(ppg, papg, off) {
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
 
-  let picks = [
+  let picks=[
     make("FT Total",ftEng,ft,ftL,ftH),
     make("1H Total",h1Eng,h1,h1L,h1H),
     make("Team A Total",aEng,aM,aL,aH),
     make("Team B Total",bEng,bM,bL,bH)
   ];
 
-  // Lock strongest edge
   let lock=-1,max=0;
   picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw);lock=i;}});
-  
   picks.forEach((p,i)=>{
     let row=table.insertRow();
-    let pr = p.pred;
-    if(i===lock) pr += ` <span class="lock">🔒</span>`;
+    let pr=p.pred;
+    if(i===lock) pr+=` <span class="lock">🔒</span>`;
     row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
     <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
     <td>${p.conf}%</td>`;
