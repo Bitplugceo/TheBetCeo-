@@ -27,13 +27,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock{
-  font-size:4px;
-  margin-left:2px;
-  display:inline-flex;
-  align-items:center;
-  transform:translateY(-2px);
-}
+.lock{font-size:4px;margin-left:2px;display:inline-flex;align-items:center;transform:translateY(-2px);}
 </style>
 </head>
 
@@ -72,15 +66,20 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section metrics">
   <h2>Team A Metrics</h2>
+  <label>Team A PPG</label>
+  <input id="ppgA">
+  <label>Team A PAPG</label>
+  <input id="papgA">
   <label>Team A Pace</label>
   <input id="paceA">
-  <label>Team A Points Allowed</label>
-  <input id="papgA">
+
   <h2>Team B Metrics</h2>
+  <label>Team B PPG</label>
+  <input id="ppgB">
+  <label>Team B PAPG</label>
+  <input id="papgB">
   <label>Team B Pace</label>
   <input id="paceB">
-  <label>Team B Points Allowed</label>
-  <input id="papgB">
 </div>
 
 <div class="buttons">
@@ -107,6 +106,11 @@ function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
 
+function paceAdj(paceA, paceB){
+  if(isNaN(paceA) || isNaN(paceB)) return 1;
+  return ((paceA + paceB) / 2) / 100;
+}
+
 function runEngine(){
   const table=document.getElementById("results");
   table.style.display="table";
@@ -121,25 +125,37 @@ function runEngine(){
 
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+
+  let ppgA=num("ppgA"),ppgB=num("ppgB");
   let papgA=num("papgA"),papgB=num("papgB");
+  let paceA=num("paceA"),paceB=num("paceB");
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  let aEng=(aOff*0.55 + papgB*0.45);
-  let bEng=(bOff*0.55 + papgA*0.45);
+  function teamEng(ppg,papg,off){
+    let e=0,w=0;
+    if(!isNaN(ppg)){e+=ppg*0.55;w+=0.55;}
+    if(!isNaN(papg)){e+=papg*0.45;w+=0.45;}
+    return w?e/w:off;
+  }
+
+  let paceFactor = paceAdj(paceA, paceB);
+
+  let aEng = teamEng(ppgA,papgB,aOff) * paceFactor;
+  let bEng = teamEng(ppgB,papgA,bOff) * paceFactor;
 
   let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
+  let ftEng=((ppgA||aAvg)+(ppgB||bAvg))*0.4 + ftBase*0.6;
+  ftEng *= paceFactor;
 
   let h1Eng=ftEng*0.47;
   if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
-
     if(Math.abs(edge)<4 || conf<70)
       return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
 
