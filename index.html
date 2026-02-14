@@ -1,9 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Basketball Prediction Engine</title>
+
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
 .wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
@@ -22,11 +27,17 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock { font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
+.lock{
+  font-size:4px;
+  margin-left:2px;
+  display:inline-flex;
+  align-items:center;
+  transform:translateY(-2px);
+}
 </style>
 </head>
-<body>
 
+<body>
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
@@ -61,19 +72,15 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section metrics">
   <h2>Team A Metrics</h2>
-  <label>Team A PPG</label>
-  <input id="ppgA">
-  <label>Team A PAPG</label>
-  <input id="papgA">
   <label>Team A Pace</label>
   <input id="paceA">
+  <label>Team A Points Allowed</label>
+  <input id="papgA">
   <h2>Team B Metrics</h2>
-  <label>Team B PPG</label>
-  <input id="ppgB">
-  <label>Team B PAPG</label>
-  <input id="papgB">
   <label>Team B Pace</label>
   <input id="paceB">
+  <label>Team B Points Allowed</label>
+  <input id="papgB">
 </div>
 
 <div class="buttons">
@@ -114,33 +121,19 @@ function runEngine(){
 
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-
-  let ppgA=num("ppgA"),ppgB=num("ppgB");
   let papgA=num("papgA"),papgB=num("papgB");
-  let paceA=num("paceA"),paceB=num("paceB");
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  // Team Offense
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  // Individual Team Engine totals
-  let aEng = calcTeamEng(ppgA, papgB, aOff);
-let bEng = calcTeamEng(ppgB, papgA, bOff);
+  let aEng=(aOff*0.55 + papgB*0.45);
+  let bEng=(bOff*0.55 + papgA*0.45);
 
-function calcTeamEng(ppg, papg, off) {
-    let eng = 0, totalWeight = 0;
-    if(!isNaN(ppg)) { eng += ppg * 0.55; totalWeight += 0.55; }
-    if(!isNaN(papg)) { eng += papg * 0.45; totalWeight += 0.45; }
-    if(totalWeight === 0) return off;
-    return eng / totalWeight;
-}
-  // Full Game FT Engine incorporates PPG if available
   let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=((ppgA||aAvg)+(ppgB||bAvg))*0.4 + ftBase*0.6;
+  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
 
-  // 1H derived from FT
   let h1Eng=ftEng*0.47;
   if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
