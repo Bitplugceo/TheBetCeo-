@@ -27,107 +27,89 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .lock{ font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
 </style>
 </head>
-
 <body>
+
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- League Dropdown -->
+<!-- League -->
 <div class="section">
-  <h2>League</h2>
-  <select id="leagueSelect">
-    <option value="NBA">NBA</option>
-    <option value="NCAA Men">NCAA Men</option>
-    <option value="NCAA Women">NCAA Women</option>
-    <option value="G-League">G-League</option>
-    <option value="EuroLeague">EuroLeague</option>
-    <option value="EuroCup">EuroCup</option>
-    <option value="ACB Spain">ACB Spain</option>
-    <option value="LNB France">LNB France</option>
-    <option value="BSL Turkey">BSL Turkey</option>
-    <option value="VTB">VTB United League</option>
-    <option value="Serie A Italy">Serie A Italy</option>
-    <option value="BBL Germany">BBL Germany</option>
-    <option value="B.League Japan">B.League Japan</option>
-    <option value="CBA China">CBA China</option>
-    <option value="KBL Korea">KBL Korea</option>
-    <option value="ABL Southeast Asia">ABL Southeast Asia</option>
-    <option value="NBL Australia">NBL Australia</option>
-    <option value="NZNBL">NZNBL</option>
-    <option value="LNBP Mexico">LNBP Mexico</option>
-    <option value="Liga Nacional Argentina">Liga Nacional Argentina</option>
-    <option value="NBB Brazil">NBB Brazil</option>
-    <option value="PLK Poland">PLK Poland</option>
-    <option value="Israeli Premier">Israeli Premier</option>
-    <option value="BNXT Belgium">BNXT Belgium</option>
-  </select>
+<h2>League</h2>
+<select id="leagueSelect">
+  <option value="NBA">NBA</option>
+  <option value="NCAA Men">NCAA Men</option>
+  <option value="NCAA Women">NCAA Women</option>
+  <option value="G-League">G-League</option>
+  <option value="EuroLeague">EuroLeague</option>
+  <option value="EuroCup">EuroCup</option>
+  <option value="ACB Spain">ACB Spain</option>
+  <option value="LNB France">LNB France</option>
+  <option value="BSL Turkey">BSL Turkey</option>
+  <option value="VTB">VTB United League</option>
+  <option value="Serie A Italy">Serie A Italy</option>
+  <option value="BBL Germany">BBL Germany</option>
+  <option value="B.League Japan">B.League Japan</option>
+  <option value="CBA China">CBA China</option>
+  <option value="KBL Korea">KBL Korea</option>
+  <option value="ABL Southeast Asia">ABL Southeast Asia</option>
+  <option value="NBL Australia">NBL Australia</option>
+  <option value="NZNBL">NZNBL</option>
+  <option value="LNBP Mexico">LNBP Mexico</option>
+  <option value="Liga Nacional Argentina">Liga Nacional Argentina</option>
+  <option value="NBB Brazil">NBB Brazil</option>
+  <option value="PLK Poland">PLK Poland</option>
+  <option value="Israeli Premier">Israeli Premier</option>
+  <option value="BNXT Belgium">BNXT Belgium</option>
+</select>
 </div>
 
-<!-- Market Inputs -->
+<!-- Market Lines -->
 <div class="section">
-  <h2>Market Lines</h2>
-  <label>FT Total Market</label>
-  <input id="ftMarket">
-  <label>1H Total Market</label>
-  <input id="h1Market">
-  <label>Team A Total Market</label>
-  <input id="teamAMarket">
-  <label>Team B Total Market</label>
-  <input id="teamBMarket">
+<h2>Market Lines</h2>
+<label>FT Total Market</label><input id="ftMarket">
+<label>1H Total Market</label><input id="h1Market">
+<label>Team A Total Market</label><input id="teamAMarket">
+<label>Team B Total Market</label><input id="teamBMarket">
 </div>
 
-<!-- Last 5 Games -->
+<!-- Team Scoring Averages -->
 <div class="section">
-  <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average</label>
-  <input id="teamAAvg">
-  <label>Team B FT Average</label>
-  <input id="teamBAvg">
+<h2>Team Scoring Averages</h2>
+<label>Team A FT Average</label><input id="teamAAvg">
+<label>Team B FT Average</label><input id="teamBAvg">
 </div>
 
 <!-- H2H -->
 <div class="section">
-  <h2>Head to Head (Optional)</h2>
-  <label><input type="checkbox" id="useH2HFT"> Use H2H (FT + 1H + Team Totals)</label>
-  <input id="h2hA" placeholder="Team A H2H FT Avg">
-  <input id="h2hB" placeholder="Team B H2H FT Avg">
-  <input id="h2h1H" placeholder="1H H2H Avg Total">
+<h2>Head to Head (Optional)</h2>
+<label><input type="checkbox" id="useH2HFT"> Team A & B H2H FT</label>
+<input id="h2hA" placeholder="Team A H2H FT Avg">
+<input id="h2hB" placeholder="Team B H2H FT Avg">
+<label><input type="checkbox" id="useH2H1H"> 1H H2H</label>
+<input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
 <!-- Team Metrics -->
 <div class="section metrics">
-  <h2>Team Metrics</h2>
-  <label>Team A PAG</label>
-  <input id="pagA">
-  <label>Team A PAPG</label>
-  <input id="papgA">
-  <label>Team A Pace</label>
-  <input id="paceA">
+<h2>Team Metrics</h2>
+<label>Team A PAG</label><input id="pagA">
+<label>Team A PAPG</label><input id="papgA">
+<label>Team A Pace</label><input id="paceA">
 
-  <label>Team B PAG</label>
-  <input id="pagB">
-  <label>Team B PAPG</label>
-  <input id="papgB">
-  <label>Team B Pace</label>
-  <input id="paceB">
+<label>Team B PAG</label><input id="pagB">
+<label>Team B PAPG</label><input id="papgB">
+<label>Team B Pace</label><input id="paceB">
 </div>
 
 <div class="buttons">
-  <button class="btn" onclick="runEngine()">Run</button>
-  <button class="btn" onclick="clearAll()">Clear</button>
+<button class="btn" onclick="runEngine()">Run</button>
+<button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
 <div class="table-wrap">
 <table id="results">
-<tr>
-  <th>Pick</th>
-  <th>Engine Mid</th>
-  <th>Edge</th>
-  <th>Prediction</th>
-  <th>Confidence %</th>
-</tr>
+<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>
 </table>
-</div>
 </div>
 
 <script>
@@ -135,16 +117,9 @@ function num(id){let v=parseFloat(document.getElementById(id).value);return isNa
 function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
-function roundToHalf(num){return Math.ceil(num*2)/2;}
+function roundToHalf(n){return Math.ceil(n*2)/2;}
 
-const leaguePaceMap = {
-  "NBA":100.8,"NCAA Men":71,"NCAA Women":69,"G-League":99,
-  "EuroLeague":76,"EuroCup":75,"ACB Spain":76,"LNB France":75.5,
-  "BSL Turkey":76,"VTB":76,"Serie A Italy":75.5,"BBL Germany":75,
-  "B.League Japan":78,"CBA China":81,"KBL Korea":79,"ABL Southeast Asia":77,
-  "NBL Australia":83,"NZNBL":80,"LNBP Mexico":79,"Liga Nacional Argentina":77.5,
-  "NBB Brazil":78,"PLK Poland":75.5,"Israeli Premier":77,"BNXT Belgium":76
-};
+const leaguePaceMap = {"NBA":100.8,"NCAA Men":71,"NCAA Women":69,"G-League":99,"EuroLeague":76,"EuroCup":75,"ACB Spain":76,"LNB France":75.5,"BSL Turkey":76,"VTB":76,"Serie A Italy":75.5,"BBL Germany":75,"B.League Japan":78,"CBA China":81,"KBL Korea":79,"ABL Southeast Asia":77,"NBL Australia":83,"NZNBL":80,"LNBP Mexico":79,"Liga Nacional Argentina":77.5,"NBB Brazil":78,"PLK Poland":75.5,"Israeli Premier":77,"BNXT Belgium":76};
 
 function runEngine(){
   const table=document.getElementById("results");
@@ -160,19 +135,17 @@ function runEngine(){
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
   let pagA=num("pagA"),pagB=num("pagB"), papgA=num("papgA"),papgB=num("papgB"), paceA=num("paceA"), paceB=num("paceB");
-  let useH2H=useH2HFT.checked;
+  let useH2HFT=useH2HFT.checked, useH2H1H=useH2H1H.checked;
 
-  // H2H affects all picks
-  let aScore = useH2H ? 0.7*aAvg + 0.3*h2hA : aAvg;
-  let bScore = useH2H ? 0.7*bAvg + 0.3*h2hB : bAvg;
+  let aScore = useH2HFT ? 0.7*aAvg + 0.3*h2hA : aAvg;
+  let bScore = useH2HFT ? 0.7*bAvg + 0.3*h2hB : bAvg;
 
   let ftEng = (aScore+bScore)*0.6 + (papgA+papgB)*0.4;
   let aEng = aScore*0.55 + papgB*0.45;
   let bEng = bScore*0.55 + papgA*0.45;
   let h1Eng = ftEng*0.47;
-  if(useH2H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
+  if(useH2H1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
 
-  // Pace scaling per league
   let selectedLeague = document.getElementById("leagueSelect").value;
   let baselinePace = leaguePaceMap[selectedLeague] || 100;
   if(!isNaN(paceA) && !isNaN(paceB)){
@@ -181,7 +154,6 @@ function runEngine(){
     aEng*=paceMultiplier; bEng*=paceMultiplier; ftEng*=paceMultiplier; h1Eng*=paceMultiplier;
   }
 
-  // PAG/PAPG optional clamping
   if(!isNaN(pagA) && !isNaN(pagB)){
     ftEng=clamp(ftEng,pagA+pagB-5,pagA+pagB+5);
     aEng=clamp(aEng,pagA-3,pagA+3);
