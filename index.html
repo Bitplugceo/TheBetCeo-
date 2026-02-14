@@ -27,8 +27,14 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-/* Original lock icon size and vertical alignment restored */
-.lock { font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
+
+.lock{
+  font-size:4px;
+  margin-left:2px;
+  display:inline-flex;
+  align-items:center;
+  transform:translateY(-2px);
+}
 </style>
 </head>
 
@@ -66,16 +72,20 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <div class="section metrics">
-  <h2>Team A Metrics</h2>
+  <h2>Team Metrics</h2>
   <label>Team A PAG</label>
   <input id="pagA">
-  <label>Team A Points Allowed</label>
+  <label>Team A PAPG</label>
   <input id="papgA">
-  <h2>Team B Metrics</h2>
+  <label>Team A Pace</label>
+  <input id="paceA">
+
   <label>Team B PAG</label>
   <input id="pagB">
-  <label>Team B Points Allowed</label>
+  <label>Team B PAPG</label>
   <input id="papgB">
+  <label>Team B Pace</label>
+  <input id="paceB">
 </div>
 
 <div class="buttons">
@@ -107,6 +117,7 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
+  // Markets
   let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
   let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
   let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
@@ -114,38 +125,57 @@ function runEngine(){
   let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
   let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
+  // Averages & H2H
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-  let papgA=num("papgA"),papgB=num("papgB");
-  let pagA=num("pagA"),pagB=num("pagB");
-
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  // Team Offense with H2H fallback
-  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
-  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
+  // Team metrics
+  let pagA=num("pagA"),papgA=num("papgA"),paceA=num("paceA");
+  let pagB=num("pagB"),papgB=num("papgB"),paceB=num("paceB");
 
-  // Team Engine calculation including PAG and PAPG
-  let aEng=(aOff*0.55 + papgB*0.25 + pagA*0.2);
-  let bEng=(bOff*0.55 + papgA*0.25 + pagB*0.2);
+  // Base offense with optional H2H
+  let aBase=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
+  let bBase=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  // Full Game FT Engine
-  let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.25 + (pagA+pagB)*0.15);
+  // Engine for Team A/B totals using metrics if provided
+  function calcTeamEng(base, oppPAPG, oppPAG, pace){
+    let parts=[], weights=[];
+    if(!isNaN(base)) { parts.push(base); weights.push(0.5); }
+    if(!isNaN(oppPAPG)) { parts.push(oppPAPG); weights.push(0.25); }
+    if(!isNaN(oppPAG)) { parts.push(oppPAG); weights.push(0.15); }
+    if(!isNaN(pace)) { parts.push(pace); weights.push(0.1); }
+    let totalWeight = weights.reduce((a,b)=>a+b,0);
+    if(totalWeight===0) return base;
+    return parts.reduce((sum,v,i)=>sum + v*weights[i],0)/totalWeight;
+  }
 
-  // 1H derived from FT
-  let h1Eng=ftEng*0.47;
-  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
+  let aEng = calcTeamEng(aBase,papgB,pagA,paceA);
+  let bEng = calcTeamEng(bBase,papgA,pagB,paceB);
+
+  // FT Total
+  function calcFTEng(aB,bB){
+    let parts=[], weights=[];
+    if(!isNaN(aB)) { parts.push(aB); weights.push(0.35); }
+    if(!isNaN(bB)) { parts.push(bB); weights.push(0.35); }
+    if(!isNaN(papgA)) { parts.push(papgA); weights.push(0.15); }
+    if(!isNaN(papgB)) { parts.push(papgB); weights.push(0.15); }
+    let totalWeight = weights.reduce((a,b)=>a+b,0);
+    return parts.reduce((sum,v,i)=>sum + v*weights[i],0)/totalWeight;
+  }
+
+  let ftEng = calcFTEng(aBase,bBase);
+  if(useFT) ftEng = 0.65*ftEng + 0.35*(h2hA+h2hB);
+
+  let h1Eng = ftEng*0.47;
+  if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
-
     if(Math.abs(edge)<4 || conf<70)
       return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
-
     if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
     else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
-
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
 
@@ -156,7 +186,7 @@ function runEngine(){
     make("Team B Total",bEng,bM,bL,bH)
   ];
 
-  // Find the lock pick
+  // Lock pick
   let lock=-1,max=0;
   picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw);lock=i;}});
   picks.forEach((p,i)=>{
