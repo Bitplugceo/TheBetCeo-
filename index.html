@@ -148,7 +148,8 @@ function runEngine(){
 
   function make(name, eng, mkt){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
-    if(isNaN(mkt) || isNaN(eng)) return {name, eng:"—", edge:"—", pred:"NO PLAY", conf:0, raw:0};
+    if(isNaN(mkt) || isNaN(eng)) 
+  return {name, eng:eng.toFixed(2), edge:(eng-mkt).toFixed(2), pred:"NO PLAY", conf:0, raw:0};
 
     if(Math.abs(edge)<4 || conf<70)
       return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
