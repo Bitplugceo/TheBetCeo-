@@ -1,9 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Basketball Prediction Engine</title>
+
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
 .wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
@@ -22,27 +27,45 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock { font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
+
+/* Restore original lock icon styling */
+.lock{
+  font-size:4px;
+  margin-left:2px;
+  display:inline-flex;
+  align-items:center;
+  transform:translateY(-2px);
+}
 </style>
 </head>
+
 <body>
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
+<!-- Market Lines -->
 <div class="section">
   <h2>Market Lines</h2>
-  <label>FT Total Market</label><input id="ftMarket">
-  <label>1H Total Market</label><input id="h1Market">
-  <label>Team A Total Market</label><input id="teamAMarket">
-  <label>Team B Total Market</label><input id="teamBMarket">
+  <label>FT Total Market (150.5 - 160.5)</label>
+  <input id="ftMarket">
+  <label>1H Total Market (75.5 - 85.5)</label>
+  <input id="h1Market">
+  <label>Team A Total Market</label>
+  <input id="teamAMarket">
+  <label>Team B Total Market</label>
+  <input id="teamBMarket">
 </div>
 
+<!-- Team Scoring Averages -->
 <div class="section">
   <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average</label><input id="teamAAvg">
-  <label>Team B FT Average</label><input id="teamBAvg">
+  <label>Team A FT Average</label>
+  <input id="teamAAvg">
+  <label>Team B FT Average</label>
+  <input id="teamBAvg">
 </div>
 
+<!-- Head to Head -->
 <div class="section">
   <h2>Head to Head (Optional)</h2>
   <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
@@ -52,14 +75,22 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
+<!-- Team Metrics -->
 <div class="section metrics">
-  <h2>Team Metrics</h2>
-  <label>Team A PAG</label><input id="pagA">
-  <label>Team A PAPG</label><input id="papgA">
-  <label>Team A Pace</label><input id="paceA">
-  <label>Team B PAG</label><input id="pagB">
-  <label>Team B PAPG</label><input id="papgB">
-  <label>Team B Pace</label><input id="paceB">
+  <h2>Team A Metrics</h2>
+  <label>Team A PAG</label>
+  <input id="pagA">
+  <label>Team A PAPG</label>
+  <input id="papgA">
+  <label>Team A Pace</label>
+  <input id="paceA">
+  <h2>Team B Metrics</h2>
+  <label>Team B PAG</label>
+  <input id="pagB">
+  <label>Team B PAPG</label>
+  <input id="papgB">
+  <label>Team B Pace</label>
+  <input id="paceB">
 </div>
 
 <div class="buttons">
@@ -81,17 +112,17 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <script>
-function num(id){let v=parseFloat(document.getElementById(id).value); return isNaN(v)?NaN:v;}
-function mid(r){if(!r||!r.includes("-"))return NaN; let [a,b]=r.split("-").map(x=>parseFloat(x)); return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
+function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
+function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
-function confidence(e){if(isNaN(e)) return 0; return Math.min(95,Math.round(70 + (Math.abs(e)-3)*5));}
+function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
 
 function runEngine(){
-  const table = document.getElementById("results");
+  const table=document.getElementById("results");
   table.style.display="table";
   table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
-  // Markets
+  // Market inputs
   let ftStr=ftMarket.value, h1Str=h1Market.value, aStr=teamAMarket.value, bStr=teamBMarket.value;
   let ft=mid(ftStr), h1=mid(h1Str), aM=mid(aStr), bM=mid(bStr);
   let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
@@ -99,77 +130,79 @@ function runEngine(){
   let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
   let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
-  // Inputs
+  // Team averages and H2H
   let aAvg=num("teamAAvg"), bAvg=num("teamBAvg");
   let h2hA=num("h2hA"), h2hB=num("h2hB"), h2h1H=num("h2h1H");
-  let pagA=num("pagA"), pagB=num("pagB"), papgA=num("papgA"), papgB=num("papgB");
-  let paceA=num("paceA"), paceB=num("paceB");
+  let pagA=num("pagA"), papgA=num("papgA"), paceA=num("paceA");
+  let pagB=num("pagB"), papgB=num("papgB"), paceB=num("paceB");
+
   let useFT=useH2HFT.checked, use1H=useH2H1H.checked;
 
+  // Offense calculations
+  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
+  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
+
+  // Apply metrics if available
+  if(!isNaN(pagA)) aOff = 0.5*aOff + 0.3*pagA + (!isNaN(papgB)?0.2*papgB:0);
+  if(!isNaN(pagB)) bOff = 0.5*bOff + 0.3*pagB + (!isNaN(papgA)?0.2*papgA:0);
+
+  if(!isNaN(paceA)) aOff = (aOff + paceA)/2;
+  if(!isNaN(paceB)) bOff = (bOff + paceB)/2;
+
+  let aEng = aOff;
+  let bEng = bOff;
+
+  // FT Total
+  let ftBase = useFT ? (0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)) : (aAvg+bAvg);
+  if(!isNaN(pagA) || !isNaN(pagB) || !isNaN(papgA) || !isNaN(papgB) || !isNaN(paceA) || !isNaN(paceB)){
+    let ftMetrics = 0;
+    if(!isNaN(pagA)) ftMetrics += 0.15*pagA;
+    if(!isNaN(pagB)) ftMetrics += 0.15*pagB;
+    if(!isNaN(papgA)) ftMetrics += 0.1*papgA;
+    if(!isNaN(papgB)) ftMetrics += 0.1*papgB;
+    if(!isNaN(paceA)) ftMetrics += 0.05*paceA;
+    if(!isNaN(paceB)) ftMetrics += 0.05*paceB;
+    var ftEng = 0.7*ftBase + 0.3*ftMetrics;
+  } else {
+    var ftEng = ftBase;
+  }
+
+  // 1H Total
+  let h1Eng = ftEng*0.47;
+  if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
+
+  function make(name, eng, mkt, low, high){
+    if(isNaN(eng) || isNaN(mkt)) return {name, eng:"NaN", edge:"NaN", pred:"NO PLAY", conf:0, raw:0};
+    let edge = eng - mkt;
+    let conf = confidence(edge);
+    let pred = "NO PLAY";
+    if(Math.abs(edge)>=4 && conf>=70){
+      pred = edge>0 ? "OVER "+clamp(mkt-3,low,high).toFixed(1) : "UNDER "+clamp(mkt+3,low,high).toFixed(1);
+    }
+    return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
+  }
+
   let picks=[];
+  if(!isNaN(ft)) picks.push(make("FT Total", ftEng, ft, ftL, ftH));
+  if(!isNaN(h1)) picks.push(make("1H Total", h1Eng, h1, h1L, h1H));
+  if(!isNaN(aM)) picks.push(make("Team A Total", aEng, aM, aL, aH));
+  if(!isNaN(bM)) picks.push(make("Team B Total", bEng, bM, bL, bH));
 
-  // Team A prediction
-  if(aAvg || pagA || papgA || paceA){
-    let aOff = useFT?(0.7*aAvg+0.3*h2hA):aAvg;
-    let aEng = aOff;
-    if(!isNaN(papgB)) aEng += papgB*0.2;
-    if(!isNaN(pagB)) aEng += pagB*0.1;
-    if(!isNaN(paceB)) aEng += paceB*0.05;
-    if(!isNaN(aM)) picks.push(makePick("Team A Total", aEng, aM, aL, aH));
-  }
-
-  // Team B prediction
-  if(bAvg || pagB || papgB || paceB){
-    let bOff = useFT?(0.7*bAvg+0.3*h2hB):bAvg;
-    let bEng = bOff;
-    if(!isNaN(papgA)) bEng += papgA*0.2;
-    if(!isNaN(pagA)) bEng += pagA*0.1;
-    if(!isNaN(paceA)) bEng += paceA*0.05;
-    if(!isNaN(bM)) picks.push(makePick("Team B Total", bEng, bM, bL, bH));
-  }
-
-  // FT Total prediction
-  if((aAvg || bAvg) && !isNaN(ft)){
-    let ftBase = useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-    let ftEng = ftBase;
-    if(!isNaN(papgA)) ftEng += papgA*0.2;
-    if(!isNaN(papgB)) ftEng += papgB*0.2;
-    if(!isNaN(pagA)) ftEng += pagA*0.1;
-    if(!isNaN(pagB)) ftEng += pagB*0.1;
-    if(!isNaN(paceA)) ftEng += paceA*0.05;
-    if(!isNaN(paceB)) ftEng += paceB*0.05;
-    picks.push(makePick("FT Total", ftEng, ft, ftL, ftH));
-  }
-
-  // 1H prediction
-  if(!isNaN(h1)){
-    let h1Eng = picks.find(p=>p.name==="FT Total")?.engNum*0.47 || h1;
-    if(use1H && h2h1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
-    picks.push(makePick("1H Total", h1Eng, h1, h1L, h1H));
-  }
-
-  // Lock calculation
-  let lock=-1,max=0;
-  picks.forEach((p,i)=>{if(Math.abs(p.edgeNum)>max && p.pred!=="NO PLAY"){max=Math.abs(p.edgeNum);lock=i;}});
+  // Lock icon
+  let lock=-1, max=0;
+  picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw); lock=i;}});
   picks.forEach((p,i)=>{
     let row=table.insertRow();
     let pr=p.pred;
     if(i===lock) pr+=` <span class="lock">🔒</span>`;
     row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
-      <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
-      <td>${p.conf}%</td>`;
+    <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
+    <td>${p.conf}%</td>`;
   });
-
-  function makePick(name, eng, mkt, low, high){
-    let edge = eng - mkt;
-    let conf = confidence(edge);
-    let pred = (Math.abs(edge)<4 || conf<70) ? "NO PLAY" : (edge>0 ? "OVER "+clamp(mkt-3,low,high).toFixed(1) : "UNDER "+clamp(mkt+3,low,high).toFixed(1));
-    return {name, eng:eng.toFixed(2), engNum:eng, edge:edge.toFixed(2), edgeNum:edge, pred, conf};
-  }
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox") i.checked=false; else i.value="";});
+  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
   results.style.display="none";
 }
 </script>
