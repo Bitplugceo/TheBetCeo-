@@ -35,7 +35,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   align-items:center;
   transform:translateY(-2px);
 }
-
 </style>
 </head>
 
@@ -104,10 +103,10 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <script>
-function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
-function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
+function num(id){let v=parseFloat(document.getElementById(id).value); return isNaN(v)?NaN:v;}
+function mid(r){if(!r||!r.includes("-"))return NaN; let[a,b]=r.split("-").map(x=>parseFloat(x)); return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
-function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
+function confidence(e){if(isNaN(e))return 0; return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
 
 function runEngine(){
   const table=document.getElementById("results");
@@ -121,77 +120,73 @@ function runEngine(){
   let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
   let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
-  let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
-  let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-  let pagA=num("pagA"),pagB=num("pagB"),papgA=num("papgA"),papgB=num("papgB");
+  let aAvg=num("teamAAvg"), bAvg=num("teamBAvg");
+  let h2hA=num("h2hA"), h2hB=num("h2hB"), h2h1H=num("h2h1H");
+  let pagA=num("pagA"), pagB=num("pagB"), papgA=num("papgA"), papgB=num("papgB");
 
-  let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
+  let useFT=useH2HFT.checked, use1H=useH2H1H.checked;
 
-  // Team offensive calculation with optional PAG/PAPG influence
-  let aOff = aAvg;
-  if(!isNaN(papgB) && !isNaN(pagA)) aOff = 0.5*aAvg + 0.3*papgB + 0.2*pagA;
-  else if(!isNaN(papgB)) aOff = 0.6*aAvg + 0.4*papgB;
-  else if(!isNaN(pagA)) aOff = 0.7*aAvg + 0.3*pagA;
-  if(useFT && !isNaN(h2hA)) aOff = 0.7*aAvg + 0.3*h2hA;
+  // Team offensive estimates
+  let aOff=aAvg, bOff=bAvg;
 
-  let bOff = bAvg;
-  if(!isNaN(papgA) && !isNaN(pagB)) bOff = 0.5*bAvg + 0.3*papgA + 0.2*pagB;
-  else if(!isNaN(papgA)) bOff = 0.6*bAvg + 0.4*papgA;
-  else if(!isNaN(pagB)) bOff = 0.7*bAvg + 0.3*pagB;
-  if(useFT && !isNaN(h2hB)) bOff = 0.7*bAvg + 0.3*h2hB;
+  if(!isNaN(pagA)) aOff += (pagA - aAvg) * 0.1;
+  if(!isNaN(pagB)) bOff += (pagB - bAvg) * 0.1;
+  if(!isNaN(papgA)) bOff += (papgA - bAvg) * 0.05;
+  if(!isNaN(papgB)) aOff += (papgB - aAvg) * 0.05;
+
+  if(useFT){
+    aOff = 0.7*aAvg + 0.3*h2hA;
+    bOff = 0.7*bAvg + 0.3*h2hB;
+  }
 
   let aEng = aOff;
   let bEng = bOff;
 
-  // FT total engine
-  let ftBase = aAvg + bAvg;
-  if(!isNaN(papgA) && !isNaN(papgB) && !isNaN(pagA) && !isNaN(pagB))
-      ftBase = 0.25*aAvg + 0.25*bAvg + 0.25*papgA + 0.25*papgB;
-  else if(!isNaN(papgA) && !isNaN(papgB)) ftBase = 0.4*aAvg + 0.4*bAvg + 0.1*papgA + 0.1*papgB;
-  else if(!isNaN(pagA) && !isNaN(pagB)) ftBase = 0.5*aAvg + 0.5*bAvg + 0.0*pagA + 0.0*pagB; 
-  if(useFT && !isNaN(h2hA) && !isNaN(h2hB)) ftBase = 0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB);
-
+  // FT Engine
+  let ftBase = useFT ? (0.65*(aAvg+bAvg) + 0.35*(h2hA+h2hB)) : (aAvg+bAvg);
   let ftEng = ftBase;
+  if(!isNaN(pagA)) ftEng += (pagA - aAvg)*0.1;
+  if(!isNaN(pagB)) ftEng += (pagB - bAvg)*0.1;
+  if(!isNaN(papgA)) ftEng += (papgA - bAvg)*0.05;
+  if(!isNaN(papgB)) ftEng += (papgB - aAvg)*0.05;
 
-  // 1H engine
-  let h1Eng=ftEng*0.47;
-  if(use1H && !isNaN(h2h1H)) h1Eng=0.65*h1Eng+0.35*h2h1H;
+  // 1H Engine
+  let h1Eng = ftEng*0.47;
+  if(use1H) h1Eng = 0.65*h1Eng + 0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
-    let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
+    let edge = eng - mkt;
+    let conf = confidence(edge);
+    let pred = "NO PLAY";
 
-    if(isNaN(eng)) return {name, eng:"NaN", edge:"NaN", pred:"NO PLAY", conf:0, raw:0};
+    if(Math.abs(edge) >= 4 && conf >= 70){
+      pred = edge>0 ? "OVER "+clamp(mkt-3, low, high).toFixed(1) : "UNDER "+clamp(mkt+3, low, high).toFixed(1);
+    }
 
-    if(Math.abs(edge)<4 || conf<70)
-      return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
-
-    if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
-    else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
-
-    return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
+    return {name, eng:isNaN(eng)?'NaN':eng.toFixed(2), edge:isNaN(edge)?'NaN':edge.toFixed(2), pred, conf, raw:edge};
   }
 
-  let picks=[
-    make("FT Total",ftEng,ft,ftL,ftH),
-    make("1H Total",h1Eng,h1,h1L,h1H),
-    make("Team A Total",aEng,aM,aL,aH),
-    make("Team B Total",bEng,bM,bL,bH)
+  let picks = [
+    make("FT Total", ftEng, ft, ftL, ftH),
+    make("1H Total", h1Eng, h1, h1L, h1H),
+    make("Team A Total", aEng, aM, aL, aH),
+    make("Team B Total", bEng, bM, bL, bH)
   ];
 
-  let lock=-1,max=0;
-  picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw);lock=i;}});
+  let lock=-1, max=0;
+  picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw); lock=i;}});
   picks.forEach((p,i)=>{
     let row=table.insertRow();
-    let pr=p.pred;
-    if(i===lock) pr+=` <span class="lock">🔒</span>`;
-    row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
+    let pr = p.pred;
+    if(i===lock) pr += ` <span class="lock">🔒</span>`;
+    row.innerHTML = `<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
     <td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
     <td>${p.conf}%</td>`;
   });
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
+  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox") i.checked=false; else i.value="";});
   results.style.display="none";
 }
 </script>
