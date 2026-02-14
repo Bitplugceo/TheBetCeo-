@@ -27,13 +27,8 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock {
-  font-size:4px;
-  margin-left:2px;
-  display:inline-flex;
-  align-items:center;
-  transform:translateY(-2px);
-}
+/* Original lock icon size and vertical alignment restored */
+.lock { font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
 </style>
 </head>
 
@@ -41,7 +36,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- Market Lines -->
 <div class="section">
   <h2>Market Lines</h2>
   <label>FT Total Market (150.5 - 160.5)</label>
@@ -54,7 +48,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="teamBMarket">
 </div>
 
-<!-- Team Scoring Averages -->
 <div class="section">
   <h2>Team Scoring Averages</h2>
   <label>Team A FT Average</label>
@@ -63,7 +56,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="teamBAvg">
 </div>
 
-<!-- Head to Head -->
 <div class="section">
   <h2>Head to Head (Optional)</h2>
   <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
@@ -73,32 +65,24 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
-<!-- Team Metrics -->
 <div class="section metrics">
   <h2>Team A Metrics</h2>
-  <label>Team A Pace</label>
-  <input id="paceA">
-  <label>Team A Points Allowed</label>
-  <input id="papgA">
   <label>Team A PAG</label>
   <input id="pagA">
-
+  <label>Team A Points Allowed</label>
+  <input id="papgA">
   <h2>Team B Metrics</h2>
-  <label>Team B Pace</label>
-  <input id="paceB">
-  <label>Team B Points Allowed</label>
-  <input id="papgB">
   <label>Team B PAG</label>
   <input id="pagB">
+  <label>Team B Points Allowed</label>
+  <input id="papgB">
 </div>
 
-<!-- Buttons -->
 <div class="buttons">
   <button class="btn" onclick="runEngine()">Run</button>
   <button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
-<!-- Results Table -->
 <div class="table-wrap">
 <table id="results">
 <tr>
@@ -132,45 +116,36 @@ function runEngine(){
 
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-
   let papgA=num("papgA"),papgB=num("papgB");
   let pagA=num("pagA"),pagB=num("pagB");
-  let paceA=num("paceA"),paceB=num("paceB");
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  // Team offensive base with H2H
+  // Team Offense with H2H fallback
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  // Team Engine calculations with PAG, PAPG, Pace, fallback to averages if missing
-  function calcTeamEng(off, pag, papg, pace){
-    let components=[], totalWeight=0;
-    if(!isNaN(off)) { components.push(off*0.4); totalWeight+=0.4; }
-    if(!isNaN(pag)) { components.push(pag*0.3); totalWeight+=0.3; }
-    if(!isNaN(papg)) { components.push(papg*0.2); totalWeight+=0.2; }
-    if(!isNaN(pace)) { components.push(pace*0.1); totalWeight+=0.1; }
-    if(totalWeight===0) return off; // fallback to team avg
-    return components.reduce((a,b)=>a+b)/totalWeight;
-  }
+  // Team Engine calculation including PAG and PAPG
+  let aEng=(aOff*0.55 + papgB*0.25 + pagA*0.2);
+  let bEng=(bOff*0.55 + papgA*0.25 + pagB*0.2);
 
-  let aEng=calcTeamEng(aOff, pagA, papgB, paceA);
-  let bEng=calcTeamEng(bOff, pagB, papgA, paceB);
-
-  // Full Game Engine
+  // Full Game FT Engine
   let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  let ftEng=((aOff+bOff)*0.6 + ((pagA||0)+(pagB||0))*0.2 + ((papgA||0)+(papgB||0))*0.15 + ((paceA||0)+(paceB||0))*0.05);
+  let ftEng=(ftBase*0.6 + (papgA+papgB)*0.25 + (pagA+pagB)*0.15);
 
-  // 1H Engine
+  // 1H derived from FT
   let h1Eng=ftEng*0.47;
-  if(use1H) h1Eng=0.65*h1Eng + 0.35*h2h1H;
+  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
-  // Prediction maker
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
-    if(Math.abs(edge)<4 || conf<70) return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
+
+    if(Math.abs(edge)<4 || conf<70)
+      return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
+
     if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
     else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
+
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
 
@@ -181,7 +156,7 @@ function runEngine(){
     make("Team B Total",bEng,bM,bL,bH)
   ];
 
-  // Lock icon logic
+  // Find the lock pick
   let lock=-1,max=0;
   picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw);lock=i;}});
   picks.forEach((p,i)=>{
@@ -195,7 +170,7 @@ function runEngine(){
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox") i.checked=false; else i.value="";});
+  document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
   results.style.display="none";
 }
 </script>
