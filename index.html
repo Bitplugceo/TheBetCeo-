@@ -74,13 +74,13 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section metrics">
   <h2>Team A Metrics</h2>
- <label>Team A PAG</label>
-  <input id="paceA">
+  <label>Team A PAG</label>
+  <input id="pagA">
   <label>Team A Points Allowed</label>
   <input id="papgA">
   <h2>Team B Metrics</h2>
- <label>Team B PAG</label>
-  <input id="paceB">
+  <label>Team B PAG</label>
+  <input id="pagB">
   <label>Team B Points Allowed</label>
   <input id="papgB">
 </div>
@@ -123,34 +123,44 @@ function runEngine(){
 
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
   let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-  let papgA=num("papgA"),papgB=num("papgB");
+  let pagA=num("pagA"),pagB=num("pagB"),papgA=num("papgA"),papgB=num("papgB");
 
   let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
-  let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
+  // Team offensive calculation with optional PAG/PAPG influence
+  let aOff = aAvg;
+  if(!isNaN(papgB) && !isNaN(pagA)) aOff = 0.5*aAvg + 0.3*papgB + 0.2*pagA;
+  else if(!isNaN(papgB)) aOff = 0.6*aAvg + 0.4*papgB;
+  else if(!isNaN(pagA)) aOff = 0.7*aAvg + 0.3*pagA;
+  if(useFT && !isNaN(h2hA)) aOff = 0.7*aAvg + 0.3*h2hA;
 
-  let aPagAdj = isNaN(pagA) ? aOff : (0.65 * aOff + 0.35 * pagA);
-let bPagAdj = isNaN(pagB) ? bOff : (0.65 * bOff + 0.35 * pagB);
+  let bOff = bAvg;
+  if(!isNaN(papgA) && !isNaN(pagB)) bOff = 0.5*bAvg + 0.3*papgA + 0.2*pagB;
+  else if(!isNaN(papgA)) bOff = 0.6*bAvg + 0.4*papgA;
+  else if(!isNaN(pagB)) bOff = 0.7*bAvg + 0.3*pagB;
+  if(useFT && !isNaN(h2hB)) bOff = 0.7*bAvg + 0.3*h2hB;
 
-let aEng = (aPagAdj * 0.55 + papgB * 0.45);
-let bEng = (bPagAdj * 0.55 + papgA * 0.45);
+  let aEng = aOff;
+  let bEng = bOff;
 
-let ftBase = useFT
-  ? (0.65 * (aAvg + bAvg) + 0.35 * (h2hA + h2hB))
-  : (aAvg + bAvg);
+  // FT total engine
+  let ftBase = aAvg + bAvg;
+  if(!isNaN(papgA) && !isNaN(papgB) && !isNaN(pagA) && !isNaN(pagB))
+      ftBase = 0.25*aAvg + 0.25*bAvg + 0.25*papgA + 0.25*papgB;
+  else if(!isNaN(papgA) && !isNaN(papgB)) ftBase = 0.4*aAvg + 0.4*bAvg + 0.1*papgA + 0.1*papgB;
+  else if(!isNaN(pagA) && !isNaN(pagB)) ftBase = 0.5*aAvg + 0.5*bAvg + 0.0*pagA + 0.0*pagB; 
+  if(useFT && !isNaN(h2hA) && !isNaN(h2hB)) ftBase = 0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB);
 
-let ftPagAdj = (isNaN(pagA) || isNaN(pagB))
-  ? ftBase
-  : (0.65 * ftBase + 0.35 * (pagA + pagB));
+  let ftEng = ftBase;
 
-let ftEng = (ftPagAdj * 0.6 + (papgA + papgB) * 0.4);
-
+  // 1H engine
   let h1Eng=ftEng*0.47;
-  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
+  if(use1H && !isNaN(h2h1H)) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
+
+    if(isNaN(eng)) return {name, eng:"NaN", edge:"NaN", pred:"NO PLAY", conf:0, raw:0};
 
     if(Math.abs(edge)<4 || conf<70)
       return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
