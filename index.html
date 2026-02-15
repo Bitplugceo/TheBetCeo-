@@ -19,12 +19,12 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
-#results { width:100%; border-collapse:collapse; font-size:12px; }
+#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
 #results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock{ font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
+.lock { font-size:10px; margin-left:4px; }
 </style>
 </head>
 
@@ -33,59 +33,50 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <h1>🏀 Basketball Prediction Engine</h1>
 
 <div class="section">
-  <h2>Market Lines</h2>
-  <label>FT Total Market (150.5 - 180.5)</label>
-  <input id="ftMarket">
-  <label>1H Total Market (75.5 - 95.5)</label>
-  <input id="h1Market">
-  <label>Team A Total Market</label>
-  <input id="teamAMarket">
-  <label>Team B Total Market</label>
-  <input id="teamBMarket">
+<h2>Market Lines</h2>
+<label>FT Total Market (150.5 - 180.5)</label>
+<input id="ftMarket">
+<label>1H Total Market (75.5 - 95.5)</label>
+<input id="h1Market">
+<label>Team A Total Market</label>
+<input id="teamAMarket">
+<label>Team B Total Market</label>
+<input id="teamBMarket">
 </div>
 
 <div class="section">
-  <h2>Team Scoring</h2>
-  <label>Team A Last 5</label>
-  <input id="teamAAvg" placeholder="80,70,68,50,75">
-  <label>Team B Last 5</label>
-  <input id="teamBAvg" placeholder="78,82,74,69,85">
+<h2>Team Scoring</h2>
+<label>Team A Last 5</label>
+<input id="teamAAvg" placeholder="80,70,68,50,75">
+<label>Team B Last 5</label>
+<input id="teamBAvg" placeholder="78,82,74,69,85">
 </div>
 
 <div class="section">
-  <h2>Head to Head (Optional)</h2>
-  <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-  <input id="h2hA" placeholder="Team A H2H FT Avg">
-  <input id="h2hB" placeholder="Team B H2H FT Avg">
-  <label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-  <input id="h2h1H" placeholder="1H H2H Avg Total">
+<h2>Head to Head (Optional)</h2>
+<label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
+<input id="h2hA" placeholder="Team A H2H FT Avg">
+<input id="h2hB" placeholder="Team B H2H FT Avg">
+<label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
+<input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
 <div class="section">
-  <h2>Team A Metrics</h2>
-  <label>Team A PAPG</label>
-  <input id="papgA">
-  <h2>Team B Metrics</h2>
-  <label>Team B PAPG</label>
-  <input id="papgB">
+<h2>Team A Metrics</h2>
+<label>Team A PAPG</label>
+<input id="papgA">
+<h2>Team B Metrics</h2>
+<label>Team B PAPG</label>
+<input id="papgB">
 </div>
 
 <div class="buttons">
-  <button class="btn" onclick="runEngine()">Run</button>
-  <button class="btn" onclick="clearAll()">Clear</button>
+<button class="btn" onclick="runEngine()">Run</button>
+<button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
 <div class="table-wrap">
-<table id="results">
-<tr>
-<th>Pick</th>
-<th>Proj</th>
-<th>Range</th>
-<th>Edge</th>
-<th>Prediction</th>
-<th>Conf%</th>
-</tr>
-</table>
+<table id="results"></table>
 </div>
 </div>
 
@@ -117,15 +108,18 @@ function stdDev(arr){
 }
 
 function mid(r){
-  if(!r||!r.includes("-"))return NaN;
-  let[a,b]=r.split("-").map(Number);
+  if(!r||!r.includes("-")) return NaN;
+  let p=r.split("-");
+  let a=parseFloat(p[0]);
+  let b=parseFloat(p[1]);
+  if(isNaN(a)||isNaN(b)) return NaN;
   return (a+b)/2;
 }
 
 function confidence(edge,vol){
-  if(!vol||isNaN(vol)) return 0;
+  if(isNaN(edge)||isNaN(vol)||vol===0) return 0;
   let strength=Math.abs(edge)/vol;
-  return Math.min(92,Math.round(60 + strength*20));
+  return Math.min(92,Math.round(60+strength*20));
 }
 
 function generateLines(low,high){
@@ -136,14 +130,14 @@ function generateLines(low,high){
   return arr;
 }
 
-function bestLine(proj,vol,low,high,isOver){
+function selectLine(proj,vol,low,high,isOver){
   if(isNaN(proj)||isNaN(vol)||isNaN(low)||isNaN(high)) return null;
   let lines=generateLines(low,high);
   if(isOver){
     let safe=proj-vol;
     let valid=lines.filter(x=>x<=safe);
     return valid.length?Math.max(...valid).toFixed(1):null;
-  } else {
+  }else{
     let safe=proj+vol;
     let valid=lines.filter(x=>x>=safe);
     return valid.length?Math.min(...valid).toFixed(1):null;
@@ -152,8 +146,18 @@ function bestLine(proj,vol,low,high,isOver){
 
 function runEngine(){
 
-  const table=document.getElementById("results");
-  table.innerHTML=table.rows[0].outerHTML;
+  let table=document.getElementById("results");
+  table.style.display="table";
+
+  table.innerHTML=`
+  <tr>
+  <th>Pick</th>
+  <th>Proj</th>
+  <th>Range</th>
+  <th>Edge</th>
+  <th>Prediction</th>
+  <th>Conf%</th>
+  </tr>`;
 
   let a=parseList("teamAAvg");
   let b=parseList("teamBAvg");
@@ -166,16 +170,14 @@ function runEngine(){
   let combinedVol=(!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
 
   let papgA=parseFloat(document.getElementById("papgA").value)||0;
-let papgB=parseFloat(document.getElementById("papgB").value)||0;
-
+  let papgB=parseFloat(document.getElementById("papgB").value)||0;
 
   if(!isNaN(aMean)) aMean=aMean*0.7+papgB*0.3;
   if(!isNaN(bMean)) bMean=bMean*0.7+papgA*0.3;
 
-  if(useH2HFT.checked){
+  if(document.getElementById("useH2HFT").checked){
     let h2hA=parseFloat(document.getElementById("h2hA").value)||0;
-let h2hB=parseFloat(document.getElementById("h2hB").value)||0;
-
+    let h2hB=parseFloat(document.getElementById("h2hB").value)||0;
     if(!isNaN(aMean)) aMean=aMean*0.8+h2hA*0.2;
     if(!isNaN(bMean)) bMean=bMean*0.8+h2hB*0.2;
   }
@@ -183,32 +185,40 @@ let h2hB=parseFloat(document.getElementById("h2hB").value)||0;
   let ftProj=(!isNaN(aMean)&&!isNaN(bMean))?aMean+bMean:NaN;
 
   let ratio=0.48;
-  if(useH2H1H.checked){
+  if(document.getElementById("useH2H1H").checked){
     let h1=parseFloat(document.getElementById("h2h1H").value);
-
-    if(!isNaN(h1)&&!isNaN(ftProj)) ratio=h1/ftProj;
+    if(!isNaN(h1)&&!isNaN(ftProj)&&ftProj!==0){
+      ratio=h1/ftProj;
+    }
   }
+
   let h1Proj=!isNaN(ftProj)?ftProj*ratio:NaN;
 
   function addRow(name,proj,market,vol,priority){
+
     let m=mid(market);
     let edge=!isNaN(proj)&&!isNaN(m)?proj-m:NaN;
     let conf=confidence(edge,vol);
     let pred="NO PLAY";
 
     if(conf>=PLAYABLE&&!isNaN(edge)){
-      let [low,high]=market.split("-").map(Number);
-      let line=bestLine(proj,vol,low,high,edge>0);
+      let p=market.split("-");
+      let low=parseFloat(p[0]);
+      let high=parseFloat(p[1]);
+      let line=selectLine(proj,vol,low,high,edge>0);
       if(line){
         pred=(edge>0?"OVER ":"UNDER ")+line;
-      } else conf=0;
+      }else{
+        conf=0;
+      }
     }
 
     let rangeLow=!isNaN(proj)&&!isNaN(vol)?(proj-vol).toFixed(1):"NaN";
     let rangeHigh=!isNaN(proj)&&!isNaN(vol)?(proj+vol).toFixed(1):"NaN";
 
     let row=table.insertRow();
-    row.innerHTML=`<td>${name}</td>
+    row.innerHTML=`
+    <td>${name}</td>
     <td>${isNaN(proj)?"NaN":proj.toFixed(1)}</td>
     <td>${rangeLow}-${rangeHigh}</td>
     <td>${isNaN(edge)?"NaN":edge.toFixed(1)}</td>
@@ -219,10 +229,10 @@ let h2hB=parseFloat(document.getElementById("h2hB").value)||0;
   }
 
   let results=[];
-  results.push(addRow("FT Total",ftProj,ftMarket.value,combinedVol,1));
-  results.push(addRow("Team A Total",aMean,teamAMarket.value,aVol,2));
-  results.push(addRow("Team B Total",bMean,teamBMarket.value,bVol,2));
-  results.push(addRow("1H Total",h1Proj,h1Market.value,combinedVol*0.6,3));
+  results.push(addRow("FT Total",ftProj,document.getElementById("ftMarket").value,combinedVol,1));
+  results.push(addRow("Team A Total",aMean,document.getElementById("teamAMarket").value,aVol,2));
+  results.push(addRow("Team B Total",bMean,document.getElementById("teamBMarket").value,bVol,2));
+  results.push(addRow("1H Total",h1Proj,document.getElementById("h1Market").value,combinedVol*0.6,3));
 
   let valid=results.filter(x=>x.conf>=PLAYABLE&&x.pred!=="NO PLAY");
 
@@ -246,15 +256,7 @@ function clearAll(){
     if(i.type==="checkbox") i.checked=false;
     else i.value="";
   });
-  document.getElementById("results").innerHTML=
-  `<tr>
-  <th>Pick</th>
-  <th>Proj</th>
-  <th>Range</th>
-  <th>Edge</th>
-  <th>Prediction</th>
-  <th>Conf%</th>
-  </tr>`;
+  document.getElementById("results").style.display="none";
 }
 
 </script>
