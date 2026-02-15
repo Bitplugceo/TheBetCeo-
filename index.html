@@ -165,15 +165,17 @@ function runEngine(){
   let bVol=stdDev(b);
   let combinedVol=(!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
 
-  let papgA=parseFloat(papgA.value)||0;
-  let papgB=parseFloat(papgB.value)||0;
+  let papgA=parseFloat(document.getElementById("papgA").value)||0;
+let papgB=parseFloat(document.getElementById("papgB").value)||0;
+
 
   if(!isNaN(aMean)) aMean=aMean*0.7+papgB*0.3;
   if(!isNaN(bMean)) bMean=bMean*0.7+papgA*0.3;
 
   if(useH2HFT.checked){
-    let h2hA=parseFloat(h2hA.value)||0;
-    let h2hB=parseFloat(h2hB.value)||0;
+    let h2hA=parseFloat(document.getElementById("h2hA").value)||0;
+let h2hB=parseFloat(document.getElementById("h2hB").value)||0;
+
     if(!isNaN(aMean)) aMean=aMean*0.8+h2hA*0.2;
     if(!isNaN(bMean)) bMean=bMean*0.8+h2hB*0.2;
   }
@@ -182,7 +184,8 @@ function runEngine(){
 
   let ratio=0.48;
   if(useH2H1H.checked){
-    let h1=parseFloat(h2h1H.value);
+    let h1=parseFloat(document.getElementById("h2h1H").value);
+
     if(!isNaN(h1)&&!isNaN(ftProj)) ratio=h1/ftProj;
   }
   let h1Proj=!isNaN(ftProj)?ftProj*ratio:NaN;
