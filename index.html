@@ -35,9 +35,9 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section">
   <h2>Market Lines</h2>
-  <label>FT Total Market (150.5 - 160.5)</label>
+  <label>FT Total Market (150.5 - 180.5)</label>
   <input id="ftMarket">
-  <label>1H Total Market (75.5 - 85.5)</label>
+  <label>1H Total Market (75.5 - 95.5)</label>
   <input id="h1Market">
   <label>Team A Total Market</label>
   <input id="teamAMarket">
@@ -82,6 +82,9 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <script>
+
+const PLAYABLE_THRESHOLD = 75;
+
 function parseList(id){
   let raw=document.getElementById(id).value;
   if(!raw) return [];
@@ -90,12 +93,12 @@ function parseList(id){
 
 function weightedMean(arr){
   let weights=[0.30,0.25,0.20,0.15,0.10];
-  let sum=0, wsum=0;
+  let sum=0,wsum=0;
   for(let i=0;i<arr.length && i<5;i++){
     sum+=arr[i]*weights[i];
     wsum+=weights[i];
   }
-  return wsum ? sum/wsum : NaN;
+  return wsum?sum/wsum:NaN;
 }
 
 function stdDev(arr){
@@ -112,9 +115,34 @@ function mid(r){
 }
 
 function confidence(edge,vol){
-  if(!vol || isNaN(vol)) return 0;
+  if(!vol||isNaN(vol)) return 0;
   let strength=Math.abs(edge)/vol;
   return Math.min(92,Math.round(60 + strength*20));
+}
+
+function generateLines(low,high){
+  let lines=[];
+  for(let l=low;l<=high;l+=1){
+    lines.push(parseFloat(l.toFixed(1)));
+  }
+  return lines;
+}
+
+function selectLine(proj,vol,low,high,isOver){
+  if(isNaN(proj)||isNaN(vol)||isNaN(low)||isNaN(high)) return null;
+  let lines=generateLines(low,high);
+
+  if(isOver){
+    let safe=proj-vol;
+    let valid=lines.filter(l=>l<=safe);
+    if(valid.length===0) return null;
+    return Math.max(...valid).toFixed(1);
+  } else {
+    let safe=proj+vol;
+    let valid=lines.filter(l=>l>=safe);
+    if(valid.length===0) return null;
+    return Math.min(...valid).toFixed(1);
+  }
 }
 
 function runEngine(){
@@ -123,8 +151,8 @@ function runEngine(){
   table.innerHTML=`<tr>
   <th>Pick</th>
   <th>Proj</th>
-  <th>Edge</th>
   <th>Range</th>
+  <th>Edge</th>
   <th>Prediction</th>
   <th>Conf%</th>
   </tr>`;
@@ -132,80 +160,88 @@ function runEngine(){
   let aList=parseList("teamAAvg");
   let bList=parseList("teamBAvg");
 
-  let aMean = weightedMean(aList);
-  let bMean = weightedMean(bList);
-  let aVol = stdDev(aList);
-  let bVol = stdDev(bList);
+  let aMean=weightedMean(aList);
+  let bMean=weightedMean(bList);
+  let aVol=stdDev(aList);
+  let bVol=stdDev(bList);
 
-  let combinedVol = (!isNaN(aVol) && !isNaN(bVol)) ? (aVol+bVol)/2 : NaN;
+  let papgA=parseFloat(papgA.value)||0;
+  let papgB=parseFloat(papgB.value)||0;
 
-  let papgA=parseFloat(document.getElementById("papgA").value);
-  let papgB=parseFloat(document.getElementById("papgB").value);
-
-  let ftProjection = (!isNaN(aMean) && !isNaN(bMean))
-    ? (aMean + bMean)*0.6 + ((papgA||0)+(papgB||0))*0.4
-    : NaN;
+  if(!isNaN(aMean)) aMean=aMean*0.7 + papgB*0.3;
+  if(!isNaN(bMean)) bMean=bMean*0.7 + papgA*0.3;
 
   if(useH2HFT.checked){
-    let h2hA=parseFloat(document.getElementById("h2hA").value)||0;
-    let h2hB=parseFloat(document.getElementById("h2hB").value)||0;
-    if(!isNaN(ftProjection))
-      ftProjection=ftProjection*0.8 + (h2hA+h2hB)*0.2;
+    let h2hA=parseFloat(h2hA.value)||0;
+    let h2hB=parseFloat(h2hB.value)||0;
+    if(!isNaN(aMean)) aMean=aMean*0.8 + h2hA*0.2;
+    if(!isNaN(bMean)) bMean=bMean*0.8 + h2hB*0.2;
   }
 
-  let h1Ratio = (!isNaN(combinedVol) && combinedVol>8) ? 0.46 : 0.48;
+  let ftProj = (!isNaN(aMean)&&!isNaN(bMean))?aMean+bMean:NaN;
+  let combinedVol = (!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
 
+  let h1Ratio=0.48;
   if(useH2H1H.checked){
-    let h2h1H=parseFloat(document.getElementById("h2h1H").value);
-    if(!isNaN(h2h1H) && !isNaN(ftProjection))
-      h1Ratio=h2h1H/ftProjection;
+    let h2h1H=parseFloat(h2h1H.value);
+    if(!isNaN(h2h1H)&&!isNaN(ftProj)){
+      h1Ratio=h2h1H/ftProj;
+    }
   }
+  let h1Proj=!isNaN(ftProj)?ftProj*h1Ratio:NaN;
 
-  let h1Projection = !isNaN(ftProjection) ? ftProjection*h1Ratio : NaN;
-
-  function make(name,proj,mktStr,vol){
+  function evaluate(name,proj,mktStr,vol,priority){
     let mkt=mid(mktStr);
-    let edge = (!isNaN(proj) && !isNaN(mkt)) ? proj-mkt : NaN;
+    let edge=!isNaN(proj)&&!isNaN(mkt)?proj-mkt:NaN;
+    let conf=confidence(edge,vol);
     let pred="NO PLAY";
-    let conf=0;
 
-    if(!isNaN(edge) && !isNaN(vol)){
-      let [low,high]=(mktStr||"").split("-").map(x=>parseFloat(x));
-      if(edge>0 && !isNaN(low) && (proj-low)>=vol){
-        pred="OVER "+low.toFixed(1);
-        conf=confidence(edge,vol);
-      }
-      else if(edge<0 && !isNaN(high) && (high-proj)>=vol){
-        pred="UNDER "+high.toFixed(1);
-        conf=confidence(edge,vol);
+    let line=null;
+    if(conf>=PLAYABLE_THRESHOLD && !isNaN(edge)){
+      let [low,high]=mktStr.split("-").map(x=>parseFloat(x));
+      line=selectLine(proj,vol,low,high,edge>0);
+      if(line){
+        pred=(edge>0?"OVER ":"UNDER ")+line;
+      } else {
+        conf=0;
       }
     }
 
-    let rangeLow = (!isNaN(proj)&&!isNaN(vol)) ? (proj-vol).toFixed(1) : "NaN";
-    let rangeHigh = (!isNaN(proj)&&!isNaN(vol)) ? (proj+vol).toFixed(1) : "NaN";
+    let rangeLow=!isNaN(proj)&&!isNaN(vol)?(proj-vol).toFixed(1):"NaN";
+    let rangeHigh=!isNaN(proj)&&!isNaN(vol)?(proj+vol).toFixed(1):"NaN";
 
     let row=table.insertRow();
     row.innerHTML=`<td>${name}</td>
-                   <td>${isNaN(proj)?"NaN":proj.toFixed(1)}</td>
-                   <td>${isNaN(edge)?"NaN":edge.toFixed(1)}</td>
-                   <td>${rangeLow}-${rangeHigh}</td>
-                   <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
-                   <td>${conf}%</td>`;
-    return (!isNaN(edge)&&!isNaN(vol)) ? Math.abs(edge)/vol : 0;
+    <td>${isNaN(proj)?"NaN":proj.toFixed(1)}</td>
+    <td>${rangeLow}-${rangeHigh}</td>
+    <td>${isNaN(edge)?"NaN":edge.toFixed(1)}</td>
+    <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
+    <td>${conf}%</td>`;
+
+    return {conf:conf,edge:edge,name:name,priority:priority,pred:pred};
   }
 
-  let strengths=[
-    make("FT Total",ftProjection,ftMarket.value,combinedVol),
-    make("1H Total",h1Projection,h1Market.value,combinedVol*0.6),
-    make("Team A Total",aMean,teamAMarket.value,aVol),
-    make("Team B Total",bMean,teamBMarket.value,bVol)
-  ];
+  let results=[];
+  results.push(evaluate("FT Total",ftProj,ftMarket.value,combinedVol,1));
+  results.push(evaluate("Team A Total",aMean,teamAMarket.value,aVol,2));
+  results.push(evaluate("Team B Total",bMean,teamBMarket.value,bVol,2));
+  results.push(evaluate("1H Total",h1Proj,h1Market.value,combinedVol*0.6,3));
 
-  let maxStrength=Math.max(...strengths);
-  let lockIndex=strengths.indexOf(maxStrength);
+  let valid=results.filter(r=>r.conf>=PLAYABLE_THRESHOLD && r.pred!=="NO PLAY");
 
-  if(lockIndex>=0 && table.rows[lockIndex+1]){
-    table.rows[lockIndex+1].cells[4].innerHTML+=" <span class='lock'>🔒</span>";
+  if(valid.length>0){
+    valid.sort((a,b)=>{
+      if(b.conf!==a.conf) return b.conf-a.conf;
+      if(Math.abs(b.edge)!==Math.abs(a.edge)) return Math.abs(b.edge)-Math.abs(a.edge);
+      return a.priority-b.priority;
+    });
+    let lockName=valid[0].name;
+    for(let i=1;i<table.rows.length;i++){
+      if(table.rows[i].cells[0].innerText===lockName){
+        table.rows[i].cells[4].innerHTML+=" <span class='lock'>🔒</span>";
+        break;
+      }
+    }
   }
 }
 
@@ -216,6 +252,7 @@ function clearAll(){
   });
   document.getElementById("results").style.display="none";
 }
+
 </script>
 </body>
 </html>
