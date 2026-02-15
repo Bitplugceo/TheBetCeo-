@@ -174,30 +174,36 @@ function runEngine(){
   let bVol=stdDev(bList);
   let combinedVol=(!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
 
-  let papgA=parseFloat(document.getElementById("papgA").value)||0;
-  let papgB=parseFloat(document.getElementById("papgB").value)||0;
+  let papgA=parseFloat(document.getElementById("papgA").value);
+  let papgB=parseFloat(document.getElementById("papgB").value);
 
   if(!isNaN(aMean) && !isNaN(papgB)){
-  aMean = aMean*0.7 + papgB*0.3;
-}
+    aMean = aMean*0.7 + papgB*0.3;
+  }
 
-if(!isNaN(bMean) && !isNaN(papgA)){
-  bMean = bMean*0.7 + papgA*0.3;
-}
-
+  if(!isNaN(bMean) && !isNaN(papgA)){
+    bMean = bMean*0.7 + papgA*0.3;
+  }
 
   if(document.getElementById("useH2HFT").checked){
     let h2hAList=parseList("h2hA");
     let h2hBList=parseList("h2hB");
     let h2hAMean=weightedMean(h2hAList);
     let h2hBMean=weightedMean(h2hBList);
-    if(!isNaN(aMean)&&!isNaN(h2hAMean)) aMean=aMean*0.8+h2hAMean*0.2;
-    if(!isNaN(bMean)&&!isNaN(h2hBMean)) bMean=bMean*0.8+h2hBMean*0.2;
+
+    if(!isNaN(aMean)&&!isNaN(h2hAMean)){
+      aMean = aMean*0.8 + h2hAMean*0.2;
+    }
+
+    if(!isNaN(bMean)&&!isNaN(h2hBMean)){
+      bMean = bMean*0.8 + h2hBMean*0.2;
+    }
   }
 
   let ftProj=(!isNaN(aMean)&&!isNaN(bMean))?aMean+bMean:NaN;
 
   let ratio=0.48;
+
   if(document.getElementById("useH2H1H").checked){
     let h1List=parseList("h2h1H");
     let h1Mean=weightedMean(h1List);
@@ -239,33 +245,11 @@ if(!isNaN(bMean) && !isNaN(papgA)){
   }
 
   let results=[];
-  results.push(addRow("FT Total",
-  ftProj,
-  document.getElementById("ftMarket").value,
-  combinedVol,
-  1
-));
 
-results.push(addRow("1H Total",
-  h1Proj,
-  document.getElementById("h1Market").value,
-  combinedVol*0.6,
-  3
-));
-
-results.push(addRow("Team A Total",
-  aMean,
-  document.getElementById("teamAMarket").value,
-  aVol,
-  2
-));
-
-results.push(addRow("Team B Total",
-  bMean,
-  document.getElementById("teamBMarket").value,
-  bVol,
-  2
-));
+  results.push(addRow("FT Total",ftProj,document.getElementById("ftMarket").value,combinedVol,1));
+  results.push(addRow("1H Total",h1Proj,document.getElementById("h1Market").value,combinedVol*0.6,3));
+  results.push(addRow("Team A Total",aMean,document.getElementById("teamAMarket").value,aVol,2));
+  results.push(addRow("Team B Total",bMean,document.getElementById("teamBMarket").value,bVol,2));
 
   let valid=results.filter(x=>x.conf>=PLAYABLE&&x.pred!=="NO PLAY");
 
