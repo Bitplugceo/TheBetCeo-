@@ -16,11 +16,10 @@ h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
 input[type="checkbox"] { width:auto; margin-right:6px; }
-.metrics { display:block; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
-#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
+#results { width:100%; border-collapse:collapse; font-size:12px; }
 #results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
@@ -62,7 +61,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
-<div class="section metrics">
+<div class="section">
   <h2>Team A Metrics</h2>
   <label>Team A PAPG</label>
   <input id="papgA">
@@ -77,13 +76,22 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <div class="table-wrap">
-<table id="results"></table>
+<table id="results">
+<tr>
+<th>Pick</th>
+<th>Proj</th>
+<th>Range</th>
+<th>Edge</th>
+<th>Prediction</th>
+<th>Conf%</th>
+</tr>
+</table>
 </div>
 </div>
 
 <script>
 
-const PLAYABLE_THRESHOLD = 75;
+const PLAYABLE = 75;
 
 function parseList(id){
   let raw=document.getElementById(id).value;
@@ -92,13 +100,13 @@ function parseList(id){
 }
 
 function weightedMean(arr){
-  let weights=[0.30,0.25,0.20,0.15,0.10];
-  let sum=0,wsum=0;
-  for(let i=0;i<arr.length && i<5;i++){
-    sum+=arr[i]*weights[i];
-    wsum+=weights[i];
+  let w=[0.30,0.25,0.20,0.15,0.10];
+  let sum=0,total=0;
+  for(let i=0;i<arr.length&&i<5;i++){
+    sum+=arr[i]*w[i];
+    total+=w[i];
   }
-  return wsum?sum/wsum:NaN;
+  return total?sum/total:NaN;
 }
 
 function stdDev(arr){
@@ -110,7 +118,7 @@ function stdDev(arr){
 
 function mid(r){
   if(!r||!r.includes("-"))return NaN;
-  let[a,b]=r.split("-").map(x=>parseFloat(x));
+  let[a,b]=r.split("-").map(Number);
   return (a+b)/2;
 }
 
@@ -121,90 +129,76 @@ function confidence(edge,vol){
 }
 
 function generateLines(low,high){
-  let lines=[];
+  let arr=[];
   for(let l=low;l<=high;l+=1){
-    lines.push(parseFloat(l.toFixed(1)));
+    arr.push(parseFloat(l.toFixed(1)));
   }
-  return lines;
+  return arr;
 }
 
-function selectLine(proj,vol,low,high,isOver){
+function bestLine(proj,vol,low,high,isOver){
   if(isNaN(proj)||isNaN(vol)||isNaN(low)||isNaN(high)) return null;
   let lines=generateLines(low,high);
-
   if(isOver){
     let safe=proj-vol;
-    let valid=lines.filter(l=>l<=safe);
-    if(valid.length===0) return null;
-    return Math.max(...valid).toFixed(1);
+    let valid=lines.filter(x=>x<=safe);
+    return valid.length?Math.max(...valid).toFixed(1):null;
   } else {
     let safe=proj+vol;
-    let valid=lines.filter(l=>l>=safe);
-    if(valid.length===0) return null;
-    return Math.min(...valid).toFixed(1);
+    let valid=lines.filter(x=>x>=safe);
+    return valid.length?Math.min(...valid).toFixed(1):null;
   }
 }
 
 function runEngine(){
+
   const table=document.getElementById("results");
-  table.style.display="table";
-  table.innerHTML=`<tr>
-  <th>Pick</th>
-  <th>Proj</th>
-  <th>Range</th>
-  <th>Edge</th>
-  <th>Prediction</th>
-  <th>Conf%</th>
-  </tr>`;
+  table.innerHTML=table.rows[0].outerHTML;
 
-  let aList=parseList("teamAAvg");
-  let bList=parseList("teamBAvg");
+  let a=parseList("teamAAvg");
+  let b=parseList("teamBAvg");
 
-  let aMean=weightedMean(aList);
-  let bMean=weightedMean(bList);
-  let aVol=stdDev(aList);
-  let bVol=stdDev(bList);
+  let aMean=weightedMean(a);
+  let bMean=weightedMean(b);
+
+  let aVol=stdDev(a);
+  let bVol=stdDev(b);
+  let combinedVol=(!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
 
   let papgA=parseFloat(papgA.value)||0;
   let papgB=parseFloat(papgB.value)||0;
 
-  if(!isNaN(aMean)) aMean=aMean*0.7 + papgB*0.3;
-  if(!isNaN(bMean)) bMean=bMean*0.7 + papgA*0.3;
+  if(!isNaN(aMean)) aMean=aMean*0.7+papgB*0.3;
+  if(!isNaN(bMean)) bMean=bMean*0.7+papgA*0.3;
 
   if(useH2HFT.checked){
     let h2hA=parseFloat(h2hA.value)||0;
     let h2hB=parseFloat(h2hB.value)||0;
-    if(!isNaN(aMean)) aMean=aMean*0.8 + h2hA*0.2;
-    if(!isNaN(bMean)) bMean=bMean*0.8 + h2hB*0.2;
+    if(!isNaN(aMean)) aMean=aMean*0.8+h2hA*0.2;
+    if(!isNaN(bMean)) bMean=bMean*0.8+h2hB*0.2;
   }
 
-  let ftProj = (!isNaN(aMean)&&!isNaN(bMean))?aMean+bMean:NaN;
-  let combinedVol = (!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
+  let ftProj=(!isNaN(aMean)&&!isNaN(bMean))?aMean+bMean:NaN;
 
-  let h1Ratio=0.48;
+  let ratio=0.48;
   if(useH2H1H.checked){
-    let h2h1H=parseFloat(h2h1H.value);
-    if(!isNaN(h2h1H)&&!isNaN(ftProj)){
-      h1Ratio=h2h1H/ftProj;
-    }
+    let h1=parseFloat(h2h1H.value);
+    if(!isNaN(h1)&&!isNaN(ftProj)) ratio=h1/ftProj;
   }
-  let h1Proj=!isNaN(ftProj)?ftProj*h1Ratio:NaN;
+  let h1Proj=!isNaN(ftProj)?ftProj*ratio:NaN;
 
-  function evaluate(name,proj,mktStr,vol,priority){
-    let mkt=mid(mktStr);
-    let edge=!isNaN(proj)&&!isNaN(mkt)?proj-mkt:NaN;
+  function addRow(name,proj,market,vol,priority){
+    let m=mid(market);
+    let edge=!isNaN(proj)&&!isNaN(m)?proj-m:NaN;
     let conf=confidence(edge,vol);
     let pred="NO PLAY";
 
-    let line=null;
-    if(conf>=PLAYABLE_THRESHOLD && !isNaN(edge)){
-      let [low,high]=mktStr.split("-").map(x=>parseFloat(x));
-      line=selectLine(proj,vol,low,high,edge>0);
+    if(conf>=PLAYABLE&&!isNaN(edge)){
+      let [low,high]=market.split("-").map(Number);
+      let line=bestLine(proj,vol,low,high,edge>0);
       if(line){
         pred=(edge>0?"OVER ":"UNDER ")+line;
-      } else {
-        conf=0;
-      }
+      } else conf=0;
     }
 
     let rangeLow=!isNaN(proj)&&!isNaN(vol)?(proj-vol).toFixed(1):"NaN";
@@ -218,28 +212,27 @@ function runEngine(){
     <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
     <td>${conf}%</td>`;
 
-    return {conf:conf,edge:edge,name:name,priority:priority,pred:pred};
+    return {name,conf,edge,priority,pred};
   }
 
   let results=[];
-  results.push(evaluate("FT Total",ftProj,ftMarket.value,combinedVol,1));
-  results.push(evaluate("Team A Total",aMean,teamAMarket.value,aVol,2));
-  results.push(evaluate("Team B Total",bMean,teamBMarket.value,bVol,2));
-  results.push(evaluate("1H Total",h1Proj,h1Market.value,combinedVol*0.6,3));
+  results.push(addRow("FT Total",ftProj,ftMarket.value,combinedVol,1));
+  results.push(addRow("Team A Total",aMean,teamAMarket.value,aVol,2));
+  results.push(addRow("Team B Total",bMean,teamBMarket.value,bVol,2));
+  results.push(addRow("1H Total",h1Proj,h1Market.value,combinedVol*0.6,3));
 
-  let valid=results.filter(r=>r.conf>=PLAYABLE_THRESHOLD && r.pred!=="NO PLAY");
+  let valid=results.filter(x=>x.conf>=PLAYABLE&&x.pred!=="NO PLAY");
 
-  if(valid.length>0){
+  if(valid.length){
     valid.sort((a,b)=>{
       if(b.conf!==a.conf) return b.conf-a.conf;
       if(Math.abs(b.edge)!==Math.abs(a.edge)) return Math.abs(b.edge)-Math.abs(a.edge);
       return a.priority-b.priority;
     });
-    let lockName=valid[0].name;
+    let best=valid[0].name;
     for(let i=1;i<table.rows.length;i++){
-      if(table.rows[i].cells[0].innerText===lockName){
+      if(table.rows[i].cells[0].innerText===best){
         table.rows[i].cells[4].innerHTML+=" <span class='lock'>🔒</span>";
-        break;
       }
     }
   }
@@ -250,7 +243,15 @@ function clearAll(){
     if(i.type==="checkbox") i.checked=false;
     else i.value="";
   });
-  document.getElementById("results").style.display="none";
+  document.getElementById("results").innerHTML=
+  `<tr>
+  <th>Pick</th>
+  <th>Proj</th>
+  <th>Range</th>
+  <th>Edge</th>
+  <th>Prediction</th>
+  <th>Conf%</th>
+  </tr>`;
 }
 
 </script>
