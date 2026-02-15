@@ -15,6 +15,16 @@ h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section h2 { font-size:14px; margin-bottom:6px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
+select {
+  width:240px;
+  max-width:90%;
+  padding:5px 6px;
+  font-size:12px;
+  background:#262626;
+  color:#d4af37;
+  border:1px solid #d4af37;
+  margin:4px 0 8px 0;
+}
 input[type="checkbox"] { width:auto; margin-right:6px; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
@@ -40,6 +50,25 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section">
 <h2>Market Lines</h2>
+  <div class="section">
+<h2>Market Lines</h2>
+
+<label>Select League</label>
+<select id="league">
+  <option value="NBA">NBA</option>
+  <option value="NCAA">NCAA</option>
+  <option value="EuroLeague">EuroLeague</option>
+  <option value="EuroCup">EuroCup</option>
+  <option value="VTB">VTB</option>
+  <option value="ACB">Spain ACB</option>
+  <option value="ABA">Liga ABA</option>
+  <option value="Italy">Italy Serie A</option>
+  <option value="France">France Pro A</option>
+  <option value="Germany">Germany BBL</option>
+  <option value="Turkey">Turkey BSL</option>
+  <option value="Greece">Greece A1</option>
+  <option value="Other">Other</option>
+</select>
 <label>FT Total Market (150.5 - 180.5)</label>
 <input id="ftMarket">
 <label>1H Total Market (75.5 - 95.5)</label>
@@ -173,6 +202,34 @@ function runEngine(){
   let aVol=stdDev(aList);
   let bVol=stdDev(bList);
   let combinedVol=(!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
+let league = document.getElementById("league").value;
+let volMultiplier = 1.0;
+
+switch(league){
+  case "NBA": volMultiplier = 1.15; break;
+  case "NCAA": volMultiplier = 1.10; break;
+  case "EuroLeague": volMultiplier = 0.95; break;
+  case "EuroCup": volMultiplier = 0.97; break;
+  case "VTB": volMultiplier = 1.00; break;
+  case "ACB": volMultiplier = 1.00; break;
+  case "ABA": volMultiplier = 1.00; break;
+  case "Italy": volMultiplier = 1.02; break;
+  case "France": volMultiplier = 1.03; break;
+  case "Germany": volMultiplier = 1.02; break;
+  case "Turkey": volMultiplier = 1.03; break;
+  case "Greece": volMultiplier = 0.98; break;
+  case "Other": volMultiplier = 1.05; break;
+}
+
+if(!isNaN(combinedVol)){
+  combinedVol *= volMultiplier;
+}
+if(!isNaN(aVol)){
+  aVol *= volMultiplier;
+}
+if(!isNaN(bVol)){
+  bVol *= volMultiplier;
+}
 
   let papgA=parseFloat(document.getElementById("papgA").value);
   let papgB=parseFloat(document.getElementById("papgB").value);
