@@ -177,8 +177,14 @@ function runEngine(){
   let papgA=parseFloat(document.getElementById("papgA").value)||0;
   let papgB=parseFloat(document.getElementById("papgB").value)||0;
 
-  if(!isNaN(aMean)) aMean=aMean*0.7+papgB*0.3;
-  if(!isNaN(bMean)) bMean=bMean*0.7+papgA*0.3;
+  if(!isNaN(aMean) && !isNaN(papgB)){
+  aMean = aMean*0.7 + papgB*0.3;
+}
+
+if(!isNaN(bMean) && !isNaN(papgA)){
+  bMean = bMean*0.7 + papgA*0.3;
+}
+
 
   if(document.getElementById("useH2HFT").checked){
     let h2hAList=parseList("h2hA");
@@ -233,10 +239,33 @@ function runEngine(){
   }
 
   let results=[];
-  results.push(addRow("FT Total",ftProj,document.getElementById("ftMarket").value,combinedVol,1));
-  results.push(addRow("Team A Total",aMean,document.getElementById("teamAMarket").value,aVol,2));
-  results.push(addRow("Team B Total",bMean,document.getElementById("teamBMarket").value,bVol,2));
-  results.push(addRow("1H Total",h1Proj,document.getElementById("h1Market").value,combinedVol*0.6,3));
+  results.push(addRow("FT Total",
+  ftProj,
+  document.getElementById("ftMarket").value,
+  combinedVol,
+  1
+));
+
+results.push(addRow("1H Total",
+  h1Proj,
+  document.getElementById("h1Market").value,
+  combinedVol*0.6,
+  3
+));
+
+results.push(addRow("Team A Total",
+  aMean,
+  document.getElementById("teamAMarket").value,
+  aVol,
+  2
+));
+
+results.push(addRow("Team B Total",
+  bMean,
+  document.getElementById("teamBMarket").value,
+  bVol,
+  2
+));
 
   let valid=results.filter(x=>x.conf>=PLAYABLE&&x.pred!=="NO PLAY");
 
