@@ -51,7 +51,8 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <body>
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
-<label>Select League</label>
+<div class="section">
+  <label>Select League</label>
 <select id="league">
   <option value="NBA">NBA</option>
   <option value="NCAA">NCAA</option>
@@ -67,7 +68,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <option value="Greece">Greece A1</option>
   <option value="Other">Other</option>
 </select>
-<div class="section">
 <h2>Market Lines</h2>
 <label>FT Total Market (150.5 - 180.5)</label>
 <input id="ftMarket">
@@ -85,7 +85,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <label>Team B Last 5</label>
 <input id="teamBAvg" placeholder="78,82,74,69,85">
 </div>
-
 <div class="section">
 <h2>Head to Head (Optional)</h2>
 <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
