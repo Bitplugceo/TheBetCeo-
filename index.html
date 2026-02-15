@@ -24,7 +24,13 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock { font-size:10px; margin-left:4px; }
+.lock{
+  font-size:4px;
+  margin-left:2px;
+  display:inline-flex;
+  align-items:center;
+  transform:translateY(-2px);
+}
 </style>
 </head>
 
@@ -55,10 +61,10 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="section">
 <h2>Head to Head (Optional)</h2>
 <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-<input id="h2hA" placeholder="Team A H2H FT Avg">
-<input id="h2hB" placeholder="Team B H2H FT Avg">
+<input id="h2hA" placeholder="80,75,82,78">
+<input id="h2hB" placeholder="70,68,74,72">
 <label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-<input id="h2h1H" placeholder="1H H2H Avg Total">
+<input id="h2h1H" placeholder="75,80,78">
 </div>
 
 <div class="section">
@@ -153,20 +159,19 @@ function runEngine(){
   <tr>
   <th>Pick</th>
   <th>Proj</th>
-  <th>Range</th>
   <th>Edge</th>
   <th>Prediction</th>
   <th>Conf%</th>
   </tr>`;
 
-  let a=parseList("teamAAvg");
-  let b=parseList("teamBAvg");
+  let aList=parseList("teamAAvg");
+  let bList=parseList("teamBAvg");
 
-  let aMean=weightedMean(a);
-  let bMean=weightedMean(b);
+  let aMean=weightedMean(aList);
+  let bMean=weightedMean(bList);
 
-  let aVol=stdDev(a);
-  let bVol=stdDev(b);
+  let aVol=stdDev(aList);
+  let bVol=stdDev(bList);
   let combinedVol=(!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
 
   let papgA=parseFloat(document.getElementById("papgA").value)||0;
@@ -176,19 +181,22 @@ function runEngine(){
   if(!isNaN(bMean)) bMean=bMean*0.7+papgA*0.3;
 
   if(document.getElementById("useH2HFT").checked){
-    let h2hA=parseFloat(document.getElementById("h2hA").value)||0;
-    let h2hB=parseFloat(document.getElementById("h2hB").value)||0;
-    if(!isNaN(aMean)) aMean=aMean*0.8+h2hA*0.2;
-    if(!isNaN(bMean)) bMean=bMean*0.8+h2hB*0.2;
+    let h2hAList=parseList("h2hA");
+    let h2hBList=parseList("h2hB");
+    let h2hAMean=weightedMean(h2hAList);
+    let h2hBMean=weightedMean(h2hBList);
+    if(!isNaN(aMean)&&!isNaN(h2hAMean)) aMean=aMean*0.8+h2hAMean*0.2;
+    if(!isNaN(bMean)&&!isNaN(h2hBMean)) bMean=bMean*0.8+h2hBMean*0.2;
   }
 
   let ftProj=(!isNaN(aMean)&&!isNaN(bMean))?aMean+bMean:NaN;
 
   let ratio=0.48;
   if(document.getElementById("useH2H1H").checked){
-    let h1=parseFloat(document.getElementById("h2h1H").value);
-    if(!isNaN(h1)&&!isNaN(ftProj)&&ftProj!==0){
-      ratio=h1/ftProj;
+    let h1List=parseList("h2h1H");
+    let h1Mean=weightedMean(h1List);
+    if(!isNaN(h1Mean)&&!isNaN(ftProj)&&ftProj!==0){
+      ratio=h1Mean/ftProj;
     }
   }
 
@@ -213,14 +221,10 @@ function runEngine(){
       }
     }
 
-    let rangeLow=!isNaN(proj)&&!isNaN(vol)?(proj-vol).toFixed(1):"NaN";
-    let rangeHigh=!isNaN(proj)&&!isNaN(vol)?(proj+vol).toFixed(1):"NaN";
-
     let row=table.insertRow();
     row.innerHTML=`
     <td>${name}</td>
     <td>${isNaN(proj)?"NaN":proj.toFixed(1)}</td>
-    <td>${rangeLow}-${rangeHigh}</td>
     <td>${isNaN(edge)?"NaN":edge.toFixed(1)}</td>
     <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
     <td>${conf}%</td>`;
@@ -245,7 +249,7 @@ function runEngine(){
     let best=valid[0].name;
     for(let i=1;i<table.rows.length;i++){
       if(table.rows[i].cells[0].innerText===best){
-        table.rows[i].cells[4].innerHTML+=" <span class='lock'>🔒</span>";
+        table.rows[i].cells[3].innerHTML+=" <span class='lock'>🔒</span>";
       }
     }
   }
