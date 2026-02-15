@@ -74,10 +74,14 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section metrics">
   <h2>Team A Metrics</h2>
-  <label>PAPG</label>
+  <label>Team A Pace</label>
+  <input id="paceA">
+  <label>Team A Points Allowed</label>
   <input id="papgA">
   <h2>Team B Metrics</h2>
-  <label>PAPG</label>
+  <label>Team B Pace</label>
+  <input id="paceB">
+  <label>Team B Points Allowed</label>
   <input id="papgB">
 </div>
 
@@ -104,9 +108,6 @@ function num(id){let v=parseFloat(document.getElementById(id).value);return isNa
 function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 function confidence(e){if(isNaN(e))return 0;return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));}
-
-// Round to nearest 0.5
-function roundHalf(num){return Math.round(num*2)/2;}
 
 function runEngine(){
   const table=document.getElementById("results");
@@ -144,8 +145,8 @@ function runEngine(){
     if(Math.abs(edge)<4 || conf<70)
       return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
 
-    if(edge>0) pred="OVER "+roundHalf(clamp(mkt-3,low,high)).toFixed(1);
-    else pred="UNDER "+roundHalf(clamp(mkt+3,low,high)).toFixed(1);
+    if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
+    else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
 
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
