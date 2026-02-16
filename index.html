@@ -14,7 +14,7 @@
 
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
-.wrapper { max-width:720px; margin:auto; padding:12px 14px 40px; }
+.wrapper { max-width:760px; margin:auto; padding:12px 14px 40px; }
 h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
 .section h2 { font-size:14px; margin-bottom:6px; }
@@ -22,7 +22,7 @@ label { display:block; font-size:12px; margin:5px 0 2px; }
 
 input, select {
   width:240px;
-  max-width:90%;
+  max-width:95%;
   padding:5px 6px;
   font-size:12px;
   background:#262626;
@@ -45,8 +45,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
-.lock { font-size:10px; margin-left:4px; }
-
 </style>
 </head>
 
@@ -54,45 +52,69 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- LEAGUE SECTION -->
+<!-- LEAGUE -->
 <div class="section">
 <h2>League</h2>
 <select id="league">
+
 <optgroup label="USA">
-<option value="NBA">NBA</option>
-<option value="WNBA">WNBA</option>
-<option value="G_LEAGUE">NBA G League</option>
-<option value="NCAA_DI_M">NCAA Division I Men</option>
-<option value="NCAA_DI_W">NCAA Division I Women</option>
-<option value="NCAA_DII">NCAA Division II</option>
-<option value="NCAA_DIII">NCAA Division III</option>
-<option value="NAIA">NAIA</option>
+<option>NBA</option>
+<option>WNBA</option>
+<option>NBA G League</option>
+<option>NCAA Division I Men</option>
+<option>NCAA Division I Women</option>
+<option>NCAA Division II</option>
+<option>NCAA Division III</option>
+<option>NAIA</option>
+<option>NJCAA</option>
 </optgroup>
 
 <optgroup label="Europe">
-<option value="EUROLEAGUE">EuroLeague</option>
-<option value="EUROCUP">EuroCup</option>
-<option value="ACB">Spain ACB</option>
-<option value="LEB_GOLD">Spain LEB Gold</option>
-<option value="ITALY_A1">Italy Serie A1</option>
-<option value="ITALY_A2">Italy Serie A2</option>
-<option value="FRANCE_PRO_A">France Pro A</option>
-<option value="GERMANY_BBL">Germany BBL</option>
-<option value="VTB">VTB League</option>
+<option>EuroLeague</option>
+<option>EuroCup</option>
+<option>ABA League</option>
+<option>Spain ACB</option>
+<option>Spain LEB Gold</option>
+<option>Spain LEB Silver</option>
+<option>Italy Serie A1</option>
+<option>Italy Serie A2</option>
+<option>France Pro A</option>
+<option>France Pro B</option>
+<option>Germany BBL</option>
+<option>Germany Pro A</option>
+<option>Turkey BSL</option>
+<option>Greece A1</option>
+<option>Lithuania LKL</option>
+<option>Poland PLK</option>
+<option>Serbia KLS</option>
+<option>Adriatic ABA 2</option>
 </optgroup>
 
 <optgroup label="Asia">
-<option value="CBA">China CBA</option>
-<option value="KBL">Korea KBL</option>
-<option value="B_LEAGUE">Japan B League</option>
-<option value="PBA">Philippines PBA</option>
+<option>China CBA</option>
+<option>Korea KBL</option>
+<option>Japan B League</option>
+<option>Japan B2 League</option>
+<option>Philippines PBA</option>
+<option>ASEAN Basketball League</option>
+</optgroup>
+
+<optgroup label="Africa">
+<option>Basketball Africa League</option>
+<option>Nigeria Premier League</option>
+<option>South Africa League</option>
+<option>Egypt Super League</option>
 </optgroup>
 
 <optgroup label="International">
-<option value="FIBA_WC">FIBA World Cup</option>
-<option value="OLYMPICS">Olympics</option>
-<option value="EUROBASKET">EuroBasket</option>
+<option>FIBA World Cup</option>
+<option>Olympics</option>
+<option>EuroBasket</option>
+<option>AfroBasket</option>
+<option>FIBA AmeriCup</option>
+<option>FIBA Asia Cup</option>
 </optgroup>
+
 </select>
 </div>
 
@@ -119,20 +141,29 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <input id="teamBMarket">
 </div>
 
-<!-- TEAM STATS -->
+<!-- TEAM AVERAGES -->
 <div class="section">
-<h2>Team Stats</h2>
+<h2>Team Averages</h2>
 <label>Team A Avg Points</label>
 <input id="teamAAvg">
-<label>Team A Points Allowed</label>
-<input id="papgA">
-<label>Team A Pace</label>
-<input id="paceA">
-
 <label>Team B Avg Points</label>
 <input id="teamBAvg">
+</div>
+
+<!-- DEFENSE -->
+<div class="section">
+<h2>Defensive Metrics</h2>
+<label>Team A Points Allowed</label>
+<input id="papgA">
 <label>Team B Points Allowed</label>
 <input id="papgB">
+</div>
+
+<!-- PACE -->
+<div class="section">
+<h2>Pace</h2>
+<label>Team A Pace</label>
+<input id="paceA">
 <label>Team B Pace</label>
 <input id="paceB">
 </div>
@@ -167,24 +198,15 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <script>
 
-function num(id){
+function parseNum(id){
 let v=parseFloat(document.getElementById(id).value);
-return isNaN(v)?0:v;
+return isNaN(v)?NaN:v;
 }
 
-function mid(r){
-if(!r||!r.includes("-")) return 0;
-let[a,b]=r.split("-").map(x=>parseFloat(x));
-return(isNaN(a)||isNaN(b))?0:(a+b)/2;
-}
-
-function leagueParams(l){
-switch(l){
-case "NBA": return {home:2.5,var:0.075,half:0.5};
-case "EUROLEAGUE": return {home:2,var:0.07,half:0.5};
-case "NCAA_DI_M": return {home:3,var:0.085,half:0.5};
-default: return {home:2,var:0.08,half:0.5};
-}
+function mid(str){
+if(!str||!str.includes("-")) return NaN;
+let[a,b]=str.split("-").map(x=>parseFloat(x));
+return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;
 }
 
 function runEngine(){
@@ -194,46 +216,57 @@ table.innerHTML=`<tr>
 <th>Pick</th><th>Projection</th>
 <th>Edge</th><th>Prediction</th><th>Probability %</th></tr>`;
 
-let league=document.getElementById("league").value;
-let params=leagueParams(league);
-
 let ft=mid(ftMarket.value);
 let h1=mid(h1Market.value);
 let aM=mid(teamAMarket.value);
 let bM=mid(teamBMarket.value);
 
-let aAvg=num("teamAAvg");
-let bAvg=num("teamBAvg");
-let papgA=num("papgA");
-let papgB=num("papgB");
-let paceA=num("paceA");
-let paceB=num("paceB");
+let aAvg=parseNum("teamAAvg");
+let bAvg=parseNum("teamBAvg");
+let papgA=parseNum("papgA");
+let papgB=parseNum("papgB");
+let paceA=parseNum("paceA");
+let paceB=parseNum("paceB");
 
-let aEng=(aAvg+papgB)/2;
-let bEng=(bAvg+papgA)/2;
+if(isNaN(aAvg)||isNaN(bAvg)||isNaN(papgA)||isNaN(papgB)){
+table.innerHTML+=`<tr><td colspan="5">NaN</td></tr>`;
+return;
+}
 
-if(document.getElementById("homeTeam").value==="A") aEng+=params.home;
-else bEng+=params.home;
+let aProj=(aAvg+papgB)/2;
+let bProj=(bAvg+papgA)/2;
 
-let avgPace=(paceA+paceB)/2 || 100;
-let paceFactor=avgPace/100;
+if(document.getElementById("homeTeam").value==="A") aProj+=2;
+else bProj+=2;
 
-let ftEng=(aEng+bEng)*paceFactor;
+let avgPace=(!isNaN(paceA)&&!isNaN(paceB))?(paceA+paceB)/2:100;
+let ftProj=(aProj+bProj)*(avgPace/100);
 
 if(document.getElementById("useH2HFT").checked){
-ftEng=(ftEng+(num("h2hA")+num("h2hB")))/2;
+let hA=parseNum("h2hA");
+let hB=parseNum("h2hB");
+if(!isNaN(hA)&&!isNaN(hB)){
+ftProj=(ftProj+(hA+hB))/2;
+}
 }
 
-let h1Eng=ftEng*params.half;
+let h1Proj=ftProj*0.5;
 
 if(document.getElementById("useH2H1H").checked){
-h1Eng=(h1Eng+num("h2h1H"))/2;
+let h1H=parseNum("h2h1H");
+if(!isNaN(h1H)){
+h1Proj=(h1Proj+h1H)/2;
+}
 }
 
-function make(name,eng,mkt){
+function make(name,proj,mkt){
 
-let edge=eng-mkt;
-let std=eng*params.var;
+if(isNaN(mkt)){
+return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0"};
+}
+
+let edge=proj-mkt;
+let std=proj*0.08;
 let z=edge/std;
 let prob=0.5*(1+Math.tanh(z*0.8));
 let minEdge=mkt*0.03;
@@ -241,12 +274,13 @@ let minEdge=mkt*0.03;
 let pred="NO PLAY";
 
 if(Math.abs(edge)>=minEdge){
-pred=edge>0?"OVER":"UNDER";
+if(edge>0) pred="OVER "+mkt.toFixed(1);
+else pred="UNDER "+mkt.toFixed(1);
 }
 
-return {
+return{
 name,
-eng:eng.toFixed(2),
+proj:proj.toFixed(2),
 edge:edge.toFixed(2),
 pred,
 prob:(prob*100).toFixed(1)
@@ -254,19 +288,19 @@ prob:(prob*100).toFixed(1)
 }
 
 let picks=[
-make("FT Total",ftEng,ft),
-make("1H Total",h1Eng,h1),
-make("Team A Total",aEng,aM),
-make("Team B Total",bEng,bM)
+make("FT Total",ftProj,ft),
+make("1H Total",h1Proj,h1),
+make("Team A Total",aProj,aM),
+make("Team B Total",bProj,bM)
 ];
 
 picks.forEach(p=>{
 let row=table.insertRow();
 row.innerHTML=`
 <td>${p.name}</td>
-<td>${p.eng}</td>
+<td>${p.proj}</td>
 <td>${p.edge}</td>
-<td class="${p.pred==="OVER"?"pred-over":p.pred==="UNDER"?"pred-under":"pred-noplay"}">${p.pred}</td>
+<td class="${p.pred.includes("OVER")?"pred-over":p.pred.includes("UNDER")?"pred-under":"pred-noplay"}">${p.pred}</td>
 <td>${p.prob}</td>`;
 });
 }
