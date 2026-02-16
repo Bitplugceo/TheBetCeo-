@@ -10,7 +10,6 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Basketball Prediction Engine</title>
 
 <style>
@@ -22,7 +21,7 @@ body{
 }
 
 .wrapper{
-  max-width:750px;
+  max-width:760px;
   margin:auto;
   padding:14px;
 }
@@ -63,11 +62,10 @@ input[type="text"], select{
   margin-bottom:8px;
 }
 
-/* Real native checkbox size */
+/* Native checkbox only */
 input[type="checkbox"]{
   width:16px;
   height:16px;
-  accent-color:#d4af37;
   margin-right:6px;
   vertical-align:middle;
 }
@@ -93,7 +91,7 @@ input[type="checkbox"]{
   border-collapse:collapse;
   font-size:12px;
   margin-top:12px;
-  display:none;   /* hidden by default */
+  display:none;
 }
 
 #results th,#results td{
@@ -106,6 +104,11 @@ input[type="checkbox"]{
 .pred-under{ background:#8b1e1e; color:white; font-weight:bold; }
 .pred-noplay{ background:#444; color:#bbb; font-weight:bold; }
 
+.lock{
+  font-size:10px;
+  margin-left:4px;
+}
+
 </style>
 </head>
 
@@ -114,7 +117,7 @@ input[type="checkbox"]{
 
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- League -->
+<!-- Expanded Leagues -->
 <div class="section">
 <h2>League</h2>
 <select>
@@ -124,18 +127,39 @@ input[type="checkbox"]{
 <option>ABA League</option>
 <option>ABA League 2</option>
 <option>Spain ACB</option>
+<option>Spain LEB Gold</option>
 <option>Italy Serie A1</option>
+<option>Italy Serie A2</option>
 <option>France Pro A</option>
+<option>France Pro B</option>
 <option>Germany BBL</option>
+<option>Germany Pro A</option>
 <option>Turkey BSL</option>
 <option>Greece A1</option>
 <option>Lithuania LKL</option>
+<option>Poland PLK</option>
+<option>Serbia KLS</option>
 </optgroup>
 <optgroup label="USA">
 <option>NBA</option>
 <option>WNBA</option>
 <option>NBA G League</option>
 <option>NCAA Division I</option>
+<option>NCAA Division II</option>
+<option>NCAA Division III</option>
+</optgroup>
+<optgroup label="Asia">
+<option>China CBA</option>
+<option>Korea KBL</option>
+<option>Japan B League</option>
+<option>Japan B2 League</option>
+<option>Philippines PBA</option>
+</optgroup>
+<optgroup label="Africa">
+<option>Basketball Africa League</option>
+<option>Nigeria Premier League</option>
+<option>Egypt Super League</option>
+<option>South Africa League</option>
 </optgroup>
 </select>
 </div>
@@ -143,61 +167,43 @@ input[type="checkbox"]{
 <!-- Market -->
 <div class="section">
 <h2>Market Lines</h2>
-<label>FT Total (150.5 - 160.5)</label>
-<input type="text" id="ftMarket">
-<label>1H Total (75.5 - 85.5)</label>
-<input type="text" id="h1Market">
-<label>Team A Total</label>
-<input type="text" id="teamAMarket">
-<label>Team B Total</label>
-<input type="text" id="teamBMarket">
+<input type="text" id="ftMarket" placeholder="FT Total (150.5 - 160.5)">
+<input type="text" id="h1Market" placeholder="1H Total (75.5 - 85.5)">
+<input type="text" id="teamAMarket" placeholder="Team A Total">
+<input type="text" id="teamBMarket" placeholder="Team B Total">
 </div>
 
 <!-- Averages -->
 <div class="section">
 <h2>Team Averages</h2>
-<label>Team A Avg Points</label>
-<input type="text" id="teamAAvg">
-<label>Team B Avg Points</label>
-<input type="text" id="teamBAvg">
+<input type="text" id="teamAAvg" placeholder="Team A Avg">
+<input type="text" id="teamBAvg" placeholder="Team B Avg">
 </div>
 
-<!-- Defense -->
+<!-- Defense (Optional) -->
 <div class="section">
-<h2>Defensive Metrics</h2>
-<label>Team A Points Allowed</label>
-<input type="text" id="papgA">
-<label>Team B Points Allowed</label>
-<input type="text" id="papgB">
+<h2>Defense (Optional)</h2>
+<input type="text" id="papgA" placeholder="Team A Points Allowed">
+<input type="text" id="papgB" placeholder="Team B Points Allowed">
 </div>
 
 <!-- Pace -->
 <div class="section">
 <h2>Pace</h2>
-<label>Team A Pace</label>
-<input type="text" id="paceA">
-<label>Team B Pace</label>
-<input type="text" id="paceB">
+<input type="text" id="paceA" placeholder="Team A Pace">
+<input type="text" id="paceB" placeholder="Team B Pace">
 </div>
 
 <!-- H2H -->
 <div class="section">
-<h2>Head to Head (Optional)</h2>
+<h2>Head to Head</h2>
 
-<label>
-<input type="checkbox" id="useH2HFT">
-Use H2H (FT)
-</label>
+<label><input type="checkbox" id="useH2HFT">Use H2H (FT)</label>
+<input type="text" id="h2hA" placeholder="Team A H2H">
+<input type="text" id="h2hB" placeholder="Team B H2H">
 
-<input type="text" id="h2hA" placeholder="Team A H2H FT Avg">
-<input type="text" id="h2hB" placeholder="Team B H2H FT Avg">
-
-<label>
-<input type="checkbox" id="useH2H1H">
-Use H2H (1H)
-</label>
-
-<input type="text" id="h2h1H" placeholder="1H H2H Avg Total">
+<label><input type="checkbox" id="useH2H1H">Use H2H (1H)</label>
+<input type="text" id="h2h1H" placeholder="1H H2H Total">
 </div>
 
 <div class="buttons">
@@ -219,59 +225,19 @@ function num(id){
 function mid(id){
   let str=document.getElementById(id).value;
   if(!str||!str.includes("-")) return NaN;
-  let parts=str.split("-");
-  let a=parseFloat(parts[0]);
-  let b=parseFloat(parts[1]);
+  let [a,b]=str.split("-").map(x=>parseFloat(x));
   return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;
-}
-
-function buildRow(name,proj,market){
-
-  if(isNaN(proj)||isNaN(market)){
-    return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0.0"};
-  }
-
-  let edge=proj-market;
-  let std=proj*0.08;
-
-  if(std<=0||isNaN(std)){
-    return {name,proj:proj.toFixed(2),edge:"NaN",pred:"NO PLAY",prob:"0.0"};
-  }
-
-  let z=edge/std;
-  let prob=0.5*(1+Math.tanh(z*0.8));
-  let minEdge=market*0.03;
-
-  let prediction="NO PLAY";
-
-  if(Math.abs(edge)>=minEdge){
-    prediction=edge>0
-      ? "OVER "+market.toFixed(1)
-      : "UNDER "+market.toFixed(1);
-  }
-
-  return {
-    name,
-    proj:proj.toFixed(2),
-    edge:edge.toFixed(2),
-    pred:prediction,
-    prob:(prob*100).toFixed(1)
-  };
 }
 
 function runEngine(){
 
   const table=document.getElementById("results");
-  table.style.display="table";   /* show only after run */
+  table.style.display="table";
 
-  table.innerHTML=`
-  <tr>
-  <th>Pick</th>
-  <th>Projection</th>
-  <th>Edge</th>
-  <th>Prediction</th>
-  <th>Probability %</th>
-  </tr>`;
+  table.innerHTML=`<tr>
+  <th>Pick</th><th>Projection</th>
+  <th>Edge</th><th>Prediction</th>
+  <th>Probability %</th></tr>`;
 
   let ftM=mid("ftMarket");
   let h1M=mid("h1Market");
@@ -285,42 +251,83 @@ function runEngine(){
   let paceA=num("paceA");
   let paceB=num("paceB");
 
-  let aProj=(!isNaN(aAvg)&&!isNaN(papgB))?(aAvg+papgB)/2:NaN;
-  let bProj=(!isNaN(bAvg)&&!isNaN(papgA))?(bAvg+papgA)/2:NaN;
+  // Defense optional
+  let aProj=!isNaN(aAvg)?
+    (!isNaN(papgB)?(aAvg+papgB)/2:aAvg)
+    :NaN;
 
-  let ftProj=NaN;
+  let bProj=!isNaN(bAvg)?
+    (!isNaN(papgA)?(bAvg+papgA)/2:bAvg)
+    :NaN;
 
-  if(!isNaN(aProj)&&!isNaN(bProj)){
-    let avgPace=(!isNaN(paceA)&&!isNaN(paceB))?(paceA+paceB)/2:100;
-    ftProj=(aProj+bProj)*(avgPace/100);
+  let ftProj=!isNaN(aProj)&&!isNaN(bProj)
+    ?(aProj+bProj)
+    :NaN;
+
+  if(!isNaN(ftProj)&&!isNaN(paceA)&&!isNaN(paceB)){
+    ftProj*=((paceA+paceB)/2)/100;
   }
 
-  if(document.getElementById("useH2HFT").checked&&!isNaN(ftProj)){
+  // H2H influence on team projections
+  if(document.getElementById("useH2HFT").checked){
     let hA=num("h2hA");
     let hB=num("h2hB");
-    if(!isNaN(hA)&&!isNaN(hB)){
-      ftProj=(ftProj+(hA+hB))/2;
-    }
+    if(!isNaN(hA)) aProj=(aProj+hA)/2;
+    if(!isNaN(hB)) bProj=(bProj+hB)/2;
+    if(!isNaN(aProj)&&!isNaN(bProj)) ftProj=aProj+bProj;
   }
 
   let h1Proj=!isNaN(ftProj)?ftProj*0.5:NaN;
 
-  if(document.getElementById("useH2H1H").checked&&!isNaN(h1Proj)){
-    let h1=num("h2h1H");
-    if(!isNaN(h1)){
-      h1Proj=(h1Proj+h1)/2;
+  if(document.getElementById("useH2H1H").checked){
+    let h=num("h2h1H");
+    if(!isNaN(h)) h1Proj=(h1Proj+h)/2;
+  }
+
+  function build(name,proj,market){
+    if(isNaN(proj)||isNaN(market)){
+      return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0.0%",raw:0};
     }
+
+    let edge=proj-market;
+    let std=proj*0.08;
+    let z=edge/std;
+    let prob=0.5*(1+Math.tanh(z*0.8));
+    let minEdge=market*0.03;
+
+    let prediction="NO PLAY";
+
+    if(Math.abs(edge)>=minEdge){
+      prediction=edge>0
+        ?"OVER "+market.toFixed(1)
+        :"UNDER "+market.toFixed(1);
+    }
+
+    return {
+      name,
+      proj:proj.toFixed(2),
+      edge:edge.toFixed(2),
+      pred:prediction,
+      prob:(prob*100).toFixed(1)+"%",
+      raw:Math.abs(edge)
+    };
   }
 
   let picks=[
-    buildRow("FT Total",ftProj,ftM),
-    buildRow("1H Total",h1Proj,h1M),
-    buildRow("Team A Total",aProj,aM),
-    buildRow("Team B Total",bProj,bM)
+    build("FT Total",ftProj,ftM),
+    build("1H Total",h1Proj,h1M),
+    build("Team A Total",aProj,aM),
+    build("Team B Total",bProj,bM)
   ];
 
+  // lock highest edge
+  let maxEdge=Math.max(...picks.map(p=>p.raw));
   picks.forEach(p=>{
     let row=table.insertRow();
+    let lockIcon=(p.raw===maxEdge && p.pred!=="NO PLAY")
+      ?'<span class="lock">🔒</span>'
+      :"";
+
     row.innerHTML=`
     <td>${p.name}</td>
     <td>${p.proj}</td>
@@ -329,9 +336,10 @@ function runEngine(){
       p.pred.includes("OVER")?"pred-over":
       p.pred.includes("UNDER")?"pred-under":
       "pred-noplay"
-    }">${p.pred}</td>
+    }">${p.pred} ${lockIcon}</td>
     <td>${p.prob}</td>`;
   });
+
 }
 
 function clearAll(){
@@ -339,8 +347,7 @@ function clearAll(){
     if(i.type==="checkbox") i.checked=false;
     else i.value="";
   });
-
-  document.getElementById("results").style.display="none";  /* hide immediately */
+  document.getElementById("results").style.display="none";
 }
 
 </script>
