@@ -105,8 +105,9 @@ input[type="checkbox"]{
 .pred-noplay{ background:#444; color:#bbb; font-weight:bold; }
 
 .lock{
-  font-size:10px;
-  margin-left:4px;
+font-size:4px;
+margin-left:2px; display:inline-flex; align-items:center;
+transform:translateY (-2px);
 }
 
 </style>
@@ -297,11 +298,15 @@ function runEngine(){
 
     let prediction="NO PLAY";
 
-    if(Math.abs(edge)>=minEdge){
-      prediction=edge>0
-        ?"OVER "+market.toFixed(1)
-        :"UNDER "+market.toFixed(1);
-    }
+    let probability = prob * 100;
+
+if(Math.abs(edge)>=minEdge && probability >= 75){
+  prediction=edge>0
+    ?"OVER "+market.toFixed(1)
+    :"UNDER "+market.toFixed(1);
+}else{
+  prediction="NO PLAY";
+}
 
     return {
       name,
