@@ -1,32 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Basketball Prediction Engine</title>
 
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
-.wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
+.wrapper { max-width:700px; margin:auto; padding:12px 14px 40px; }
 h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
 .section h2 { font-size:14px; margin-bottom:6px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
-input, select { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
+input, select {
+  width:240px; max-width:90%;
+  padding:5px 6px;
+  font-size:12px;
+  background:#262626;
+  color:#d4af37;
+  border:1px solid #d4af37;
+  margin:4px 0 8px 0;
+  border-radius:0;
+  appearance:none;
+}
 input[type="checkbox"] { width:auto; margin-right:6px; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
-.table-wrap { overflow-x:auto; margin-top:12px; }
-#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
+#results { width:100%; border-collapse:collapse; font-size:12px; display:none; margin-top:10px; }
 #results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock{ font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
+.lock { font-size:10px; margin-left:4px; }
 </style>
 </head>
 
@@ -37,31 +42,19 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="section">
 <h2>League</h2>
 <select id="league">
-<option>USA – NBA</option>
-<option>USA – NBA G-League</option>
-<option>USA – NCAA, Regular Season</option>
-<option>International – Euroleague</option>
-<option>International – Eurocup</option>
-<option>International – Basketball Champions League</option>
-<option>International – FIBA Europe Cup</option>
-<option>ABA League</option>
-<option>Adriatic League</option>
-<option>VTB United League</option>
-<option>Spain – Liga ACB</option>
-<option>Spain – Primera FEB</option>
-<option>France – LNB Elite</option>
-<option>France – Pro B</option>
-<option>Germany – BBL</option>
-<option>Germany – ProA</option>
-<option>Italy – Serie A</option>
-<option>Italy – Serie A2</option>
-<option>Turkiye – Super Lig</option>
-<option>Greece – Basketball League</option>
-<option>Australia – NBL</option>
-<option>China – CBA</option>
-<option>Japan – B.League</option>
-<option>Korea – KBL</option>
-<option>Philippines – PBA</option>
+<option value="NBA">NBA</option>
+<option value="EURO">EuroLeague</option>
+<option value="NCAA">NCAA</option>
+<option value="OTHER">Other</option>
+</select>
+</div>
+
+<div class="section">
+<h2>Game Context</h2>
+<label>Home Team</label>
+<select id="homeTeam">
+<option value="A">Team A</option>
+<option value="B">Team B</option>
 </select>
 </div>
 
@@ -78,33 +71,20 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <div class="section">
-<h2>Team Scoring Averages</h2>
-<label>Team A FT Average</label>
+<h2>Team Metrics</h2>
+<label>Team A Avg Points</label>
 <input id="teamAAvg">
-<label>Team B FT Average</label>
-<input id="teamBAvg">
-</div>
-
-<div class="section">
-<h2>Head to Head (Optional)</h2>
-<label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-<input id="h2hA" placeholder="Team A H2H FT Avg">
-<input id="h2hB" placeholder="Team B H2H FT Avg">
-<label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-<input id="h2h1H" placeholder="1H H2H Avg Total">
-</div>
-
-<div class="section metrics">
-<h2>Team A Metrics</h2>
-<label>Team A Pace</label>
-<input id="paceA">
 <label>Team A Points Allowed</label>
 <input id="papgA">
-<h2>Team B Metrics</h2>
-<label>Team B Pace</label>
-<input id="paceB">
+<label>Team A Pace</label>
+<input id="paceA">
+
+<label>Team B Avg Points</label>
+<input id="teamBAvg">
 <label>Team B Points Allowed</label>
 <input id="papgB">
+<label>Team B Pace</label>
+<input id="paceB">
 </div>
 
 <div class="buttons">
@@ -112,161 +92,135 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
-<div class="table-wrap">
 <table id="results">
 <tr>
 <th>Pick</th>
-<th>Engine Mid</th>
+<th>Projection</th>
 <th>Edge</th>
 <th>Prediction</th>
-<th>Confidence %</th>
+<th>Probability</th>
 </tr>
 </table>
-</div>
 </div>
 
 <script>
 
-/* League Standard Deviations */
-const leagueSD = {
-"USA – NBA":13,
-"USA – NBA G-League":13,
-"USA – NCAA, Regular Season":11,
-"International – Euroleague":10,
-"International – Eurocup":10,
-"International – Basketball Champions League":10,
-"International – FIBA Europe Cup":10,
-"ABA League":10,
-"Adriatic League":10,
-"VTB United League":10,
-"Spain – Liga ACB":10,
-"Spain – Primera FEB":10,
-"France – LNB Elite":10,
-"France – Pro B":10,
-"Germany – BBL":10,
-"Germany – ProA":10,
-"Italy – Serie A":10,
-"Italy – Serie A2":10,
-"Turkiye – Super Lig":10,
-"Greece – Basketball League":10,
-"Australia – NBL":11,
-"China – CBA":12,
-"Japan – B.League":11,
-"Korea – KBL":11,
-"Philippines – PBA":11
-};
+function num(id){
+  let v=parseFloat(document.getElementById(id).value);
+  return isNaN(v)?NaN:v;
+}
 
-function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
-function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
-function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
-function normalCDF(x){return (1+erf(x/Math.sqrt(2)))/2;}
-function erf(x){
-let sign=x>=0?1:-1;
-x=Math.abs(x);
-let a1=0.254829592,a2=-0.284496736,a3=1.421413741,
-a4=-1.453152027,a5=1.061405429,p=0.3275911;
-let t=1/(1+p*x);
-let y=1-((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
-return sign*y;
+function mid(r){
+  if(!r||!r.includes("-"))return NaN;
+  let[a,b]=r.split("-").map(x=>parseFloat(x));
+  return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;
+}
+
+function clamp(v,min,max){
+  return Math.max(min,Math.min(max,v));
+}
+
+function leagueParams(league){
+  switch(league){
+    case "NBA": return {homeBoost:2.5, variance:0.075, firstHalfRatio:0.5};
+    case "EURO": return {homeBoost:2, variance:0.07, firstHalfRatio:0.5};
+    case "NCAA": return {homeBoost:3, variance:0.085, firstHalfRatio:0.5};
+    default: return {homeBoost:2, variance:0.08, firstHalfRatio:0.5};
+  }
 }
 
 function runEngine(){
 
-const table=document.getElementById("results");
-table.style.display="table";
-table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
+  const table=document.getElementById("results");
+  table.style.display="table";
+  table.innerHTML=`<tr>
+  <th>Pick</th><th>Projection</th><th>Edge</th>
+  <th>Prediction</th><th>Probability</th></tr>`;
 
-let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
-let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
-let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
-let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
-let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
-let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
+  let league=document.getElementById("league").value;
+  let params=leagueParams(league);
 
-let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
-let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
-let papgA=num("papgA"),papgB=num("papgB");
-let paceA=num("paceA"),paceB=num("paceB");
+  let ft=mid(ftMarket.value);
+  let h1=mid(h1Market.value);
+  let aM=mid(teamAMarket.value);
+  let bM=mid(teamBMarket.value);
 
-let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
+  let aAvg=num("teamAAvg");
+  let bAvg=num("teamBAvg");
+  let papgA=num("papgA");
+  let papgB=num("papgB");
+  let paceA=num("paceA");
+  let paceB=num("paceB");
 
-let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
-let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
+  if(isNaN(aAvg)||isNaN(bAvg)||isNaN(papgA)||isNaN(papgB)) return;
 
-let aEng,bEng,ftEng;
+  // Base projections
+  let aEng=(aAvg+papgB)/2;
+  let bEng=(bAvg+papgA)/2;
 
-/* Possession-based model if pace available */
-if(!isNaN(paceA)&&!isNaN(paceB)&&paceA>0&&paceB>0){
+  // Home boost
+  let home=document.getElementById("homeTeam").value;
+  if(home==="A") aEng+=params.homeBoost;
+  else bEng+=params.homeBoost;
 
-let poss=(paceA+paceB)/2;
+  // Pace adjustment
+  let avgPace=(!isNaN(paceA)&&!isNaN(paceB))?(paceA+paceB)/2:100;
+  let paceFactor=avgPace/100;
 
-let aOffPPP=aOff/paceA;
-let bOffPPP=bOff/paceB;
+  let ftEng=(aEng+bEng)*paceFactor;
+  let h1Eng=ftEng*params.firstHalfRatio;
 
-let aDefPPP=papgA/paceA;
-let bDefPPP=papgB/paceB;
+  function make(name,eng,mkt){
+    if(isNaN(mkt)) return null;
 
-let aPPP=(aOffPPP+bDefPPP)/2;
-let bPPP=(bOffPPP+aDefPPP)/2;
+    let edge=eng-mkt;
+    let stdDev=eng*params.variance;
+    let z=edge/stdDev;
+    let prob=0.5*(1+Math.tanh(z*0.8));
 
-aEng=aPPP*poss;
-bEng=bPPP*poss;
+    let minEdge=mkt*0.03;
+    if(Math.abs(edge)<minEdge) return {
+      name,eng:eng.toFixed(2),
+      edge:edge.toFixed(2),
+      pred:"NO PLAY",
+      prob:(prob*100).toFixed(1)
+    };
 
-ftEng=aEng+bEng;
-}
+    let pred=edge>0?"OVER":"UNDER";
 
-/* Fallback */
-else{
+    return {
+      name,
+      eng:eng.toFixed(2),
+      edge:edge.toFixed(2),
+      pred,
+      prob:(prob*100).toFixed(1)
+    };
+  }
 
-aEng=(aOff*0.55 + papgB*0.45);
-bEng=(bOff*0.55 + papgA*0.45);
+  let picks=[
+    make("FT Total",ftEng,ft),
+    make("1H Total",h1Eng,h1),
+    make("Team A Total",aEng,aM),
+    make("Team B Total",bEng,bM)
+  ];
 
-let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
-}
-
-let h1Eng=ftEng*0.47;
-if(use1H && !isNaN(h2h1H)) h1Eng=0.65*h1Eng+0.35*h2h1H;
-
-function make(name, eng, mkt, low, high){
-let edge=eng-mkt;
-let sd=leagueSD[document.getElementById("league").value]||10;
-let z=edge/sd;
-let prob=edge>0?normalCDF(z):1-normalCDF(z);
-let conf=Math.round(prob*100);
-let pred="NO PLAY";
-
-if(Math.abs(edge)>=4 && conf>=60){
-if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
-else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
-}
-
-return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
-}
-
-let picks=[
-make("FT Total",ftEng,ft,ftL,ftH),
-make("1H Total",h1Eng,h1,h1L,h1H),
-make("Team A Total",aEng,aM,aL,aH),
-make("Team B Total",bEng,bM,bL,bH)
-];
-
-let lock=-1,max=0;
-picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw);lock=i;}});
-picks.forEach((p,i)=>{
-let row=table.insertRow();
-let pr=p.pred;
-if(i===lock) pr+=` <span class="lock">🔒</span>`;
-row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
-<td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
-<td>${p.conf}%</td>`;
-});
+  picks.forEach(p=>{
+    if(!p) return;
+    let row=table.insertRow();
+    row.innerHTML=`
+    <td>${p.name}</td>
+    <td>${p.eng}</td>
+    <td>${p.edge}</td>
+    <td class="${p.pred==="OVER"?"pred-over":p.pred==="UNDER"?"pred-under":"pred-noplay"}">${p.pred}</td>
+    <td>${p.prob}%</td>`;
+  });
 }
 
 function clearAll(){
-document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
-results.style.display="none";
+  document.querySelectorAll("input").forEach(i=>i.value="");
+  results.style.display="none";
 }
+
 </script>
 </body>
 </html>
