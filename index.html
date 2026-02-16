@@ -14,44 +14,44 @@
 <title>Basketball Prediction Engine</title>
 
 <style>
-body {
+body{
   background:#1b1b1b;
   color:#d4af37;
   font-family:Segoe UI,sans-serif;
   margin:0;
 }
 
-.wrapper {
+.wrapper{
   max-width:750px;
   margin:auto;
   padding:14px;
 }
 
-h1 {
+h1{
   text-align:center;
   font-size:18px;
   margin-bottom:12px;
 }
 
-.section {
+.section{
   border:1px solid #d4af37;
   background:#202020;
   padding:10px;
   margin-bottom:12px;
 }
 
-.section h2 {
+.section h2{
   font-size:14px;
   margin-bottom:6px;
 }
 
-label {
+label{
   display:block;
   font-size:12px;
   margin:6px 0 2px;
 }
 
-input[type="text"], select {
+input[type="text"], select{
   width:240px;
   max-width:95%;
   padding:6px;
@@ -63,20 +63,21 @@ input[type="text"], select {
   margin-bottom:8px;
 }
 
-input[type="checkbox"] {
+/* Real native checkbox size */
+input[type="checkbox"]{
   width:16px;
   height:16px;
   accent-color:#d4af37;
-  cursor:pointer;
   margin-right:6px;
+  vertical-align:middle;
 }
 
-.buttons {
+.buttons{
   text-align:center;
   margin-top:12px;
 }
 
-.btn {
+.btn{
   padding:7px 20px;
   margin:6px;
   font-size:12px;
@@ -87,22 +88,23 @@ input[type="checkbox"] {
   cursor:pointer;
 }
 
-#results {
+#results{
   width:100%;
   border-collapse:collapse;
   font-size:12px;
   margin-top:12px;
+  display:none;   /* hidden by default */
 }
 
-#results th, #results td {
+#results th,#results td{
   border:1px solid #d4af37;
   padding:6px;
   text-align:center;
 }
 
-.pred-over { background:#1e7d3a; color:white; font-weight:bold; }
-.pred-under { background:#8b1e1e; color:white; font-weight:bold; }
-.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
+.pred-over{ background:#1e7d3a; color:white; font-weight:bold; }
+.pred-under{ background:#8b1e1e; color:white; font-weight:bold; }
+.pred-noplay{ background:#444; color:#bbb; font-weight:bold; }
 
 </style>
 </head>
@@ -115,7 +117,7 @@ input[type="checkbox"] {
 <!-- League -->
 <div class="section">
 <h2>League</h2>
-<select id="league">
+<select>
 <optgroup label="Europe">
 <option>EuroLeague</option>
 <option>EuroCup</option>
@@ -135,27 +137,6 @@ input[type="checkbox"] {
 <option>NBA G League</option>
 <option>NCAA Division I</option>
 </optgroup>
-<optgroup label="Asia">
-<option>China CBA</option>
-<option>Korea KBL</option>
-<option>Japan B League</option>
-<option>Philippines PBA</option>
-</optgroup>
-<optgroup label="Africa">
-<option>Basketball Africa League</option>
-<option>Nigeria Premier League</option>
-<option>Egypt Super League</option>
-</optgroup>
-</select>
-</div>
-
-<!-- Context -->
-<div class="section">
-<h2>Game Context</h2>
-<label>Home Team</label>
-<select id="homeTeam">
-<option value="A">Team A</option>
-<option value="B">Team B</option>
 </select>
 </div>
 
@@ -224,15 +205,7 @@ Use H2H (1H)
 <button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
-<table id="results">
-<tr>
-<th>Pick</th>
-<th>Projection</th>
-<th>Edge</th>
-<th>Prediction</th>
-<th>Probability %</th>
-</tr>
-</table>
+<table id="results"></table>
 
 </div>
 
@@ -252,7 +225,7 @@ function mid(id){
   return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;
 }
 
-function pick(name,proj,market){
+function buildRow(name,proj,market){
 
   if(isNaN(proj)||isNaN(market)){
     return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0.0"};
@@ -289,6 +262,7 @@ function pick(name,proj,market){
 function runEngine(){
 
   const table=document.getElementById("results");
+  table.style.display="table";   /* show only after run */
 
   table.innerHTML=`
   <tr>
@@ -313,11 +287,6 @@ function runEngine(){
 
   let aProj=(!isNaN(aAvg)&&!isNaN(papgB))?(aAvg+papgB)/2:NaN;
   let bProj=(!isNaN(bAvg)&&!isNaN(papgA))?(bAvg+papgA)/2:NaN;
-
-  if(!isNaN(aProj)&&!isNaN(bProj)){
-    if(document.getElementById("homeTeam").value==="A") aProj+=2;
-    else bProj+=2;
-  }
 
   let ftProj=NaN;
 
@@ -344,10 +313,10 @@ function runEngine(){
   }
 
   let picks=[
-    pick("FT Total",ftProj,ftM),
-    pick("1H Total",h1Proj,h1M),
-    pick("Team A Total",aProj,aM),
-    pick("Team B Total",bProj,bM)
+    buildRow("FT Total",ftProj,ftM),
+    buildRow("1H Total",h1Proj,h1M),
+    buildRow("Team A Total",aProj,aM),
+    buildRow("Team B Total",bProj,bM)
   ];
 
   picks.forEach(p=>{
@@ -363,7 +332,6 @@ function runEngine(){
     }">${p.pred}</td>
     <td>${p.prob}</td>`;
   });
-
 }
 
 function clearAll(){
@@ -371,6 +339,8 @@ function clearAll(){
     if(i.type==="checkbox") i.checked=false;
     else i.value="";
   });
+
+  document.getElementById("results").style.display="none";  /* hide immediately */
 }
 
 </script>
