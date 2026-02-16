@@ -1,14 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-
 <title>Basketball Prediction Engine</title>
 
 <style>
@@ -19,6 +17,8 @@ h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section h2 { font-size:14px; margin-bottom:6px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input, select { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
+input[type="checkbox"] { width:auto; margin-right:6px; }
+.metrics { display:block; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
@@ -38,46 +38,90 @@ input, select { width:240px; max-width:90%; padding:5px 6px; font-size:12px; bac
 <div class="section">
 <h2>League</h2>
 <select id="league">
-<option>NBA</option>
-<option>NCAA Division I</option>
-<option>EuroLeague</option>
-<option>EuroCup</option>
-<option>ACB Spain</option>
-<option>NBL Australia</option>
-<option>CBA China</option>
-<option>B.League Japan</option>
-<option>KBL Korea</option>
-<option>PBA Philippines</option>
+
+<option>USA – NBA</option>
+<option>USA – NBA G-League</option>
+<option>USA – NCAA, Regular Season</option>
+
+<option>International – Euroleague</option>
+<option>International – Eurocup</option>
+<option>International – Basketball Champions League</option>
+<option>International – FIBA Europe Cup</option>
+
+<option>ABA League</option>
+<option>Adriatic League</option>
+<option>VTB United League</option>
+
+<option>Spain – Liga ACB</option>
+<option>Spain – Primera FEB</option>
+
+<option>France – LNB Elite</option>
+<option>France – Pro B</option>
+
+<option>Germany – BBL</option>
+<option>Germany – ProA</option>
+
+<option>Italy – Serie A</option>
+<option>Italy – Serie A2</option>
+
+<option>Turkiye – Super Lig</option>
+<option>Greece – Basketball League</option>
+
+<option>Australia – NBL</option>
+
+<option>China – CBA</option>
+<option>Japan – B.League</option>
+<option>Korea – KBL</option>
+<option>Philippines – PBA</option>
+
 </select>
 </div>
 
 <div class="section">
-<h2>Market Lines</h2>
-<label>FT Total Market (150.5 - 160.5)</label>
-<input id="ftMarket">
+  <h2>Market Lines</h2>
+  <label>FT Total Market (150.5 - 160.5)</label>
+  <input id="ftMarket">
+  <label>1H Total Market (75.5 - 85.5)</label>
+  <input id="h1Market">
+  <label>Team A Total Market</label>
+  <input id="teamAMarket">
+  <label>Team B Total Market</label>
+  <input id="teamBMarket">
 </div>
 
 <div class="section">
-<h2>Team A</h2>
-<input id="aPPG" placeholder="PPG">
-<input id="aPAPG" placeholder="PAPG">
-<input id="aPace" placeholder="Pace (optional)">
-<input id="aOffR" placeholder="OffR (optional)">
-<input id="aDefR" placeholder="DefR (optional)">
+  <h2>Team Scoring Averages</h2>
+  <label>Team A FT Average</label>
+  <input id="teamAAvg">
+  <label>Team B FT Average</label>
+  <input id="teamBAvg">
 </div>
 
 <div class="section">
-<h2>Team B</h2>
-<input id="bPPG" placeholder="PPG">
-<input id="bPAPG" placeholder="PAPG">
-<input id="bPace" placeholder="Pace (optional)">
-<input id="bOffR" placeholder="OffR (optional)">
-<input id="bDefR" placeholder="DefR (optional)">
+  <h2>Head to Head (Optional)</h2>
+  <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
+  <input id="h2hA" placeholder="Team A H2H FT Avg">
+  <input id="h2hB" placeholder="Team B H2H FT Avg">
+  <label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
+  <input id="h2h1H" placeholder="1H H2H Avg Total">
+</div>
+
+<div class="section metrics">
+  <h2>Team A Metrics</h2>
+  <label>Team A Pace</label>
+  <input id="paceA">
+  <label>Team A Points Allowed</label>
+  <input id="papgA">
+  <h2>Team B Metrics</h2>
+  <label>Team B Pace</label>
+  <input id="paceB">
+  <label>Team B Points Allowed</label>
+  <input id="papgB">
 </div>
 
 <div class="buttons">
-<button class="btn" onclick="runEngine()">Run</button>
-<button class="btn" onclick="clearAll()">Clear</button>
+  <button class="btn" onclick="runEngine()">Run</button>
+  <button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
 <div class="table-wrap">
@@ -91,125 +135,131 @@ input, select { width:240px; max-width:90%; padding:5px 6px; font-size:12px; bac
 </tr>
 </table>
 </div>
-
 </div>
 
 <script>
 
-/* League SD settings */
 const leagueSD = {
-  "NBA":13,
-  "NCAA Division I":11,
-  "EuroLeague":10,
-  "EuroCup":10,
-  "ACB Spain":10,
-  "NBL Australia":11,
-  "CBA China":12,
-  "B.League Japan":11,
-  "KBL Korea":11,
-  "PBA Philippines":11
+"USA – NBA":13,
+"USA – NBA G-League":13,
+"USA – NCAA, Regular Season":11,
+
+"International – Euroleague":10,
+"International – Eurocup":10,
+"International – Basketball Champions League":10,
+"International – FIBA Europe Cup":10,
+
+"ABA League":10,
+"Adriatic League":10,
+"VTB United League":10,
+
+"Spain – Liga ACB":10,
+"Spain – Primera FEB":10,
+
+"France – LNB Elite":10,
+"France – Pro B":10,
+
+"Germany – BBL":10,
+"Germany – ProA":10,
+
+"Italy – Serie A":10,
+"Italy – Serie A2":10,
+
+"Turkiye – Super Lig":10,
+"Greece – Basketball League":10,
+
+"Australia – NBL":11,
+"China – CBA":12,
+"Japan – B.League":11,
+"Korea – KBL":11,
+"Philippines – PBA":11
 };
 
-function num(id){
-  let v=parseFloat(document.getElementById(id).value);
-  return isNaN(v)?NaN:v;
-}
+function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
+function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
 
-function mid(r){
-  if(!r||!r.includes("-"))return NaN;
-  let[a,b]=r.split("-").map(Number);
-  return (a+b)/2;
-}
-
-function normalCDF(x){
-  return (1+erf(x/Math.sqrt(2)))/2;
-}
-
+function normalCDF(x){return (1+erf(x/Math.sqrt(2)))/2;}
 function erf(x){
-  let sign=x>=0?1:-1;
-  x=Math.abs(x);
-  let a1=0.254829592,a2=-0.284496736,a3=1.421413741,
-      a4=-1.453152027,a5=1.061405429,p=0.3275911;
-  let t=1/(1+p*x);
-  let y=1-((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
-  return sign*y;
+let sign=x>=0?1:-1;
+x=Math.abs(x);
+let a1=0.254829592,a2=-0.284496736,a3=1.421413741,
+a4=-1.453152027,a5=1.061405429,p=0.3275911;
+let t=1/(1+p*x);
+let y=1-((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+return sign*y;
 }
 
 function runEngine(){
 
-  const table=document.getElementById("results");
-  table.style.display="table";
-  table.innerHTML=`<tr>
-  <th>Pick</th>
-  <th>Engine Mid</th>
-  <th>Edge</th>
-  <th>Prediction</th>
-  <th>Confidence %</th>
-  </tr>`;
+const table=document.getElementById("results");
+table.style.display="table";
+table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
-  let ftStr=document.getElementById("ftMarket").value;
-  let ft=mid(ftStr);
+let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
+let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
+let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
+let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
+let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
+let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
-  let sd=leagueSD[document.getElementById("league").value];
+let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
+let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+let papgA=num("papgA"),papgB=num("papgB");
 
-  let aPPG=num("aPPG"), aPAPG=num("aPAPG"), aPace=num("aPace"),
-      aOffR=num("aOffR"), aDefR=num("aDefR");
+let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
-  let bPPG=num("bPPG"), bPAPG=num("bPAPG"), bPace=num("bPace"),
-      bOffR=num("bOffR"), bDefR=num("bDefR");
+let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
+let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  let proj;
+let aEng=(aOff*0.55 + papgB*0.45);
+let bEng=(bOff*0.55 + papgA*0.45);
 
-  /* Tier 1 */
-  if(!isNaN(aOffR)&&!isNaN(aDefR)&&!isNaN(bOffR)&&!isNaN(bDefR)&&!isNaN(aPace)&&!isNaN(bPace)){
-    let poss=(aPace+bPace)/2;
-    let aPPP=(aOffR/100+bDefR/100)/2;
-    let bPPP=(bOffR/100+aDefR/100)/2;
-    proj=(aPPP*poss)+(bPPP*poss);
-  }
+let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
+let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
 
-  /* Tier 2 */
-  else if(!isNaN(aPace)&&!isNaN(bPace)&&!isNaN(aPPG)&&!isNaN(aPAPG)&&!isNaN(bPPG)&&!isNaN(bPAPG)){
-    let poss=(aPace+bPace)/2;
-    let aPPP=((aPPG/aPace)+(bPAPG/bPace))/2;
-    let bPPP=((bPPG/bPace)+(aPAPG/aPace))/2;
-    proj=(aPPP*poss)+(bPPP*poss);
-  }
+let h1Eng=ftEng*0.47;
+if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
-  /* Tier 3 */
-  else{
-    let aProj=(aPPG+bPAPG)/2;
-    let bProj=(bPPG+aPAPG)/2;
-    proj=aProj+bProj;
-  }
+function make(name, eng, mkt, low, high){
+let edge=eng-mkt;
+let sd=leagueSD[document.getElementById("league").value]||10;
+let z=edge/sd;
+let prob=edge>0?normalCDF(z):1-normalCDF(z);
+let conf=Math.round(prob*100);
+let pred="NO PLAY";
 
-  let edge=proj-ft;
-  let z=edge/sd;
-  let prob=edge>0?normalCDF(z):1-normalCDF(z);
-  let confidence=Math.round(prob*100);
+if(Math.abs(edge)>=4 && conf>=60){
+if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
+else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
+}
 
-  let pred="NO PLAY";
-  if(confidence>=60){
-    pred=edge>0?"OVER":"UNDER";
-  }
+return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
+}
 
-  let row=table.insertRow();
-  row.innerHTML=`
-  <td>FT Total</td>
-  <td>${proj.toFixed(2)}</td>
-  <td>${edge.toFixed(2)}</td>
-  <td class="${
-    pred==="OVER"?"pred-over":
-    pred==="UNDER"?"pred-under":
-    "pred-noplay"}">${pred}</td>
-  <td>${confidence}%</td>`;
+let picks=[
+make("FT Total",ftEng,ft,ftL,ftH),
+make("1H Total",h1Eng,h1,h1L,h1H),
+make("Team A Total",aEng,aM,aL,aH),
+make("Team B Total",bEng,bM,bL,bH)
+];
+
+let lock=-1,max=0;
+picks.forEach((p,i)=>{if(Math.abs(p.raw)>max && p.pred!=="NO PLAY"){max=Math.abs(p.raw);lock=i;}});
+picks.forEach((p,i)=>{
+let row=table.insertRow();
+let pr=p.pred;
+if(i===lock) pr+=` <span class="lock">🔒</span>`;
+row.innerHTML=`<td>${p.name}</td><td>${p.eng}</td><td>${p.edge}</td>
+<td class="${p.pred.startsWith("OVER")?"pred-over":p.pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pr}</td>
+<td>${p.conf}%</td>`;
+});
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>i.value="");
-  results.style.display="none";
+document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
+results.style.display="none";
 }
-
 </script>
 </body>
 </html>
