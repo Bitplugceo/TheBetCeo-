@@ -52,73 +52,46 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="wrapper">
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- LEAGUE -->
+<!-- League -->
 <div class="section">
 <h2>League</h2>
 <select id="league">
-
-<optgroup label="USA">
-<option>NBA</option>
-<option>WNBA</option>
-<option>NBA G League</option>
-<option>NCAA Division I Men</option>
-<option>NCAA Division I Women</option>
-<option>NCAA Division II</option>
-<option>NCAA Division III</option>
-<option>NAIA</option>
-<option>NJCAA</option>
-</optgroup>
-
 <optgroup label="Europe">
 <option>EuroLeague</option>
 <option>EuroCup</option>
 <option>ABA League</option>
+<option>ABA League 2</option>
 <option>Spain ACB</option>
-<option>Spain LEB Gold</option>
-<option>Spain LEB Silver</option>
 <option>Italy Serie A1</option>
-<option>Italy Serie A2</option>
 <option>France Pro A</option>
-<option>France Pro B</option>
 <option>Germany BBL</option>
-<option>Germany Pro A</option>
 <option>Turkey BSL</option>
 <option>Greece A1</option>
 <option>Lithuania LKL</option>
-<option>Poland PLK</option>
-<option>Serbia KLS</option>
-<option>Adriatic ABA 2</option>
 </optgroup>
-
+<optgroup label="USA">
+<option>NBA</option>
+<option>WNBA</option>
+<option>NBA G League</option>
+<option>NCAA Division I</option>
+<option>NCAA Division II</option>
+<option>NCAA Division III</option>
+</optgroup>
 <optgroup label="Asia">
 <option>China CBA</option>
 <option>Korea KBL</option>
 <option>Japan B League</option>
-<option>Japan B2 League</option>
 <option>Philippines PBA</option>
-<option>ASEAN Basketball League</option>
 </optgroup>
-
 <optgroup label="Africa">
 <option>Basketball Africa League</option>
 <option>Nigeria Premier League</option>
-<option>South Africa League</option>
 <option>Egypt Super League</option>
 </optgroup>
-
-<optgroup label="International">
-<option>FIBA World Cup</option>
-<option>Olympics</option>
-<option>EuroBasket</option>
-<option>AfroBasket</option>
-<option>FIBA AmeriCup</option>
-<option>FIBA Asia Cup</option>
-</optgroup>
-
 </select>
 </div>
 
-<!-- GAME CONTEXT -->
+<!-- Context -->
 <div class="section">
 <h2>Game Context</h2>
 <label>Home Team</label>
@@ -128,7 +101,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </select>
 </div>
 
-<!-- MARKET -->
+<!-- Market -->
 <div class="section">
 <h2>Market Lines</h2>
 <label>FT Total Market (150.5 - 160.5)</label>
@@ -141,7 +114,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <input id="teamBMarket">
 </div>
 
-<!-- TEAM AVERAGES -->
+<!-- Averages -->
 <div class="section">
 <h2>Team Averages</h2>
 <label>Team A Avg Points</label>
@@ -150,7 +123,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <input id="teamBAvg">
 </div>
 
-<!-- DEFENSE -->
+<!-- Defense -->
 <div class="section">
 <h2>Defensive Metrics</h2>
 <label>Team A Points Allowed</label>
@@ -159,7 +132,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <input id="papgB">
 </div>
 
-<!-- PACE -->
+<!-- Pace -->
 <div class="section">
 <h2>Pace</h2>
 <label>Team A Pace</label>
@@ -198,153 +171,125 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <script>
 
-<script>
-
-function parseNum(id){
-  let v = parseFloat(document.getElementById(id).value);
-  return isNaN(v) ? NaN : v;
+function getNum(id){
+  let v=parseFloat(document.getElementById(id).value);
+  return isNaN(v)?NaN:v;
 }
 
-function mid(str){
-  if(!str || !str.includes("-")) return NaN;
-  let [a,b] = str.split("-").map(x => parseFloat(x));
-  return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
+function getMid(id){
+  let str=document.getElementById(id).value;
+  if(!str||!str.includes("-")) return NaN;
+  let [a,b]=str.split("-").map(x=>parseFloat(x));
+  return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;
 }
 
-function makePick(name, proj, market){
+function buildRow(name,proj,market){
 
-  if(isNaN(proj) || isNaN(market)){
-    return {
-      name,
-      proj:"NaN",
-      edge:"NaN",
-      pred:"NO PLAY",
-      prob:"0.0"
-    };
+  if(isNaN(proj)||isNaN(market)){
+    return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0.0"};
   }
 
-  let edge = proj - market;
-  let std = proj * 0.08;
+  let edge=proj-market;
+  let std=proj*0.08;
 
-  if(std === 0 || isNaN(std)){
-    return {
-      name,
-      proj:proj.toFixed(2),
-      edge:"NaN",
-      pred:"NO PLAY",
-      prob:"0.0"
-    };
+  if(std===0||isNaN(std)){
+    return {name,proj:proj.toFixed(2),edge:"NaN",pred:"NO PLAY",prob:"0.0"};
   }
 
-  let z = edge / std;
-  let prob = 0.5 * (1 + Math.tanh(z * 0.8));
-  let minEdge = market * 0.03;
+  let z=edge/std;
+  let prob=0.5*(1+Math.tanh(z*0.8));
+  let minEdge=market*0.03;
 
-  let prediction = "NO PLAY";
+  let pred="NO PLAY";
 
-  if(Math.abs(edge) >= minEdge){
-    if(edge > 0) prediction = "OVER " + market.toFixed(1);
-    else prediction = "UNDER " + market.toFixed(1);
+  if(Math.abs(edge)>=minEdge){
+    if(edge>0) pred="OVER "+market.toFixed(1);
+    else pred="UNDER "+market.toFixed(1);
   }
 
   return {
     name,
     proj:proj.toFixed(2),
     edge:edge.toFixed(2),
-    pred:prediction,
+    pred,
     prob:(prob*100).toFixed(1)
   };
 }
 
 function runEngine(){
 
-  const table = document.getElementById("results");
+  const table=document.getElementById("results");
 
-  table.innerHTML = `
-  <tr>
-    <th>Pick</th>
-    <th>Projection</th>
-    <th>Edge</th>
-    <th>Prediction</th>
-    <th>Probability %</th>
+  table.innerHTML=`<tr>
+  <th>Pick</th><th>Projection</th>
+  <th>Edge</th><th>Prediction</th><th>Probability %</th>
   </tr>`;
 
-  // Market Lines
-  let ftMarket = mid(document.getElementById("ftMarket").value);
-  let h1Market = mid(document.getElementById("h1Market").value);
-  let aMarket = mid(document.getElementById("teamAMarket").value);
-  let bMarket = mid(document.getElementById("teamBMarket").value);
+  let ftMarket=getMid("ftMarket");
+  let h1Market=getMid("h1Market");
+  let aMarket=getMid("teamAMarket");
+  let bMarket=getMid("teamBMarket");
 
-  // Stats
-  let aAvg = parseNum("teamAAvg");
-  let bAvg = parseNum("teamBAvg");
-  let papgA = parseNum("papgA");
-  let papgB = parseNum("papgB");
-  let paceA = parseNum("paceA");
-  let paceB = parseNum("paceB");
+  let aAvg=getNum("teamAAvg");
+  let bAvg=getNum("teamBAvg");
+  let papgA=getNum("papgA");
+  let papgB=getNum("papgB");
+  let paceA=getNum("paceA");
+  let paceB=getNum("paceB");
 
-  // Base projections
-  let aProj = (isNaN(aAvg)||isNaN(papgB)) ? NaN : (aAvg + papgB) / 2;
-  let bProj = (isNaN(bAvg)||isNaN(papgA)) ? NaN : (bAvg + papgA) / 2;
+  let aProj=(!isNaN(aAvg)&&!isNaN(papgB))?(aAvg+papgB)/2:NaN;
+  let bProj=(!isNaN(bAvg)&&!isNaN(papgA))?(bAvg+papgA)/2:NaN;
 
-  // Home boost
-  if(!isNaN(aProj) && !isNaN(bProj)){
-    if(document.getElementById("homeTeam").value === "A") aProj += 2;
-    else bProj += 2;
+  if(!isNaN(aProj)&&!isNaN(bProj)){
+    if(document.getElementById("homeTeam").value==="A") aProj+=2;
+    else bProj+=2;
   }
 
-  // Pace adjustment
-  let ftProj = NaN;
+  let ftProj=NaN;
 
-  if(!isNaN(aProj) && !isNaN(bProj)){
-    let avgPace = (!isNaN(paceA)&&!isNaN(paceB)) ? (paceA+paceB)/2 : 100;
-    ftProj = (aProj + bProj) * (avgPace/100);
+  if(!isNaN(aProj)&&!isNaN(bProj)){
+    let avgPace=(!isNaN(paceA)&&!isNaN(paceB))?(paceA+paceB)/2:100;
+    ftProj=(aProj+bProj)*(avgPace/100);
   }
 
-  // H2H FT
-  let useH2HFT = document.getElementById("useH2HFT").checked;
-  if(useH2HFT && !isNaN(ftProj)){
-    let h2hA = parseNum("h2hA");
-    let h2hB = parseNum("h2hB");
-    if(!isNaN(h2hA) && !isNaN(h2hB)){
-      ftProj = (ftProj + (h2hA + h2hB)) / 2;
+  if(document.getElementById("useH2HFT").checked && !isNaN(ftProj)){
+    let hA=getNum("h2hA");
+    let hB=getNum("h2hB");
+    if(!isNaN(hA)&&!isNaN(hB)){
+      ftProj=(ftProj+(hA+hB))/2;
     }
   }
 
-  // 1H projection
-  let h1Proj = isNaN(ftProj) ? NaN : ftProj * 0.5;
+  let h1Proj=!isNaN(ftProj)?ftProj*0.5:NaN;
 
-  // H2H 1H
-  let useH2H1H = document.getElementById("useH2H1H").checked;
-  if(useH2H1H && !isNaN(h1Proj)){
-    let h2h1H = parseNum("h2h1H");
-    if(!isNaN(h2h1H)){
-      h1Proj = (h1Proj + h2h1H) / 2;
+  if(document.getElementById("useH2H1H").checked && !isNaN(h1Proj)){
+    let h1=getNum("h2h1H");
+    if(!isNaN(h1)){
+      h1Proj=(h1Proj+h1)/2;
     }
   }
 
-  // Build 4 picks ALWAYS
-  let picks = [
-    makePick("FT Total", ftProj, ftMarket),
-    makePick("1H Total", h1Proj, h1Market),
-    makePick("Team A Total", aProj, aMarket),
-    makePick("Team B Total", bProj, bMarket)
+  let picks=[
+    buildRow("FT Total",ftProj,ftMarket),
+    buildRow("1H Total",h1Proj,h1Market),
+    buildRow("Team A Total",aProj,aMarket),
+    buildRow("Team B Total",bProj,bMarket)
   ];
 
   picks.forEach(p=>{
-    let row = table.insertRow();
-    row.innerHTML = `
-      <td>${p.name}</td>
-      <td>${p.proj}</td>
-      <td>${p.edge}</td>
-      <td class="${
-        p.pred.includes("OVER") ? "pred-over" :
-        p.pred.includes("UNDER") ? "pred-under" :
-        "pred-noplay"
-      }">${p.pred}</td>
-      <td>${p.prob}</td>
-    `;
+    let row=table.insertRow();
+    row.innerHTML=`
+    <td>${p.name}</td>
+    <td>${p.proj}</td>
+    <td>${p.edge}</td>
+    <td class="${
+      p.pred.includes("OVER")?"pred-over":
+      p.pred.includes("UNDER")?"pred-under":
+      "pred-noplay"
+    }">${p.pred}</td>
+    <td>${p.prob}</td>`;
   });
+
 }
 
 function clearAll(){
@@ -355,6 +300,5 @@ function clearAll(){
 }
 
 </script>
-
 </body>
 </html>
