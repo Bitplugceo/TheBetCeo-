@@ -18,7 +18,6 @@ h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input, select { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
 input[type="checkbox"] { width:auto; margin-right:6px; }
-.metrics { display:block; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
@@ -38,90 +37,79 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <div class="section">
 <h2>League</h2>
 <select id="league">
-
 <option>USA – NBA</option>
 <option>USA – NBA G-League</option>
 <option>USA – NCAA, Regular Season</option>
-
 <option>International – Euroleague</option>
 <option>International – Eurocup</option>
 <option>International – Basketball Champions League</option>
 <option>International – FIBA Europe Cup</option>
-
 <option>ABA League</option>
 <option>Adriatic League</option>
 <option>VTB United League</option>
-
 <option>Spain – Liga ACB</option>
 <option>Spain – Primera FEB</option>
-
 <option>France – LNB Elite</option>
 <option>France – Pro B</option>
-
 <option>Germany – BBL</option>
 <option>Germany – ProA</option>
-
 <option>Italy – Serie A</option>
 <option>Italy – Serie A2</option>
-
 <option>Turkiye – Super Lig</option>
 <option>Greece – Basketball League</option>
-
 <option>Australia – NBL</option>
-
 <option>China – CBA</option>
 <option>Japan – B.League</option>
 <option>Korea – KBL</option>
 <option>Philippines – PBA</option>
-
 </select>
 </div>
 
 <div class="section">
-  <h2>Market Lines</h2>
-  <label>FT Total Market (150.5 - 160.5)</label>
-  <input id="ftMarket">
-  <label>1H Total Market (75.5 - 85.5)</label>
-  <input id="h1Market">
-  <label>Team A Total Market</label>
-  <input id="teamAMarket">
-  <label>Team B Total Market</label>
-  <input id="teamBMarket">
+<h2>Market Lines</h2>
+<label>FT Total Market (150.5 - 160.5)</label>
+<input id="ftMarket">
+<label>1H Total Market (75.5 - 85.5)</label>
+<input id="h1Market">
+<label>Team A Total Market</label>
+<input id="teamAMarket">
+<label>Team B Total Market</label>
+<input id="teamBMarket">
 </div>
 
 <div class="section">
-  <h2>Team Scoring Averages</h2>
-  <label>Team A FT Average</label>
-  <input id="teamAAvg">
-  <label>Team B FT Average</label>
-  <input id="teamBAvg">
+<h2>Team Scoring Averages</h2>
+<label>Team A FT Average</label>
+<input id="teamAAvg">
+<label>Team B FT Average</label>
+<input id="teamBAvg">
 </div>
 
 <div class="section">
-  <h2>Head to Head (Optional)</h2>
-  <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-  <input id="h2hA" placeholder="Team A H2H FT Avg">
-  <input id="h2hB" placeholder="Team B H2H FT Avg">
-  <label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-  <input id="h2h1H" placeholder="1H H2H Avg Total">
+<h2>Head to Head (Optional)</h2>
+<label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
+<input id="h2hA" placeholder="Team A H2H FT Avg">
+<input id="h2hB" placeholder="Team B H2H FT Avg">
+<label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
+<input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
 <div class="section metrics">
-  <h2>Team A Metrics</h2>
-  <label>Team A Pace</label>
-  <input id="paceA">
-  <label>Team A Points Allowed</label>
-  <input id="papgA">
-  <h2>Team B Metrics</h2>
-  <label>Team B Pace</label>
-  <input id="paceB">
-  <label>Team B Points Allowed</label>
-  <input id="papgB">
+<h2>Team A Metrics</h2>
+<label>Team A Pace</label>
+<input id="paceA">
+<label>Team A Points Allowed</label>
+<input id="papgA">
+<h2>Team B Metrics</h2>
+<label>Team B Pace</label>
+<input id="paceB">
+<label>Team B Points Allowed</label>
+<input id="papgB">
 </div>
 
 <div class="buttons">
-  <button class="btn" onclick="runEngine()">Run</button>
-  <button class="btn" onclick="clearAll()">Clear</button>
+<button class="btn" onclick="runEngine()">Run</button>
+<button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
 <div class="table-wrap">
@@ -139,35 +127,28 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <script>
 
+/* League Standard Deviations */
 const leagueSD = {
 "USA – NBA":13,
 "USA – NBA G-League":13,
 "USA – NCAA, Regular Season":11,
-
 "International – Euroleague":10,
 "International – Eurocup":10,
 "International – Basketball Champions League":10,
 "International – FIBA Europe Cup":10,
-
 "ABA League":10,
 "Adriatic League":10,
 "VTB United League":10,
-
 "Spain – Liga ACB":10,
 "Spain – Primera FEB":10,
-
 "France – LNB Elite":10,
 "France – Pro B":10,
-
 "Germany – BBL":10,
 "Germany – ProA":10,
-
 "Italy – Serie A":10,
 "Italy – Serie A2":10,
-
 "Turkiye – Super Lig":10,
 "Greece – Basketball League":10,
-
 "Australia – NBL":11,
 "China – CBA":12,
 "Japan – B.League":11,
@@ -178,7 +159,6 @@ const leagueSD = {
 function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
 function mid(r){if(!r||!r.includes("-"))return NaN;let[a,b]=r.split("-").map(x=>parseFloat(x));return(isNaN(a)||isNaN(b))?NaN:(a+b)/2;}
 function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
-
 function normalCDF(x){return (1+erf(x/Math.sqrt(2)))/2;}
 function erf(x){
 let sign=x>=0?1:-1;
@@ -206,20 +186,47 @@ let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
 let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
 let papgA=num("papgA"),papgB=num("papgB");
+let paceA=num("paceA"),paceB=num("paceB");
 
 let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
 
 let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
 let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
 
-let aEng=(aOff*0.55 + papgB*0.45);
-let bEng=(bOff*0.55 + papgA*0.45);
+let aEng,bEng,ftEng;
+
+/* Possession-based model if pace available */
+if(!isNaN(paceA)&&!isNaN(paceB)&&paceA>0&&paceB>0){
+
+let poss=(paceA+paceB)/2;
+
+let aOffPPP=aOff/paceA;
+let bOffPPP=bOff/paceB;
+
+let aDefPPP=papgA/paceA;
+let bDefPPP=papgB/paceB;
+
+let aPPP=(aOffPPP+bDefPPP)/2;
+let bPPP=(bOffPPP+aDefPPP)/2;
+
+aEng=aPPP*poss;
+bEng=bPPP*poss;
+
+ftEng=aEng+bEng;
+}
+
+/* Fallback */
+else{
+
+aEng=(aOff*0.55 + papgB*0.45);
+bEng=(bOff*0.55 + papgA*0.45);
 
 let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
+ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
+}
 
 let h1Eng=ftEng*0.47;
-if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
+if(use1H && !isNaN(h2h1H)) h1Eng=0.65*h1Eng+0.35*h2h1H;
 
 function make(name, eng, mkt, low, high){
 let edge=eng-mkt;
