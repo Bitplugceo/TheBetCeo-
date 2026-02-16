@@ -4,92 +4,108 @@
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Basketball Prediction Engine</title>
 
 <style>
-body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
-.wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
-h1 { text-align:center; font-size:18px; margin-bottom:12px; }
-
-.section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
-.section h2 { font-size:14px; margin-bottom:6px; }
-
-label { display:block; font-size:12px; margin:5px 0 2px; }
-
-input, select {
+body{
+  background:#111;
+  color:#d4af37;
+  font-family:Segoe UI;
+  margin:0;
+}
+.wrapper{
+  max-width:680px;
+  margin:auto;
+  padding:14px;
+}
+h1{
+  text-align:center;
+  margin-bottom:18px;
+}
+.section{
+  border:1px solid #d4af37;
+  padding:12px;
+  margin-bottom:14px;
+}
+.section h2{
+  margin-bottom:10px;
+}
+label{
+  display:block;
+  margin:6px 0 4px;
+}
+input, select{
   width:240px;
-  max-width:90%;
-  padding:5px 6px;
-  font-size:12px;
-  background:#262626;
+  max-width:95%;
+  padding:6px;
+  background:#1a1a1a;
   color:#d4af37;
   border:1px solid #d4af37;
-  margin:4px 0 8px 0;
-  border-radius:0;
-  appearance:none;
-  -webkit-appearance:none;
+  margin-bottom:10px;
 }
-
-input[type="checkbox"] { width:auto; margin-right:6px; }
-
-.buttons { text-align:center; margin-top:10px; }
-.btn {
-  padding:6px 18px;
+input[type="checkbox"]{
+  width:auto;
+  margin-right:6px;
+}
+.buttons{
+  text-align:center;
+  margin-top:12px;
+}
+.btn{
+  padding:7px 18px;
   margin:6px;
-  font-size:12px;
-  font-weight:bold;
   background:#d4af37;
-  color:#111;
   border:none;
+  font-weight:bold;
   cursor:pointer;
 }
-
-.table-wrap { overflow-x:auto; margin-top:12px; }
-
-#results {
+#results{
   width:100%;
   border-collapse:collapse;
-  font-size:12px;
+  margin-top:16px;
   display:none;
 }
-
-#results th,#results td {
+#results th,#results td{
   border:1px solid #d4af37;
   padding:6px;
   text-align:center;
 }
-
-.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
-.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
-.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-
+.pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
+.pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
+.pred-noplay{background:#444;color:#bbb;font-weight:bold;}
 .lock{
-  font-size:4px;
-  margin-left:2px;
-  display:inline-flex;
-  align-items:center;
-  transform:translateY(-2px);
+  font-size:10px;
+  margin-left:4px;
 }
 </style>
 </head>
 
 <body>
 <div class="wrapper">
+
 <h1>🏀 Basketball Prediction Engine</h1>
 
 <div class="section">
+  <h2>Market Lines</h2>
+
   <label>Select League</label>
   <select id="league">
-    <option value="NBA">NBA</option>
-    <option value="NCAA">NCAA</option>
-    <option value="EuroLeague">EuroLeague</option>
-    <option value="ACB">Spain ACB</option>
-    <option value="ABA">Liga ABA</option>
-    <option value="Other">Other</option>
+    <option>NBA</option>
+    <option>NCAA</option>
+    <option>EuroLeague</option>
+    <option>EuroCup</option>
+    <option>VTB</option>
+    <option>Spain ACB</option>
+    <option>Liga ABA</option>
+    <option>Italy Serie A</option>
+    <option>France Pro A</option>
+    <option>Germany BBL</option>
+    <option>Turkey BSL</option>
+    <option>Greece A1</option>
+    <option>Argentina LNB</option>
+    <option>Other</option>
   </select>
-
-  <h2>Market Lines</h2>
 
   <label>FT Total Market (150.5 - 180.5)</label>
   <input id="ftMarket">
@@ -106,24 +122,35 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <div class="section">
   <h2>Team Scoring</h2>
+
   <label>Team A Last 5</label>
-  <input id="teamAAvg" placeholder="80,70,68,50,75">
+  <input id="teamAAvg" placeholder="80,75,82,70,77">
+
   <label>Team B Last 5</label>
-  <input id="teamBAvg" placeholder="78,82,74,69,85">
+  <input id="teamBAvg" placeholder="78,81,74,85,69">
 </div>
 
 <div class="section">
   <h2>Head to Head (Optional)</h2>
-  <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-  <input id="h2hA" placeholder="80,75,82">
-  <input id="h2hB" placeholder="70,68,74">
+
+  <label>
+    <input type="checkbox" id="useH2HFT"> Use H2H (FT)
+  </label>
+  <input id="h2hA" placeholder="Team A H2H FT (80,75,82)">
+  <input id="h2hB" placeholder="Team B H2H FT (70,68,74)">
+
+  <label>
+    <input type="checkbox" id="useH2H1H"> Use H2H (1H)
+  </label>
+  <input id="h2h1H" placeholder="1H H2H Totals (75,80,78)">
 </div>
 
 <div class="section">
-  <h2>Team A Metrics</h2>
+  <h2>Defensive Stats</h2>
+
   <label>Team A PAPG</label>
   <input id="papgA">
-  <h2>Team B Metrics</h2>
+
   <label>Team B PAPG</label>
   <input id="papgB">
 </div>
@@ -133,21 +160,38 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
-<div class="table-wrap">
-<table id="results"></table>
-</div>
+<table id="results">
+<tr>
+<th>Pick</th>
+<th>Proj</th>
+<th>Edge</th>
+<th>Prediction</th>
+<th>Conf%</th>
+</tr>
+</table>
+
 </div>
 
 <script>
 
 const PLAYABLE = 75;
 
-/* ---------- Helpers ---------- */
-
 function parseList(id){
   let raw=document.getElementById(id).value;
   if(!raw) return [];
-  return raw.split(",").map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
+  return raw.split(",")
+  .map(x=>parseFloat(x.trim()))
+  .filter(x=>!isNaN(x));
+}
+
+function weightedMean(arr){
+  let w=[0.30,0.25,0.20,0.15,0.10];
+  let sum=0,total=0;
+  for(let i=0;i<arr.length && i<5;i++){
+    sum+=arr[i]*w[i];
+    total+=w[i];
+  }
+  return total?sum/total:NaN;
 }
 
 function stdDev(arr){
@@ -155,16 +199,6 @@ function stdDev(arr){
   let mean=arr.reduce((a,b)=>a+b,0)/arr.length;
   let variance=arr.reduce((a,b)=>a+Math.pow(b-mean,2),0)/arr.length;
   return Math.sqrt(variance);
-}
-
-function trimmedMean(arr){
-  if(arr.length<3){
-    return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : NaN;
-  }
-  let sorted=[...arr].sort((a,b)=>a-b);
-  sorted.shift();
-  sorted.pop();
-  return sorted.reduce((a,b)=>a+b,0)/sorted.length;
 }
 
 function mid(r){
@@ -178,8 +212,8 @@ function mid(r){
 
 function confidence(edge,vol){
   if(isNaN(edge)||isNaN(vol)||vol===0) return 0;
-  let strength=Math.abs(edge)/(vol*1.2);
-  let base=60 + strength*25;
+  let strength=Math.abs(edge)/(vol*1.1);
+  let base=60+strength*25;
   return Math.min(90,Math.round(base));
 }
 
@@ -192,96 +226,65 @@ function generateLines(low,high){
 }
 
 function selectLine(proj,vol,low,high,isOver){
-  if(isNaN(proj)||isNaN(vol)||isNaN(low)||isNaN(high)) return null;
+  if(isNaN(proj)||isNaN(vol)) return null;
   let lines=generateLines(low,high);
-
   if(isOver){
-    let safe=proj-(vol*0.8);
+    let safe=proj-(vol*0.7);
     let valid=lines.filter(x=>x<=safe);
     return valid.length?Math.max(...valid).toFixed(1):null;
   }else{
-    let safe=proj+(vol*0.8);
+    let safe=proj+(vol*0.7);
     let valid=lines.filter(x=>x>=safe);
     return valid.length?Math.min(...valid).toFixed(1):null;
   }
 }
 
-/* ---------- Engine ---------- */
-
 function runEngine(){
 
   let table=document.getElementById("results");
   table.style.display="table";
-  table.innerHTML=`
-  <tr>
-    <th>Pick</th>
-    <th>Proj</th>
-    <th>Edge</th>
-    <th>Prediction</th>
-    <th>Conf%</th>
+  table.innerHTML=`<tr>
+  <th>Pick</th>
+  <th>Proj</th>
+  <th>Edge</th>
+  <th>Prediction</th>
+  <th>Conf%</th>
   </tr>`;
-
-  let league=document.getElementById("league").value;
-  let leagueVolMultiplier=1.0;
-
-  if(league==="NBA") leagueVolMultiplier=1.1;
-  if(league==="NCAA") leagueVolMultiplier=1.15;
-  if(league==="EuroLeague") leagueVolMultiplier=0.95;
 
   let aList=parseList("teamAAvg");
   let bList=parseList("teamBAvg");
 
-  let aMean=trimmedMean(aList);
-  let bMean=trimmedMean(bList);
+  let aMean=weightedMean(aList);
+  let bMean=weightedMean(bList);
 
   let aVol=stdDev(aList);
   let bVol=stdDev(bList);
-
-  if(!isNaN(aVol)) aVol*=leagueVolMultiplier;
-  if(!isNaN(bVol)) bVol*=leagueVolMultiplier;
-
-  let combinedVol=(!isNaN(aVol)&&!isNaN(bVol))?(aVol+bVol)/2:NaN;
+  let combinedVol=(aVol+bVol)/2;
 
   let papgA=parseFloat(document.getElementById("papgA").value);
   let papgB=parseFloat(document.getElementById("papgB").value);
 
-  if(!isNaN(papgB)&&!isNaN(aMean)){
-    aMean=(aMean*0.75)+(papgB*0.25);
-  }
-
-  if(!isNaN(papgA)&&!isNaN(bMean)){
-    bMean=(bMean*0.75)+(papgA*0.25);
-  }
+  if(!isNaN(papgB)) aMean=(aMean*0.75)+(papgB*0.25);
+  if(!isNaN(papgA)) bMean=(bMean*0.75)+(papgA*0.25);
 
   if(document.getElementById("useH2HFT").checked){
-    let h2hA=trimmedMean(parseList("h2hA"));
-    let h2hB=trimmedMean(parseList("h2hB"));
-
-    if(!isNaN(h2hA)&&!isNaN(aMean)){
-      aMean=(aMean*0.8)+(h2hA*0.2);
-    }
-
-    if(!isNaN(h2hB)&&!isNaN(bMean)){
-      bMean=(bMean*0.8)+(h2hB*0.2);
-    }
+    let h2hA=weightedMean(parseList("h2hA"));
+    let h2hB=weightedMean(parseList("h2hB"));
+    if(!isNaN(h2hA)) aMean=(aMean*0.8)+(h2hA*0.2);
+    if(!isNaN(h2hB)) bMean=(bMean*0.8)+(h2hB*0.2);
   }
 
-  let ftProj=(!isNaN(aMean)&&!isNaN(bMean))?aMean+bMean:NaN;
+  let ftProj=aMean+bMean;
+  let h1Proj=ftProj*0.48;
 
-  let ftMarket=document.getElementById("ftMarket").value;
-  let marketMid=mid(ftMarket);
-
-  if(!isNaN(ftProj)&&!isNaN(marketMid)&&!isNaN(combinedVol)){
-    let compression=Math.min(0.25,combinedVol/45);
-    ftProj=ftProj*(1-compression)+(marketMid*compression);
+  if(document.getElementById("useH2H1H").checked){
+    let h2h1H=weightedMean(parseList("h2h1H"));
+    if(!isNaN(h2h1H)) h1Proj=(h1Proj*0.8)+(h2h1H*0.2);
   }
 
-  let h1Proj=!isNaN(ftProj)?ftProj*0.48:NaN;
-
-  function addRow(name,proj,market,vol,priority){
-
+  function addRow(name,proj,market,vol){
     let m=mid(market);
-    let edge=!isNaN(proj)&&!isNaN(m)?proj-m:NaN;
+    let edge=proj-m;
     let conf=confidence(edge,vol);
     let pred="NO PLAY";
 
@@ -290,37 +293,28 @@ function runEngine(){
       let low=parseFloat(p[0]);
       let high=parseFloat(p[1]);
       let line=selectLine(proj,vol,low,high,edge>0);
-      if(line){
-        pred=(edge>0?"OVER ":"UNDER ")+line;
-      }
+      if(line) pred=(edge>0?"OVER ":"UNDER ")+line;
     }
 
     let row=table.insertRow();
-    row.innerHTML=`
-      <td>${name}</td>
-      <td>${isNaN(proj)?"NaN":proj.toFixed(1)}</td>
-      <td>${isNaN(edge)?"NaN":edge.toFixed(1)}</td>
-      <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
-      <td>${conf}%</td>`;
+    row.innerHTML=`<td>${name}</td>
+    <td>${proj.toFixed(1)}</td>
+    <td>${edge.toFixed(1)}</td>
+    <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
+    <td>${conf}%</td>`;
 
-    return {name,conf,edge,priority,pred};
+    return {name,conf,edge,pred};
   }
 
   let results=[];
-  results.push(addRow("FT Total",ftProj,ftMarket,combinedVol,1));
-  results.push(addRow("1H Total",h1Proj,document.getElementById("h1Market").value,combinedVol*0.7,3));
-  results.push(addRow("Team A Total",aMean,document.getElementById("teamAMarket").value,aVol,2));
-  results.push(addRow("Team B Total",bMean,document.getElementById("teamBMarket").value,bVol,2));
+  results.push(addRow("FT Total",ftProj,ftMarket.value,combinedVol));
+  results.push(addRow("1H Total",h1Proj,h1Market.value,combinedVol*0.7));
+  results.push(addRow("Team A Total",aMean,teamAMarket.value,aVol));
+  results.push(addRow("Team B Total",bMean,teamBMarket.value,bVol));
 
-  let valid=results.filter(x=>x.conf>=PLAYABLE&&x.pred!=="NO PLAY");
-
+  let valid=results.filter(x=>x.conf>=PLAYABLE && x.pred!=="NO PLAY");
   if(valid.length){
-    valid.sort((a,b)=>{
-      if(b.conf!==a.conf) return b.conf-a.conf;
-      if(Math.abs(b.edge)!==Math.abs(a.edge)) return Math.abs(b.edge)-Math.abs(a.edge);
-      return a.priority-b.priority;
-    });
-
+    valid.sort((a,b)=>b.conf-a.conf);
     let best=valid[0].name;
     for(let i=1;i<table.rows.length;i++){
       if(table.rows[i].cells[0].innerText===best){
@@ -339,5 +333,6 @@ function clearAll(){
 }
 
 </script>
+
 </body>
 </html>
