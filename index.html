@@ -174,125 +174,158 @@ transform:translateY (-3px);
 
 <script>
 
+<script>
+
 function num(id){
-  let v=parseFloat(document.getElementById(id).value);
-  return isNaN(v)?NaN:v;
+  let el = document.getElementById(id);
+  if(!el) return NaN;
+  let v = parseFloat(el.value);
+  return isNaN(v) ? NaN : v;
 }
 
 function mid(id){
-  let str=document.getElementById(id).value;
-  if(!str||!str.includes("-")) return NaN;
-  let [a,b]=str.split("-").map(x=>parseFloat(x));
-  return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;
+  let el = document.getElementById(id);
+  if(!el) return NaN;
+  let str = el.value;
+  if(!str || !str.includes("-")) return NaN;
+
+  let parts = str.split("-");
+  let a = parseFloat(parts[0]);
+  let b = parseFloat(parts[1]);
+
+  return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
 }
 
 function runEngine(){
 
-  const table=document.getElementById("results");
-  table.style.display="table";
+  const table = document.getElementById("results");
+  if(!table) return;
 
-  table.innerHTML=`<tr>
-  <th>Pick</th><th>Projection</th>
-  <th>Edge</th><th>Prediction</th>
-  <th>Probability %</th></tr>`;
+  table.style.display = "table";
 
-  let ftM=mid("ftMarket");
-  let h1M=mid("h1Market");
-  let aM=mid("teamAMarket");
-  let bM=mid("teamBMarket");
+  table.innerHTML = `
+  <tr>
+    <th>Pick</th>
+    <th>Projection</th>
+    <th>Edge</th>
+    <th>Prediction</th>
+    <th>Probability %</th>
+  </tr>`;
 
-  let aAvg=num("teamAAvg");
-  let bAvg=num("teamBAvg");
-  let papgA=num("papgA");
-  let papgB=num("papgB");
-  let paceA=num("paceA");
-  let paceB=num("paceB");
+  let ftM = mid("ftMarket");
+  let h1M = mid("h1Market");
+  let aM = mid("teamAMarket");
+  let bM = mid("teamBMarket");
+
+  let aAvg = num("teamAAvg");
+  let bAvg = num("teamBAvg");
+  let papgA = num("papgA");
+  let papgB = num("papgB");
+  let paceA = num("paceA");
+  let paceB = num("paceB");
+
+  // Base projections
+  let aProj = !isNaN(aAvg) ? aAvg : NaN;
+  let bProj = !isNaN(bAvg) ? bAvg : NaN;
+
+  // H2H first
+  if(document.getElementById("useH2HFT")?.checked){
+    let hA = num("h2hA");
+    let hB = num("h2hB");
+
+    if(!isNaN(aProj) && !isNaN(hA)) aProj = (aProj + hA) / 2;
+    if(!isNaN(bProj) && !isNaN(hB)) bProj = (bProj + hB) / 2;
+  }
 
   // Defense optional
-  let aProj=!isNaN(aAvg)?
-    (!isNaN(papgB)?(aAvg+papgB)/2:aAvg)
-    :NaN;
+  if(!isNaN(aProj) && !isNaN(papgB))
+    aProj = (aProj + papgB) / 2;
 
-  let bProj=!isNaN(bAvg)?
-    (!isNaN(papgA)?(bAvg+papgA)/2:bAvg)
-    :NaN;
+  if(!isNaN(bProj) && !isNaN(papgA))
+    bProj = (bProj + papgA) / 2;
 
-  let ftProj=!isNaN(aProj)&&!isNaN(bProj)
-    ?(aProj+bProj)
-    :NaN;
+  let ftProj = (!isNaN(aProj) && !isNaN(bProj))
+    ? (aProj + bProj)
+    : NaN;
 
-  if(!isNaN(ftProj)&&!isNaN(paceA)&&!isNaN(paceB)){
-    ftProj*=((paceA+paceB)/2)/100;
+  // Pace last
+  if(!isNaN(ftProj) && !isNaN(paceA) && !isNaN(paceB)){
+    ftProj *= ((paceA + paceB)/2) / 100;
   }
 
-  // H2H influence on team projections
-  if(document.getElementById("useH2HFT").checked){
-    let hA=num("h2hA");
-    let hB=num("h2hB");
-    if(!isNaN(hA)) aProj=(aProj+hA)/2;
-    if(!isNaN(hB)) bProj=(bProj+hB)/2;
-    if(!isNaN(aProj)&&!isNaN(bProj)) ftProj=aProj+bProj;
+  let h1Proj = !isNaN(ftProj) ? ftProj * 0.5 : NaN;
+
+  if(document.getElementById("useH2H1H")?.checked){
+    let h = num("h2h1H");
+    if(!isNaN(h) && !isNaN(h1Proj))
+      h1Proj = (h1Proj + h) / 2;
   }
 
-  let h1Proj=!isNaN(ftProj)?ftProj*0.5:NaN;
+  function build(name, proj, market){
 
-  if(document.getElementById("useH2H1H").checked){
-    let h=num("h2h1H");
-    if(!isNaN(h)) h1Proj=(h1Proj+h)/2;
-  }
-
-  function build(name,proj,market){
-    if(isNaN(proj)||isNaN(market)){
-      return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0.0%",raw:0};
+    if(isNaN(proj) || isNaN(market)){
+      return {name, proj:"NaN", edge:"NaN", pred:"NO PLAY", prob:"0.0%", raw:0};
     }
 
-    let edge=proj-market;
-    let std=proj*0.08;
-    let z=edge/std;
-    let prob=0.5*(1+Math.tanh(z*0.8));
-    let minEdge=market*0.03;
+    let edge = proj - market;
+    let std = proj * 0.08;
+
+    if(std <= 0 || isNaN(std)){
+      return {name, proj:proj.toFixed(2), edge:"NaN", pred:"NO PLAY", prob:"0.0%", raw:0};
+    }
+
+    let z = edge / std;
+    let prob = 0.5 * (1 + Math.tanh(z * 0.8));
+    let probability = prob * 100;
 
     let prediction = "NO PLAY";
-let probability = prob * 100;
 
-if(probability >= 75){
+    if(probability >= 75){
 
-  if(edge > 0){
-    let finalLine = market - 3;   // BUFFER = 3
-    prediction = "OVER " + finalLine.toFixed(1);
+      if(edge > 0){
+        prediction = "OVER " + (market - 3).toFixed(1);
+      }
+      else if(edge < 0){
+        prediction = "UNDER " + (market + 3).toFixed(1);
+      }
+    }
+
+    return {
+      name,
+      proj:proj.toFixed(2),
+      edge:edge.toFixed(2),
+      pred:prediction,
+      prob:probability.toFixed(1) + "%",
+      raw:Math.abs(edge)
+    };
   }
-  else if(edge < 0){
-    let finalLine = market + 3;   // BUFFER = 3
-    prediction = "UNDER " + finalLine.toFixed(1);
-  }
 
-}
-
-  let picks=[
-    build("FT Total",ftProj,ftM),
-    build("1H Total",h1Proj,h1M),
-    build("Team A Total",aProj,aM),
-    build("Team B Total",bProj,bM)
+  let picks = [
+    build("FT Total", ftProj, ftM),
+    build("1H Total", h1Proj, h1M),
+    build("Team A Total", aProj, aM),
+    build("Team B Total", bProj, bM)
   ];
 
-  // lock highest edge
-  let maxEdge=Math.max(...picks.map(p=>p.raw));
-  picks.forEach(p=>{
-    let row=table.insertRow();
-    let lockIcon=(p.raw===maxEdge && p.pred!=="NO PLAY")
-      ?'<span class="lock">🔒</span>'
-      :"";
+  let maxEdge = Math.max(...picks.map(p => p.raw));
 
-    row.innerHTML=`
-    <td>${p.name}</td>
-    <td>${p.proj}</td>
-    <td>${p.edge}</td>
-    <td class="${
-      p.pred.includes("OVER")?"pred-over":
-      p.pred.includes("UNDER")?"pred-under":
-      "pred-noplay"
-    }">${p.pred} ${lockIcon}</td>
-    <td>${p.prob}</td>`;
+  picks.forEach(p=>{
+    let lock = (p.raw === maxEdge && p.pred !== "NO PLAY")
+      ? '<span class="lock">🔒</span>'
+      : "";
+
+    let row = table.insertRow();
+    row.innerHTML = `
+      <td>${p.name}</td>
+      <td>${p.proj}</td>
+      <td>${p.edge}</td>
+      <td class="${
+        p.pred.includes("OVER")?"pred-over":
+        p.pred.includes("UNDER")?"pred-under":
+        "pred-noplay"
+      }">${p.pred} ${lock}</td>
+      <td>${p.prob}</td>
+    `;
   });
 
 }
@@ -302,10 +335,10 @@ function clearAll(){
     if(i.type==="checkbox") i.checked=false;
     else i.value="";
   });
-  document.getElementById("results").style.display="none";
+
+  document.getElementById("results").style.display = "none";
 }
 
 </script>
-
 </body>
 </html>
