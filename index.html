@@ -120,52 +120,6 @@ transform:translateY (-3px);
 
 <h1>🏀 Basketball Prediction Engine</h1>
 
-<!-- Expanded Leagues -->
-<div class="section">
-<h2>League</h2>
-<select>
-<optgroup label="Europe">
-<option>EuroLeague</option>
-<option>EuroCup</option>
-<option>ABA League</option>
-<option>ABA League 2</option>
-<option>Spain ACB</option>
-<option>Spain LEB Gold</option>
-<option>Italy Serie A1</option>
-<option>Italy Serie A2</option>
-<option>France Pro A</option>
-<option>France Pro B</option>
-<option>Germany BBL</option>
-<option>Germany Pro A</option>
-<option>Turkey BSL</option>
-<option>Greece A1</option>
-<option>Lithuania LKL</option>
-<option>Poland PLK</option>
-<option>Serbia KLS</option>
-</optgroup>
-<optgroup label="USA">
-<option>NBA</option>
-<option>WNBA</option>
-<option>NBA G League</option>
-<option>NCAA Division I</option>
-<option>NCAA Division II</option>
-<option>NCAA Division III</option>
-</optgroup>
-<optgroup label="Asia">
-<option>China CBA</option>
-<option>Korea KBL</option>
-<option>Japan B League</option>
-<option>Japan B2 League</option>
-<option>Philippines PBA</option>
-</optgroup>
-<optgroup label="Africa">
-<option>Basketball Africa League</option>
-<option>Nigeria Premier League</option>
-<option>Egypt Super League</option>
-<option>South Africa League</option>
-</optgroup>
-</select>
-</div>
 
 <!-- Market -->
 <div class="section">
@@ -298,27 +252,21 @@ function runEngine(){
     let prob=0.5*(1+Math.tanh(z*0.8));
     let minEdge=market*0.03;
 
-    let prediction="NO PLAY";
+    let prediction = "NO PLAY";
+let probability = prob * 100;
 
-    let probability = prob * 100;
+if(probability >= 75){
 
-if(Math.abs(edge)>=minEdge && probability >= 75){
-  prediction=edge>0
-    ?"OVER "+market.toFixed(1)
-    :"UNDER "+market.toFixed(1);
-}else{
-  prediction="NO PLAY";
-}
-
-    return {
-      name,
-      proj:proj.toFixed(2),
-      edge:edge.toFixed(2),
-      pred:prediction,
-      prob:(prob*100).toFixed(1)+"%",
-      raw:Math.abs(edge)
-    };
+  if(edge > 0){
+    let finalLine = market - 3;   // BUFFER = 3
+    prediction = "OVER " + finalLine.toFixed(1);
   }
+  else if(edge < 0){
+    let finalLine = market + 3;   // BUFFER = 3
+    prediction = "UNDER " + finalLine.toFixed(1);
+  }
+
+}
 
   let picks=[
     build("FT Total",ftProj,ftM),
