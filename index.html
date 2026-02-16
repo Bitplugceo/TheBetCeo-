@@ -9,69 +9,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-<title>Global Basketball Prediction Engine</title>
+<title>Basketball Prediction Engine</title>
 
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
-.wrapper { max-width:720px; margin:auto; padding:14px; }
+.wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
 h1 { text-align:center; font-size:18px; margin-bottom:12px; }
-.section { border:1px solid #d4af37; background:#202020; padding:10px; margin-bottom:12px; }
-.section h2 { font-size:14px; margin-bottom:8px; }
-label { display:block; font-size:12px; margin-top:6px; }
-input, select {
-  width:240px; max-width:95%;
-  padding:6px;
-  background:#262626;
-  color:#d4af37;
-  border:1px solid #d4af37;
-  margin-top:3px;
-}
-button {
-  padding:8px 18px;
-  margin-top:12px;
-  background:#d4af37;
-  color:#111;
-  border:none;
-  font-weight:bold;
-  cursor:pointer;
-}
-table {
-  width:100%;
-  border-collapse:collapse;
-  margin-top:15px;
-  display:none;
-}
-th, td {
-  border:1px solid #d4af37;
-  padding:6px;
-  text-align:center;
-  font-size:12px;
-}
+.section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
+.section h2 { font-size:14px; margin-bottom:6px; }
+label { display:block; font-size:12px; margin:5px 0 2px; }
+input, select { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
+.buttons { text-align:center; margin-top:10px; }
+.btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
+.table-wrap { overflow-x:auto; margin-top:12px; }
+#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
+#results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
+.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
+.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
+.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
+.lock{ font-size:4px; margin-left:2px; display:inline-flex; align-items:center; transform:translateY(-2px); }
 </style>
 </head>
 
 <body>
 <div class="wrapper">
-
-<h1>🌍 Global Basketball Prediction Engine</h1>
+<h1>🏀 Basketball Prediction Engine</h1>
 
 <div class="section">
 <h2>League</h2>
 <select id="league">
 <option>NBA</option>
-<option>NBA G-League</option>
 <option>NCAA Division I</option>
-<option>NCAA Division II</option>
-<option>NCAA Division III</option>
 <option>EuroLeague</option>
 <option>EuroCup</option>
-<option>Basketball Champions League</option>
 <option>ACB Spain</option>
-<option>LNB Pro A France</option>
-<option>BBL Germany</option>
-<option>Lega Basket Serie A Italy</option>
-<option>Turkish BSL</option>
-<option>VTB United League</option>
 <option>NBL Australia</option>
 <option>CBA China</option>
 <option>B.League Japan</option>
@@ -81,11 +52,9 @@ th, td {
 </div>
 
 <div class="section">
-<h2>Market</h2>
-<label>FT Total Market (224.5-225.5)</label>
+<h2>Market Lines</h2>
+<label>FT Total Market (150.5 - 160.5)</label>
 <input id="ftMarket">
-<label>Odds (default -110)</label>
-<input id="odds" value="-110">
 </div>
 
 <div class="section">
@@ -106,62 +75,49 @@ th, td {
 <input id="bDefR" placeholder="DefR (optional)">
 </div>
 
-<button onclick="runEngine()">Run Engine</button>
+<div class="buttons">
+<button class="btn" onclick="runEngine()">Run</button>
+<button class="btn" onclick="clearAll()">Clear</button>
+</div>
 
+<div class="table-wrap">
 <table id="results">
 <tr>
-<th>Tier</th>
-<th>Projection</th>
-<th>Market</th>
+<th>Pick</th>
+<th>Engine Mid</th>
 <th>Edge</th>
-<th>True %</th>
-<th>EV %</th>
-<th>Kelly %</th>
+<th>Prediction</th>
+<th>Confidence %</th>
 </tr>
 </table>
+</div>
 
 </div>
 
 <script>
 
-/* =========================
-   LEAGUE SETTINGS
-========================= */
-
-const leagueSettings = {
-  "NBA": { sd:13, risk:1.0 },
-  "NBA G-League": { sd:13, risk:0.9 },
-  "NCAA Division I": { sd:11, risk:0.6 },
-  "NCAA Division II": { sd:11, risk:0.5 },
-  "NCAA Division III": { sd:11, risk:0.4 },
-  "EuroLeague": { sd:10, risk:0.8 },
-  "EuroCup": { sd:10, risk:0.8 },
-  "Basketball Champions League": { sd:10, risk:0.75 },
-  "ACB Spain": { sd:10, risk:0.8 },
-  "LNB Pro A France": { sd:10, risk:0.8 },
-  "BBL Germany": { sd:10, risk:0.8 },
-  "Lega Basket Serie A Italy": { sd:10, risk:0.8 },
-  "Turkish BSL": { sd:10, risk:0.8 },
-  "VTB United League": { sd:10, risk:0.8 },
-  "NBL Australia": { sd:11, risk:0.85 },
-  "CBA China": { sd:12, risk:0.9 },
-  "B.League Japan": { sd:11, risk:0.8 },
-  "KBL Korea": { sd:11, risk:0.8 },
-  "PBA Philippines": { sd:11, risk:0.75 }
+/* League SD settings */
+const leagueSD = {
+  "NBA":13,
+  "NCAA Division I":11,
+  "EuroLeague":10,
+  "EuroCup":10,
+  "ACB Spain":10,
+  "NBL Australia":11,
+  "CBA China":12,
+  "B.League Japan":11,
+  "KBL Korea":11,
+  "PBA Philippines":11
 };
-
-/* =========================
-   UTILITIES
-========================= */
 
 function num(id){
   let v=parseFloat(document.getElementById(id).value);
   return isNaN(v)?NaN:v;
 }
 
-function mid(str){
-  if(!str.includes("-")) return parseFloat(str);
-  let [a,b]=str.split("-").map(Number);
+function mid(r){
+  if(!r||!r.includes("-"))return NaN;
+  let[a,b]=r.split("-").map(Number);
   return (a+b)/2;
 }
 
@@ -179,29 +135,22 @@ function erf(x){
   return sign*y;
 }
 
-function impliedProb(odds){
-  return odds<0?(-odds)/((-odds)+100):100/(odds+100);
-}
-
-function kelly(prob, odds){
-  let b=odds<0?100/Math.abs(odds):odds/100;
-  let q=1-prob;
-  return Math.max(0,(b*prob-q)/b);
-}
-
-/* =========================
-   ENGINE
-========================= */
-
 function runEngine(){
 
-  let league=document.getElementById("league").value;
-  let settings=leagueSettings[league];
-  let sd=settings.sd;
-  let leagueRisk=settings.risk;
+  const table=document.getElementById("results");
+  table.style.display="table";
+  table.innerHTML=`<tr>
+  <th>Pick</th>
+  <th>Engine Mid</th>
+  <th>Edge</th>
+  <th>Prediction</th>
+  <th>Confidence %</th>
+  </tr>`;
 
-  let market=mid(document.getElementById("ftMarket").value);
-  let odds=parseFloat(document.getElementById("odds").value);
+  let ftStr=document.getElementById("ftMarket").value;
+  let ft=mid(ftStr);
+
+  let sd=leagueSD[document.getElementById("league").value];
 
   let aPPG=num("aPPG"), aPAPG=num("aPAPG"), aPace=num("aPace"),
       aOffR=num("aOffR"), aDefR=num("aDefR");
@@ -209,69 +158,56 @@ function runEngine(){
   let bPPG=num("bPPG"), bPAPG=num("bPAPG"), bPace=num("bPace"),
       bOffR=num("bOffR"), bDefR=num("bDefR");
 
-  let tier, proj;
+  let proj;
 
+  /* Tier 1 */
   if(!isNaN(aOffR)&&!isNaN(aDefR)&&!isNaN(bOffR)&&!isNaN(bDefR)&&!isNaN(aPace)&&!isNaN(bPace)){
     let poss=(aPace+bPace)/2;
     let aPPP=(aOffR/100+bDefR/100)/2;
     let bPPP=(bOffR/100+aDefR/100)/2;
     proj=(aPPP*poss)+(bPPP*poss);
-    tier="Tier 1";
   }
 
+  /* Tier 2 */
   else if(!isNaN(aPace)&&!isNaN(bPace)&&!isNaN(aPPG)&&!isNaN(aPAPG)&&!isNaN(bPPG)&&!isNaN(bPAPG)){
     let poss=(aPace+bPace)/2;
     let aPPP=((aPPG/aPace)+(bPAPG/bPace))/2;
     let bPPP=((bPPG/bPace)+(aPAPG/aPace))/2;
     proj=(aPPP*poss)+(bPPP*poss);
-    tier="Tier 2";
   }
 
-  else if(!isNaN(aPPG)&&!isNaN(aPAPG)&&!isNaN(bPPG)&&!isNaN(bPAPG)){
+  /* Tier 3 */
+  else{
     let aProj=(aPPG+bPAPG)/2;
     let bProj=(bPPG+aPAPG)/2;
     proj=aProj+bProj;
-    tier="Tier 3";
   }
 
-  else{
-    proj=market;
-    tier="Market Only";
-  }
-
-  let edge=proj-market;
+  let edge=proj-ft;
   let z=edge/sd;
   let prob=edge>0?normalCDF(z):1-normalCDF(z);
-  let ev=(prob*(odds<0?100/Math.abs(odds):odds/100)-(1-prob))*100;
-  let k=kelly(prob,odds)*leagueRisk*100;
+  let confidence=Math.round(prob*100);
 
-  if(tier==="Tier 2") k*=0.7;
-  if(tier==="Tier 3") k*=0.5;
-  if(tier==="Market Only") k=0;
+  let pred="NO PLAY";
+  if(confidence>=60){
+    pred=edge>0?"OVER":"UNDER";
+  }
 
-  k=Math.min(k,5);
+  let row=table.insertRow();
+  row.innerHTML=`
+  <td>FT Total</td>
+  <td>${proj.toFixed(2)}</td>
+  <td>${edge.toFixed(2)}</td>
+  <td class="${
+    pred==="OVER"?"pred-over":
+    pred==="UNDER"?"pred-under":
+    "pred-noplay"}">${pred}</td>
+  <td>${confidence}%</td>`;
+}
 
-  let table=document.getElementById("results");
-  table.style.display="table";
-  table.innerHTML=`
-<tr>
-<th>Tier</th>
-<th>Projection</th>
-<th>Market</th>
-<th>Edge</th>
-<th>True %</th>
-<th>EV %</th>
-<th>Kelly %</th>
-</tr>
-<tr>
-<td>${tier}</td>
-<td>${proj.toFixed(2)}</td>
-<td>${market.toFixed(2)}</td>
-<td>${edge.toFixed(2)}</td>
-<td>${(prob*100).toFixed(2)}%</td>
-<td>${ev.toFixed(2)}%</td>
-<td>${k.toFixed(2)}%</td>
-</tr>`;
+function clearAll(){
+  document.querySelectorAll("input").forEach(i=>i.value="");
+  results.style.display="none";
 }
 
 </script>
