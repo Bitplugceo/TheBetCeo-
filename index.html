@@ -10,39 +10,98 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Basketball Prediction Engine</title>
 
 <style>
-body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
-.wrapper { max-width:760px; margin:auto; padding:12px 14px 40px; }
-h1 { text-align:center; font-size:18px; margin-bottom:12px; }
-.section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
-.section h2 { font-size:14px; margin-bottom:6px; }
-label { display:block; font-size:12px; margin:5px 0 2px; }
+body {
+  background:#1b1b1b;
+  color:#d4af37;
+  font-family:Segoe UI,sans-serif;
+  margin:0;
+}
 
-input, select {
+.wrapper {
+  max-width:750px;
+  margin:auto;
+  padding:14px;
+}
+
+h1 {
+  text-align:center;
+  font-size:18px;
+  margin-bottom:12px;
+}
+
+.section {
+  border:1px solid #d4af37;
+  background:#202020;
+  padding:10px;
+  margin-bottom:12px;
+}
+
+.section h2 {
+  font-size:14px;
+  margin-bottom:6px;
+}
+
+label {
+  display:block;
+  font-size:12px;
+  margin:6px 0 2px;
+}
+
+input[type="text"], select {
   width:240px;
   max-width:95%;
-  padding:5px 6px;
+  padding:6px;
   font-size:12px;
   background:#262626;
   color:#d4af37;
   border:1px solid #d4af37;
-  margin:4px 0 8px 0;
   border-radius:0;
-  appearance:none;
+  margin-bottom:8px;
 }
 
-input[type="checkbox"] { width:auto; margin-right:6px; }
+input[type="checkbox"] {
+  width:16px;
+  height:16px;
+  accent-color:#d4af37;
+  cursor:pointer;
+  margin-right:6px;
+}
 
-.buttons { text-align:center; margin-top:10px; }
-.btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
+.buttons {
+  text-align:center;
+  margin-top:12px;
+}
 
-#results { width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; }
-#results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
+.btn {
+  padding:7px 20px;
+  margin:6px;
+  font-size:12px;
+  font-weight:bold;
+  background:#d4af37;
+  color:#111;
+  border:none;
+  cursor:pointer;
+}
 
-.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
-.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
+#results {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  margin-top:12px;
+}
+
+#results th, #results td {
+  border:1px solid #d4af37;
+  padding:6px;
+  text-align:center;
+}
+
+.pred-over { background:#1e7d3a; color:white; font-weight:bold; }
+.pred-under { background:#8b1e1e; color:white; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
 </style>
@@ -50,6 +109,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <body>
 <div class="wrapper">
+
 <h1>🏀 Basketball Prediction Engine</h1>
 
 <!-- League -->
@@ -74,8 +134,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <option>WNBA</option>
 <option>NBA G League</option>
 <option>NCAA Division I</option>
-<option>NCAA Division II</option>
-<option>NCAA Division III</option>
 </optgroup>
 <optgroup label="Asia">
 <option>China CBA</option>
@@ -104,52 +162,61 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <!-- Market -->
 <div class="section">
 <h2>Market Lines</h2>
-<label>FT Total Market (150.5 - 160.5)</label>
-<input id="ftMarket">
-<label>1H Total Market (75.5 - 85.5)</label>
-<input id="h1Market">
-<label>Team A Total Market</label>
-<input id="teamAMarket">
-<label>Team B Total Market</label>
-<input id="teamBMarket">
+<label>FT Total (150.5 - 160.5)</label>
+<input type="text" id="ftMarket">
+<label>1H Total (75.5 - 85.5)</label>
+<input type="text" id="h1Market">
+<label>Team A Total</label>
+<input type="text" id="teamAMarket">
+<label>Team B Total</label>
+<input type="text" id="teamBMarket">
 </div>
 
 <!-- Averages -->
 <div class="section">
 <h2>Team Averages</h2>
 <label>Team A Avg Points</label>
-<input id="teamAAvg">
+<input type="text" id="teamAAvg">
 <label>Team B Avg Points</label>
-<input id="teamBAvg">
+<input type="text" id="teamBAvg">
 </div>
 
 <!-- Defense -->
 <div class="section">
 <h2>Defensive Metrics</h2>
 <label>Team A Points Allowed</label>
-<input id="papgA">
+<input type="text" id="papgA">
 <label>Team B Points Allowed</label>
-<input id="papgB">
+<input type="text" id="papgB">
 </div>
 
 <!-- Pace -->
 <div class="section">
 <h2>Pace</h2>
 <label>Team A Pace</label>
-<input id="paceA">
+<input type="text" id="paceA">
 <label>Team B Pace</label>
-<input id="paceB">
+<input type="text" id="paceB">
 </div>
 
 <!-- H2H -->
 <div class="section">
 <h2>Head to Head (Optional)</h2>
-<label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
-<input id="h2hA" placeholder="Team A H2H FT Avg">
-<input id="h2hB" placeholder="Team B H2H FT Avg">
 
-<label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-<input id="h2h1H" placeholder="1H H2H Avg Total">
+<label>
+<input type="checkbox" id="useH2HFT">
+Use H2H (FT)
+</label>
+
+<input type="text" id="h2hA" placeholder="Team A H2H FT Avg">
+<input type="text" id="h2hB" placeholder="Team B H2H FT Avg">
+
+<label>
+<input type="checkbox" id="useH2H1H">
+Use H2H (1H)
+</label>
+
+<input type="text" id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
 <div class="buttons">
@@ -171,19 +238,21 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <script>
 
-function getNum(id){
+function num(id){
   let v=parseFloat(document.getElementById(id).value);
   return isNaN(v)?NaN:v;
 }
 
-function getMid(id){
+function mid(id){
   let str=document.getElementById(id).value;
   if(!str||!str.includes("-")) return NaN;
-  let [a,b]=str.split("-").map(x=>parseFloat(x));
+  let parts=str.split("-");
+  let a=parseFloat(parts[0]);
+  let b=parseFloat(parts[1]);
   return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;
 }
 
-function buildRow(name,proj,market){
+function pick(name,proj,market){
 
   if(isNaN(proj)||isNaN(market)){
     return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0.0"};
@@ -192,7 +261,7 @@ function buildRow(name,proj,market){
   let edge=proj-market;
   let std=proj*0.08;
 
-  if(std===0||isNaN(std)){
+  if(std<=0||isNaN(std)){
     return {name,proj:proj.toFixed(2),edge:"NaN",pred:"NO PLAY",prob:"0.0"};
   }
 
@@ -200,18 +269,19 @@ function buildRow(name,proj,market){
   let prob=0.5*(1+Math.tanh(z*0.8));
   let minEdge=market*0.03;
 
-  let pred="NO PLAY";
+  let prediction="NO PLAY";
 
   if(Math.abs(edge)>=minEdge){
-    if(edge>0) pred="OVER "+market.toFixed(1);
-    else pred="UNDER "+market.toFixed(1);
+    prediction=edge>0
+      ? "OVER "+market.toFixed(1)
+      : "UNDER "+market.toFixed(1);
   }
 
   return {
     name,
     proj:proj.toFixed(2),
     edge:edge.toFixed(2),
-    pred,
+    pred:prediction,
     prob:(prob*100).toFixed(1)
   };
 }
@@ -220,22 +290,26 @@ function runEngine(){
 
   const table=document.getElementById("results");
 
-  table.innerHTML=`<tr>
-  <th>Pick</th><th>Projection</th>
-  <th>Edge</th><th>Prediction</th><th>Probability %</th>
+  table.innerHTML=`
+  <tr>
+  <th>Pick</th>
+  <th>Projection</th>
+  <th>Edge</th>
+  <th>Prediction</th>
+  <th>Probability %</th>
   </tr>`;
 
-  let ftMarket=getMid("ftMarket");
-  let h1Market=getMid("h1Market");
-  let aMarket=getMid("teamAMarket");
-  let bMarket=getMid("teamBMarket");
+  let ftM=mid("ftMarket");
+  let h1M=mid("h1Market");
+  let aM=mid("teamAMarket");
+  let bM=mid("teamBMarket");
 
-  let aAvg=getNum("teamAAvg");
-  let bAvg=getNum("teamBAvg");
-  let papgA=getNum("papgA");
-  let papgB=getNum("papgB");
-  let paceA=getNum("paceA");
-  let paceB=getNum("paceB");
+  let aAvg=num("teamAAvg");
+  let bAvg=num("teamBAvg");
+  let papgA=num("papgA");
+  let papgB=num("papgB");
+  let paceA=num("paceA");
+  let paceB=num("paceB");
 
   let aProj=(!isNaN(aAvg)&&!isNaN(papgB))?(aAvg+papgB)/2:NaN;
   let bProj=(!isNaN(bAvg)&&!isNaN(papgA))?(bAvg+papgA)/2:NaN;
@@ -252,9 +326,9 @@ function runEngine(){
     ftProj=(aProj+bProj)*(avgPace/100);
   }
 
-  if(document.getElementById("useH2HFT").checked && !isNaN(ftProj)){
-    let hA=getNum("h2hA");
-    let hB=getNum("h2hB");
+  if(document.getElementById("useH2HFT").checked&&!isNaN(ftProj)){
+    let hA=num("h2hA");
+    let hB=num("h2hB");
     if(!isNaN(hA)&&!isNaN(hB)){
       ftProj=(ftProj+(hA+hB))/2;
     }
@@ -262,18 +336,18 @@ function runEngine(){
 
   let h1Proj=!isNaN(ftProj)?ftProj*0.5:NaN;
 
-  if(document.getElementById("useH2H1H").checked && !isNaN(h1Proj)){
-    let h1=getNum("h2h1H");
+  if(document.getElementById("useH2H1H").checked&&!isNaN(h1Proj)){
+    let h1=num("h2h1H");
     if(!isNaN(h1)){
       h1Proj=(h1Proj+h1)/2;
     }
   }
 
   let picks=[
-    buildRow("FT Total",ftProj,ftMarket),
-    buildRow("1H Total",h1Proj,h1Market),
-    buildRow("Team A Total",aProj,aMarket),
-    buildRow("Team B Total",bProj,bMarket)
+    pick("FT Total",ftProj,ftM),
+    pick("1H Total",h1Proj,h1M),
+    pick("Team A Total",aProj,aM),
+    pick("Team B Total",bProj,bM)
   ];
 
   picks.forEach(p=>{
@@ -300,5 +374,6 @@ function clearAll(){
 }
 
 </script>
+
 </body>
 </html>
