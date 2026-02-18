@@ -149,9 +149,9 @@ function runEngine(){
 
   let pred="NO PLAY";
   if(conf>=75 && Math.abs(edge)>=threshold){
-    let value = clamp(anchoredModel, low, high);
-    if(edge>0) pred = "OVER " + roundHalf(value);
-    else pred = "UNDER " + roundHalf(value);
+    // Preserve original prediction logic but round to nearest 0.5
+    if(edge>0) pred="OVER "+roundHalf(clamp(marketMid-3,low,high));
+    else pred="UNDER "+roundHalf(clamp(marketMid+3,low,high));
   }
 
   addRow("FT Total", anchoredModel.toFixed(2), edge.toFixed(2), pred, conf);
