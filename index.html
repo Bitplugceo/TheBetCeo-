@@ -79,7 +79,8 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 
 <script>
 
-const STD_DEV = 12.5;
+const STD_DEV = 12.5;      // cross-league default
+const LEAGUE_AVG_PACE = 100;
 
 function num(id){
   let v=parseFloat(document.getElementById(id).value);
@@ -100,6 +101,8 @@ function runEngine(){
 
   let {mid:marketMid,low:betLine}=parseRange(ftMarket.value);
 
+  let projection = marketMid;   // 🔥 MARKET ANCHOR
+
   let aOff=num("teamAOff");
   let bOff=num("teamBOff");
   let aDef=num("teamADef");
@@ -111,38 +114,51 @@ function runEngine(){
   let useH2H=document.getElementById("useH2H").checked;
   let h2h=num("h2hTotal");
 
-  let seasonProj = NaN;
-
+  // ===============================
+  // 1️⃣ Season Adjustment
+  // ===============================
   if(!isNaN(aOff)&&!isNaN(bOff)&&!isNaN(aDef)&&!isNaN(bDef)){
-    seasonProj=((aOff+bDef)/2)+((bOff+aDef)/2);
 
-    if(!isNaN(paceA)&&!isNaN(paceB)){
-      let poss=(paceA+paceB)/2;
-      let effA=aOff/paceA;
-      let effB=bOff/paceB;
-      seasonProj=(effA+effB)*poss;
-    }
+    let seasonTotal = ((aOff+bDef)/2)+((bOff+aDef)/2);
+    let seasonEdge = seasonTotal - marketMid;
+
+    projection += seasonEdge * 0.5;   // controlled impact
   }
 
-  let formProj = (!isNaN(aForm)&&!isNaN(bForm)) ? aForm+bForm : NaN;
-  let h2hProj = (useH2H && !isNaN(h2h)) ? h2h : NaN;
+  // ===============================
+  // 2️⃣ Pace Adjustment
+  // ===============================
+  if(!isNaN(paceA)&&!isNaN(paceB)){
+    let expectedPoss = (paceA+paceB)/2;
+    let paceFactor = expectedPoss / LEAGUE_AVG_PACE;
+    projection *= paceFactor;
+  }
 
-  // Default weights
-  let wSeason=0.5, wForm=0.3, wH2H=0.2;
+  // ===============================
+  // 3️⃣ Last 5 Adjustment
+  // ===============================
+  if(!isNaN(aForm)&&!isNaN(bForm)){
+    let formTotal = aForm + bForm;
+    let formEdge = formTotal - projection;
+    projection += formEdge * 0.25;
+  }
 
-  let totalWeight=0;
-  let projection=0;
+  // ===============================
+  // 4️⃣ H2H Adjustment
+  // ===============================
+  if(useH2H && !isNaN(h2h)){
+    let h2hEdge = h2h - projection;
+    projection += h2hEdge * 0.15;
+  }
 
-  if(!isNaN(seasonProj)){ projection+=seasonProj*wSeason; totalWeight+=wSeason; }
-  if(!isNaN(formProj)){ projection+=formProj*wForm; totalWeight+=wForm; }
-  if(!isNaN(h2hProj)){ projection+=h2hProj*wH2H; totalWeight+=wH2H; }
+  // ===============================
+  // 5️⃣ Final Market Resistance
+  // ===============================
+  projection = 0.9 * projection + 0.1 * marketMid;
 
-  if(totalWeight>0) projection/=totalWeight;
-  else projection=NaN;
-
-  let edge=projection-marketMid;
-  let z=isNaN(edge)?0:edge/STD_DEV;
-  let confidence=Math.min(90,Math.round(Math.abs(z)*35));
+  let edge = projection - marketMid;
+  let z = isNaN(edge)?0:edge/STD_DEV;
+  let confidence = Math.min(90, Math.round(Math.abs(z)*40));
 
   let prediction="NO PLAY";
   if(Math.abs(z)>=0.35 && !isNaN(betLine)){
