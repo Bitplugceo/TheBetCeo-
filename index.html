@@ -12,13 +12,14 @@ body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margi
 .wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
 h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
+.section h2 { font-size:14px; margin-bottom:6px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
 input[type="checkbox"] { width:auto; margin-right:6px; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
-#results { width:100%; border-collapse:collapse; font-size:12px; }
+#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
 #results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
@@ -31,30 +32,39 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <h1>🏀 Basketball Prediction Engine (FT Only)</h1>
 
 <div class="section">
+<h2>Market</h2>
 <label>FT Total Market (150.5 - 180.5)</label>
 <input id="ftMarket">
 </div>
 
 <div class="section">
-<h3>Last 5 Form (Optional)</h3>
+<h2>Last 5 Form (Optional)</h2>
 <label>Team A Last 5 Avg</label><input id="teamAForm">
 <label>Team B Last 5 Avg</label><input id="teamBForm">
 </div>
 
 <div class="section">
-<h3>Season Metrics (Optional)</h3>
+<h2>Offense (PPG) - Optional</h2>
 <label>Team A PPG</label><input id="teamAOff">
 <label>Team B PPG</label><input id="teamBOff">
+</div>
+
+<div class="section">
+<h2>Defense (PAPG) - Optional</h2>
 <label>Team A Points Allowed</label><input id="teamADef">
 <label>Team B Points Allowed</label><input id="teamBDef">
+</div>
+
+<div class="section">
+<h2>Pace (Optional)</h2>
 <label>Team A Pace</label><input id="paceA">
 <label>Team B Pace</label><input id="paceB">
 </div>
 
 <div class="section">
-<h3>Direct H2H (Optional)</h3>
-<label>H2H Average Total</label>
-<input id="h2hTotal">
+<h2>Direct H2H (Optional)</h2>
+<label><input type="checkbox" id="useH2H"> Use H2H</label>
+<input id="h2hTotal" placeholder="H2H Average Total">
 </div>
 
 <div class="buttons">
@@ -70,13 +80,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <th>Edge</th>
 <th>Prediction</th>
 <th>Confidence %</th>
-</tr>
-<tr>
-<td>FT Total</td>
-<td>NaN</td>
-<td>NaN</td>
-<td class="pred-noplay">NO PLAY</td>
-<td>0%</td>
 </tr>
 </table>
 </div>
@@ -101,6 +104,7 @@ function parseRange(range){
 function runEngine(){
 
   const table=document.getElementById("results");
+  table.style.display="table";
 
   let {mid:marketMid,low:betLine}=parseRange(ftMarket.value);
 
@@ -112,11 +116,12 @@ function runEngine(){
   let paceB=num("paceB");
   let aForm=num("teamAForm");
   let bForm=num("teamBForm");
+  let useH2H=document.getElementById("useH2H").checked;
   let h2h=num("h2hTotal");
 
   let projections=[];
 
-  // 1️⃣ Season + Pace Model
+  // Season model
   if(!isNaN(aOff)&&!isNaN(bOff)&&!isNaN(aDef)&&!isNaN(bDef)){
     let seasonTotal=((aOff+bDef)/2)+((bOff+aDef)/2);
 
@@ -130,13 +135,13 @@ function runEngine(){
     projections.push(seasonTotal);
   }
 
-  // 2️⃣ Last 5 Model
+  // Last 5
   if(!isNaN(aForm)&&!isNaN(bForm)){
     projections.push(aForm+bForm);
   }
 
-  // 3️⃣ H2H Model
-  if(!isNaN(h2h)){
+  // H2H
+  if(useH2H && !isNaN(h2h)){
     projections.push(h2h);
   }
 
@@ -147,14 +152,12 @@ function runEngine(){
   }
 
   let edge=projection-marketMid;
-
-  let zScore=isNaN(edge)?0:edge/STD_DEV;
-
-  let confidence=Math.min(90,Math.round(Math.abs(zScore)*35));
+  let z=isNaN(edge)?0:edge/STD_DEV;
+  let confidence=Math.min(90,Math.round(Math.abs(z)*35));
 
   let prediction="NO PLAY";
 
-  if(Math.abs(zScore)>=0.35 && !isNaN(betLine)){
+  if(Math.abs(z)>=0.35 && !isNaN(betLine)){
     prediction=edge>0?`OVER ${betLine}`:`UNDER ${betLine}`;
   }
 
@@ -179,8 +182,12 @@ function runEngine(){
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>i.value="");
-  runEngine();
+  document.querySelectorAll("input").forEach(i=>{
+    if(i.type==="checkbox") i.checked=false;
+    else i.value="";
+  });
+
+  document.getElementById("results").style.display="none";
 }
 
 </script>
