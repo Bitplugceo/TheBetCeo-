@@ -3,10 +3,8 @@
 <head>
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Basketball Prediction Engine - FT Only</title>
 
 <style>
@@ -14,7 +12,6 @@ body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margi
 .wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
 h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
-.section h2 { font-size:14px; margin-bottom:6px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
 input[type="checkbox"] { width:auto; margin-right:6px; }
@@ -34,42 +31,43 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <h1>🏀 Basketball Prediction Engine (FT Only)</h1>
 
 <div class="section">
-  <h2>Market Line</h2>
-  <label>FT Total Market (e.g. 150.5 - 180.5)</label>
-  <input id="ftMarket">
+<label>FT Total Market (150.5 - 180.5)</label>
+<input id="ftMarket">
 </div>
 
 <div class="section">
-  <h2>Team Season Metrics</h2>
-  <label>Team A PPG</label>
-  <input id="teamAOff">
-  <label>Team B PPG</label>
-  <input id="teamBOff">
-  <label>Team A Points Allowed</label>
-  <input id="teamADef">
-  <label>Team B Points Allowed</label>
-  <input id="teamBDef">
+<h3>Season Metrics</h3>
+<label>Team A PPG</label><input id="teamAOff">
+<label>Team B PPG</label><input id="teamBOff">
+<label>Team A Points Allowed</label><input id="teamADef">
+<label>Team B Points Allowed</label><input id="teamBDef">
 </div>
 
 <div class="section">
-  <h2>Direct H2H (FT Only)</h2>
-  <label><input type="checkbox" id="useH2H"> Use Direct H2H FT Average</label>
-  <input id="h2hTotal" placeholder="H2H Average Total">
+<h3>Last 5 Form (FT)</h3>
+<label>Team A Last 5 Avg</label><input id="teamAForm">
+<label>Team B Last 5 Avg</label><input id="teamBForm">
+</div>
+
+<div class="section">
+<h3>Direct H2H (FT Only)</h3>
+<label><input type="checkbox" id="useH2H"> Use H2H</label>
+<input id="h2hTotal" placeholder="H2H Average Total">
 </div>
 
 <div class="buttons">
-  <button class="btn" onclick="runEngine()">Run</button>
-  <button class="btn" onclick="clearAll()">Clear</button>
+<button class="btn" onclick="runEngine()">Run</button>
+<button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
 <div class="table-wrap">
 <table id="results">
 <tr>
-  <th>Pick</th>
-  <th>Engine Mid</th>
-  <th>Edge</th>
-  <th>Prediction</th>
-  <th>Confidence %</th>
+<th>Pick</th>
+<th>Engine Mid</th>
+<th>Edge</th>
+<th>Prediction</th>
+<th>Confidence %</th>
 </tr>
 </table>
 </div>
@@ -81,17 +79,16 @@ function num(id){
   return isNaN(v)?NaN:v;
 }
 
-function mid(range){
-  if(!range || !range.includes("-")) return NaN;
+function parseRange(range){
+  if(!range.includes("-")) return {mid:NaN,low:NaN};
   let [low,high]=range.split("-").map(x=>parseFloat(x.trim()));
-  if(isNaN(low)||isNaN(high)) return NaN;
-  return (low+high)/2;
+  return {mid:(low+high)/2,low:low};
 }
 
 function confidence(edge){
   let abs=Math.abs(edge);
   if(abs<3) return 0;
-  return Math.min(90, Math.round(55 + abs*4));
+  return Math.min(90,Math.round(55+abs*4));
 }
 
 function runEngine(){
@@ -106,50 +103,55 @@ function runEngine(){
     <th>Confidence %</th>
   </tr>`;
 
-  let marketMid=mid(document.getElementById("ftMarket").value);
+  let {mid:marketMid,low:betLine}=parseRange(ftMarket.value);
+
   let aOff=num("teamAOff");
   let bOff=num("teamBOff");
   let aDef=num("teamADef");
   let bDef=num("teamBDef");
-  let useH2H=document.getElementById("useH2H").checked;
+  let aForm=num("teamAForm");
+  let bForm=num("teamBForm");
+  let useH2H=useH2H.checked;
   let h2h=num("h2hTotal");
 
-  if([marketMid,aOff,bOff,aDef,bDef].some(isNaN)){
-    alert("Enter valid inputs.");
+  if([marketMid,aOff,bOff,aDef,bDef,aForm,bForm].some(isNaN)){
+    alert("Fill all required inputs.");
     table.style.display="none";
     return;
   }
 
-  // Base matchup projection
-  let adjA=(aOff + bDef)/2;
-  let adjB=(bOff + aDef)/2;
-  let baseProjection=adjA + adjB;
+  // Season projection
+  let seasonTotal=((aOff+bDef)/2)+((bOff+aDef)/2);
 
-  // Apply conservative H2H blending
-  let projection=baseProjection;
+  // Form projection
+  let formTotal=aForm+bForm;
+
+  // Weighted base
+  let projection=(0.60*seasonTotal)+(0.25*formTotal);
+
+  // H2H blending
   if(useH2H && !isNaN(h2h)){
-    projection = (0.85 * baseProjection) + (0.15 * h2h);
+    projection=(0.85*projection)+(0.15*h2h);
   }
 
-  let edge=projection - marketMid;
+  let edge=projection-marketMid;
   let conf=confidence(edge);
   let prediction="NO PLAY";
 
   if(conf>=60){
-    prediction=edge>0?"OVER":"UNDER";
+    prediction=edge>0?`OVER ${betLine}`:`UNDER ${betLine}`;
   }
 
   let row=table.insertRow();
   row.innerHTML=`
-    <td>FT Total</td>
-    <td>${projection.toFixed(2)}</td>
-    <td>${edge.toFixed(2)}</td>
-    <td class="${prediction==="OVER"?"pred-over":
-                prediction==="UNDER"?"pred-under":"pred-noplay"}">
+  <td>FT Total</td>
+  <td>${projection.toFixed(2)}</td>
+  <td>${edge.toFixed(2)}</td>
+  <td class="${prediction.startsWith("OVER")?"pred-over":
+              prediction.startsWith("UNDER")?"pred-under":"pred-noplay"}">
       ${prediction}
-    </td>
-    <td>${conf}%</td>
-  `;
+  </td>
+  <td>${conf}%</td>`;
 }
 
 function clearAll(){
@@ -157,7 +159,7 @@ function clearAll(){
     if(i.type==="checkbox") i.checked=false;
     else i.value="";
   });
-  document.getElementById("results").style.display="none";
+  results.style.display="none";
 }
 </script>
 
