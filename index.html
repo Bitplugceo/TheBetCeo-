@@ -82,28 +82,29 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <script>
-// Safe number parse
+// Safe parse
 function num(id){ let v=parseFloat(document.getElementById(id).value); return isNaN(v)?NaN:v; }
 function mid(r){ if(!r||!r.includes("-")) return NaN; let [a,b]=r.split("-").map(x=>parseFloat(x)); return (isNaN(a)||isNaN(b))?NaN:(a+b)/2; }
 function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
-// Round to nearest 0.5
-function roundHalf(num){ return Math.round(num*2)/2; }
+// Snap prediction to nearest .5 inside market
+function snapToMarket(pred, low, high){
+    let snapped = Math.floor(pred) + 0.5;
+    if(snapped < low) return low;
+    if(snapped > high) return high;
+    return snapped;
+}
 
 // Confidence calculation
-function confidence(edge,total){
-  if(isNaN(edge)) return 0;
-  let base = Math.abs(edge)*6 + 60;
-  if(total>165) base -= 3;
-  if(total<145) base += 2;
-  return Math.min(95,Math.round(base));
+function confidence(edge){
+    if(isNaN(edge)) return 0;
+    let base = 60 + Math.min(Math.abs(edge)*5, 35);
+    return Math.min(95, Math.round(base));
 }
 
 // Adaptive edge threshold
-function adaptiveEdgeThreshold(total){
-  if(total>165) return 5;
-  if(total<145) return 3.5;
-  return 4;
+function adaptiveEdgeThreshold(){
+    return 4; // 4 points minimum edge
 }
 
 function runEngine(){
@@ -125,33 +126,29 @@ function runEngine(){
   let useH2H=document.getElementById("useH2HFT").checked;
   let h2hA=num("h2hA"), h2hB=num("h2hB");
 
-  // Multi-layer Offense
-  let offenseBase = aAvg+bAvg;
+  // Offense base
+  let offenseBase = aAvg + bAvg;
   if(useH2H && !isNaN(h2hA) && !isNaN(h2hB)){
     offenseBase = 0.6*(aAvg+bAvg) + 0.4*(h2hA+h2hB);
   }
 
-  // Defense influence
-  let defenseBase = papgA+papgB;
+  // Defense base
+  let defenseBase = papgA + papgB;
   let rawModel = offenseBase*0.55 + defenseBase*0.45;
 
-  // Market anchor
+  // Anchored to market
   let anchoredModel = rawModel*0.8 + marketMid*0.2;
 
-  // Volatility / blowout suppression
-  let mismatch = Math.abs(offenseBase-defenseBase);
-  if(mismatch>25){ anchoredModel = anchoredModel*0.97 + marketMid*0.03; }
-
   // Edge & confidence
-  let edge = anchoredModel-marketMid;
-  let conf = confidence(edge, marketMid);
-  let threshold = adaptiveEdgeThreshold(marketMid);
+  let edge = anchoredModel - marketMid;
+  let conf = confidence(edge);
+  let threshold = adaptiveEdgeThreshold();
 
-  let pred="NO PLAY";
-  if(conf>=75 && Math.abs(edge)>=threshold){
-    // Preserve original prediction logic but round to nearest 0.5
-    if(edge>0) pred="OVER "+roundHalf(clamp(marketMid-3,low,high));
-    else pred="UNDER "+roundHalf(clamp(marketMid+3,low,high));
+  // Prediction logic with snap to .5
+  let pred = "NO PLAY";
+  if(conf >= 75 && Math.abs(edge) >= threshold){
+    if(edge > 0) pred = "OVER " + snapToMarket(clamp(marketMid-3, low, high), low, high);
+    else pred = "UNDER " + snapToMarket(clamp(marketMid+3, low, high), low, high);
   }
 
   addRow("FT Total", anchoredModel.toFixed(2), edge.toFixed(2), pred, conf);
@@ -170,7 +167,7 @@ function clearAll(){
   document.querySelectorAll("input").forEach(i=>{ if(i.type==="checkbox") i.checked=false; else i.value=""; });
   document.getElementById("results").style.display="none";
 }
-
 </script>
+
 </body>
 </html>
