@@ -87,6 +87,9 @@ function num(id){ let v=parseFloat(document.getElementById(id).value); return is
 function mid(r){ if(!r||!r.includes("-")) return NaN; let [a,b]=r.split("-").map(x=>parseFloat(x)); return (isNaN(a)||isNaN(b))?NaN:(a+b)/2; }
 function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
+// Round to nearest 0.5
+function roundHalf(num){ return Math.round(num*2)/2; }
+
 // Confidence calculation
 function confidence(edge,total){
   if(isNaN(edge)) return 0;
@@ -146,8 +149,9 @@ function runEngine(){
 
   let pred="NO PLAY";
   if(conf>=75 && Math.abs(edge)>=threshold){
-    if(edge>0) pred="OVER "+clamp(marketMid-3,low,high).toFixed(1);
-    else pred="UNDER "+clamp(marketMid+3,low,high).toFixed(1);
+    let value = clamp(anchoredModel, low, high);
+    if(edge>0) pred = "OVER " + roundHalf(value);
+    else pred = "UNDER " + roundHalf(value);
   }
 
   addRow("FT Total", anchoredModel.toFixed(2), edge.toFixed(2), pred, conf);
