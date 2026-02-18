@@ -9,7 +9,7 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Basketball FT Prediction Engine</title>
+<title>Elite FT Prediction Engine</title>
 
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
@@ -72,16 +72,16 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 <body>
 
 <div class="wrapper">
-<h1>🏀 FT Basketball Prediction Engine</h1>
+<h1>🏀 Elite FT Prediction Engine</h1>
 
 <div class="section">
   <h2>FT Market</h2>
-  <label>FT Total Market Range (Example: 150.5 - 160.5)</label>
+  <label>FT Market Range (Example: 150.5 - 160.5)</label>
   <input id="ftMarket">
 </div>
 
 <div class="section">
-  <h2>Team Scoring Averages</h2>
+  <h2>Team Offense</h2>
   <label>Team A FT Average</label>
   <input id="teamAAvg">
 
@@ -141,9 +141,21 @@ function clamp(v,min,max){
   return Math.max(min,Math.min(max,v));
 }
 
-function confidence(edge){
+function confidence(edge,total){
   if(isNaN(edge)) return 0;
-  return Math.min(95, Math.round(70 + (Math.abs(edge)-3)*5));
+
+  let base = Math.abs(edge) * 6 + 60;
+
+  if(total > 165) base -= 3;
+  if(total < 145) base += 2;
+
+  return Math.min(95, Math.round(base));
+}
+
+function adaptiveEdgeThreshold(total){
+  if(total > 165) return 5;
+  if(total < 145) return 3.5;
+  return 4;
 }
 
 function runEngine(){
@@ -159,52 +171,62 @@ function runEngine(){
   </tr>`;
 
   let ftStr=document.getElementById("ftMarket").value;
-  let ftMid=mid(ftStr);
+  let marketMid=mid(ftStr);
 
-  if(isNaN(ftMid)){
+  if(isNaN(marketMid)){
     addRow("FT Total","-","-","NO PLAY",0);
     return;
   }
 
-  let [ftLow,ftHigh]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [low,high]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
 
   let aAvg=num("teamAAvg");
   let bAvg=num("teamBAvg");
   let papgA=num("papgA");
   let papgB=num("papgB");
 
-  let h2hA=num("h2hA");
-  let h2hB=num("h2hB");
-
-  let useH2H=document.getElementById("useH2HFT").checked;
-
   if(isNaN(aAvg)||isNaN(bAvg)||isNaN(papgA)||isNaN(papgB)){
     addRow("FT Total","-","-","NO PLAY",0);
     return;
   }
 
-  let offTotal=aAvg+bAvg;
-  let defTotal=papgA+papgB;
+  let useH2H=document.getElementById("useH2HFT").checked;
+  let h2hA=num("h2hA");
+  let h2hB=num("h2hB");
+
+  let offenseBase = aAvg + bAvg;
 
   if(useH2H && !isNaN(h2hA) && !isNaN(h2hB)){
-    offTotal = 0.65*(aAvg+bAvg) + 0.35*(h2hA+h2hB);
+    offenseBase = 0.6*(aAvg+bAvg) + 0.4*(h2hA+h2hB);
   }
 
-  let ftEngine = offTotal*0.55 + defTotal*0.45;
+  let defenseBase = papgA + papgB;
 
-  let edge=ftEngine-ftMid;
-  let conf=confidence(edge);
+  let rawModel = offenseBase*0.55 + defenseBase*0.45;
+
+  let anchoredModel = rawModel*0.8 + marketMid*0.2;
+
+  let mismatch = Math.abs(offenseBase - defenseBase);
+  if(mismatch > 25){
+    anchoredModel = anchoredModel*0.97 + marketMid*0.03;
+  }
+
+  let edge = anchoredModel - marketMid;
+
+  let conf = confidence(edge, marketMid);
+
+  let threshold = adaptiveEdgeThreshold(marketMid);
 
   let pred="NO PLAY";
 
-  if(conf>=75 && Math.abs(edge)>=4){
-    if(edge>0) pred="OVER "+clamp(ftMid-3,ftLow,ftHigh).toFixed(1);
-    else pred="UNDER "+clamp(ftMid+3,ftLow,ftHigh).toFixed(1);
+  if(conf >= 75 && Math.abs(edge) >= threshold){
+    if(edge>0) pred="OVER "+clamp(marketMid-3,low,high).toFixed(1);
+    else pred="UNDER "+clamp(marketMid+3,low,high).toFixed(1);
   }
 
   addRow(
     "FT Total",
-    ftEngine.toFixed(2),
+    anchoredModel.toFixed(2),
     edge.toFixed(2),
     pred,
     conf
