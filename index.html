@@ -38,33 +38,33 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <div class="section">
-<h2>Last 5 Form (Optional)</h2>
-<label>Team A Last 5 Avg</label><input id="teamAForm">
-<label>Team B Last 5 Avg</label><input id="teamBForm">
+<h2>Last 5</h2>
+<label>Team A Avg</label><input id="teamAForm">
+<label>Team B Avg</label><input id="teamBForm">
 </div>
 
 <div class="section">
-<h2>Offense (PPG) - Optional</h2>
-<label>Team A PPG</label><input id="teamAOff">
-<label>Team B PPG</label><input id="teamBOff">
+<h2>Offense (PPG)</h2>
+<label>Team A</label><input id="teamAOff">
+<label>Team B</label><input id="teamBOff">
 </div>
 
 <div class="section">
-<h2>Defense (PAPG) - Optional</h2>
-<label>Team A Points Allowed</label><input id="teamADef">
-<label>Team B Points Allowed</label><input id="teamBDef">
+<h2>Defense (PAPG)</h2>
+<label>Team A</label><input id="teamADef">
+<label>Team B</label><input id="teamBDef">
 </div>
 
 <div class="section">
-<h2>Pace (Optional)</h2>
-<label>Team A Pace</label><input id="paceA">
-<label>Team B Pace</label><input id="paceB">
+<h2>Pace</h2>
+<label>Team A</label><input id="paceA">
+<label>Team B</label><input id="paceB">
 </div>
 
 <div class="section">
-<h2>Direct H2H (Optional)</h2>
-<label><input type="checkbox" id="useH2H"> Use H2H</label>
-<input id="h2hTotal" placeholder="H2H Average Total">
+<h2>Direct H2H</h2>
+<label><input type="checkbox" id="useH2H"> Include H2H</label>
+<input id="h2hTotal">
 </div>
 
 <div class="buttons">
@@ -73,15 +73,7 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <div class="table-wrap">
-<table id="results">
-<tr>
-<th>Pick</th>
-<th>Engine Mid</th>
-<th>Edge</th>
-<th>Prediction</th>
-<th>Confidence %</th>
-</tr>
-</table>
+<table id="results"></table>
 </div>
 </div>
 
@@ -119,36 +111,37 @@ function runEngine(){
   let useH2H=document.getElementById("useH2H").checked;
   let h2h=num("h2hTotal");
 
-  let projections=[];
+  let projection = NaN;
 
-  // Season model
-  if(!isNaN(aOff)&&!isNaN(bOff)&&!isNaN(aDef)&&!isNaN(bDef)){
-    let seasonTotal=((aOff+bDef)/2)+((bOff+aDef)/2);
+  // 🔥 PRIORITY 1: Pace model
+  if(!isNaN(aOff)&&!isNaN(bOff)&&!isNaN(aDef)&&!isNaN(bDef)&&!isNaN(paceA)&&!isNaN(paceB)){
+    let poss=(paceA+paceB)/2;
 
-    if(!isNaN(paceA)&&!isNaN(paceB)){
-      let poss=(paceA+paceB)/2;
-      let effA=aOff/paceA;
-      let effB=bOff/paceB;
-      seasonTotal=(effA+effB)*poss;
-    }
+    let effA=(aOff / paceA);
+    let effB=(bOff / paceB);
 
-    projections.push(seasonTotal);
+    let defAdjA=(bDef / 100);
+    let defAdjB=(aDef / 100);
+
+    let scoreA=effA*poss*defAdjA;
+    let scoreB=effB*poss*defAdjB;
+
+    projection=scoreA+scoreB;
   }
 
-  // Last 5
-  if(!isNaN(aForm)&&!isNaN(bForm)){
-    projections.push(aForm+bForm);
+  // 🔥 PRIORITY 2: Season model (no pace)
+  else if(!isNaN(aOff)&&!isNaN(bOff)&&!isNaN(aDef)&&!isNaN(bDef)){
+    projection=((aOff+bDef)/2)+((bOff+aDef)/2);
   }
 
-  // H2H
-  if(useH2H && !isNaN(h2h)){
-    projections.push(h2h);
+  // 🔥 PRIORITY 3: Last 5
+  else if(!isNaN(aForm)&&!isNaN(bForm)){
+    projection=aForm+bForm;
   }
 
-  let projection=NaN;
-
-  if(projections.length>0){
-    projection=projections.reduce((a,b)=>a+b,0)/projections.length;
+  // 🔥 PRIORITY 4: H2H only
+  else if(useH2H && !isNaN(h2h)){
+    projection=h2h;
   }
 
   let edge=projection-marketMid;
@@ -156,7 +149,6 @@ function runEngine(){
   let confidence=Math.min(90,Math.round(Math.abs(z)*35));
 
   let prediction="NO PLAY";
-
   if(Math.abs(z)>=0.35 && !isNaN(betLine)){
     prediction=edge>0?`OVER ${betLine}`:`UNDER ${betLine}`;
   }
@@ -186,7 +178,6 @@ function clearAll(){
     if(i.type==="checkbox") i.checked=false;
     else i.value="";
   });
-
   document.getElementById("results").style.display="none";
 }
 
