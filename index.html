@@ -1,308 +1,155 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1b1b1b">
-
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Basketball Prediction Engine</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Basketball Prediction Engine - FT Only</title>
 
 <style>
-body{
-  background:#1b1b1b;
-  color:#d4af37;
-  font-family:Segoe UI,sans-serif;
-  margin:0;
-}
-
-.wrapper{
-  max-width:760px;
-  margin:auto;
-  padding:14px;
-}
-
-h1{
-  text-align:center;
-  font-size:18px;
-  margin-bottom:12px;
-}
-
-.section{
-  border:1px solid #d4af37;
-  background:#202020;
-  padding:10px;
-  margin-bottom:12px;
-}
-
-.section h2{
-  font-size:14px;
-  margin-bottom:6px;
-}
-
-label{
-  display:block;
-  font-size:12px;
-  margin:6px 0 2px;
-}
-
-input[type="text"], select{
-  width:240px;
-  max-width:95%;
-  padding:6px;
-  font-size:12px;
-  background:#262626;
-  color:#d4af37;
-  border:1px solid #d4af37;
-  border-radius:0;
-  margin-bottom:8px;
-}
-
-/* Native checkbox only */
-input[type="checkbox"]{
-  width:10px;
-  height:10px;
-  margin-right:6px;
-  vertical-align:middle;
-  transform:scale(0.85);
-}
-
-
-.buttons{
-  text-align:center;
-  margin-top:12px;
-}
-
-.btn{
-  padding:7px 20px;
-  margin:6px;
-  font-size:12px;
-  font-weight:bold;
-  background:#d4af37;
-  color:#111;
-  border:none;
-  cursor:pointer;
-}
-
-#results{
-  width:100%;
-  border-collapse:collapse;
-  font-size:12px;
-  margin-top:12px;
-  display:none;
-}
-
-#results th,#results td{
-  border:1px solid #d4af37;
-  padding:6px;
-  text-align:center;
-}
-
-.pred-over{ background:#1e7d3a; color:white; font-weight:bold; }
-.pred-under{ background:#8b1e1e; color:white; font-weight:bold; }
-.pred-noplay{ background:#444; color:#bbb; font-weight:bold; }
-
-.lock{
-font-size:4px;
-margin-left:2px; display:inline-flex; align-items:center;
-transform:translateY (-3px);
-}
-
+body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
+.wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
+h1 { text-align:center; font-size:18px; margin-bottom:12px; }
+.section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
+.section h2 { font-size:14px; margin-bottom:6px; }
+label { display:block; font-size:12px; margin:5px 0 2px; }
+input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
+input[type="checkbox"] { width:auto; margin-right:6px; }
+.buttons { text-align:center; margin-top:10px; }
+.btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
+.table-wrap { overflow-x:auto; margin-top:12px; }
+#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
+#results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
+.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
+.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
+.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 </style>
 </head>
 
 <body>
 <div class="wrapper">
+<h1>🏀 Basketball Prediction Engine (FT Only)</h1>
 
-<h1>🏀 Basketball Prediction Engine</h1>
-
-
-<!-- Market -->
 <div class="section">
-<h2>Market Lines</h2>
-<input type="text" id="ftMarket" placeholder="FT Total (150.5 - 160.5)">
-<input type="text" id="h1Market" placeholder="1H Total (75.5 - 85.5)">
-<input type="text" id="teamAMarket" placeholder="Team A Total">
-<input type="text" id="teamBMarket" placeholder="Team B Total">
+  <h2>Market Line</h2>
+  <label>FT Total Market (e.g. 150.5 - 180.5)</label>
+  <input id="ftMarket">
 </div>
 
-<!-- Averages -->
 <div class="section">
-<h2>Team Averages</h2>
-<input type="text" id="teamAAvg" placeholder="Team A Avg">
-<input type="text" id="teamBAvg" placeholder="Team B Avg">
+  <h2>Team Season Metrics</h2>
+  <label>Team A PPG</label>
+  <input id="teamAOff">
+  <label>Team B PPG</label>
+  <input id="teamBOff">
+  <label>Team A Points Allowed</label>
+  <input id="teamADef">
+  <label>Team B Points Allowed</label>
+  <input id="teamBDef">
 </div>
 
-  <!-- H2H -->
 <div class="section">
-<h2>Head to Head</h2>
-
-<label><input type="checkbox" id="useH2HFT">Use H2H (FT)</label>
-<input type="text" id="h2hA" placeholder="Team A H2H">
-<input type="text" id="h2hB" placeholder="Team B H2H">
-
-<label><input type="checkbox" id="useH2H1H">Use H2H (1H)</label>
-<input type="text" id="h2h1H" placeholder="1H H2H Total">
-</div>
-  
-<!-- Defense (Optional) -->
-<div class="section">
-<h2>Defense (Optional)</h2>
-<input type="text" id="papgA" placeholder="Team A Points Allowed">
-<input type="text" id="papgB" placeholder="Team B Points Allowed">
-</div>
-
-<!-- Pace -->
-<div class="section">
-<h2>Pace</h2>
-<input type="text" id="paceA" placeholder="Team A Pace">
-<input type="text" id="paceB" placeholder="Team B Pace">
+  <h2>Direct H2H (FT Only)</h2>
+  <label><input type="checkbox" id="useH2H"> Use Direct H2H FT Average</label>
+  <input id="h2hTotal" placeholder="H2H Average Total">
 </div>
 
 <div class="buttons">
-<button class="btn" onclick="runEngine()">Run</button>
-<button class="btn" onclick="clearAll()">Clear</button>
+  <button class="btn" onclick="runEngine()">Run</button>
+  <button class="btn" onclick="clearAll()">Clear</button>
 </div>
 
-<table id="results"></table>
-
+<div class="table-wrap">
+<table id="results">
+<tr>
+  <th>Pick</th>
+  <th>Engine Mid</th>
+  <th>Edge</th>
+  <th>Prediction</th>
+  <th>Confidence %</th>
+</tr>
+</table>
+</div>
 </div>
 
 <script>
-
 function num(id){
   let v=parseFloat(document.getElementById(id).value);
   return isNaN(v)?NaN:v;
 }
 
-function mid(id){
-  let str=document.getElementById(id).value;
-  if(!str||!str.includes("-")) return NaN;
-  let [a,b]=str.split("-").map(x=>parseFloat(x));
-  return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;
+function mid(range){
+  if(!range || !range.includes("-")) return NaN;
+  let [low,high]=range.split("-").map(x=>parseFloat(x.trim()));
+  if(isNaN(low)||isNaN(high)) return NaN;
+  return (low+high)/2;
+}
+
+function confidence(edge){
+  let abs=Math.abs(edge);
+  if(abs<3) return 0;
+  return Math.min(90, Math.round(55 + abs*4));
 }
 
 function runEngine(){
 
   const table=document.getElementById("results");
   table.style.display="table";
-
   table.innerHTML=`<tr>
-  <th>Pick</th><th>Projection</th>
-  <th>Edge</th><th>Prediction</th>
-  <th>Probability %</th></tr>`;
+    <th>Pick</th>
+    <th>Engine Mid</th>
+    <th>Edge</th>
+    <th>Prediction</th>
+    <th>Confidence %</th>
+  </tr>`;
 
-  let ftM=mid("ftMarket");
-  let h1M=mid("h1Market");
-  let aM=mid("teamAMarket");
-  let bM=mid("teamBMarket");
+  let marketMid=mid(document.getElementById("ftMarket").value);
+  let aOff=num("teamAOff");
+  let bOff=num("teamBOff");
+  let aDef=num("teamADef");
+  let bDef=num("teamBDef");
+  let useH2H=document.getElementById("useH2H").checked;
+  let h2h=num("h2hTotal");
 
-  let aAvg=num("teamAAvg");
-  let bAvg=num("teamBAvg");
-  let papgA=num("papgA");
-  let papgB=num("papgB");
-  let paceA=num("paceA");
-  let paceB=num("paceB");
-
-  let aProj=!isNaN(aAvg)?
-    (!isNaN(papgB)?(aAvg+papgB)/2:aAvg)
-    :NaN;
-
-  let bProj=!isNaN(bAvg)?
-    (!isNaN(papgA)?(bAvg+papgA)/2:bAvg)
-    :NaN;
-
-  let ftProj=!isNaN(aProj)&&!isNaN(bProj)
-    ?(aProj+bProj)
-    :NaN;
-
-  if(!isNaN(ftProj)&&!isNaN(paceA)&&!isNaN(paceB)){
-    ftProj*=((paceA+paceB)/2)/100;
+  if([marketMid,aOff,bOff,aDef,bDef].some(isNaN)){
+    alert("Enter valid inputs.");
+    table.style.display="none";
+    return;
   }
 
-  if(document.getElementById("useH2HFT").checked){
-    let hA=num("h2hA");
-    let hB=num("h2hB");
-    if(!isNaN(hA)) aProj=(aProj+hA)/2;
-    if(!isNaN(hB)) bProj=(bProj+hB)/2;
-    if(!isNaN(aProj)&&!isNaN(bProj)) ftProj=aProj+bProj;
+  // Base matchup projection
+  let adjA=(aOff + bDef)/2;
+  let adjB=(bOff + aDef)/2;
+  let baseProjection=adjA + adjB;
+
+  // Apply conservative H2H blending
+  let projection=baseProjection;
+  if(useH2H && !isNaN(h2h)){
+    projection = (0.85 * baseProjection) + (0.15 * h2h);
   }
 
-  let h1Proj=!isNaN(ftProj)?ftProj*0.5:NaN;
+  let edge=projection - marketMid;
+  let conf=confidence(edge);
+  let prediction="NO PLAY";
 
-  if(document.getElementById("useH2H1H").checked){
-    let h=num("h2h1H");
-    if(!isNaN(h)) h1Proj=(h1Proj+h)/2;
+  if(conf>=60){
+    prediction=edge>0?"OVER":"UNDER";
   }
 
-  function build(name,proj,market){
-
-    if(isNaN(proj)||isNaN(market)){
-      return {name,proj:"NaN",edge:"NaN",pred:"NO PLAY",prob:"0.0%",raw:0};
-    }
-
-    let edge=proj-market;
-    let std=proj*0.08;
-
-    if(std<=0||isNaN(std)){
-      return {name,proj:proj.toFixed(2),edge:"NaN",pred:"NO PLAY",prob:"0.0%",raw:0};
-    }
-
-    let z=edge/std;
-    let prob=0.5*(1+Math.tanh(z*0.8));
-    let probability=prob*100;
-
-    let prediction="NO PLAY";
-
-    if(probability>=75){
-      if(edge>0){
-        prediction="OVER "+(market-3).toFixed(1);
-      }else if(edge<0){
-        prediction="UNDER "+(market+3).toFixed(1);
-      }
-    }
-
-    return {
-      name,
-      proj:proj.toFixed(2),
-      edge:edge.toFixed(2),
-      pred:prediction,
-      prob:probability.toFixed(1)+"%",
-      raw:Math.abs(edge)
-    };
-  }
-
-  let picks=[
-    build("FT Total",ftProj,ftM),
-    build("1H Total",h1Proj,h1M),
-    build("Team A Total",aProj,aM),
-    build("Team B Total",bProj,bM)
-  ];
-
-  let maxEdge=Math.max(...picks.map(p=>p.raw));
-
-  picks.forEach(p=>{
-    let row=table.insertRow();
-    let lockIcon=(p.raw===maxEdge && p.pred!=="NO PLAY")
-      ?'<span class="lock">🔒</span>'
-      :"";
-
-    row.innerHTML=`
-    <td>${p.name}</td>
-    <td>${p.proj}</td>
-    <td>${p.edge}</td>
-    <td class="${
-      p.pred.includes("OVER")?"pred-over":
-      p.pred.includes("UNDER")?"pred-under":
-      "pred-noplay"
-    }">${p.pred} ${lockIcon}</td>
-    <td>${p.prob}</td>`;
-  });
-
+  let row=table.insertRow();
+  row.innerHTML=`
+    <td>FT Total</td>
+    <td>${projection.toFixed(2)}</td>
+    <td>${edge.toFixed(2)}</td>
+    <td class="${prediction==="OVER"?"pred-over":
+                prediction==="UNDER"?"pred-under":"pred-noplay"}">
+      ${prediction}
+    </td>
+    <td>${conf}%</td>
+  `;
 }
 
 function clearAll(){
@@ -312,7 +159,6 @@ function clearAll(){
   });
   document.getElementById("results").style.display="none";
 }
-
 </script>
 
 </body>
