@@ -1,82 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Elite FT Prediction Engine</title>
+<title>Almighty FT Prediction Engine</title>
 
 <style>
 body { background:#1b1b1b; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
 .wrapper { max-width:680px; margin:auto; padding:12px 14px 40px; }
 h1 { text-align:center; font-size:18px; margin-bottom:12px; }
-
 .section { border:1px solid #d4af37; background:#202020; padding:8px 10px; margin-bottom:10px; }
 .section h2 { font-size:14px; margin-bottom:6px; }
-
 label { display:block; font-size:12px; margin:5px 0 2px; }
-
-input {
-  width:240px;
-  max-width:90%;
-  padding:5px 6px;
-  font-size:12px;
-  background:#262626;
-  color:#d4af37;
-  border:1px solid #d4af37;
-  margin:4px 0 8px 0;
-}
-
+input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
 input[type="checkbox"] { width:auto; margin-right:6px; }
-
 .buttons { text-align:center; margin-top:10px; }
-
-.btn {
-  padding:6px 18px;
-  margin:6px;
-  font-size:12px;
-  font-weight:bold;
-  background:#d4af37;
-  color:#111;
-  border:none;
-  cursor:pointer;
-}
-
+.btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
-
-#results {
-  width:100%;
-  border-collapse:collapse;
-  font-size:12px;
-  display:none;
-}
-
-#results th,#results td {
-  border:1px solid #d4af37;
-  padding:6px;
-  text-align:center;
-}
-
+#results { width:100%; border-collapse:collapse; font-size:12px; display:none; }
+#results th,#results td { border:1px solid #d4af37; padding:6px; text-align:center; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-
 </style>
 </head>
-
 <body>
 
 <div class="wrapper">
-<h1>🏀 Elite FT Prediction Engine</h1>
+<h1>🏀 Almighty FT Prediction Engine</h1>
 
 <div class="section">
   <h2>FT Market</h2>
-  <label>FT Market Range (Example: 150.5 - 160.5)</label>
+  <label>FT Total Market Range (Ex: 150.5 - 160.5)</label>
   <input id="ftMarket">
 </div>
 
@@ -84,7 +43,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <h2>Team Offense</h2>
   <label>Team A FT Average</label>
   <input id="teamAAvg">
-
   <label>Team B FT Average</label>
   <input id="teamBAvg">
 </div>
@@ -93,7 +51,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <h2>Defense (Points Allowed)</h2>
   <label>Team A Points Allowed</label>
   <input id="papgA">
-
   <label>Team B Points Allowed</label>
   <input id="papgB">
 </div>
@@ -125,139 +82,91 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 </div>
 
 <script>
+// Safe number parse
+function num(id){ let v=parseFloat(document.getElementById(id).value); return isNaN(v)?NaN:v; }
+function mid(r){ if(!r||!r.includes("-")) return NaN; let [a,b]=r.split("-").map(x=>parseFloat(x)); return (isNaN(a)||isNaN(b))?NaN:(a+b)/2; }
+function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
 
-function num(id){
-  let v=parseFloat(document.getElementById(id).value);
-  return isNaN(v)?NaN:v;
-}
-
-function mid(r){
-  if(!r || !r.includes("-")) return NaN;
-  let [a,b]=r.split("-").map(x=>parseFloat(x));
-  return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
-}
-
-function clamp(v,min,max){
-  return Math.max(min,Math.min(max,v));
-}
-
+// Confidence calculation
 function confidence(edge,total){
   if(isNaN(edge)) return 0;
-
-  let base = Math.abs(edge) * 6 + 60;
-
-  if(total > 165) base -= 3;
-  if(total < 145) base += 2;
-
-  return Math.min(95, Math.round(base));
+  let base = Math.abs(edge)*6 + 60;
+  if(total>165) base -= 3;
+  if(total<145) base += 2;
+  return Math.min(95,Math.round(base));
 }
 
+// Adaptive edge threshold
 function adaptiveEdgeThreshold(total){
-  if(total > 165) return 5;
-  if(total < 145) return 3.5;
+  if(total>165) return 5;
+  if(total<145) return 3.5;
   return 4;
 }
 
 function runEngine(){
-
   const table=document.getElementById("results");
   table.style.display="table";
   table.innerHTML=`<tr>
-  <th>Pick</th>
-  <th>Engine Mid</th>
-  <th>Edge</th>
-  <th>Prediction</th>
-  <th>Confidence %</th>
-  </tr>`;
+<th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th>
+</tr>`;
 
   let ftStr=document.getElementById("ftMarket").value;
   let marketMid=mid(ftStr);
-
-  if(isNaN(marketMid)){
-    addRow("FT Total","-","-","NO PLAY",0);
-    return;
-  }
-
+  if(isNaN(marketMid)){ addRow("FT Total","-","-","NO PLAY",0); return; }
   let [low,high]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
 
-  let aAvg=num("teamAAvg");
-  let bAvg=num("teamBAvg");
-  let papgA=num("papgA");
-  let papgB=num("papgB");
-
-  if(isNaN(aAvg)||isNaN(bAvg)||isNaN(papgA)||isNaN(papgB)){
-    addRow("FT Total","-","-","NO PLAY",0);
-    return;
-  }
+  let aAvg=num("teamAAvg"), bAvg=num("teamBAvg");
+  let papgA=num("papgA"), papgB=num("papgB");
+  if(isNaN(aAvg)||isNaN(bAvg)||isNaN(papgA)||isNaN(papgB)){ addRow("FT Total","-","-","NO PLAY",0); return; }
 
   let useH2H=document.getElementById("useH2HFT").checked;
-  let h2hA=num("h2hA");
-  let h2hB=num("h2hB");
+  let h2hA=num("h2hA"), h2hB=num("h2hB");
 
-  let offenseBase = aAvg + bAvg;
-
+  // Multi-layer Offense
+  let offenseBase = aAvg+bAvg;
   if(useH2H && !isNaN(h2hA) && !isNaN(h2hB)){
     offenseBase = 0.6*(aAvg+bAvg) + 0.4*(h2hA+h2hB);
   }
 
-  let defenseBase = papgA + papgB;
-
+  // Defense influence
+  let defenseBase = papgA+papgB;
   let rawModel = offenseBase*0.55 + defenseBase*0.45;
 
+  // Market anchor
   let anchoredModel = rawModel*0.8 + marketMid*0.2;
 
-  let mismatch = Math.abs(offenseBase - defenseBase);
-  if(mismatch > 25){
-    anchoredModel = anchoredModel*0.97 + marketMid*0.03;
-  }
+  // Volatility / blowout suppression
+  let mismatch = Math.abs(offenseBase-defenseBase);
+  if(mismatch>25){ anchoredModel = anchoredModel*0.97 + marketMid*0.03; }
 
-  let edge = anchoredModel - marketMid;
-
+  // Edge & confidence
+  let edge = anchoredModel-marketMid;
   let conf = confidence(edge, marketMid);
-
   let threshold = adaptiveEdgeThreshold(marketMid);
 
   let pred="NO PLAY";
-
-  if(conf >= 75 && Math.abs(edge) >= threshold){
+  if(conf>=75 && Math.abs(edge)>=threshold){
     if(edge>0) pred="OVER "+clamp(marketMid-3,low,high).toFixed(1);
     else pred="UNDER "+clamp(marketMid+3,low,high).toFixed(1);
   }
 
-  addRow(
-    "FT Total",
-    anchoredModel.toFixed(2),
-    edge.toFixed(2),
-    pred,
-    conf
-  );
+  addRow("FT Total", anchoredModel.toFixed(2), edge.toFixed(2), pred, conf);
 }
 
 function addRow(name,eng,edge,pred,conf){
   const table=document.getElementById("results");
   let row=table.insertRow();
-
   let cls="pred-noplay";
   if(pred.startsWith("OVER")) cls="pred-over";
   if(pred.startsWith("UNDER")) cls="pred-under";
-
-  row.innerHTML=`
-  <td>${name}</td>
-  <td>${eng}</td>
-  <td>${edge}</td>
-  <td class="${cls}">${pred}</td>
-  <td>${conf}%</td>`;
+  row.innerHTML=`<td>${name}</td><td>${eng}</td><td>${edge}</td><td class="${cls}">${pred}</td><td>${conf}%</td>`;
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>{
-    if(i.type==="checkbox") i.checked=false;
-    else i.value="";
-  });
+  document.querySelectorAll("input").forEach(i=>{ if(i.type==="checkbox") i.checked=false; else i.value=""; });
   document.getElementById("results").style.display="none";
 }
 
 </script>
-
 </body>
 </html>
