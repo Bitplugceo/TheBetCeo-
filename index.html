@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Basketball Prediction Engine</title>
@@ -19,6 +17,7 @@ h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section h2 { font-size:14px; margin-bottom:6px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
+input[type="checkbox"] { width:auto; margin-right:6px; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
@@ -29,10 +28,23 @@ input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
 .lock{
-  font-size:10px;
-  margin-left:4px;
+  font-size:4px;
+  margin-left:2px;
   display:inline-flex;
   align-items:center;
+  transform:translateY(-2px);
+}
+
+/* ✅ FIXED H2H ALIGNMENT */
+.h2h-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:8px;
+}
+.h2h-row label{
+  display:inline;
+  margin:0;
 }
 </style>
 </head>
@@ -61,22 +73,12 @@ input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:
 
 <div class="section">
   <h2>Head to Head (Optional)</h2>
- <div class="h2h-row">
-  <input type="checkbox" id="useH2HFT">
-  <label for="useH2HFT">Use H2H (FT)</label>
-</div>
 
-  .h2h-row{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  margin-bottom:8px;
-}
-
-.h2h-row label{
-  display:inline;
-  margin:0;
-}
+  <!-- ✅ FIXED LABEL STRUCTURE -->
+  <div class="h2h-row">
+    <input type="checkbox" id="useH2HFT">
+    <label for="useH2HFT">Use H2H (FT)</label>
+  </div>
 
   <input id="h2hA" placeholder="Team A H2H FT Avg">
   <input id="h2hB" placeholder="Team B H2H FT Avg">
@@ -121,7 +123,6 @@ function runEngine(){
 
   let ftStr=ftMarket.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
   let ft=mid(ftStr),aM=mid(aStr),bM=mid(bStr);
-
   let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
   let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
   let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
@@ -143,9 +144,11 @@ function runEngine(){
 
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
+
     if(Math.abs(edge)>=4 && conf>=70){
       if(edge>0) pred="OVER "+clamp(mkt-2,low,high).toFixed(1);
-else pred="UNDER "+clamp(mkt+2,low,high).toFixed(1);
+      else pred="UNDER "+clamp(mkt+2,low,high).toFixed(1);
+    }
 
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
