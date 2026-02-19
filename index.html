@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Basketball Prediction Engine</title>
@@ -17,8 +19,6 @@ h1 { text-align:center; font-size:18px; margin-bottom:12px; }
 .section h2 { font-size:14px; margin-bottom:6px; }
 label { display:block; font-size:12px; margin:5px 0 2px; }
 input { width:240px; max-width:90%; padding:5px 6px; font-size:12px; background:#262626; color:#d4af37; border:1px solid #d4af37; margin:4px 0 8px 0; }
-input[type="checkbox"] { width:auto; margin-right:6px; }
-.metrics { display:block; }
 .buttons { text-align:center; margin-top:10px; }
 .btn { padding:6px 18px; margin:6px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
 .table-wrap { overflow-x:auto; margin-top:12px; }
@@ -29,13 +29,11 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
 .lock{
-  font-size:4px;
-  margin-left:2px;
+  font-size:10px;
+  margin-left:4px;
   display:inline-flex;
   align-items:center;
-  transform:translateY(-2px);
 }
-
 </style>
 </head>
 
@@ -47,8 +45,6 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <h2>Market Lines</h2>
   <label>FT Total Market (150.5 - 160.5)</label>
   <input id="ftMarket">
-  <label>1H Total Market (75.5 - 85.5)</label>
-  <input id="h1Market">
   <label>Team A Total Market</label>
   <input id="teamAMarket">
   <label>Team B Total Market</label>
@@ -68,19 +64,12 @@ input[type="checkbox"] { width:auto; margin-right:6px; }
   <label><input type="checkbox" id="useH2HFT"> Use H2H (FT)</label>
   <input id="h2hA" placeholder="Team A H2H FT Avg">
   <input id="h2hB" placeholder="Team B H2H FT Avg">
-  <label><input type="checkbox" id="useH2H1H"> Use H2H (1H)</label>
-  <input id="h2h1H" placeholder="1H H2H Avg Total">
 </div>
 
-<div class="section metrics">
-  <h2>Team A Metrics</h2>
-  <label>Team A Pace</label>
-  <input id="paceA">
+<div class="section">
+  <h2>Team Metrics</h2>
   <label>Team A Points Allowed</label>
   <input id="papgA">
-  <h2>Team B Metrics</h2>
-  <label>Team B Pace</label>
-  <input id="paceB">
   <label>Team B Points Allowed</label>
   <input id="papgB">
 </div>
@@ -114,18 +103,18 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML=`<tr><th>Pick</th><th>Engine Mid</th><th>Edge</th><th>Prediction</th><th>Confidence %</th></tr>`;
 
-  let ftStr=ftMarket.value,h1Str=h1Market.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
-  let ft=mid(ftStr),h1=mid(h1Str),aM=mid(aStr),bM=mid(bStr);
+  let ftStr=ftMarket.value,aStr=teamAMarket.value,bStr=teamBMarket.value;
+  let ft=mid(ftStr),aM=mid(aStr),bM=mid(bStr);
+
   let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
-  let [h1L,h1H]=h1Str.split("-").map(x=>parseFloat(x)||NaN);
   let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
   let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
   let aAvg=num("teamAAvg"),bAvg=num("teamBAvg");
-  let h2hA=num("h2hA"),h2hB=num("h2hB"),h2h1H=num("h2h1H");
+  let h2hA=num("h2hA"),h2hB=num("h2hB");
   let papgA=num("papgA"),papgB=num("papgB");
 
-  let useFT=useH2HFT.checked,use1H=useH2H1H.checked;
+  let useFT=useH2HFT.checked;
 
   let aOff=useFT?(0.7*aAvg+0.3*h2hA):aAvg;
   let bOff=useFT?(0.7*bAvg+0.3*h2hB):bAvg;
@@ -136,24 +125,17 @@ function runEngine(){
   let ftBase=useFT?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
   let ftEng=(ftBase*0.6 + (papgA+papgB)*0.4);
 
-  let h1Eng=ftEng*0.47;
-  if(use1H) h1Eng=0.65*h1Eng+0.35*h2h1H;
-
   function make(name, eng, mkt, low, high){
     let edge=eng-mkt, conf=confidence(edge), pred="NO PLAY";
-
-    if(Math.abs(edge)<4 || conf<70)
-      return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred:"NO PLAY", conf, raw:edge};
-
-    if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
-    else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
-
+    if(Math.abs(edge)>=4 && conf>=70){
+      if(edge>0) pred="OVER "+clamp(mkt-3,low,high).toFixed(1);
+      else pred="UNDER "+clamp(mkt+3,low,high).toFixed(1);
+    }
     return {name, eng:eng.toFixed(2), edge:edge.toFixed(2), pred, conf, raw:edge};
   }
 
   let picks=[
     make("FT Total",ftEng,ft,ftL,ftH),
-    make("1H Total",h1Eng,h1,h1L,h1H),
     make("Team A Total",aEng,aM,aL,aH),
     make("Team B Total",bEng,bM,bL,bH)
   ];
@@ -174,43 +156,6 @@ function clearAll(){
   document.querySelectorAll("input").forEach(i=>{if(i.type==="checkbox")i.checked=false;else i.value="";});
   results.style.display="none";
 }
-
-  async function getLast5(teamId){
-
-  const res = await fetch(
-    `https://www.balldontlie.io/api/v1/games?team_ids[]=${teamId}&per_page=5`
-  );
-
-  const data = await res.json();
-  const games = data.data;
-
-  let scored = 0;
-  let allowed = 0;
-
-  games.forEach(game=>{
-    if(game.home_team.id === teamId){
-      scored += game.home_team_score;
-      allowed += game.visitor_team_score;
-    } else {
-      scored += game.visitor_team_score;
-      allowed += game.home_team_score;
-    }
-  });
-
-  return {
-    avgScored: scored/5,
-    avgAllowed: allowed/5
-  };
-}
-
-  getLast5(14).then(data=>{
-  console.log("Lakers last 5:", data);
-});
-
-  getLast5(14).then(data => {
-  console.log("Lakers Last 5:", data);
-});
-
 </script>
 </body>
 </html>
