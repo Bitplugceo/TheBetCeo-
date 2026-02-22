@@ -186,13 +186,13 @@ input[type="checkbox"] {
 
 <script>
 function num(id){
-  const v=parseFloat(document.getElementById(id).value);
+  let v=parseFloat(document.getElementById(id).value);
   return isNaN(v)?NaN:v;
 }
 
 function mid(r){
   if(!r.includes("-")) return NaN;
-  const [a,b]=r.split("-").map(x=>parseFloat(x));
+  let [a,b]=r.split("-").map(x=>parseFloat(x));
   return (isNaN(a)||isNaN(b))?NaN:(a+b)/2;
 }
 
@@ -200,11 +200,13 @@ function clamp(v,min,max){
   return Math.max(min,Math.min(max,v));
 }
 
-function logistic(x){
-  return 1/(1+Math.exp(-x));
+function confidence(e){
+  if(isNaN(e)) return 0;
+  return Math.min(95,Math.round(70+(Math.abs(e)-3)*5));
 }
 
 function runEngine(){
+
   const table=document.getElementById("results");
   table.style.display="table";
   table.innerHTML=`<tr>
@@ -215,65 +217,53 @@ function runEngine(){
     <th>Confidence %</th>
   </tr>`;
 
-  const ftStr=document.getElementById("ftMarket").value;
-  const aStr=document.getElementById("teamAMarket").value;
-  const bStr=document.getElementById("teamBMarket").value;
+  let ftStr=document.getElementById("ftMarket").value;
+  let aStr=document.getElementById("teamAMarket").value;
+  let bStr=document.getElementById("teamBMarket").value;
 
-  const ft=mid(ftStr);
-  const aM=mid(aStr);
-  const bM=mid(bStr);
+  let ft=mid(ftStr);
+  let aM=mid(aStr);
+  let bM=mid(bStr);
 
-  const [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
-  const [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
-  const [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [ftL,ftH]=ftStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [aL,aH]=aStr.split("-").map(x=>parseFloat(x)||NaN);
+  let [bL,bH]=bStr.split("-").map(x=>parseFloat(x)||NaN);
 
-  const aAvg=num("teamAAvg");
-  const bAvg=num("teamBAvg");
-  const papgA=num("papgA");
-  const papgB=num("papgB");
+  let aAvg=num("teamAAvg");
+  let bAvg=num("teamBAvg");
+  let papgA=num("papgA");
+  let papgB=num("papgB");
 
-  const useH2H=document.getElementById("useH2HFT").checked;
-  const h2hA=num("h2hA");
-  const h2hB=num("h2hB");
+  let useH2H=document.getElementById("useH2HFT").checked;
+  let h2hA=num("h2hA");
+  let h2hB=num("h2hB");
 
-  const aOff=useH2H?(0.7*aAvg+0.3*h2hA):aAvg;
-  const bOff=useH2H?(0.7*bAvg+0.3*h2hB):bAvg;
+  let aOff=useH2H?(0.7*aAvg+0.3*h2hA):aAvg;
+  let bOff=useH2H?(0.7*bAvg+0.3*h2hB):bAvg;
 
-  const aEng=(aOff*0.55+papgB*0.45);
-  const bEng=(bOff*0.55+papgA*0.45);
+  let aEng=(aOff*0.55+papgB*0.45);
+  let bEng=(bOff*0.55+papgA*0.45);
 
-  const ftBase=useH2H?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
-  const ftEng=(ftBase*0.6+(papgA+papgB)*0.4);
+  let ftBase=useH2H?(0.65*(aAvg+bAvg)+0.35*(h2hA+h2hB)):(aAvg+bAvg);
+  let ftEng=(ftBase*0.6+(papgA+papgB)*0.4);
 
   function make(name,eng,mkt,low,high){
 
-    if(isNaN(eng)||isNaN(mkt))
-      return {name,eng:0,edge:0,pred:"NO PLAY",conf:0};
+    let edge=eng-mkt;
+    let conf=confidence(edge);
+    let pred="NO PLAY";
 
-    const edge=eng-mkt;
-    const edgePct=Math.abs(edge)/mkt;
+    if(Math.abs(edge)<4) return {name,eng,edge,pred:"NO PLAY",conf};
+    if(conf<70) return {name,eng,edge,pred:"NO PLAY",conf};
 
-    let tier="WEAK";
-    if(Math.abs(edge)>=10) tier="ELITE";
-    else if(Math.abs(edge)>=7) tier="STRONG";
-    else if(Math.abs(edge)>=4) tier="MODERATE";
-
-    const modelProb=logistic(edge/6);
-    const impliedProb=0.5238;
-    const ev=(modelProb*0.91)-(1-modelProb);
-
-    if(tier==="WEAK"||ev<=0)
-      return {name,eng,edge,pred:"NO PLAY",conf:Math.round(modelProb*100)};
-
+    // FIXED LINE SELECTION (no clamp distortion)
     let line=edge>0?low:high;
-    let pred=(edge>0?"OVER ":"UNDER ")+line.toFixed(1);
+    pred=(edge>0?"OVER ":"UNDER ")+line.toFixed(1);
 
-    let conf=Math.round(clamp(modelProb*100 + edgePct*50,55,95));
-
-    return {name,eng,edge,pred,conf,tier};
+    return {name,eng,edge,pred,conf};
   }
 
-  const picks=[
+  let picks=[
     make("FT Total",ftEng,ft,ftL,ftH),
     make("Team A Total",aEng,aM,aL,aH),
     make("Team B Total",bEng,bM,bL,bH)
@@ -281,16 +271,19 @@ function runEngine(){
 
   let lock=-1,max=0;
   picks.forEach((p,i)=>{
-    if(p.tier==="ELITE"&&Math.abs(p.edge)>max){
+    if(!isNaN(p.edge)&&Math.abs(p.edge)>max&&p.conf>=70&&p.pred!=="NO PLAY"){
       max=Math.abs(p.edge);
       lock=i;
     }
   });
 
   picks.forEach((p,i)=>{
-    const row=table.insertRow();
+    let row=table.insertRow();
     let pr=p.pred;
-    if(i===lock&&p.pred!=="NO PLAY") pr+=` <span class="lock">🔒</span>`;
+
+    if(i===lock&&p.pred!=="NO PLAY")
+      pr+=` <span class="lock">🔒</span>`;
+
     row.innerHTML=`
       <td>${p.name}</td>
       <td>${p.eng.toFixed(2)}</td>
