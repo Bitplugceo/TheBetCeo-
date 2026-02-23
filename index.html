@@ -9,9 +9,7 @@
 <meta name="theme-color" content="#d4af37">
 
 <link rel="manifest" href="manifest.json">
-
-<!-- App Icons -->
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 
@@ -61,10 +59,16 @@ th,td{
   padding:6px;
   text-align:center;
 }
-.pred-over{background:#1e7d3a;color:#fff;}
-.pred-under{background:#8b1e1e;color:#fff;}
-.pred-noplay{background:#444;color:#bbb;}
-.god{font-weight:bold;color:#00ffcc;}
+.pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
+.pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
+.pred-noplay{background:#444;color:#bbb;font-weight:bold;}
+.lock{
+  font-size:4px;
+  display:inline-block;
+  vertical-align:middle;
+  transform:translateY(-1px);
+  margin-left:4px;
+}
 </style>
 </head>
 
@@ -99,14 +103,9 @@ th,td{
 </div>
 
 <div class="section">
-<label>Use H2H (optional)</label>
-<input type="checkbox" id="useH2H">
-
-<label>Team A H2H Avg</label>
-<input id="h2hA">
-
-<label>Team B H2H Avg</label>
-<input id="h2hB">
+<label><input type="checkbox" id="useH2H"> Use H2H</label>
+<input id="h2hA" placeholder="Team A H2H Avg">
+<input id="h2hB" placeholder="Team B H2H Avg">
 </div>
 
 <button onclick="runEngine()">Run</button>
@@ -115,14 +114,15 @@ th,td{
 <tr>
 <th>Pick</th>
 <th>Projection</th>
+<th>Prediction</th>
 <th>Probability</th>
-<th>Decision</th>
 </tr>
 </table>
 
 </div>
 
 <script>
+
 function mid(r){
   if(!r.includes("-")) return NaN;
   let [a,b]=r.split("-").map(x=>parseFloat(x));
@@ -139,7 +139,7 @@ function stdDev(arr){
   return Math.sqrt(variance);
 }
 
-// Normal CDF approximation
+// Normal CDF
 function normalCDF(x){
   return (1.0 + erf(x/Math.sqrt(2))) / 2.0;
 }
@@ -155,9 +155,10 @@ function erf(x){
 }
 
 function runEngine(){
+
   let table=document.getElementById("results");
   table.style.display="table";
-  table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Probability</th><th>Decision</th></tr>";
+  table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Prediction</th><th>Probability</th></tr>";
 
   let ft=mid(document.getElementById("ftMarket").value);
   let aM=mid(document.getElementById("teamAMarket").value);
@@ -176,7 +177,7 @@ function runEngine(){
   let aAvg=avg(aScores);
   let bAvg=avg(bScores);
 
-  // 80/20 Blend
+  // 80/20 blend
   let aOff=useH2H?(0.8*aAvg+0.2*h2hA):aAvg;
   let bOff=useH2H?(0.8*bAvg+0.2*h2hB):bAvg;
 
@@ -184,29 +185,66 @@ function runEngine(){
   let bProj=0.55*bOff+0.45*papgA;
   let ftProj=aProj+bProj;
 
-  function evaluate(name,proj,market,sd){
-    if(isNaN(proj)||isNaN(market)) return;
-    let z=(proj-market)/sd;
-    let prob=normalCDF(z);
-    let decision="NO PLAY";
-    if(prob>=0.66) decision=prob>=0.70?"GOD MODE":"PLAY";
-    let row=table.insertRow();
-    row.innerHTML=`<td>${name}</td>
-    <td>${proj.toFixed(2)}</td>
-    <td>${(prob*100).toFixed(1)}%</td>
-    <td class="${decision==="PLAY"?"pred-over":decision==="GOD MODE"?"god":"pred-noplay"}">${decision}</td>`;
-  }
+  let picks=[
+    {name:"FT Total", proj:ftProj, market:ft, sd:stdDev([...aScores,...bScores])},
+    {name:"Team A", proj:aProj, market:aM, sd:stdDev(aScores)},
+    {name:"Team B", proj:bProj, market:bM, sd:stdDev(bScores)}
+  ];
 
-  evaluate("FT Total",ftProj,ft,stdDev([...aScores,...bScores]));
-  evaluate("Team A",aProj,aM,stdDev(aScores));
-  evaluate("Team B",bProj,bM,stdDev(bScores));
+  let bestIndex=-1;
+  let bestProb=0;
+
+  picks.forEach((p,i)=>{
+    if(isNaN(p.proj)||isNaN(p.market)||isNaN(p.sd)) return;
+
+    let edge=p.proj-p.market;
+    let z=edge/p.sd;
+    let prob=normalCDF(z);
+
+    p.edge=edge;
+    p.prob=prob;
+
+    if(prob>=0.66 && prob>bestProb){
+      bestProb=prob;
+      bestIndex=i;
+    }
+  });
+
+  picks.forEach((p,i)=>{
+    let row=table.insertRow();
+
+    if(isNaN(p.proj)||isNaN(p.market)||isNaN(p.sd)){
+      row.innerHTML=`<td>${p.name}</td><td>-</td><td class="pred-noplay">NO PLAY</td><td>-</td>`;
+      return;
+    }
+
+    let direction=p.edge>0?"OVER ":"UNDER ";
+    let prediction="NO PLAY";
+    let css="pred-noplay";
+
+    if(p.prob>=0.66){
+      prediction=direction+p.market.toFixed(1);
+      css=p.edge>0?"pred-over":"pred-under";
+    }
+
+    if(i===bestIndex){
+      prediction+=" <span class='lock'>🔒</span>";
+    }
+
+    row.innerHTML=`
+      <td>${p.name}</td>
+      <td>${p.proj.toFixed(2)}</td>
+      <td class="${css}">${prediction}</td>
+      <td>${(p.prob*100).toFixed(1)}%</td>
+    `;
+  });
 }
 
 // Service Worker
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js");
 }
-</script>
 
+</script>
 </body>
 </html>
