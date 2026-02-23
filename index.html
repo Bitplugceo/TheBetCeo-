@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#d4af37">
+<meta name="apple-mobile-web-app-title" content="BB Engine">
+  
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
@@ -302,6 +306,9 @@ function clearAll(){
     else i.value="";
   });
   document.getElementById("results").style.display="none";
+}
+  if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
 }
 </script>
 
