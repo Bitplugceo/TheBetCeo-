@@ -256,7 +256,7 @@ build("Team B",bProj,bM)
 
 let lock=-1,max=0;
 picks.forEach((p,i)=>{
-if(p.prob>=63 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
+if(p.prob>=70 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
 max=Math.abs(p.edge);
 lock=i;
 }
