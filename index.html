@@ -44,6 +44,11 @@ h1 {
   box-sizing: border-box;
 }
 
+.section h2 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
 label {
   display: block;
   font-size: 12px;
@@ -122,6 +127,7 @@ input[type="checkbox"] {
 <div class="wrapper">
 
 <div class="section">
+<h2>Market Lines</h2>
 <label>FT Total Market (e.g. 150.5 - 160.5)</label>
 <input id="ftMarket">
 
@@ -133,6 +139,7 @@ input[type="checkbox"] {
 </div>
 
 <div class="section">
+<h2>Team Scoring Averages (Last 5 Avg)</h2>
 <label>Team A FT Average</label>
 <input id="teamAAvg">
 
@@ -141,12 +148,14 @@ input[type="checkbox"] {
 </div>
 
 <div class="section">
+<h2>Head to Head (Optional)</h2>
 <label><input type="checkbox" id="useH2HFT"> Use H2H</label>
 <input id="h2hA" placeholder="Team A H2H FT Avg">
 <input id="h2hB" placeholder="Team B H2H FT Avg">
 </div>
 
 <div class="section">
+<h2>Defense Metrics</h2>
 <label>Team A Points Allowed</label>
 <input id="papgA">
 
@@ -174,21 +183,22 @@ input[type="checkbox"] {
 
 <script>
 function num(id){
-  let v = parseFloat(document.getElementById(id).value);
-  return isNaN(v) ? NaN : v;
+let v=parseFloat(document.getElementById(id).value);
+return isNaN(v)?NaN:v;
 }
 
 function mid(r){
-  if(!r.includes("-")) return NaN;
-  let [a,b] = r.split("-").map(x => parseFloat(x));
-  return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
+if(!r.includes("-")) return NaN;
+let [a,b]=r.split("-").map(x=>parseFloat(x));
+return (a+b)/2;
 }
 
 function probability(edge, market){
-  if(isNaN(edge)||isNaN(market)) return 0;
-  let threshold = market * 0.03;
-  let prob = 50 + (Math.abs(edge)/market)*200;
-  return Math.min(95, prob);
+if(isNaN(edge)||isNaN(market)) return 0;
+let threshold=market*0.03;
+if(Math.abs(edge)<threshold) return 0;
+let prob=50+(Math.abs(edge)/market)*200;
+return Math.min(95,prob);
 }
 
 function runEngine(){
@@ -215,31 +225,27 @@ let useH2H=document.getElementById("useH2HFT").checked;
 let h2hA=num("h2hA");
 let h2hB=num("h2hB");
 
-// 80 / 20 blend
-let aOff = useH2H ? (0.8*aAvg + 0.2*h2hA) : aAvg;
-let bOff = useH2H ? (0.8*bAvg + 0.2*h2hB) : bAvg;
+let aOff=useH2H?(0.8*aAvg+0.2*h2hA):aAvg;
+let bOff=useH2H?(0.8*bAvg+0.2*h2hB):bAvg;
 
-let aProj = (aOff*0.55 + papgB*0.45);
-let bProj = (bOff*0.55 + papgA*0.45);
-let ftProj = aProj + bProj;
+let aProj=(aOff*0.55+papgB*0.45);
+let bProj=(bOff*0.55+papgA*0.45);
+let ftProj=(aProj+bProj);
 
 function build(name, proj, market){
+if(isNaN(proj)||isNaN(market))
+return {name,proj,pred:"NO PLAY",prob:0,edge:0};
 
-if(isNaN(proj) || isNaN(market))
-return {name, proj, pred:"NO PLAY", prob:0, edge:0};
+let edge=proj-market;
+let prob=probability(edge,market);
+let threshold=market*0.03;
 
-let edge = proj - market;
-let prob = probability(edge, market);
-let threshold = market * 0.03;
+if(prob<63)
+return {name,proj,pred:"NO PLAY",prob,edge};
 
-let prediction="NO PLAY";
-
-if(Math.abs(edge)>=threshold && prob>=70){
-let rounded = Math.floor(market)+0.5;
-prediction = (edge>0?"OVER ":"UNDER ")+rounded.toFixed(1);
-}
-
-return {name, proj, pred:prediction, prob, edge};
+let rounded=Math.floor(market)+0.5;
+let pred=(edge>0?"OVER ":"UNDER ")+rounded.toFixed(1);
+return {name,proj,pred,prob,edge};
 }
 
 let picks=[
@@ -249,9 +255,8 @@ build("Team B",bProj,bM)
 ];
 
 let lock=-1,max=0;
-
 picks.forEach((p,i)=>{
-if(p.prob>=70 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
+if(p.prob>=63 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
 max=Math.abs(p.edge);
 lock=i;
 }
@@ -259,10 +264,9 @@ lock=i;
 
 picks.forEach((p,i)=>{
 let row=table.insertRow();
-let pr=p.pred;
-
+let pred=p.pred;
 if(i===lock && p.pred!=="NO PLAY")
-pr+=` <span class="lock">🔒</span>`;
+pred+=` <span class="lock">🔒</span>`;
 
 row.innerHTML=`
 <td>${p.name}</td>
@@ -271,9 +275,8 @@ row.innerHTML=`
 p.pred.startsWith("OVER")?"pred-over":
 p.pred.startsWith("UNDER")?"pred-under":
 "pred-noplay"
-}">${pr}</td>
-<td>${p.prob.toFixed(1)}%</td>
-`;
+}">${pred}</td>
+<td>${p.prob.toFixed(1)}%</td>`;
 });
 }
 
@@ -283,6 +286,10 @@ if(i.type==="checkbox") i.checked=false;
 else i.value="";
 });
 document.getElementById("results").style.display="none";
+}
+
+if ("serviceWorker" in navigator) {
+navigator.serviceWorker.register("sw.js");
 }
 </script>
 
