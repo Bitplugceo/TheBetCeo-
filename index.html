@@ -16,89 +16,22 @@
 <title>Basketball Prediction Engine</title>
 
 <style>
-body {
-  background: #111;
-  color: #d4af37;
-  font-family: Segoe UI, sans-serif;
-  margin: 0;
-}
-.wrapper {
-  max-width: 760px;
-  margin: 12px auto;
-  padding: 0 10px;
-}
-h1 {
-  text-align: center;
-  margin-bottom: 12px;
-  font-size: 18px;
-}
-.section {
-  border: 1px solid #d4af37;
-  background: #1a1a1a;
-  padding: 8px 12px;
-  margin: 10px auto;
-  width: 92%;
-  box-sizing: border-box;
-}
-label {
-  display: block;
-  font-size: 12px;
-  margin-bottom: 3px;
-}
-input {
-  width: 100%;
-  max-width: 240px;
-  padding: 4px 6px;
-  font-size: 12px;
-  background: #222;
-  color: #d4af37;
-  border: 1px solid #d4af37;
-  margin-bottom: 6px;
-}
-input[type="checkbox"] {
-  width: auto;
-  margin-right: 6px;
-}
-.buttons {
-  text-align: center;
-  margin-top: 10px;
-}
-.btn {
-  padding: 5px 14px;
-  margin: 5px;
-  font-size: 12px;
-  font-weight: bold;
-  background: #d4af37;
-  color: #111;
-  border: none;
-  cursor: pointer;
-}
-.table-wrap {
-  overflow-x: auto;
-  margin-top: 10px;
-}
-#results {
-  width: 92%;
-  margin: auto;
-  border-collapse: collapse;
-  font-size: 12px;
-  display: none;
-}
-#results th, #results td {
-  border: 1px solid #d4af37;
-  padding: 5px;
-  text-align: center;
-}
+body { background:#111; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; }
+.wrapper { max-width:760px; margin:12px auto; padding:0 10px; }
+h1 { text-align:center; margin-bottom:12px; font-size:18px; }
+.section { border:1px solid #d4af37; background:#1a1a1a; padding:8px 12px; margin:10px auto; width:92%; box-sizing:border-box; }
+label { display:block; font-size:12px; margin-bottom:3px; }
+input { width:100%; max-width:240px; padding:4px 6px; font-size:12px; background:#222; color:#d4af37; border:1px solid #d4af37; margin-bottom:6px; }
+input[type="checkbox"] { width:auto; margin-right:6px; }
+.buttons { text-align:center; margin-top:10px; }
+.btn { padding:5px 14px; margin:5px; font-size:12px; font-weight:bold; background:#d4af37; color:#111; border:none; cursor:pointer; }
+.table-wrap { overflow-x:auto; margin-top:10px; }
+#results { width:92%; margin:auto; border-collapse:collapse; font-size:12px; display:none; }
+#results th,#results td { border:1px solid #d4af37; padding:5px; text-align:center; }
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-.lock {
-  font-size: 4px;
-  display: inline-block;
-  vertical-align: middle;
-  transform: translateY(-1px);
-  margin-left: 4px;
-}
+.lock { font-size:4px; display:inline-block; vertical-align:middle; transform:translateY(-1px); margin-left:4px; }
 </style>
 </head>
 
@@ -111,10 +44,8 @@ input[type="checkbox"] {
 <div class="section">
 <label>FT Total Market (e.g. 150.5 - 160.5)</label>
 <input id="ftMarket">
-
 <label>Team A Total Market</label>
 <input id="teamAMarket">
-
 <label>Team B Total Market</label>
 <input id="teamBMarket">
 </div>
@@ -197,7 +128,7 @@ let useH2H=document.getElementById("useH2HFT").checked;
 let h2hA=num("h2hA");
 let h2hB=num("h2hB");
 
-// 80/20 blend offense
+// 80/20 offensive blend
 let aOff=useH2H?(0.8*aAvg+0.2*h2hA):aAvg;
 let bOff=useH2H?(0.8*bAvg+0.2*h2hB):bAvg;
 
@@ -205,10 +136,9 @@ let bOff=useH2H?(0.8*bAvg+0.2*h2hB):bAvg;
 let aProj=(aOff*0.55+papgB*0.45);
 let bProj=(bOff*0.55+papgA*0.45);
 
-// Total projection with H2H influence
+// Total projection with H2H
 let baseTotal=aAvg+bAvg;
 let h2hTotal=h2hA+h2hB;
-
 let totalBlend=useH2H?(0.8*baseTotal+0.2*h2hTotal):baseTotal;
 let ftProj=(totalBlend*0.6+(papgA+papgB)*0.4);
 
@@ -221,12 +151,13 @@ let edge=proj-market;
 let prob=probability(edge,market);
 let threshold=market*0.03;
 
-let prediction="NO PLAY";
-
-if(Math.abs(edge)>=threshold&&prob>=70){
-let rounded=Math.floor(market)+0.5;
-prediction=(edge>0?"OVER ":"UNDER ")+rounded.toFixed(1);
+// STRICT RULE
+if(prob<70||Math.abs(edge)<threshold){
+return {name,proj,pred:"NO PLAY",prob,edge};
 }
+
+let rounded=Math.floor(market)+0.5;
+let prediction=(edge>0?"OVER ":"UNDER ")+rounded.toFixed(1);
 
 return {name,proj,pred:prediction,prob,edge};
 }
@@ -249,10 +180,8 @@ lock=i;
 picks.forEach((p,i)=>{
 let row=table.insertRow();
 let pr=p.pred;
-
 if(i===lock&&p.pred!=="NO PLAY")
 pr+=` <span class="lock">🔒</span>`;
-
 row.innerHTML=`
 <td>${p.name}</td>
 <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
