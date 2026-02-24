@@ -244,11 +244,7 @@ function runEngine(){
     let prob = probability(edge,market);
     let threshold = market * 0.03;
 
-    // Under volatility protection
-if(edge < 0 && proj > market * 0.9){
-  return {name,proj,pred:"NO PLAY",prob,edge};
-}
-    if(prob<70 || Math.abs(edge)<threshold){
+    if(prob<65 || Math.abs(edge)<threshold){
       return {name,proj,pred:"NO PLAY",prob,edge};
     }
 
