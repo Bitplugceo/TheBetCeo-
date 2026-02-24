@@ -266,7 +266,7 @@ if(edge < 0 && proj > market * 0.9){
   let lock=-1,max=0;
 
   picks.forEach((p,i)=>{
-    if(p.prob>=70 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
+    if(p.prob>=65 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
       max=Math.abs(p.edge);
       lock=i;
     }
