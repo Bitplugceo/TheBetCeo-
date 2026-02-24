@@ -243,25 +243,19 @@ function runEngine(){
     let edge = proj - market;
     let prob = probability(edge,market);
     let threshold = market * 0.03;
-    
-    let volatilityFlag = false;
-    if(Math.abs(edge) < threshold){
+
+    // Under volatility protection
+if(edge < 0 && proj > market * 0.9){
   return {name,proj,pred:"NO PLAY",prob,edge};
 }
-
-if(prob < 70){
-  return {name,proj,pred:"NO PLAY",prob,edge};
-}
-
-let tier = "TIER 2"; // 70–74 = single only
-
-if(prob >= 75 && !volatilityFlag){
-  tier = "TIER 1"; // 75+ = parlay safe
-}
+    if(prob<70 || Math.abs(edge)<threshold){
+      return {name,proj,pred:"NO PLAY",prob,edge};
+    }
 
     let rounded=Math.floor(market)+0.5;
     let prediction=(edge>0?"OVER ":"UNDER ")+rounded.toFixed(1);
-    return {name,proj,pred:prediction,prob,edge,tier};
+    return {name,proj,pred:prediction,prob,edge};
+  }
 
   let picks=[
     build("FT Total",ftProj,ft),
