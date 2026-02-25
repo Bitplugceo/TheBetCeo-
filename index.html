@@ -8,12 +8,12 @@
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#d4af37">
-<meta name="apple-mobile-web-app-title" content="BB Model">
+<meta name="apple-mobile-web-app-title" content="BB Engine">
 
-<link rel="apple-touch-icon" href="icon.jpeg">
-<link rel="icon" type="image/jpeg" href="icon.jpeg">
+<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
-<title>Simple Basketball Model</title>
+<title>Basketball Prediction Engine</title>
 
 <style>
 body {
@@ -25,23 +25,28 @@ body {
 
 .wrapper {
   max-width: 760px;
-  margin: 20px auto;
+  margin: 12px auto;
   padding: 0 10px;
 }
 
 h1 {
   text-align: center;
-  margin-bottom: 15px;
-  font-size: 20px;
+  margin-bottom: 12px;
+  font-size: 18px;
 }
 
 .section {
   border: 1px solid #d4af37;
   background: #1a1a1a;
-  padding: 10px 12px;
-  margin: 12px auto;
+  padding: 8px 12px;
+  margin: 10px auto;
   width: 92%;
   box-sizing: border-box;
+}
+
+.section h2 {
+  font-size: 15px;
+  margin-bottom: 6px;
 }
 
 label {
@@ -53,7 +58,7 @@ label {
 input {
   width: 100%;
   max-width: 240px;
-  padding: 6px;
+  padding: 4px 6px;
   font-size: 12px;
   background: #222;
   color: #d4af37;
@@ -63,12 +68,12 @@ input {
 
 .buttons {
   text-align: center;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .btn {
-  padding: 6px 16px;
-  margin: 6px;
+  padding: 5px 14px;
+  margin: 5px;
   font-size: 12px;
   font-weight: bold;
   background: #d4af37;
@@ -77,9 +82,14 @@ input {
   cursor: pointer;
 }
 
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 10px;
+}
+
 #results {
   width: 92%;
-  margin: 15px auto;
+  margin: auto;
   border-collapse: collapse;
   font-size: 12px;
   display: none;
@@ -87,7 +97,7 @@ input {
 
 #results th, #results td {
   border: 1px solid #d4af37;
-  padding: 6px;
+  padding: 5px;
   text-align: center;
 }
 
@@ -96,7 +106,7 @@ input {
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
 .lock {
-  font-size: 11px;
+  font-size: 10px;
   margin-left: 4px;
 }
 </style>
@@ -104,50 +114,51 @@ input {
 
 <body>
 
+<h1>🏀 Basketball Prediction Engine</h1>
+
 <div class="wrapper">
 
-<h1>🏀 Simple Basketball Model</h1>
+  <div class="section">
+    <h2>Market Lines</h2>
+    <label>FT Total Market (e.g. 150.5 - 160.5)</label>
+    <input id="ftMarket">
+    <label>Team A Total Market</label>
+    <input id="teamAMarket">
+    <label>Team B Total Market</label>
+    <input id="teamBMarket">
+  </div>
 
-<div class="section">
-  <label>Full Game Total</label>
-  <input id="ftLine">
+  <div class="section">
+    <h2>Team A (Last 5 - Regulation)</h2>
+    <label>Team A Avg Scored</label>
+    <input id="teamAAvg">
+    <label>Team A Avg Allowed</label>
+    <input id="papgA">
+  </div>
 
-  <label>Team A Total</label>
-  <input id="teamALine">
+  <div class="section">
+    <h2>Team B (Last 5 - Regulation)</h2>
+    <label>Team B Avg Scored</label>
+    <input id="teamBAvg">
+    <label>Team B Avg Allowed</label>
+    <input id="papgB">
+  </div>
 
-  <label>Team B Total</label>
-  <input id="teamBLine">
-</div>
+  <div class="buttons">
+    <button class="btn" onclick="runEngine()">Run</button>
+    <button class="btn" onclick="clearAll()">Clear</button>
+  </div>
 
-<div class="section">
-  <label>Team A Avg Scored (Last 5 - Regulation)</label>
-  <input id="teamAScored">
-
-  <label>Team A Avg Allowed (Last 5 - Regulation)</label>
-  <input id="teamAAllowed">
-</div>
-
-<div class="section">
-  <label>Team B Avg Scored (Last 5 - Regulation)</label>
-  <input id="teamBScored">
-
-  <label>Team B Avg Allowed (Last 5 - Regulation)</label>
-  <input id="teamBAllowed">
-</div>
-
-<div class="buttons">
-  <button class="btn" onclick="runModel()">Run</button>
-  <button class="btn" onclick="clearAll()">Clear</button>
-</div>
-
-<table id="results">
-  <tr>
-    <th>Pick</th>
-    <th>Projection</th>
-    <th>Edge</th>
-    <th>Prediction</th>
-  </tr>
-</table>
+  <div class="table-wrap">
+    <table id="results">
+      <tr>
+        <th>Pick</th>
+        <th>Projection</th>
+        <th>Edge</th>
+        <th>Prediction</th>
+      </tr>
+    </table>
+  </div>
 
 </div>
 
@@ -157,8 +168,13 @@ function num(id){
   return parseFloat(document.getElementById(id).value);
 }
 
-function decision(edge, type){
+function mid(r){
+  if(!r || !r.includes("-")) return NaN;
+  let [a,b] = r.split("-").map(x => parseFloat(x));
+  return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
+}
 
+function decision(edge, type){
   if(type === "team" && Math.abs(edge) >= 4)
     return edge > 0 ? "OVER" : "UNDER";
 
@@ -168,75 +184,72 @@ function decision(edge, type){
   return "NO PLAY";
 }
 
-function runModel(){
+function runEngine(){
 
-  const table = document.getElementById("results");
-  table.style.display = "table";
+  const table=document.getElementById("results");
+  table.style.display="table";
 
-  table.innerHTML = `
-    <tr>
-      <th>Pick</th>
-      <th>Projection</th>
-      <th>Edge</th>
-      <th>Prediction</th>
-    </tr>`;
+  table.innerHTML=`<tr>
+    <th>Pick</th>
+    <th>Projection</th>
+    <th>Edge</th>
+    <th>Prediction</th>
+  </tr>`;
 
-  let ftLine = num("ftLine");
-  let aLine  = num("teamALine");
-  let bLine  = num("teamBLine");
+  let ft = mid(document.getElementById("ftMarket").value);
+  let aM = mid(document.getElementById("teamAMarket").value);
+  let bM = mid(document.getElementById("teamBMarket").value);
 
-  let aScored  = num("teamAScored");
-  let aAllowed = num("teamAAllowed");
-
-  let bScored  = num("teamBScored");
-  let bAllowed = num("teamBAllowed");
+  let aScored = num("teamAAvg");
+  let bScored = num("teamBAvg");
+  let aAllowed = num("papgA");
+  let bAllowed = num("papgB");
 
   let aProj = (aScored + bAllowed) / 2;
   let bProj = (bScored + aAllowed) / 2;
   let ftProj = aProj + bProj;
 
-  let picks = [
-    {name:"Full Game Total", proj:ftProj, line:ftLine, type:"total"},
-    {name:"Team A Total", proj:aProj, line:aLine, type:"team"},
-    {name:"Team B Total", proj:bProj, line:bLine, type:"team"}
+  let picks=[
+    {name:"FT Total", proj:ftProj, line:ft, type:"total"},
+    {name:"Team A Total", proj:aProj, line:aM, type:"team"},
+    {name:"Team B Total", proj:bProj, line:bM, type:"team"}
   ];
 
-  let lock = -1;
-  let maxEdge = 0;
+  let lock=-1,max=0;
 
   picks.forEach((p,i)=>{
     p.edge = p.proj - p.line;
     p.pick = decision(p.edge, p.type);
 
-    if(p.pick !== "NO PLAY" && Math.abs(p.edge) > maxEdge){
-      maxEdge = Math.abs(p.edge);
-      lock = i;
+    if(p.pick!=="NO PLAY" && Math.abs(p.edge)>max){
+      max=Math.abs(p.edge);
+      lock=i;
     }
   });
 
   picks.forEach((p,i)=>{
-    let row = table.insertRow();
-    let text = p.pick;
+    let row=table.insertRow();
+    let pr=p.pick;
 
-    if(i === lock && p.pick !== "NO PLAY")
-      text += ` <span class="lock">🔒</span>`;
+    if(i===lock && p.pick!=="NO PLAY")
+      pr+=` <span class="lock">🔒</span>`;
 
-    row.innerHTML = `
+    row.innerHTML=`
       <td>${p.name}</td>
-      <td>${isNaN(p.proj) ? "" : p.proj.toFixed(2)}</td>
-      <td>${isNaN(p.edge) ? "" : p.edge.toFixed(2)}</td>
+      <td>${isNaN(p.proj)?"":p.proj.toFixed(2)}</td>
+      <td>${isNaN(p.edge)?"":p.edge.toFixed(2)}</td>
       <td class="${
-        p.pick.startsWith("OVER") ? "pred-over" :
-        p.pick.startsWith("UNDER") ? "pred-under" :
+        p.pick.startsWith("OVER")?"pred-over":
+        p.pick.startsWith("UNDER")?"pred-under":
         "pred-noplay"
-      }">${text}</td>
+      }">${pr}</td>
     `;
   });
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=> i.value = "");
-  document.getElementById("results").style.display = "none";
+  document.querySelectorAll("input").forEach(i=> i.value="");
+  document.getElementById("results").style.display="none";
 }
 
 </script>
