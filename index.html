@@ -157,9 +157,11 @@ input {
 
 <script>
 
+<script>
+
 function num(id){
   let v = parseFloat(document.getElementById(id).value);
-  return isNaN(v) ? NaN : v;
+  return isNaN(v) ? 0 : v; // default to 0 instead of NaN
 }
 
 function decision(edge, type){
@@ -194,11 +196,6 @@ function runModel(){
 
   let bScored  = num("teamBScored");
   let bAllowed = num("teamBAllowed");
-
-  if([ftLine,aLine,bLine,aScored,aAllowed,bScored,bAllowed].some(isNaN)){
-    alert("Please fill all fields correctly.");
-    return;
-  }
 
   // SIMPLE PROJECTIONS
   let aProj = (aScored + bAllowed) / 2;
@@ -244,9 +241,12 @@ function runModel(){
   });
 }
 
+// Run automatically on load
+window.onload = runModel;
+
 function clearAll(){
   document.querySelectorAll("input").forEach(i=> i.value = "");
-  document.getElementById("results").style.display="none";
+  runModel();
 }
 
 </script>
