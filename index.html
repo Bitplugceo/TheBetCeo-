@@ -44,11 +44,6 @@ h1 {
   box-sizing: border-box;
 }
 
-.section h2 {
-  font-size: 14px;
-  margin-bottom: 6px;
-}
-
 label {
   display: block;
   font-size: 12px;
@@ -114,28 +109,29 @@ input {
 <h1>🏀 Simple Basketball Model</h1>
 
 <div class="section">
-  <h2>Market Lines</h2>
-  <label>Full Game Total (e.g. 148.5)</label>
+  <label>Full Game Total</label>
   <input id="ftLine">
+
   <label>Team A Total</label>
   <input id="teamALine">
+
   <label>Team B Total</label>
   <input id="teamBLine">
 </div>
 
 <div class="section">
-  <h2>Team A (Last 5 - Regulation)</h2>
-  <label>Avg Points Scored</label>
+  <label>Team A Avg Scored (Last 5 - Regulation)</label>
   <input id="teamAScored">
-  <label>Avg Points Allowed</label>
+
+  <label>Team A Avg Allowed (Last 5 - Regulation)</label>
   <input id="teamAAllowed">
 </div>
 
 <div class="section">
-  <h2>Team B (Last 5 - Regulation)</h2>
-  <label>Avg Points Scored</label>
+  <label>Team B Avg Scored (Last 5 - Regulation)</label>
   <input id="teamBScored">
-  <label>Avg Points Allowed</label>
+
+  <label>Team B Avg Allowed (Last 5 - Regulation)</label>
   <input id="teamBAllowed">
 </div>
 
@@ -149,7 +145,7 @@ input {
     <th>Pick</th>
     <th>Projection</th>
     <th>Edge</th>
-    <th>Decision</th>
+    <th>Prediction</th>
   </tr>
 </table>
 
@@ -182,7 +178,7 @@ function runModel(){
       <th>Pick</th>
       <th>Projection</th>
       <th>Edge</th>
-      <th>Decision</th>
+      <th>Prediction</th>
     </tr>`;
 
   let ftLine = num("ftLine");
@@ -195,7 +191,6 @@ function runModel(){
   let bScored  = num("teamBScored");
   let bAllowed = num("teamBAllowed");
 
-  // Simple projections (may produce NaN — that’s fine)
   let aProj = (aScored + bAllowed) / 2;
   let bProj = (bScored + aAllowed) / 2;
   let ftProj = aProj + bProj;
@@ -221,30 +216,27 @@ function runModel(){
 
   picks.forEach((p,i)=>{
     let row = table.insertRow();
-    let decisionText = p.pick;
+    let text = p.pick;
 
     if(i === lock && p.pick !== "NO PLAY")
-      decisionText += ` <span class="lock">🔒</span>`;
+      text += ` <span class="lock">🔒</span>`;
 
     row.innerHTML = `
       <td>${p.name}</td>
-      <td>${isNaN(p.proj) ? "NaN" : p.proj.toFixed(2)}</td>
-      <td>${isNaN(p.edge) ? "NaN" : p.edge.toFixed(2)}</td>
+      <td>${isNaN(p.proj) ? "" : p.proj.toFixed(2)}</td>
+      <td>${isNaN(p.edge) ? "" : p.edge.toFixed(2)}</td>
       <td class="${
         p.pick.startsWith("OVER") ? "pred-over" :
         p.pick.startsWith("UNDER") ? "pred-under" :
         "pred-noplay"
-      }">${decisionText}</td>
+      }">${text}</td>
     `;
   });
 }
 
-// Auto-run on load (shows NaN table like old version)
-window.onload = runModel;
-
 function clearAll(){
   document.querySelectorAll("input").forEach(i=> i.value = "");
-  runModel();
+  document.getElementById("results").style.display = "none";
 }
 
 </script>
