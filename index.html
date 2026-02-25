@@ -178,13 +178,21 @@ function mid(r){
 }
 
 function decision(edge, line, type){
-  if(type === "team" && Math.abs(edge) >= 4)
-    return edge > 0 ? "OVER " + line : "UNDER " + line;
 
-  if(type === "total" && Math.abs(edge) >= 6)
-    return edge > 0 ? "OVER " + line : "UNDER " + line;
+  if(isNaN(edge) || isNaN(line)) return "NO PLAY";
 
-  return "NO PLAY";
+  let threshold;
+
+  if(type === "total"){
+    threshold = line * 0.04; // 4% of market
+  } else {
+    threshold = line * 0.05; // 5% of market
+  }
+
+  if(Math.abs(edge) < threshold)
+    return "NO PLAY";
+
+  return edge > 0 ? "OVER " + line : "UNDER " + line;
 }
 
 function runEngine(){
