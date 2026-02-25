@@ -244,7 +244,7 @@ function runEngine(){
     let prob = probability(edge,market);
     let threshold = market * 0.03;
 
-    if(prob<65 || Math.abs(edge)<threshold){
+    if(prob<70 || Math.abs(edge)<threshold){
       return {name,proj,pred:"NO PLAY",prob,edge};
     }
 
@@ -262,7 +262,7 @@ function runEngine(){
   let lock=-1,max=0;
 
   picks.forEach((p,i)=>{
-    if(p.prob>=65 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
+    if(p.prob>=70 && Math.abs(p.edge)>max && p.pred!=="NO PLAY"){
       max=Math.abs(p.edge);
       lock=i;
     }
