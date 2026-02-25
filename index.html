@@ -8,12 +8,12 @@
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#d4af37">
-<meta name="apple-mobile-web-app-title" content="BB Engine">
+<meta name="apple-mobile-web-app-title" content="BB Model">
 
-<link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
-<link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
+<link rel="apple-touch-icon" href="icon.jpeg">
+<link rel="icon" type="image/jpeg" href="icon.jpeg">
 
-<title>Basketball Prediction Engine</title>
+<title>Simple Basketball Model</title>
 
 <style>
 body {
@@ -25,27 +25,27 @@ body {
 
 .wrapper {
   max-width: 760px;
-  margin: 12px auto;
+  margin: 20px auto;
   padding: 0 10px;
 }
 
 h1 {
   text-align: center;
-  margin-bottom: 12px;
-  font-size: 18px;
+  margin-bottom: 15px;
+  font-size: 20px;
 }
 
 .section {
   border: 1px solid #d4af37;
   background: #1a1a1a;
-  padding: 8px 12px;
-  margin: 10px auto;
+  padding: 10px 12px;
+  margin: 12px auto;
   width: 92%;
   box-sizing: border-box;
 }
 
 .section h2 {
-  font-size: 15px;
+  font-size: 14px;
   margin-bottom: 6px;
 }
 
@@ -58,7 +58,7 @@ label {
 input {
   width: 100%;
   max-width: 240px;
-  padding: 4px 6px;
+  padding: 6px;
   font-size: 12px;
   background: #222;
   color: #d4af37;
@@ -66,19 +66,14 @@ input {
   margin-bottom: 6px;
 }
 
-input[type="checkbox"] {
-  width: auto;
-  margin-right: 6px;
-}
-
 .buttons {
   text-align: center;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .btn {
-  padding: 5px 14px;
-  margin: 5px;
+  padding: 6px 16px;
+  margin: 6px;
   font-size: 12px;
   font-weight: bold;
   background: #d4af37;
@@ -87,14 +82,9 @@ input[type="checkbox"] {
   cursor: pointer;
 }
 
-.table-wrap {
-  overflow-x: auto;
-  margin-top: 10px;
-}
-
 #results {
   width: 92%;
-  margin: auto;
+  margin: 15px auto;
   border-collapse: collapse;
   font-size: 12px;
   display: none;
@@ -102,7 +92,7 @@ input[type="checkbox"] {
 
 #results th, #results td {
   border: 1px solid #d4af37;
-  padding: 5px;
+  padding: 6px;
   text-align: center;
 }
 
@@ -111,10 +101,7 @@ input[type="checkbox"] {
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
 .lock {
-  font-size: 4px;
-  display: inline-block;
-  vertical-align: middle;
-  transform: translateY(-1px);
+  font-size: 11px;
   margin-left: 4px;
 }
 </style>
@@ -122,57 +109,52 @@ input[type="checkbox"] {
 
 <body>
 
-<h1>🏀 Basketball Prediction Engine</h1>
-
 <div class="wrapper">
 
-  <div class="section">
-    <h2>Team Scoring Averages</h2>
-    <label>Team A FT Average</label>
-    <input id="teamAAvg">
-    <label>Team B FT Average</label>
-    <input id="teamBAvg">
-  </div>
+<h1>🏀 Simple Basketball Model</h1>
 
-  <div class="section">
-    <h2>Head to Head (Optional)</h2>
-    <label><input type="checkbox" id="useH2HFT"> Use H2H</label>
-    <input id="h2hA" placeholder="Team A H2H FT Avg">
-    <input id="h2hB" placeholder="Team B H2H FT Avg">
-  </div>
+<div class="section">
+  <h2>Market Lines</h2>
+  <label>Full Game Total (e.g. 148.5)</label>
+  <input id="ftLine">
+  <label>Team A Total</label>
+  <input id="teamALine">
+  <label>Team B Total</label>
+  <input id="teamBLine">
+</div>
 
-  <div class="section flex">
-    <div class="half">
-      <h2>Team A Metrics</h2>
-      <label>Team A Points Allowed</label>
-      <input id="papgA">
-    </div>
-    <div class="half">
-      <h2>Team B Metrics</h2>
-      <label>Team B Points Allowed</label>
-      <input id="papgB">
-    </div>
-  </div>
+<div class="section">
+  <h2>Team A (Last 5 - Regulation)</h2>
+  <label>Avg Points Scored</label>
+  <input id="teamAScored">
+  <label>Avg Points Allowed</label>
+  <input id="teamAAllowed">
+</div>
 
-  <div class="buttons">
-    <button class="btn" onclick="runEngine()">Run</button>
-    <button class="btn" onclick="clearAll()">Clear</button>
-  </div>
+<div class="section">
+  <h2>Team B (Last 5 - Regulation)</h2>
+  <label>Avg Points Scored</label>
+  <input id="teamBScored">
+  <label>Avg Points Allowed</label>
+  <input id="teamBAllowed">
+</div>
 
-  <div class="table-wrap">
-    <table id="results">
-      <tr>
-        <th>Pick</th>
-        <th>Projection</th>
-        <th>Prediction</th>
-        <th>Probability %</th>
-      </tr>
-    </table>
-  </div>
+<div class="buttons">
+  <button class="btn" onclick="runModel()">Run</button>
+  <button class="btn" onclick="clearAll()">Clear</button>
+</div>
+
+<table id="results">
+  <tr>
+    <th>Pick</th>
+    <th>Projection</th>
+    <th>Edge</th>
+    <th>Decision</th>
+  </tr>
+</table>
 
 </div>
 
-<script>
 <script>
 
 function num(id){
@@ -180,107 +162,93 @@ function num(id){
   return isNaN(v) ? NaN : v;
 }
 
-function mid(r){
-  if(!r.includes("-")) return NaN;
-  let [a,b] = r.split("-").map(x => parseFloat(x));
-  return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
+function decision(edge, type){
+
+  if(type === "team" && Math.abs(edge) >= 4)
+    return edge > 0 ? "OVER" : "UNDER";
+
+  if(type === "total" && Math.abs(edge) >= 6)
+    return edge > 0 ? "OVER" : "UNDER";
+
+  return "NO PLAY";
 }
 
-function runEngine(){
+function runModel(){
 
-  const table=document.getElementById("results");
-  table.style.display="table";
-  table.innerHTML=`<tr>
-    <th>Pick</th>
-    <th>Projection</th>
-    <th>Edge</th>
-    <th>Prediction</th>
-  </tr>`;
+  const table = document.getElementById("results");
+  table.style.display = "table";
+  table.innerHTML = `
+    <tr>
+      <th>Pick</th>
+      <th>Projection</th>
+      <th>Edge</th>
+      <th>Decision</th>
+    </tr>`;
 
-  let ftLine = mid(document.getElementById("ftMarket").value);
-  let aLine  = mid(document.getElementById("teamAMarket").value);
-  let bLine  = mid(document.getElementById("teamBMarket").value);
+  let ftLine = num("ftLine");
+  let aLine  = num("teamALine");
+  let bLine  = num("teamBLine");
 
-  let aScored = num("teamAAvg");
-  let bScored = num("teamBAvg");
-  let aAllowed = num("papgA");
-  let bAllowed = num("papgB");
+  let aScored  = num("teamAScored");
+  let aAllowed = num("teamAAllowed");
+
+  let bScored  = num("teamBScored");
+  let bAllowed = num("teamBAllowed");
+
+  if([ftLine,aLine,bLine,aScored,aAllowed,bScored,bAllowed].some(isNaN)){
+    alert("Please fill all fields correctly.");
+    return;
+  }
 
   // SIMPLE PROJECTIONS
   let aProj = (aScored + bAllowed) / 2;
   let bProj = (bScored + aAllowed) / 2;
   let ftProj = aProj + bProj;
 
-  function decision(edge, type){
-    if(type === "team" && Math.abs(edge) >= 4)
-      return edge > 0 ? "OVER" : "UNDER";
-
-    if(type === "total" && Math.abs(edge) >= 6)
-      return edge > 0 ? "OVER" : "UNDER";
-
-    return "NO PLAY";
-  }
-
-  function build(name, proj, line, type){
-    if(isNaN(proj) || isNaN(line))
-      return {name, proj, edge:0, pred:"NO PLAY"};
-
-    let edge = proj - line;
-    let pick = decision(edge, type);
-
-    if(pick !== "NO PLAY"){
-      let rounded = Math.floor(line) + 0.5;
-      pick = pick + " " + rounded.toFixed(1);
-    }
-
-    return {name, proj, edge, pred:pick};
-  }
-
   let picks = [
-    build("FT Total", ftProj, ftLine, "total"),
-    build("Team A Total", aProj, aLine, "team"),
-    build("Team B Total", bProj, bLine, "team")
+    {name:"Full Game Total", proj:ftProj, line:ftLine, type:"total"},
+    {name:"Team A Total", proj:aProj, line:aLine, type:"team"},
+    {name:"Team B Total", proj:bProj, line:bLine, type:"team"}
   ];
 
-  // LOCK (biggest edge)
-  let lock=-1, max=0;
+  let lock = -1;
+  let maxEdge = 0;
 
   picks.forEach((p,i)=>{
-    if(p.pred !== "NO PLAY" && Math.abs(p.edge) > max){
-      max = Math.abs(p.edge);
+    p.edge = p.proj - p.line;
+    p.pick = decision(p.edge, p.type);
+
+    if(p.pick !== "NO PLAY" && Math.abs(p.edge) > maxEdge){
+      maxEdge = Math.abs(p.edge);
       lock = i;
     }
   });
 
   picks.forEach((p,i)=>{
     let row = table.insertRow();
-    let pr = p.pred;
+    let decisionText = p.pick;
 
-    if(i===lock && p.pred!=="NO PLAY")
-      pr += ` <span class="lock">🔒</span>`;
+    if(i === lock && p.pick !== "NO PLAY")
+      decisionText += ` <span class="lock">🔒</span>`;
 
-    row.innerHTML=`
+    row.innerHTML = `
       <td>${p.name}</td>
-      <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
-      <td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
+      <td>${p.proj.toFixed(2)}</td>
+      <td>${p.edge.toFixed(2)}</td>
       <td class="${
-        p.pred.startsWith("OVER")?"pred-over":
-        p.pred.startsWith("UNDER")?"pred-under":
+        p.pick.startsWith("OVER") ? "pred-over" :
+        p.pick.startsWith("UNDER") ? "pred-under" :
         "pred-noplay"
-      }">${pr}</td>
+      }">${decisionText}</td>
     `;
   });
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=>{
-    if(i.type==="checkbox") i.checked=false;
-    else i.value="";
-  });
+  document.querySelectorAll("input").forEach(i=> i.value = "");
   document.getElementById("results").style.display="none";
 }
 
-</script>
 </script>
 
 </body>
