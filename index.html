@@ -106,7 +106,10 @@ input {
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
 
 .lock {
-  font-size: 10px;
+  font-size: 4px;
+  display: inline-block;
+  vertical-align: middle;
+  transform: translateY(-1px);
   margin-left: 4px;
 }
 </style>
@@ -174,12 +177,12 @@ function mid(r){
   return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
 }
 
-function decision(edge, type){
+function decision(edge, line, type){
   if(type === "team" && Math.abs(edge) >= 4)
-    return edge > 0 ? "OVER" : "UNDER";
+    return edge > 0 ? "OVER " + line : "UNDER " + line;
 
   if(type === "total" && Math.abs(edge) >= 6)
-    return edge > 0 ? "OVER" : "UNDER";
+    return edge > 0 ? "OVER " + line : "UNDER " + line;
 
   return "NO PLAY";
 }
@@ -219,7 +222,7 @@ function runEngine(){
 
   picks.forEach((p,i)=>{
     p.edge = p.proj - p.line;
-    p.pick = decision(p.edge, p.type);
+    p.pick = decision(p.edge, p.line, p.type);
 
     if(p.pick!=="NO PLAY" && Math.abs(p.edge)>max){
       max=Math.abs(p.edge);
