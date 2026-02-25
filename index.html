@@ -157,11 +157,8 @@ input {
 
 <script>
 
-<script>
-
 function num(id){
-  let v = parseFloat(document.getElementById(id).value);
-  return isNaN(v) ? 0 : v; // default to 0 instead of NaN
+  return parseFloat(document.getElementById(id).value);
 }
 
 function decision(edge, type){
@@ -179,6 +176,7 @@ function runModel(){
 
   const table = document.getElementById("results");
   table.style.display = "table";
+
   table.innerHTML = `
     <tr>
       <th>Pick</th>
@@ -197,7 +195,7 @@ function runModel(){
   let bScored  = num("teamBScored");
   let bAllowed = num("teamBAllowed");
 
-  // SIMPLE PROJECTIONS
+  // Simple projections (may produce NaN — that’s fine)
   let aProj = (aScored + bAllowed) / 2;
   let bProj = (bScored + aAllowed) / 2;
   let ftProj = aProj + bProj;
@@ -230,8 +228,8 @@ function runModel(){
 
     row.innerHTML = `
       <td>${p.name}</td>
-      <td>${p.proj.toFixed(2)}</td>
-      <td>${p.edge.toFixed(2)}</td>
+      <td>${isNaN(p.proj) ? "NaN" : p.proj.toFixed(2)}</td>
+      <td>${isNaN(p.edge) ? "NaN" : p.edge.toFixed(2)}</td>
       <td class="${
         p.pick.startsWith("OVER") ? "pred-over" :
         p.pick.startsWith("UNDER") ? "pred-under" :
@@ -241,7 +239,7 @@ function runModel(){
   });
 }
 
-// Run automatically on load
+// Auto-run on load (shows NaN table like old version)
 window.onload = runModel;
 
 function clearAll(){
