@@ -17,33 +17,33 @@
 <title>Basketball Prediction Engine</title>
 
 <style>
-body{
+body {
   background:#111;
   color:#d4af37;
   font-family:Segoe UI,sans-serif;
   margin:0;
 }
-.wrapper{
+.wrapper {
   max-width:760px;
   margin:12px auto;
   padding:0 10px;
 }
-h1{
+h1 {
   text-align:center;
   font-size:18px;
 }
-.section{
+.section {
   border:1px solid #d4af37;
   background:#1a1a1a;
   padding:10px;
   margin:10px auto;
 }
-label{
+label {
   display:block;
   font-size:12px;
   margin-bottom:4px;
 }
-input{
+input {
   width:100%;
   max-width:260px;
   padding:5px;
@@ -53,7 +53,7 @@ input{
   border:1px solid #d4af37;
   margin-bottom:6px;
 }
-button{
+button {
   padding:6px 16px;
   margin:6px;
   font-weight:bold;
@@ -62,21 +62,29 @@ button{
   border:none;
   cursor:pointer;
 }
-table{
+table {
   width:100%;
   border-collapse:collapse;
   margin-top:12px;
   font-size:12px;
 }
-th,td{
+th,td {
   border:1px solid #d4af37;
   padding:6px;
   text-align:center;
 }
-.pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
-.pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
-.pred-noplay{background:#444;color:#bbb;font-weight:bold;}
-.lock{margin-left:4px;font-size:11px;}
+.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
+.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
+.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
+
+/* RESTORED LOCK STYLE */
+.lock {
+  font-size:4px;
+  display:inline-block;
+  vertical-align:middle;
+  transform:translateY(-1px);
+  margin-left:4px;
+}
 </style>
 </head>
 
@@ -113,8 +121,8 @@ th,td{
 </div>
 
 <div class="section">
-<h3>Head to Head (Optional Weighted Blend)</h3>
-<label><input type="checkbox" id="useH2H"> Enable H2H Blend (30%)</label>
+<h3>Head to Head (Optional)</h3>
+<label><input type="checkbox" id="useH2H"></label>
 <label>Team A H2H Average</label>
 <input id="teamAH2H">
 <label>Team B H2H Average</label>
@@ -145,14 +153,14 @@ function num(id){
 
 function mid(val){
   if(!val || !val.includes("-")) return NaN;
-  let parts=val.split("-");
-  return (parseFloat(parts[0])+parseFloat(parts[1]))/2;
+  let parts = val.split("-");
+  return (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
 }
 
 function decision(edge,line,type){
-  if(isNaN(edge)||isNaN(line)) return "NO PLAY";
+  if(isNaN(edge) || isNaN(line)) return "NO PLAY";
   let threshold = type==="total" ? line*0.04 : line*0.05;
-  if(Math.abs(edge)<threshold) return "NO PLAY";
+  if(Math.abs(edge) < threshold) return "NO PLAY";
   return edge>0 ? "OVER "+line : "UNDER "+line;
 }
 
@@ -162,71 +170,71 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
-  let ft=mid(document.getElementById("ftMarket").value);
-  let aM=mid(document.getElementById("teamAMarket").value);
-  let bM=mid(document.getElementById("teamBMarket").value);
+  let ft = mid(document.getElementById("ftMarket").value);
+  let aM = mid(document.getElementById("teamAMarket").value);
+  let bM = mid(document.getElementById("teamBMarket").value);
 
-  let aScored=num("teamAScored");
-  let bScored=num("teamBScored");
-  let aAllowed=num("teamAAllowed");
-  let bAllowed=num("teamBAllowed");
+  let aScored = num("teamAScored");
+  let bScored = num("teamBScored");
+  let aAllowed = num("teamAAllowed");
+  let bAllowed = num("teamBAllowed");
 
-  // Base Projections
-  let baseA=(aScored+bAllowed)/2;
-  let baseB=(bScored+aAllowed)/2;
+  let baseA = (aScored + bAllowed) / 2;
+  let baseB = (bScored + aAllowed) / 2;
 
-  let aProj=baseA;
-  let bProj=baseB;
+  let aProj = baseA;
+  let bProj = baseB;
 
-  // Weighted H2H Blend (70% Form / 30% H2H)
+  // 70% Form / 30% H2H Blend
   if(document.getElementById("useH2H").checked){
-    let aH2H=num("teamAH2H");
-    let bH2H=num("teamBH2H");
+    let aH2H = num("teamAH2H");
+    let bH2H = num("teamBH2H");
 
     if(!isNaN(aH2H)){
-      aProj=(baseA*0.7)+(aH2H*0.3);
+      aProj = (baseA * 0.7) + (aH2H * 0.3);
     }
     if(!isNaN(bH2H)){
-      bProj=(baseB*0.7)+(bH2H*0.3);
+      bProj = (baseB * 0.7) + (bH2H * 0.3);
     }
   }
 
-  let ftProj=aProj+bProj;
+  let ftProj = aProj + bProj;
 
-  let picks=[
-    {name:"FT Total",proj:ftProj,line:ft,type:"total"},
-    {name:"Team A Total",proj:aProj,line:aM,type:"team"},
-    {name:"Team B Total",proj:bProj,line:bM,type:"team"}
+  let picks = [
+    {name:"FT Total", proj:ftProj, line:ft, type:"total"},
+    {name:"Team A Total", proj:aProj, line:aM, type:"team"},
+    {name:"Team B Total", proj:bProj, line:bM, type:"team"}
   ];
 
-  let lockIndex=-1,maxEdge=0;
+  let lockIndex=-1, maxEdge=0;
 
   picks.forEach((p,i)=>{
-    p.edge=p.proj-p.line;
-    p.pick=decision(p.edge,p.line,p.type);
+    p.edge = p.proj - p.line;
+    p.pick = decision(p.edge,p.line,p.type);
 
     if(p.pick!=="NO PLAY" && Math.abs(p.edge)>maxEdge){
-      maxEdge=Math.abs(p.edge);
-      lockIndex=i;
+      maxEdge = Math.abs(p.edge);
+      lockIndex = i;
     }
   });
 
   picks.forEach((p,i)=>{
-    let row=table.insertRow();
-    let pred=p.pick;
+    let row = table.insertRow();
+    let pred = p.pick;
+
     if(i===lockIndex && p.pick!=="NO PLAY"){
-      pred+=` <span class="lock">🔒</span>`;
+      pred += ` <span class="lock">🔒</span>`;
     }
 
-    row.innerHTML=`
-    <td>${p.name}</td>
-    <td>${p.proj.toFixed(2)}</td>
-    <td>${p.edge.toFixed(2)}</td>
-    <td class="${
-      p.pick.startsWith("OVER")?"pred-over":
-      p.pick.startsWith("UNDER")?"pred-under":
-      "pred-noplay"
-    }">${pred}</td>`;
+    row.innerHTML = `
+      <td>${p.name}</td>
+      <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
+      <td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
+      <td class="${
+        p.pick.startsWith("OVER")?"pred-over":
+        p.pick.startsWith("UNDER")?"pred-under":
+        "pred-noplay"
+      }">${pred}</td>`;
   });
 }
 
