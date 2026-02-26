@@ -5,113 +5,77 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BB Engine">
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#d4af37">
-<meta name="apple-mobile-web-app-title" content="BB Engine">
 
+<!-- APP ICON -->
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
 <title>Basketball Prediction Engine</title>
 
 <style>
-body {
-  background: #111;
-  color: #d4af37;
-  font-family: Segoe UI, sans-serif;
-  margin: 0;
+body{
+  background:#111;
+  color:#d4af37;
+  font-family:Segoe UI,sans-serif;
+  margin:0;
 }
-
-.wrapper {
-  max-width: 760px;
-  margin: 12px auto;
-  padding: 0 10px;
+.wrapper{
+  max-width:760px;
+  margin:12px auto;
+  padding:0 10px;
 }
-
-h1 {
-  text-align: center;
-  margin-bottom: 12px;
-  font-size: 18px;
+h1{
+  text-align:center;
+  font-size:18px;
 }
-
-.section {
-  border: 1px solid #d4af37;
-  background: #1a1a1a;
-  padding: 8px 12px;
-  margin: 10px auto;
-  width: 92%;
-  box-sizing: border-box;
+.section{
+  border:1px solid #d4af37;
+  background:#1a1a1a;
+  padding:10px;
+  margin:10px auto;
 }
-
-.section h2 {
-  font-size: 15px;
-  margin-bottom: 6px;
+label{
+  display:block;
+  font-size:12px;
+  margin-bottom:4px;
 }
-
-label {
-  display: block;
-  font-size: 12px;
-  margin-bottom: 3px;
+input{
+  width:100%;
+  max-width:260px;
+  padding:5px;
+  font-size:12px;
+  background:#222;
+  color:#d4af37;
+  border:1px solid #d4af37;
+  margin-bottom:6px;
 }
-
-input {
-  width: 100%;
-  max-width: 240px;
-  padding: 4px 6px;
-  font-size: 12px;
-  background: #222;
-  color: #d4af37;
-  border: 1px solid #d4af37;
-  margin-bottom: 6px;
+button{
+  padding:6px 16px;
+  margin:6px;
+  font-weight:bold;
+  background:#d4af37;
+  color:#111;
+  border:none;
 }
-
-.buttons {
-  text-align: center;
-  margin-top: 10px;
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:12px;
+  font-size:12px;
 }
-
-.btn {
-  padding: 5px 14px;
-  margin: 5px;
-  font-size: 12px;
-  font-weight: bold;
-  background: #d4af37;
-  color: #111;
-  border: none;
-  cursor: pointer;
+th,td{
+  border:1px solid #d4af37;
+  padding:6px;
+  text-align:center;
 }
-
-.table-wrap {
-  overflow-x: auto;
-  margin-top: 10px;
-}
-
-#results {
-  width: 92%;
-  margin: auto;
-  border-collapse: collapse;
-  font-size: 12px;
-  display: none;
-}
-
-#results th, #results td {
-  border: 1px solid #d4af37;
-  padding: 5px;
-  text-align: center;
-}
-
-.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
-.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
-.pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-
-.lock {
-  font-size: 4px;
-  display: inline-block;
-  vertical-align: middle;
-  transform: translateY(-1px);
-  margin-left: 4px;
-}
+.pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
+.pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
+.pred-noplay{background:#444;color:#bbb;font-weight:bold;}
+.lock{margin-left:4px;font-size:11px;}
 </style>
 </head>
 
@@ -121,47 +85,56 @@ input {
 
 <div class="wrapper">
 
-  <div class="section">
-    <h2>Market Lines</h2>
-    <label>FT Total Market (e.g. 150.5 - 160.5)</label>
-    <input id="ftMarket">
-    <label>Team A Total Market</label>
-    <input id="teamAMarket">
-    <label>Team B Total Market</label>
-    <input id="teamBMarket">
-  </div>
+<div class="section">
+<h3>Market Lines</h3>
+<label>FT Total Market (150.5 - 160.5)</label>
+<input id="ftMarket">
+<label>Team A Total Market</label>
+<input id="teamAMarket">
+<label>Team B Total Market</label>
+<input id="teamBMarket">
+</div>
 
-  <div class="section">
-    <h2>Team A (Last 5)</h2>
-    <label>Team A Avg Scored</label>
-    <input id="teamAAvg">
-    <label>Team A Avg Allowed</label>
-    <input id="papgA">
-  </div>
+<div class="section">
+<h3>Team A (Last 5)</h3>
+<label>Avg Scored</label>
+<input id="teamAScored">
+<label>Avg Allowed</label>
+<input id="teamAAllowed">
+</div>
 
-  <div class="section">
-    <h2>Team B (Last 5)</h2>
-    <label>Team B Avg Scored</label>
-    <input id="teamBAvg">
-    <label>Team B Avg Allowed</label>
-    <input id="papgB">
-  </div>
+<div class="section">
+<h3>Team B (Last 5)</h3>
+<label>Avg Scored</label>
+<input id="teamBScored">
+<label>Avg Allowed</label>
+<input id="teamBAllowed">
+</div>
 
-  <div class="buttons">
-    <button class="btn" onclick="runEngine()">Run</button>
-    <button class="btn" onclick="clearAll()">Clear</button>
-  </div>
+<div class="section">
+<h3>Head to Head Filter (Optional)</h3>
+<label><input type="checkbox" id="useH2H"> Enable H2H Filter</label>
+<label>H2H Total 1</label>
+<input id="h2h1">
+<label>H2H Total 2</label>
+<input id="h2h2">
+<label>H2H Total 3</label>
+<input id="h2h3">
+</div>
 
-  <div class="table-wrap">
-    <table id="results">
-      <tr>
-        <th>Pick</th>
-        <th>Projection</th>
-        <th>Edge</th>
-        <th>Prediction</th>
-      </tr>
-    </table>
-  </div>
+<div style="text-align:center;">
+<button onclick="runEngine()">Run</button>
+<button onclick="clearAll()">Clear</button>
+</div>
+
+<table id="results" style="display:none;">
+<tr>
+<th>Pick</th>
+<th>Projection</th>
+<th>Edge</th>
+<th>Prediction</th>
+</tr>
+</table>
 
 </div>
 
@@ -171,95 +144,91 @@ function num(id){
   return parseFloat(document.getElementById(id).value);
 }
 
-function mid(r){
-  if(!r || !r.includes("-")) return NaN;
-  let [a,b] = r.split("-").map(x => parseFloat(x));
-  return (isNaN(a)||isNaN(b)) ? NaN : (a+b)/2;
+function mid(val){
+  if(!val || !val.includes("-")) return NaN;
+  let parts=val.split("-");
+  return (parseFloat(parts[0])+parseFloat(parts[1]))/2;
 }
 
-function decision(edge, line, type){
+function decision(edge,line,type){
+  if(isNaN(edge)||isNaN(line)) return "NO PLAY";
+  let threshold = type==="total" ? line*0.04 : line*0.05;
+  if(Math.abs(edge)<threshold) return "NO PLAY";
+  return edge>0 ? "OVER "+line : "UNDER "+line;
+}
 
-  if(isNaN(edge) || isNaN(line)) return "NO PLAY";
+function h2hBlock(prediction,line){
+  if(!document.getElementById("useH2H").checked) return prediction;
+  if(prediction==="NO PLAY") return prediction;
 
-  let threshold;
+  let totals=[num("h2h1"),num("h2h2"),num("h2h3")];
+  totals=totals.filter(x=>!isNaN(x));
+  if(totals.length<2) return prediction;
 
-  if(type === "total"){
-    threshold = line * 0.04; // 4% of market
-  } else {
-    threshold = line * 0.05; // 5% of market
-  }
+  let overCount=totals.filter(x=>x>line+10).length;
+  let underCount=totals.filter(x=>x<line-10).length;
 
-  if(Math.abs(edge) < threshold)
-    return "NO PLAY";
+  if(prediction.startsWith("UNDER") && overCount>=2) return "NO PLAY";
+  if(prediction.startsWith("OVER") && underCount>=2) return "NO PLAY";
 
-  return edge > 0 ? "OVER " + line : "UNDER " + line;
+  return prediction;
 }
 
 function runEngine(){
 
   const table=document.getElementById("results");
   table.style.display="table";
+  table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
-  table.innerHTML=`<tr>
-    <th>Pick</th>
-    <th>Projection</th>
-    <th>Edge</th>
-    <th>Prediction</th>
-  </tr>`;
+  let ft=mid(document.getElementById("ftMarket").value);
+  let aM=mid(document.getElementById("teamAMarket").value);
+  let bM=mid(document.getElementById("teamBMarket").value);
 
-  let ft = mid(document.getElementById("ftMarket").value);
-  let aM = mid(document.getElementById("teamAMarket").value);
-  let bM = mid(document.getElementById("teamBMarket").value);
-
-  let aScored = num("teamAAvg");
-  let bScored = num("teamBAvg");
-  let aAllowed = num("papgA");
-  let bAllowed = num("papgB");
-
-  let aProj = (aScored + bAllowed) / 2;
-  let bProj = (bScored + aAllowed) / 2;
-  let ftProj = aProj + bProj;
+  let aProj=(num("teamAScored")+num("teamBAllowed"))/2;
+  let bProj=(num("teamBScored")+num("teamAAllowed"))/2;
+  let ftProj=aProj+bProj;
 
   let picks=[
-    {name:"FT Total", proj:ftProj, line:ft, type:"total"},
-    {name:"Team A Total", proj:aProj, line:aM, type:"team"},
-    {name:"Team B Total", proj:bProj, line:bM, type:"team"}
+    {name:"FT Total",proj:ftProj,line:ft,type:"total"},
+    {name:"Team A Total",proj:aProj,line:aM,type:"team"},
+    {name:"Team B Total",proj:bProj,line:bM,type:"team"}
   ];
 
-  let lock=-1,max=0;
+  let lockIndex=-1,maxEdge=0;
 
   picks.forEach((p,i)=>{
-    p.edge = p.proj - p.line;
-    p.pick = decision(p.edge, p.line, p.type);
+    p.edge=p.proj-p.line;
+    p.pick=decision(p.edge,p.line,p.type);
+    p.pick=h2hBlock(p.pick,p.line);
 
-    if(p.pick!=="NO PLAY" && Math.abs(p.edge)>max){
-      max=Math.abs(p.edge);
-      lock=i;
+    if(p.pick!=="NO PLAY" && Math.abs(p.edge)>maxEdge){
+      maxEdge=Math.abs(p.edge);
+      lockIndex=i;
     }
   });
 
   picks.forEach((p,i)=>{
     let row=table.insertRow();
-    let pr=p.pick;
-
-    if(i===lock && p.pick!=="NO PLAY")
-      pr+=` <span class="lock">🔒</span>`;
+    let pred=p.pick;
+    if(i===lockIndex && p.pick!=="NO PLAY"){
+      pred+=` <span class="lock">🔒</span>`;
+    }
 
     row.innerHTML=`
-      <td>${p.name}</td>
-      <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
-      <td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
-      <td class="${
-        p.pick.startsWith("OVER")?"pred-over":
-        p.pick.startsWith("UNDER")?"pred-under":
-        "pred-noplay"
-      }">${pr}</td>
-    `;
+    <td>${p.name}</td>
+    <td>${p.proj.toFixed(2)}</td>
+    <td>${p.edge.toFixed(2)}</td>
+    <td class="${
+      p.pick.startsWith("OVER")?"pred-over":
+      p.pick.startsWith("UNDER")?"pred-under":
+      "pred-noplay"
+    }">${pred}</td>`;
   });
 }
 
 function clearAll(){
-  document.querySelectorAll("input").forEach(i=> i.value="");
+  document.querySelectorAll("input").forEach(i=>i.value="");
+  document.getElementById("useH2H").checked=false;
   document.getElementById("results").style.display="none";
 }
 
