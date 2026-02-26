@@ -157,10 +157,33 @@ function mid(val){
   return (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
 }
 
-function decision(edge,line,type){
+function decision(edge,line,type,aScored,bScored){
+
   if(isNaN(edge) || isNaN(line)) return "NO PLAY";
+
   let threshold = type==="total" ? line*0.045 : line*0.05;
+
   if(Math.abs(edge) < threshold) return "NO PLAY";
+
+  // --- UNIVERSAL VOLATILITY FILTER ---
+  // Block UNDERS if scoring is too high relative to market
+
+  if(edge < 0){ // trying to play UNDER
+
+    if(type === "total"){
+      if(aScored >= line*0.55 || bScored >= line*0.55){
+        return "NO PLAY";
+      }
+    }
+
+    if(type === "team"){
+      if(aScored >= line*0.55){
+        return "NO PLAY";
+      }
+    }
+
+  }
+
   return edge>0 ? "OVER "+line : "UNDER "+line;
 }
 
@@ -210,7 +233,7 @@ function runEngine(){
 
   picks.forEach((p,i)=>{
     p.edge = p.proj - p.line;
-    p.pick = decision(p.edge,p.line,p.type);
+   p.pick = decision(p.edge,p.line,p.type,aScored,bScored);
 
     if(p.pick!=="NO PLAY" && Math.abs(p.edge)>maxEdge){
       maxEdge = Math.abs(p.edge);
