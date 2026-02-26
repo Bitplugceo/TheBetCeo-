@@ -60,6 +60,7 @@ button{
   background:#d4af37;
   color:#111;
   border:none;
+  cursor:pointer;
 }
 table{
   width:100%;
@@ -112,14 +113,12 @@ th,td{
 </div>
 
 <div class="section">
-<h3>Head to Head Filter (Optional)</h3>
-<label><input type="checkbox" id="useH2H"> Enable H2H Filter</label>
-<label>H2H Total 1</label>
-<input id="h2h1">
-<label>H2H Total 2</label>
-<input id="h2h2">
-<label>H2H Total 3</label>
-<input id="h2h3">
+<h3>Head to Head (Optional Weighted Blend)</h3>
+<label><input type="checkbox" id="useH2H"> Enable H2H Blend (30%)</label>
+<label>Team A H2H Average</label>
+<input id="teamAH2H">
+<label>Team B H2H Average</label>
+<input id="teamBH2H">
 </div>
 
 <div style="text-align:center;">
@@ -157,23 +156,6 @@ function decision(edge,line,type){
   return edge>0 ? "OVER "+line : "UNDER "+line;
 }
 
-function h2hBlock(prediction,line){
-  if(!document.getElementById("useH2H").checked) return prediction;
-  if(prediction==="NO PLAY") return prediction;
-
-  let totals=[num("h2h1"),num("h2h2"),num("h2h3")];
-  totals=totals.filter(x=>!isNaN(x));
-  if(totals.length<2) return prediction;
-
-  let overCount=totals.filter(x=>x>line+10).length;
-  let underCount=totals.filter(x=>x<line-10).length;
-
-  if(prediction.startsWith("UNDER") && overCount>=2) return "NO PLAY";
-  if(prediction.startsWith("OVER") && underCount>=2) return "NO PLAY";
-
-  return prediction;
-}
-
 function runEngine(){
 
   const table=document.getElementById("results");
@@ -184,8 +166,31 @@ function runEngine(){
   let aM=mid(document.getElementById("teamAMarket").value);
   let bM=mid(document.getElementById("teamBMarket").value);
 
-  let aProj=(num("teamAScored")+num("teamBAllowed"))/2;
-  let bProj=(num("teamBScored")+num("teamAAllowed"))/2;
+  let aScored=num("teamAScored");
+  let bScored=num("teamBScored");
+  let aAllowed=num("teamAAllowed");
+  let bAllowed=num("teamBAllowed");
+
+  // Base Projections
+  let baseA=(aScored+bAllowed)/2;
+  let baseB=(bScored+aAllowed)/2;
+
+  let aProj=baseA;
+  let bProj=baseB;
+
+  // Weighted H2H Blend (70% Form / 30% H2H)
+  if(document.getElementById("useH2H").checked){
+    let aH2H=num("teamAH2H");
+    let bH2H=num("teamBH2H");
+
+    if(!isNaN(aH2H)){
+      aProj=(baseA*0.7)+(aH2H*0.3);
+    }
+    if(!isNaN(bH2H)){
+      bProj=(baseB*0.7)+(bH2H*0.3);
+    }
+  }
+
   let ftProj=aProj+bProj;
 
   let picks=[
@@ -199,7 +204,6 @@ function runEngine(){
   picks.forEach((p,i)=>{
     p.edge=p.proj-p.line;
     p.pick=decision(p.edge,p.line,p.type);
-    p.pick=h2hBlock(p.pick,p.line);
 
     if(p.pick!=="NO PLAY" && Math.abs(p.edge)>maxEdge){
       maxEdge=Math.abs(p.edge);
