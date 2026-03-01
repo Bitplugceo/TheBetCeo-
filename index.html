@@ -15,59 +15,144 @@
 <title>Basketball Prediction Engine</title>
 
 <style>
-body{background:#111;color:#d4af37;font-family:Segoe UI,sans-serif;margin:0;}
-.wrapper{max-width:760px;margin:10px auto;padding:0 10px;}
-h1{text-align:center;font-size:18px;margin:10px 0;}
-.section{border:1px solid #d4af37;background:#1a1a1a;padding:8px;margin:6px auto;}
-label{display:block;font-size:12px;margin-bottom:3px;}
-input{width:100%;max-width:260px;padding:5px;font-size:12px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
-button{padding:6px 16px;margin:6px;font-weight:bold;background:#d4af37;color:#111;border:none;cursor:pointer;}
-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
-th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
-.pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
-.pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
-.pred-noplay{background:#444;color:#bbb;font-weight:bold;}
-.lock{font-size:4px;vertical-align:middle;margin-left:4px;}
+body{
+  background:#111;
+  color:#d4af37;
+  font-family:Segoe UI,sans-serif;
+  margin:0;
+}
+.wrapper{
+  max-width:760px;
+  margin:10px auto;
+  padding:0 10px;
+}
+h1{
+  text-align:center;
+  font-size:18px;
+  margin:10px 0;
+}
+.section{
+  border:1px solid #d4af37;
+  background:#1a1a1a;
+  padding:8px;
+  margin:6px auto;
+}
+label{
+  display:block;
+  font-size:12px;
+  margin-bottom:3px;
+}
+input{
+  width:100%;
+  max-width:260px;
+  padding:5px;
+  font-size:12px;
+  background:#222;
+  color:#d4af37;
+  border:1px solid #d4af37;
+  margin-bottom:4px;
+}
+::placeholder{
+  color:rgba(255,255,255,0.35);
+}
+button{
+  padding:6px 16px;
+  margin:6px;
+  font-weight:bold;
+  background:#d4af37;
+  color:#111;
+  border:none;
+  cursor:pointer;
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+  font-size:12px;
+}
+th,td{
+  border:1px solid #d4af37;
+  padding:6px;
+  text-align:center;
+}
+.pred-over{ background:#1e7d3a; color:#fff; font-weight:bold; }
+.pred-under{ background:#8b1e1e; color:#fff; font-weight:bold; }
+.pred-noplay{ background:#444; color:#bbb; font-weight:bold; }
+.lock{
+  font-size:4px;
+  vertical-align:middle;
+  margin-left:4px;
+}
 </style>
 </head>
 
 <body>
+
 <h1>🏀 Basketball Prediction Engine</h1>
 
 <div class="wrapper">
 
 <div class="section">
 <h3>Market Lines</h3>
-<label>FT Total</label><input id="ftMarket">
-<label>1H Total</label><input id="h1Market">
-<label>Team A Total</label><input id="teamAMarket">
-<label>Team B Total</label><input id="teamBMarket">
+<label>FT Total</label>
+<input id="ftMarket" placeholder="150.5 - 160.5">
+
+<label>1H Total</label>
+<input id="h1Market" placeholder="78.5 - 82.5">
+
+<label>Team A Total</label>
+<input id="teamAMarket" placeholder="75.5 - 79.5">
+
+<label>Team B Total</label>
+<input id="teamBMarket" placeholder="75.5 - 79.5">
 </div>
 
 <div class="section">
 <h3>Team A (Last 5)</h3>
-<label>FT Scored</label><input id="aFTScored">
-<label>FT Allowed</label><input id="aFTAllowed">
-<label>1H Scored</label><input id="aH1Scored">
-<label>1H Allowed</label><input id="aH1Allowed">
+<label>FT Scored</label>
+<input id="aFTScored" placeholder="82.4">
+
+<label>FT Allowed</label>
+<input id="aFTAllowed" placeholder="76.8">
+
+<label>1H Scored</label>
+<input id="aH1Scored" placeholder="39.2">
+
+<label>1H Allowed</label>
+<input id="aH1Allowed" placeholder="36.7">
 </div>
 
 <div class="section">
 <h3>Team B (Last 5)</h3>
-<label>FT Scored</label><input id="bFTScored">
-<label>FT Allowed</label><input id="bFTAllowed">
-<label>1H Scored</label><input id="bH1Scored">
-<label>1H Allowed</label><input id="bH1Allowed">
+<label>FT Scored</label>
+<input id="bFTScored" placeholder="80.1">
+
+<label>FT Allowed</label>
+<input id="bFTAllowed" placeholder="78.3">
+
+<label>1H Scored</label>
+<input id="bH1Scored" placeholder="38.6">
+
+<label>1H Allowed</label>
+<input id="bH1Allowed" placeholder="37.9">
 </div>
 
 <div class="section">
 <h3>H2H (Optional)</h3>
-<label><input type="checkbox" id="useFTH2H"> Use FT H2H</label>
-<label>Team A FT H2H</label><input id="aFTH2H">
-<label>Team B FT H2H</label><input id="bFTH2H">
+
+<label><input type="checkbox" id="useFTH2H"></label>
+<label>Team A FT H2H</label>
+<input id="aFTH2H" placeholder="158.2">
+
+<label>Team B FT H2H</label>
+<input id="bFTH2H" placeholder="158.2">
+
 <br>
-<label><input type="checkbox" id="use1HH2H"> Use 1H H2H</label>
-<label>1H Combined H2H</label><input id="h1H2H">
+
+<label><input type="checkbox" id="use1HH2H"></label>
+<label>1H Combined H2H</label>
+<input id="h1H2H" placeholder="78.6">
+
 </div>
 
 <div style="text-align:center;">
@@ -88,41 +173,45 @@ th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
 
 <script>
 
-function num(id){let v=parseFloat(document.getElementById(id).value);return isNaN(v)?NaN:v;}
-function mid(val){if(!val||!val.includes("-"))return NaN;let p=val.split("-");return(parseFloat(p[0])+parseFloat(p[1]))/2;}
+function num(id){
+  let v=parseFloat(document.getElementById(id).value);
+  return isNaN(v)?NaN:v;
+}
 
-function decision(edge,line,type,teamScored,aSc,bSc){
+function mid(val){
+  if(!val || !val.includes("-")) return NaN;
+  let p=val.split("-");
+  return (parseFloat(p[0])+parseFloat(p[1]))/2;
+}
+
+function decision(edge,line,type,teamSc,aSc,bSc){
 
 if(isNaN(edge)||isNaN(line)) return "NO PLAY";
 
 let threshold;
 
-// FT TOTAL
+// Rare Under Mode thresholds
 if(type==="ft_total"){
   threshold = edge>0 ? line*0.045 : line*0.06;
 }
-
-// TEAM TOTAL
 if(type==="team"){
   threshold = edge>0 ? line*0.05 : line*0.065;
 }
-
-// 1H TOTAL
 if(type==="h1_total"){
   threshold = edge>0 ? line*0.06 : line*0.075;
 }
 
-if(Math.abs(edge) < threshold) return "NO PLAY";
+if(Math.abs(edge)<threshold) return "NO PLAY";
 
-// VOLATILITY FILTER (UNDER ONLY)
-if(edge < 0){
+// Volatility protection (UNDER only)
+if(edge<0){
 
   if(type==="ft_total"){
     if(aSc>=line*0.58 || bSc>=line*0.58) return "NO PLAY";
   }
 
   if(type==="team"){
-    if(teamScored>=line*0.58) return "NO PLAY";
+    if(teamSc>=line*0.58) return "NO PLAY";
   }
 
   if(type==="h1_total"){
@@ -132,6 +221,7 @@ if(edge < 0){
 
 return edge>0 ? "OVER "+line : "UNDER "+line;
 }
+
 function runEngine(){
 
 const table=document.getElementById("results");
@@ -143,10 +233,10 @@ let h1Line=mid(document.getElementById("h1Market").value);
 let aLine=mid(document.getElementById("teamAMarket").value);
 let bLine=mid(document.getElementById("teamBMarket").value);
 
-let aFTSc=num("aFTScored"),aFTAll=num("aFTAllowed");
-let bFTSc=num("bFTScored"),bFTAll=num("bFTAllowed");
-let aH1Sc=num("aH1Scored"),aH1All=num("aH1Allowed");
-let bH1Sc=num("bH1Scored"),bH1All=num("bH1Allowed");
+let aFTSc=num("aFTScored"), aFTAll=num("aFTAllowed");
+let bFTSc=num("bFTScored"), bFTAll=num("bFTAllowed");
+let aH1Sc=num("aH1Scored"), aH1All=num("aH1Allowed");
+let bH1Sc=num("bH1Scored"), bH1All=num("bH1Allowed");
 
 let baseAFT=(aFTSc+bFTAll)/2;
 let baseBFT=(bFTSc+aFTAll)/2;
@@ -155,19 +245,19 @@ let baseAH1=(aH1Sc+bH1All)/2;
 let baseBH1=(bH1Sc+aH1All)/2;
 
 if(document.getElementById("useFTH2H").checked){
-let aH2H=num("aFTH2H"),bH2H=num("bFTH2H");
-if(!isNaN(aH2H))baseAFT=(baseAFT*0.7)+(aH2H*0.3);
-if(!isNaN(bH2H))baseBFT=(baseBFT*0.7)+(bH2H*0.3);
+  let aH2H=num("aFTH2H"), bH2H=num("bFTH2H");
+  if(!isNaN(aH2H)) baseAFT=(baseAFT*0.7)+(aH2H*0.3);
+  if(!isNaN(bH2H)) baseBFT=(baseBFT*0.7)+(bH2H*0.3);
 }
 
 if(document.getElementById("use1HH2H").checked){
-let h1H2H=num("h1H2H");
-if(!isNaN(h1H2H)){
-let baseH1=baseAH1+baseBH1;
-let blended=(baseH1*0.7)+(h1H2H*0.3);
-baseAH1=blended/2;
-baseBH1=blended/2;
-}
+  let h1H2H=num("h1H2H");
+  if(!isNaN(h1H2H)){
+    let combined=(baseAH1+baseBH1);
+    let blended=(combined*0.7)+(h1H2H*0.3);
+    baseAH1=blended/2;
+    baseBH1=blended/2;
+  }
 }
 
 let ftProj=baseAFT+baseBFT;
@@ -183,32 +273,35 @@ let picks=[
 let lockIndex=-1,maxEdge=0;
 
 picks.forEach((p,i)=>{
-p.edge=p.proj-p.line;
-p.pick=decision(p.edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
-if(p.pick!=="NO PLAY"&&Math.abs(p.edge)>maxEdge){
-maxEdge=Math.abs(p.edge);
-lockIndex=i;
-}
+  p.edge=p.proj-p.line;
+  p.pick=decision(p.edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
+  if(p.pick!=="NO PLAY" && Math.abs(p.edge)>maxEdge){
+    maxEdge=Math.abs(p.edge);
+    lockIndex=i;
+  }
 });
 
 picks.forEach((p,i)=>{
-let row=table.insertRow();
-let pred=p.pick;
-if(i===lockIndex&&p.pick!=="NO PLAY"){pred+=` <span class="lock">🔒</span>`;}
-row.innerHTML=`
-<td>${p.name}</td>
-<td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
-<td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
-<td class="${
-p.pick.startsWith("OVER")?"pred-over":
-p.pick.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>`;
+  let row=table.insertRow();
+  let pred=p.pick;
+  if(i===lockIndex && p.pick!=="NO PLAY"){
+    pred+=` <span class="lock">🔒</span>`;
+  }
+  row.innerHTML=`
+    <td>${p.name}</td>
+    <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
+    <td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
+    <td class="${
+      p.pick.startsWith("OVER")?"pred-over":
+      p.pick.startsWith("UNDER")?"pred-under":"pred-noplay"}">
+      ${pred}</td>`;
 });
 }
 
 function clearAll(){
-document.querySelectorAll("input").forEach(i=>i.value="");
-document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
-document.getElementById("results").style.display="none";
+  document.querySelectorAll("input").forEach(i=>i.value="");
+  document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
+  document.getElementById("results").style.display="none";
 }
 
 </script>
