@@ -35,56 +35,62 @@ th,td { border:1px solid #d4af37; padding:6px; text-align:center; }
 <body>
 
 <h1>🏀 Basketball Prediction Engine</h1>
+
 <div class="wrapper">
 
-<!-- ================= FT SECTION ================= -->
-
+<!-- MARKET LINES TOGETHER -->
 <div class="section">
-<h3>FT Market Lines</h3>
+<h3>Market Lines</h3>
 <label>FT Total Market</label>
 <input id="ftMarket">
-<label>Team A Total Market</label>
+<label>Team A FT Market</label>
 <input id="teamAMarket">
-<label>Team B Total Market</label>
+<label>Team B FT Market</label>
 <input id="teamBMarket">
+<label>1H Total Market</label>
+<input id="h1Market">
+</div>
+
+<!-- ALL INPUTS TOGETHER -->
+<div class="section">
+<h3>Team A Inputs</h3>
+<label>FT Avg Scored</label>
+<input id="teamAScored">
+<label>FT Avg Allowed</label>
+<input id="teamAAllowed">
+<label>1H Avg Scored</label>
+<input id="h1AScored">
+<label>1H Avg Allowed</label>
+<input id="h1AAllowed">
 </div>
 
 <div class="section">
-<h3>FT Team A (Last 5)</h3>
-<input id="teamAScored" placeholder="Avg Scored">
-<input id="teamAAllowed" placeholder="Avg Allowed">
+<h3>Team B Inputs</h3>
+<label>FT Avg Scored</label>
+<input id="teamBScored">
+<label>FT Avg Allowed</label>
+<input id="teamBAllowed">
+<label>1H Avg Scored</label>
+<input id="h1BScored">
+<label>1H Avg Allowed</label>
+<input id="h1BAllowed">
 </div>
 
-<div class="section">
-<h3>FT Team B (Last 5)</h3>
-<input id="teamBScored" placeholder="Avg Scored">
-<input id="teamBAllowed" placeholder="Avg Allowed">
-</div>
-
+<!-- H2H SEPARATED -->
 <div class="section">
 <h3>FT H2H (Optional)</h3>
-<label><input type="checkbox" id="useH2H"> Use H2H</label>
-<input id="teamAH2H" placeholder="Team A H2H Avg">
-<input id="teamBH2H" placeholder="Team B H2H Avg">
-</div>
-
-<!-- ================= 1H SECTION ================= -->
-
-<div class="section">
-<h3>1H Market Line</h3>
-<input id="h1Market" placeholder="1H Total Market">
+<label><input type="checkbox" id="useH2H"> Use FT H2H</label>
+<label>Team A FT H2H Avg</label>
+<input id="teamAH2H">
+<label>Team B FT H2H Avg</label>
+<input id="teamBH2H">
 </div>
 
 <div class="section">
-<h3>1H Team A (Last 5)</h3>
-<input id="h1AScored" placeholder="1H Avg Scored">
-<input id="h1AAllowed" placeholder="1H Avg Allowed">
-</div>
-
-<div class="section">
-<h3>1H Team B (Last 5)</h3>
-<input id="h1BScored" placeholder="1H Avg Scored">
-<input id="h1BAllowed" placeholder="1H Avg Allowed">
+<h3>1H H2H (Optional)</h3>
+<label><input type="checkbox" id="useH1H2H"> Use 1H H2H</label>
+<label>1H Total H2H Avg</label>
+<input id="h1H2H">
 </div>
 
 <div style="text-align:center;">
@@ -166,19 +172,22 @@ function runEngine(){
 
   // ===== 1H =====
   let h1=mid(document.getElementById("h1Market").value);
-  let h1AS=num("h1AScored");
-  let h1BS=num("h1BScored");
-  let h1AA=num("h1AAllowed");
-  let h1BA=num("h1BAllowed");
 
-  let h1AProj=(h1AS+h1BA)/2;
-  let h1BProj=(h1BS+h1AA)/2;
+  let h1AProj=(num("h1AScored")+num("h1BAllowed"))/2;
+  let h1BProj=(num("h1BScored")+num("h1AAllowed"))/2;
   let h1Proj=h1AProj+h1BProj;
 
-  picks.push({name:"1H Total",proj:h1Proj,line:h1,edge:h1Proj-h1,
-              pick:decision1H(h1Proj-h1,h1,h1AS,h1BS)});
+  if(document.getElementById("useH1H2H").checked){
+    let h2h=num("h1H2H");
+    if(!isNaN(h2h)){
+      h1Proj=(h1Proj*0.7)+(h2h*0.3);
+    }
+  }
 
-  // ===== LOCK =====
+  picks.push({name:"1H Total",proj:h1Proj,line:h1,edge:h1Proj-h1,
+              pick:decision1H(h1Proj-h1,h1,num("h1AScored"),num("h1BScored"))});
+
+  // LOCK LOGIC
   let lockIndex=-1,maxEdge=0;
   picks.forEach((p,i)=>{
     if(p.pick!=="NO PLAY" && Math.abs(p.edge)>maxEdge){
@@ -207,9 +216,11 @@ function runEngine(){
 function clearAll(){
   document.querySelectorAll("input").forEach(i=>i.value="");
   document.getElementById("useH2H").checked=false;
+  document.getElementById("useH1H2H").checked=false;
   document.getElementById("results").style.display="none";
 }
 
 </script>
+
 </body>
 </html>
