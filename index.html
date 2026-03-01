@@ -92,29 +92,46 @@ function num(id){let v=parseFloat(document.getElementById(id).value);return isNa
 function mid(val){if(!val||!val.includes("-"))return NaN;let p=val.split("-");return(parseFloat(p[0])+parseFloat(p[1]))/2;}
 
 function decision(edge,line,type,teamScored,aSc,bSc){
-if(isNaN(edge)||isNaN(line))return"NO PLAY";
+
+if(isNaN(edge)||isNaN(line)) return "NO PLAY";
 
 let threshold;
-if(type==="ft_total")threshold=line*0.045;
-if(type==="team")threshold=line*0.05;
-if(type==="h1_total")threshold=line*0.06;
 
-if(Math.abs(edge)<threshold)return"NO PLAY";
-
-if(edge<0){
+// FT TOTAL
 if(type==="ft_total"){
-if(aSc>=line*0.55||bSc>=line*0.55)return"NO PLAY";
-}
-if(type==="team"){
-if(teamScored>=line*0.55)return"NO PLAY";
-}
-if(type==="h1_total"){
-if(aSc>=line*0.60||bSc>=line*0.60)return"NO PLAY";
-}
-}
-return edge>0?"OVER "+line:"UNDER "+line;
+  threshold = edge>0 ? line*0.045 : line*0.06;
 }
 
+// TEAM TOTAL
+if(type==="team"){
+  threshold = edge>0 ? line*0.05 : line*0.065;
+}
+
+// 1H TOTAL
+if(type==="h1_total"){
+  threshold = edge>0 ? line*0.06 : line*0.075;
+}
+
+if(Math.abs(edge) < threshold) return "NO PLAY";
+
+// VOLATILITY FILTER (UNDER ONLY)
+if(edge < 0){
+
+  if(type==="ft_total"){
+    if(aSc>=line*0.58 || bSc>=line*0.58) return "NO PLAY";
+  }
+
+  if(type==="team"){
+    if(teamScored>=line*0.58) return "NO PLAY";
+  }
+
+  if(type==="h1_total"){
+    if(aSc>=line*0.63 || bSc>=line*0.63) return "NO PLAY";
+  }
+}
+
+return edge>0 ? "OVER "+line : "UNDER "+line;
+}
 function runEngine(){
 
 const table=document.getElementById("results");
