@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BB Engine">
+<meta name="apple-mobile-web-app-title" content="BB 1H Engine">
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#d4af37">
@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
-<title>Basketball Prediction Engine</title>
+<title>Basketball 1H Prediction Engine</title>
 
 <style>
 body {
@@ -76,13 +76,8 @@ th,td {
 .pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
 .pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
 .pred-noplay { background:#444; color:#bbb; font-weight:bold; }
-
-/* RESTORED LOCK STYLE */
 .lock {
-  font-size:4px;
-  display:inline-block;
-  vertical-align:middle;
-  transform:translateY(-1px);
+  font-size:10px;
   margin-left:4px;
 }
 </style>
@@ -90,42 +85,38 @@ th,td {
 
 <body>
 
-<h1>🏀 Basketball Prediction Engine</h1>
+<h1>🏀 Basketball 1H Prediction Engine</h1>
 
 <div class="wrapper">
 
 <div class="section">
-<h3>Market Lines</h3>
-<label>FT Total Market (150.5 - 160.5)</label>
+<h3>1H Market Line</h3>
+<label>1H Total Market (e.g. 78.5 - 82.5)</label>
 <input id="ftMarket">
-<label>Team A Total Market</label>
-<input id="teamAMarket">
-<label>Team B Total Market</label>
-<input id="teamBMarket">
 </div>
 
 <div class="section">
-<h3>Team A (Last 5)</h3>
-<label>Avg Scored</label>
+<h3>Team A (Last 5 – 1H)</h3>
+<label>1H Avg Scored</label>
 <input id="teamAScored">
-<label>Avg Allowed</label>
+<label>1H Avg Allowed</label>
 <input id="teamAAllowed">
 </div>
 
 <div class="section">
-<h3>Team B (Last 5)</h3>
-<label>Avg Scored</label>
+<h3>Team B (Last 5 – 1H)</h3>
+<label>1H Avg Scored</label>
 <input id="teamBScored">
-<label>Avg Allowed</label>
+<label>1H Avg Allowed</label>
 <input id="teamBAllowed">
 </div>
 
 <div class="section">
-<h3>Head to Head (Optional)</h3>
-<label><input type="checkbox" id="useH2H"></label>
-<label>Team A H2H Average</label>
+<h3>1H Head to Head (Optional)</h3>
+<label><input type="checkbox" id="useH2H"> Use H2H</label>
+<label>Team A 1H H2H Avg</label>
 <input id="teamAH2H">
-<label>Team B H2H Average</label>
+<label>Team B 1H H2H Avg</label>
 <input id="teamBH2H">
 </div>
 
@@ -157,31 +148,18 @@ function mid(val){
   return (parseFloat(parts[0]) + parseFloat(parts[1])) / 2;
 }
 
-function decision(edge,line,type,aScored,bScored){
+function decision(edge,line,aScored,bScored){
 
   if(isNaN(edge) || isNaN(line)) return "NO PLAY";
 
-  let threshold = type==="total" ? line*0.045 : line*0.05;
+  let threshold = line * 0.06;
 
   if(Math.abs(edge) < threshold) return "NO PLAY";
 
-  // --- UNIVERSAL VOLATILITY FILTER ---
-  // Block UNDERS if scoring is too high relative to market
-
-  if(edge < 0){ // trying to play UNDER
-
-    if(type === "total"){
-      if(aScored >= line*0.55 || bScored >= line*0.55){
-        return "NO PLAY";
-      }
+  if(edge < 0){
+    if(aScored >= line*0.60 || bScored >= line*0.60){
+      return "NO PLAY";
     }
-
-    if(type === "team"){
-      if(aScored >= line*0.55){
-        return "NO PLAY";
-      }
-    }
-
   }
 
   return edge>0 ? "OVER "+line : "UNDER "+line;
@@ -194,8 +172,6 @@ function runEngine(){
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
   let ft = mid(document.getElementById("ftMarket").value);
-  let aM = mid(document.getElementById("teamAMarket").value);
-  let bM = mid(document.getElementById("teamBMarket").value);
 
   let aScored = num("teamAScored");
   let bScored = num("teamBScored");
@@ -208,7 +184,6 @@ function runEngine(){
   let aProj = baseA;
   let bProj = baseB;
 
-  // 70% Form / 30% H2H Blend
   if(document.getElementById("useH2H").checked){
     let aH2H = num("teamAH2H");
     let bH2H = num("teamBH2H");
@@ -222,43 +197,25 @@ function runEngine(){
   }
 
   let ftProj = aProj + bProj;
+  let edge = ftProj - ft;
+  let pick = decision(edge,ft,aScored,bScored);
 
-  let picks = [
-    {name:"FT Total", proj:ftProj, line:ft, type:"total"},
-    {name:"Team A Total", proj:aProj, line:aM, type:"team"},
-    {name:"Team B Total", proj:bProj, line:bM, type:"team"}
-  ];
+  let row = table.insertRow();
+  let prediction = pick;
 
-  let lockIndex=-1, maxEdge=0;
+  if(pick !== "NO PLAY"){
+    prediction += ` <span class="lock">🔒</span>`;
+  }
 
-  picks.forEach((p,i)=>{
-    p.edge = p.proj - p.line;
-   p.pick = decision(p.edge,p.line,p.type,aScored,bScored);
-
-    if(p.pick!=="NO PLAY" && Math.abs(p.edge)>maxEdge){
-      maxEdge = Math.abs(p.edge);
-      lockIndex = i;
-    }
-  });
-
-  picks.forEach((p,i)=>{
-    let row = table.insertRow();
-    let pred = p.pick;
-
-    if(i===lockIndex && p.pick!=="NO PLAY"){
-      pred += ` <span class="lock">🔒</span>`;
-    }
-
-    row.innerHTML = `
-      <td>${p.name}</td>
-      <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
-      <td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
-      <td class="${
-        p.pick.startsWith("OVER")?"pred-over":
-        p.pick.startsWith("UNDER")?"pred-under":
-        "pred-noplay"
-      }">${pred}</td>`;
-  });
+  row.innerHTML = `
+    <td>1H Total</td>
+    <td>${ftProj.toFixed(2)}</td>
+    <td>${edge.toFixed(2)}</td>
+    <td class="${
+      pick.startsWith("OVER")?"pred-over":
+      pick.startsWith("UNDER")?"pred-under":
+      "pred-noplay"
+    }">${prediction}</td>`;
 }
 
 function clearAll(){
