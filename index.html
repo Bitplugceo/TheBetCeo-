@@ -98,33 +98,45 @@ transform: translateY(-1px); margin-left: 4px;
   <h3>League Tier</h3>
   
   <label>Select League</label>
-<select id="leagueSelect">
+<div id="leagueDropdown">
 
-  <option value="225">
-    NBA
-  </option>
+<div id="selectedLeague" onclick="toggleDropdown()" 
+style="width:100%;max-width:260px;padding:5px;font-size:12px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;cursor:pointer;">
+EuroLeague
+</div>
 
-  <option value="160" selected>
-    Elite Europe • EuroLeague • EuroCup • ABA Liga • ACB • Turkey BSL • Italy Serie A • Germany BBL • France Pro A
-  </option>
+<div id="leagueList" style="display:none;border:1px solid #d4af37;padding:6px;background:#1a1a1a;max-width:260px;">
 
-  <option value="150">
-    Mid Europe • Turkey TBL • France Pro B • Israel League • Lithuania LKL • Poland PLK • Greece A2
-  </option>
+<div onclick="selectLeague('NBA',225)">NBA</div>
 
-  <option value="140">
-    NCAA • NCAAB • College Basketball
-  </option>
+<div onclick="selectLeague('EuroLeague',160)">EuroLeague</div>
+<div onclick="selectLeague('EuroCup',160)">EuroCup</div>
+<div onclick="selectLeague('Spain Liga ACB',160)">Spain Liga ACB</div>
+<div onclick="selectLeague('Turkey BSL',160)">Turkey BSL</div>
+<div onclick="selectLeague('Italy Serie A',160)">Italy Serie A</div>
+<div onclick="selectLeague('Germany BBL',160)">Germany BBL</div>
+<div onclick="selectLeague('France Pro A',160)">France Pro A</div>
+<div onclick="selectLeague('ABA Liga',160)">ABA Liga</div>
 
-  <option value="135">
-    Africa / FIBA • BAL • Nigeria League • Rwanda League • AfroBasket • World Cup Qualifiers
-  </option>
+<div onclick="selectLeague('Turkey TBL',150)">Turkey TBL</div>
+<div onclick="selectLeague('France Pro B',150)">France Pro B</div>
+<div onclick="selectLeague('Israel League',150)">Israel League</div>
+<div onclick="selectLeague('Lithuania LKL',150)">Lithuania LKL</div>
+<div onclick="selectLeague('Poland PLK',150)">Poland PLK</div>
+<div onclick="selectLeague('Greece A2',150)">Greece A2</div>
 
-  <option value="145">
-    Unknown / Mixed • SportyBet Specials • Unclear Leagues
-  </option>
+<div onclick="selectLeague('NCAA',140)">NCAA</div>
+<div onclick="selectLeague('NCAAB',140)">NCAAB</div>
 
-</select>
+<div onclick="selectLeague('BAL',135)">BAL</div>
+<div onclick="selectLeague('Nigeria League',135)">Nigeria League</div>
+<div onclick="selectLeague('Rwanda League',135)">Rwanda League</div>
+<div onclick="selectLeague('AfroBasket',135)">AfroBasket</div>
+
+<div onclick="selectLeague('Unknown / Mixed',145)">Unknown / Mixed</div>
+
+</div>
+
 </div>
   
 <div class="section">
