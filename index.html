@@ -110,31 +110,29 @@ th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
 
 function parseGames(id){
   let raw=document.getElementById(id).value;
-  if(!raw) return [];
-  return raw.split(",").map(x=>parseFloat(x.trim())).filter(x=>!isNaN(x));
+  if(!raw) return null;
+  let arr=raw.split(",").map(x=>parseFloat(x.trim()));
+  if(arr.some(x=>isNaN(x))) return "error";
+  return arr;
 }
 
 function avg(arr){
-  if(arr.length===0) return NaN;
+  if(!arr || arr.length===0) return NaN;
   return arr.reduce((a,b)=>a+b,0)/arr.length;
-}
-
-function stdDev(arr){
-  if(arr.length===0) return 0;
-  let mean=avg(arr);
-  let variance=arr.reduce((a,b)=>a+Math.pow(b-mean,2),0)/arr.length;
-  return Math.sqrt(variance);
 }
 
 function mid(val){
   if(!val || !val.includes("-")) return NaN;
   let p=val.split("-");
-  return (parseFloat(p[0])+parseFloat(p[1]))/2;
+  let a=parseFloat(p[0]);
+  let b=parseFloat(p[1]);
+  if(isNaN(a)||isNaN(b)) return NaN;
+  return (a+b)/2;
 }
 
 function decision(edge,line,type,teamSc,aSc,bSc){
 
-if(isNaN(edge)||isNaN(line)) return "NO PLAY";
+if(isNaN(edge)||isNaN(line)) return "NaN";
 
 let threshold;
 
@@ -164,6 +162,7 @@ let h1Line=mid(document.getElementById("h1Market").value);
 let aLine=mid(document.getElementById("teamAMarket").value);
 let bLine=mid(document.getElementById("teamBMarket").value);
 
+// Parse main inputs
 let aFTScArr=parseGames("aFTScored");
 let aFTAllArr=parseGames("aFTAllowed");
 let bFTScArr=parseGames("bFTScored");
@@ -173,20 +172,19 @@ let aH1AllArr=parseGames("aH1Allowed");
 let bH1ScArr=parseGames("bH1Scored");
 let bH1AllArr=parseGames("bH1Allowed");
 
-if(
-aFTScArr.length<1||aFTAllArr.length<1||
-bFTScArr.length<1||bFTAllArr.length<1||
-aH1ScArr.length<1||aH1AllArr.length<1||
-bH1ScArr.length<1||bH1AllArr.length<1
-){
-alert("Enter valid comma-separated numbers for all Last 5 fields.");
-return;
-}
+let inputError = [
+aFTScArr,aFTAllArr,bFTScArr,bFTAllArr,
+aH1ScArr,aH1AllArr,bH1ScArr,bH1AllArr
+].includes("error");
 
 let aFTSc=avg(aFTScArr), aFTAll=avg(aFTAllArr);
 let bFTSc=avg(bFTScArr), bFTAll=avg(bFTAllArr);
 let aH1Sc=avg(aH1ScArr), aH1All=avg(aH1AllArr);
 let bH1Sc=avg(bH1ScArr), bH1All=avg(bH1AllArr);
+
+let baseAFT=NaN, baseBFT=NaN, baseAH1=NaN, baseBH1=NaN;
+
+if(!inputError){
 
 let paceA=aFTSc+aFTAll;
 let paceB=bFTSc+bFTAll;
@@ -194,23 +192,44 @@ let baseline=160;
 let paceModifier=((paceA+paceB)/2)/baseline;
 paceModifier=Math.max(0.9,Math.min(1.1,paceModifier));
 
-let baseAFT=((aFTSc+bFTAll)/2)*paceModifier;
-let baseBFT=((bFTSc+aFTAll)/2)*paceModifier;
-let baseAH1=(aH1Sc+bH1All)/2;
-let baseBH1=(bH1Sc+aH1All)/2;
+baseAFT=((aFTSc+bFTAll)/2)*paceModifier;
+baseBFT=((bFTSc+aFTAll)/2)*paceModifier;
+baseAH1=(aH1Sc+bH1All)/2;
+baseBH1=(bH1Sc+aH1All)/2;
 
+// FT H2H
 if(document.getElementById("useFTH2H").checked){
-let aH2H=parseFloat(document.getElementById("aFTH2H").value);
-let bH2H=parseFloat(document.getElementById("bFTH2H").value);
-if(!isNaN(aH2H)) baseAFT=baseAFT*0.7+aH2H*0.3;
-if(!isNaN(bH2H)) baseBFT=baseBFT*0.7+bH2H*0.3;
+let aFTH2HArr=parseGames("aFTH2H");
+let bFTH2HArr=parseGames("bFTH2H");
+
+if(aFTH2HArr==="error"||bFTH2HArr==="error"){
+inputError=true;
+}else{
+if(aFTH2HArr&&aFTH2HArr.length>0){
+baseAFT=baseAFT*0.7+avg(aFTH2HArr)*0.3;
+}
+if(bFTH2HArr&&bFTH2HArr.length>0){
+baseBFT=baseBFT*0.7+avg(bFTH2HArr)*0.3;
+}
+}
 }
 
+// 1H H2H
 if(document.getElementById("use1HH2H").checked){
-let aH2H=parseFloat(document.getElementById("aH1H2H").value);
-let bH2H=parseFloat(document.getElementById("bH1H2H").value);
-if(!isNaN(aH2H)) baseAH1=baseAH1*0.7+aH2H*0.3;
-if(!isNaN(bH2H)) baseBH1=baseBH1*0.7+bH2H*0.3;
+let aH1H2HArr=parseGames("aH1H2H");
+let bH1H2HArr=parseGames("bH1H2H");
+
+if(aH1H2HArr==="error"||bH1H2HArr==="error"){
+inputError=true;
+}else{
+if(aH1H2HArr&&aH1H2HArr.length>0){
+baseAH1=baseAH1*0.7+avg(aH1H2HArr)*0.3;
+}
+if(bH1H2HArr&&bH1H2HArr.length>0){
+baseBH1=baseBH1*0.7+avg(bH1H2HArr)*0.3;
+}
+}
+}
 }
 
 let ftProj=baseAFT+baseBFT;
@@ -226,11 +245,24 @@ let picks=[
 let lockIndex=-1,maxStrength=0;
 
 picks.forEach((p,i)=>{
+
+if(inputError){
+p.edge="Error";
+p.pick="Error";
+return;
+}
+
+if(isNaN(p.proj)||isNaN(p.line)){
+p.edge=NaN;
+p.pick="NaN";
+return;
+}
+
 p.edge=p.proj-p.line;
 p.strength=Math.abs(p.edge/p.line);
 p.pick=decision(p.edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
 
-if(p.pick!=="NO PLAY"&&p.strength>maxStrength&&p.strength>=0.08){
+if(p.pick!=="NO PLAY"&&p.pick!=="NaN"&&p.strength>=0.08&&p.strength>maxStrength){
 maxStrength=p.strength;
 lockIndex=i;
 }
@@ -239,14 +271,18 @@ lockIndex=i;
 picks.forEach((p,i)=>{
 let row=table.insertRow();
 let pred=p.pick;
-if(i===lockIndex&&p.pick!=="NO PLAY"){pred+=` <span class="lock">🔒</span>`;}
+
+if(i===lockIndex&&p.pick!=="NO PLAY"&&p.pick!=="Error"&&p.pick!=="NaN"){
+pred+=` <span class="lock">🔒</span>`;
+}
+
 row.innerHTML=`
 <td>${p.name}</td>
-<td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
-<td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
+<td>${typeof p.proj==="number"&&!isNaN(p.proj)?p.proj.toFixed(2):p.proj}</td>
+<td>${typeof p.edge==="number"&&!isNaN(p.edge)?p.edge.toFixed(2):p.edge}</td>
 <td class="${
-p.pick.startsWith("OVER")?"pred-over":
-p.pick.startsWith("UNDER")?"pred-under":"pred-noplay"}">
+pred&&pred.startsWith("OVER")?"pred-over":
+pred&&pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
 ${pred}</td>`;
 });
 }
