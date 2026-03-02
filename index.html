@@ -117,17 +117,41 @@ function parseGames(id){
 }
 
 function avg(arr){
-  if(!arr || arr.length===0) return NaN;
+  if(!arr||arr.length===0) return NaN;
   return arr.reduce((a,b)=>a+b,0)/arr.length;
 }
 
+function stdDev(arr){
+  if(!arr||arr.length===0) return 0;
+  let m=avg(arr);
+  return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/arr.length);
+}
+
 function mid(val){
-  if(!val || !val.includes("-")) return NaN;
+  if(!val||!val.includes("-")) return NaN;
   let p=val.split("-");
-  let a=parseFloat(p[0]);
-  let b=parseFloat(p[1]);
+  let a=parseFloat(p[0]), b=parseFloat(p[1]);
   if(isNaN(a)||isNaN(b)) return NaN;
   return (a+b)/2;
+}
+
+function displayLine(val){
+  if(isNaN(val)) return "NaN";
+  return (Math.round(val*2)/2).toFixed(1);
+}
+
+function dynamicWeight(sample){
+  if(!sample||sample.length===0) return 0;
+  if(sample.length===1) return 0.10;
+  if(sample.length<=3) return 0.20;
+  return 0.30;
+}
+
+function applyVolatilityAdjustment(proj,std,threshold){
+  if(std>threshold){
+    return proj*0.96;
+  }
+  return proj;
 }
 
 function decision(edge,line,type,teamSc,aSc,bSc){
@@ -143,12 +167,12 @@ if(type==="h1_total"){ threshold=edge>0?line*0.06:line*0.075; }
 if(Math.abs(edge)<threshold) return "NO PLAY";
 
 if(edge<0){
-  if(type==="ft_total"){ if(aSc>=line*0.58||bSc>=line*0.58) return "NO PLAY"; }
-  if(type==="team"){ if(teamSc>=line*0.58) return "NO PLAY"; }
-  if(type==="h1_total"){ if(aSc>=line*0.63||bSc>=line*0.63) return "NO PLAY"; }
+if(type==="ft_total"){ if(aSc>=line*0.58||bSc>=line*0.58) return "NO PLAY"; }
+if(type==="team"){ if(teamSc>=line*0.58) return "NO PLAY"; }
+if(type==="h1_total"){ if(aSc>=line*0.63||bSc>=line*0.63) return "NO PLAY"; }
 }
 
-return edge>0?"OVER "+line:"UNDER "+line;
+return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
 }
 
 function runEngine(){
@@ -162,7 +186,6 @@ let h1Line=mid(document.getElementById("h1Market").value);
 let aLine=mid(document.getElementById("teamAMarket").value);
 let bLine=mid(document.getElementById("teamBMarket").value);
 
-// Parse main inputs
 let aFTScArr=parseGames("aFTScored");
 let aFTAllArr=parseGames("aFTAllowed");
 let bFTScArr=parseGames("bFTScored");
@@ -172,63 +195,65 @@ let aH1AllArr=parseGames("aH1Allowed");
 let bH1ScArr=parseGames("bH1Scored");
 let bH1AllArr=parseGames("bH1Allowed");
 
-let inputError = [
-aFTScArr,aFTAllArr,bFTScArr,bFTAllArr,
-aH1ScArr,aH1AllArr,bH1ScArr,bH1AllArr
-].includes("error");
+if([aFTScArr,aFTAllArr,bFTScArr,bFTAllArr,
+aH1ScArr,aH1AllArr,bH1ScArr,bH1AllArr].includes("error")){
+renderError(table);
+return;
+}
 
 let aFTSc=avg(aFTScArr), aFTAll=avg(aFTAllArr);
 let bFTSc=avg(bFTScArr), bFTAll=avg(bFTAllArr);
 let aH1Sc=avg(aH1ScArr), aH1All=avg(aH1AllArr);
 let bH1Sc=avg(bH1ScArr), bH1All=avg(bH1AllArr);
 
-let baseAFT=NaN, baseBFT=NaN, baseAH1=NaN, baseBH1=NaN;
+let baseAFT=(aFTSc+bFTAll)/2;
+let baseBFT=(bFTSc+aFTAll)/2;
 
-if(!inputError){
-
-let paceA=aFTSc+aFTAll;
-let paceB=bFTSc+bFTAll;
-let baseline=160;
-let paceModifier=((paceA+paceB)/2)/baseline;
+let paceModifier=((aFTSc+aFTAll+bFTSc+bFTAll)/2)/160;
 paceModifier=Math.max(0.9,Math.min(1.1,paceModifier));
 
-baseAFT=((aFTSc+bFTAll)/2)*paceModifier;
-baseBFT=((bFTSc+aFTAll)/2)*paceModifier;
-baseAH1=(aH1Sc+bH1All)/2;
-baseBH1=(bH1Sc+aH1All)/2;
+baseAFT*=paceModifier;
+baseBFT*=paceModifier;
 
-// FT H2H
+baseAFT=applyVolatilityAdjustment(baseAFT,stdDev(aFTScArr),12);
+baseBFT=applyVolatilityAdjustment(baseBFT,stdDev(bFTScArr),12);
+
+let baseAH1=(aH1Sc+bH1All)/2;
+let baseBH1=(bH1Sc+aH1All)/2;
+
+baseAH1=applyVolatilityAdjustment(baseAH1,stdDev(aH1ScArr),8);
+baseBH1=applyVolatilityAdjustment(baseBH1,stdDev(bH1ScArr),8);
+
+// H2H Adaptive
 if(document.getElementById("useFTH2H").checked){
-let aFTH2HArr=parseGames("aFTH2H");
-let bFTH2HArr=parseGames("bFTH2H");
+let aH2HArr=parseGames("aFTH2H");
+let bH2HArr=parseGames("bFTH2H");
+if(aH2HArr!=="error"&&bH2HArr!=="error"){
+let weightA=dynamicWeight(aH2HArr);
+let weightB=dynamicWeight(bH2HArr);
 
-if(aFTH2HArr==="error"||bFTH2HArr==="error"){
-inputError=true;
-}else{
-if(aFTH2HArr&&aFTH2HArr.length>0){
-baseAFT=baseAFT*0.7+avg(aFTH2HArr)*0.3;
+let currentTotal=baseAFT+baseBFT;
+let h2hTotal=avg(aH2HArr)+avg(bH2HArr);
+
+if(Math.abs(h2hTotal-currentTotal)/currentTotal>0.20){
+weightA*=0.5;
+weightB*=0.5;
 }
-if(bFTH2HArr&&bFTH2HArr.length>0){
-baseBFT=baseBFT*0.7+avg(bFTH2HArr)*0.3;
-}
+
+baseAFT=baseAFT*(1-weightA)+avg(aH2HArr)*weightA;
+baseBFT=baseBFT*(1-weightB)+avg(bH2HArr)*weightB;
 }
 }
 
-// 1H H2H
 if(document.getElementById("use1HH2H").checked){
-let aH1H2HArr=parseGames("aH1H2H");
-let bH1H2HArr=parseGames("bH1H2H");
+let aH2HArr=parseGames("aH1H2H");
+let bH2HArr=parseGames("bH1H2H");
+if(aH2HArr!=="error"&&bH2HArr!=="error"){
+let weightA=dynamicWeight(aH2HArr);
+let weightB=dynamicWeight(bH2HArr);
 
-if(aH1H2HArr==="error"||bH1H2HArr==="error"){
-inputError=true;
-}else{
-if(aH1H2HArr&&aH1H2HArr.length>0){
-baseAH1=baseAH1*0.7+avg(aH1H2HArr)*0.3;
-}
-if(bH1H2HArr&&bH1H2HArr.length>0){
-baseBH1=baseBH1*0.7+avg(bH1H2HArr)*0.3;
-}
-}
+baseAH1=baseAH1*(1-weightA)+avg(aH2HArr)*weightA;
+baseBH1=baseBH1*(1-weightB)+avg(bH2HArr)*weightB;
 }
 }
 
@@ -245,24 +270,11 @@ let picks=[
 let lockIndex=-1,maxStrength=0;
 
 picks.forEach((p,i)=>{
-
-if(inputError){
-p.edge="Error";
-p.pick="Error";
-return;
-}
-
-if(isNaN(p.proj)||isNaN(p.line)){
-p.edge=NaN;
-p.pick="NaN";
-return;
-}
-
+if(isNaN(p.proj)||isNaN(p.line)){ p.edge=NaN; p.pick="NaN"; return; }
 p.edge=p.proj-p.line;
 p.strength=Math.abs(p.edge/p.line);
 p.pick=decision(p.edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
-
-if(p.pick!=="NO PLAY"&&p.pick!=="NaN"&&p.strength>=0.08&&p.strength>maxStrength){
+if(p.pick!=="NO PLAY"&&p.strength>=0.08&&p.strength>maxStrength){
 maxStrength=p.strength;
 lockIndex=i;
 }
@@ -271,15 +283,11 @@ lockIndex=i;
 picks.forEach((p,i)=>{
 let row=table.insertRow();
 let pred=p.pick;
-
-if(i===lockIndex&&p.pick!=="NO PLAY"&&p.pick!=="Error"&&p.pick!=="NaN"){
-pred+=` <span class="lock">🔒</span>`;
-}
-
+if(i===lockIndex&&p.pick!=="NO PLAY"){pred+=` <span class="lock">🔒</span>`;}
 row.innerHTML=`
 <td>${p.name}</td>
-<td>${typeof p.proj==="number"&&!isNaN(p.proj)?p.proj.toFixed(2):p.proj}</td>
-<td>${typeof p.edge==="number"&&!isNaN(p.edge)?p.edge.toFixed(2):p.edge}</td>
+<td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
+<td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
 <td class="${
 pred&&pred.startsWith("OVER")?"pred-over":
 pred&&pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
@@ -287,10 +295,12 @@ ${pred}</td>`;
 });
 }
 
-function clearAll(){
-document.querySelectorAll("input").forEach(i=>i.value="");
-document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
-document.getElementById("results").style.display="none";
+function renderError(table){
+let picks=["FT Total","1H Total","Team A Total","Team B Total"];
+picks.forEach(name=>{
+let row=table.insertRow();
+row.innerHTML=`<td>${name}</td><td>Error</td><td>Error</td><td>Error</td>`;
+});
 }
 
 </script>
