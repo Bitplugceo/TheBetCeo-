@@ -1,3 +1,6 @@
+Reaudit 
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,6 +42,8 @@ input[type="checkbox"]{
   vertical-align:middle;
 }
 
+::placeholder{color:rgba(255,255,255,0.35);}
+
 button{
   padding:6px 16px;
   margin:6px;
@@ -67,11 +72,8 @@ th,td{
 .pred-noplay{background:#444;color:#bbb;font-weight:bold;}
 
 .lock {
-font-size: 4px;
-display: inline-block;
-vertical-align: middle;
-transform: translateY(-1px);
-margin-left: 4px;
+font-size: 4px; display: inline-block; vertical-align: middle;
+transform: translateY(-1px); margin-left: 4px;
 }
 </style>
 </head>
@@ -81,73 +83,51 @@ margin-left: 4px;
 <div class="wrapper">
 
 <div class="section">
-<h3>League</h3>
-
-<label>Select League</label>
-
-<div id="leagueDropdown">
-
-<div id="selectedLeague" onclick="toggleDropdown()" 
-style="width:100%;max-width:260px;padding:5px;font-size:12px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;cursor:pointer;">
-EuroLeague
-</div>
-
-<div id="leagueList" style="display:none;border:1px solid #d4af37;padding:6px;background:#1a1a1a;max-width:260px;">
-
-<div onclick="selectLeague('NBA',225)">NBA</div>
-
-<div onclick="selectLeague('EuroLeague',160)">EuroLeague</div>
-<div onclick="selectLeague('EuroCup',160)">EuroCup</div>
-<div onclick="selectLeague('Spain Liga ACB',160)">Spain Liga ACB</div>
-<div onclick="selectLeague('Turkey BSL',160)">Turkey BSL</div>
-<div onclick="selectLeague('Italy Serie A',160)">Italy Serie A</div>
-<div onclick="selectLeague('Germany BBL',160)">Germany BBL</div>
-<div onclick="selectLeague('France Pro A',160)">France Pro A</div>
-<div onclick="selectLeague('ABA Liga',160)">ABA Liga</div>
-
-<div onclick="selectLeague('Turkey TBL',150)">Turkey TBL</div>
-<div onclick="selectLeague('France Pro B',150)">France Pro B</div>
-<div onclick="selectLeague('Israel League',150)">Israel League</div>
-<div onclick="selectLeague('Lithuania LKL',150)">Lithuania LKL</div>
-<div onclick="selectLeague('Poland PLK',150)">Poland PLK</div>
-<div onclick="selectLeague('Greece A2',150)">Greece A2</div>
-
-<div onclick="selectLeague('NCAA',140)">NCAA</div>
-<div onclick="selectLeague('NCAAB',140)">NCAAB</div>
-
-<div onclick="selectLeague('BAL',135)">BAL</div>
-<div onclick="selectLeague('Nigeria League',135)">Nigeria League</div>
-<div onclick="selectLeague('Rwanda League',135)">Rwanda League</div>
-<div onclick="selectLeague('AfroBasket',135)">AfroBasket</div>
-
-<div onclick="selectLeague('Unknown / Mixed',145)">Unknown / Mixed</div>
-
-</div>
-</div>
-</div>
-
-<div class="section">
 <h3>Market Lines</h3>
-<input id="ftMarket" placeholder="FT Total (150.5 - 160.5)">
-<input id="h1Market" placeholder="1H Total (78.5 - 82.5)">
-<input id="teamAMarket" placeholder="Team A Total">
-<input id="teamBMarket" placeholder="Team B Total">
+<label>FT Total</label>
+<input id="ftMarket" placeholder="150.5 - 160.5">
+<label>1H Total</label>
+<input id="h1Market" placeholder="78.5 - 82.5">
+<label>Team A Total</label>
+<input id="teamAMarket" placeholder="75.5 - 79.5">
+<label>Team B Total</label>
+<input id="teamBMarket" placeholder="75.5 - 79.5">
 </div>
 
 <div class="section">
-<h3>Team A</h3>
-<input id="aFTScored" placeholder="FT Scored">
-<input id="aFTAllowed" placeholder="FT Allowed">
-<input id="aH1Scored" placeholder="1H Scored">
-<input id="aH1Allowed" placeholder="1H Allowed">
+<h3>Team A (Last 5)</h3>
+<label>FT Scored</label>
+<input id="aFTScored" placeholder="85,79,88,74,82">
+<label>FT Allowed</label>
+<input id="aFTAllowed" placeholder="76,80,72,79,77">
+<label>1H Scored</label>
+<input id="aH1Scored" placeholder="41,38,42,36,39">
+<label>1H Allowed</label>
+<input id="aH1Allowed" placeholder="37,35,38,34,39">
 </div>
 
 <div class="section">
-<h3>Team B</h3>
-<input id="bFTScored" placeholder="FT Scored">
-<input id="bFTAllowed" placeholder="FT Allowed">
-<input id="bH1Scored" placeholder="1H Scored">
-<input id="bH1Allowed" placeholder="1H Allowed">
+<h3>Team B (Last 5)</h3>
+<label>FT Scored</label>
+<input id="bFTScored" placeholder="83,77,81,79,80">
+<label>FT Allowed</label>
+<input id="bFTAllowed" placeholder="78,82,74,77,80">
+<label>1H Scored</label>
+<input id="bH1Scored" placeholder="39,37,40,36,38">
+<label>1H Allowed</label>
+<input id="bH1Allowed" placeholder="36,39,35,38,37">
+</div>
+
+<div class="section">
+<h3>H2H (2024+, OT removed)</h3>
+
+<label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
+<input id="aFTH2H" placeholder="82,78,84,76,82">
+<input id="bFTH2H" placeholder="79,81,77,80,78">
+
+<label><input type="checkbox" id="use1HH2H"> Use 1H H2H (min 2 games)</label>
+<input id="aH1H2H" placeholder="41,38,42,36,39">
+<input id="bH1H2H" placeholder="39,37,40,36,38">
 </div>
 
 <div style="text-align:center;">
@@ -167,22 +147,6 @@ EuroLeague
 </div>
 
 <script>
-
-// ✅ LEAGUE CONTROL
-let leagueBase = 160;
-
-function toggleDropdown(){
-let list=document.getElementById("leagueList");
-list.style.display=list.style.display==="none"?"block":"none";
-}
-
-function selectLeague(name,value){
-document.getElementById("selectedLeague").innerText=name;
-leagueBase=value;
-document.getElementById("leagueList").style.display="none";
-}
-
-// ===== ENGINE =====
 
 function parseGames(id){
 let raw=document.getElementById(id).value;
@@ -216,12 +180,19 @@ if(isNaN(val)) return "NaN";
 return (Math.round(val*2)/2).toFixed(1);
 }
 
+function dynamicWeight(sample){
+if(!sample||sample.length<2) return 0;
+if(sample.length<=3) return 0.20;
+return 0.30;
+}
+
 function applyVolatility(proj,std,limit){
 if(std>limit) return proj*0.96;
 return proj;
 }
 
 function decision(edge,line,type,teamSc,aSc,bSc){
+
 if(isNaN(edge)||isNaN(line)) return "NaN";
 
 let threshold;
@@ -248,41 +219,147 @@ table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction
 
 let ftLine=mid(document.getElementById("ftMarket").value);
 let h1Line=mid(document.getElementById("h1Market").value);
+let aLine=mid(document.getElementById("teamAMarket").value);
+let bLine=mid(document.getElementById("teamBMarket").value);
 
-let aFTSc=avg(parseGames("aFTScored"));
-let aFTAll=avg(parseGames("aFTAllowed"));
-let bFTSc=avg(parseGames("bFTScored"));
-let bFTAll=avg(parseGames("bFTAllowed"));
+let aFTScArr=parseGames("aFTScored");
+let aFTAllArr=parseGames("aFTAllowed");
+let bFTScArr=parseGames("bFTScored");
+let bFTAllArr=parseGames("bFTAllowed");
+let aH1ScArr=parseGames("aH1Scored");
+let aH1AllArr=parseGames("aH1Allowed");
+let bH1ScArr=parseGames("bH1Scored");
+let bH1AllArr=parseGames("bH1Allowed");
+
+if([aFTScArr,aFTAllArr,bFTScArr,bFTAllArr,
+aH1ScArr,aH1AllArr,bH1ScArr,bH1AllArr].includes("error")){
+renderError(table);
+return;
+}
+
+let aFTSc=avg(aFTScArr), aFTAll=avg(aFTAllArr);
+let bFTSc=avg(bFTScArr), bFTAll=avg(bFTAllArr);
+let aH1Sc=avg(aH1ScArr), aH1All=avg(aH1AllArr);
+let bH1Sc=avg(bH1ScArr), bH1All=avg(bH1AllArr);
 
 let baseAFT=(aFTSc+bFTAll)/2;
 let baseBFT=(bFTSc+aFTAll)/2;
 
-let rawPace=(aFTSc+aFTAll+bFTSc+bFTAll)/2;
-let expectedBase=(baseAFT+baseBFT+leagueBase)/2;
+  let baseAH1 = (aH1Sc + bH1All) / 2;
+let baseBH1 = (bH1Sc + aH1All) / 2;
+  
+let teamAPace = aFTSc + aFTAll;
+let teamBPace = bFTSc + bFTAll;
 
-let pace=Math.max(0.92,Math.min(1.08,rawPace/expectedBase));
+let rawPace = (teamAPace + teamBPace) / 2;
 
-baseAFT*=pace;
-baseBFT*=pace;
+let expectedBase = (baseAFT + baseBFT) || 160;
+
+let pace = rawPace / expectedBase;
+
+pace = Math.max(0.92, Math.min(1.08, pace));
+
+let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
+let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
+
+baseAFT = applyVolatility(baseAFT * pace, aVol, 12);
+baseBFT = applyVolatility(baseBFT * pace, bVol, 12);
+
+let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
+let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
+
+baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
+baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
+
+// SAFE H2H
+if(document.getElementById("useFTH2H").checked){
+let aH=parseGames("aFTH2H");
+let bH=parseGames("bFTH2H");
+
+if(aH==="error"||bH==="error"){ renderError(table); return; }
+
+if(aH&&bH){
+let wA=dynamicWeight(aH);
+let wB=dynamicWeight(bH);
+
+let currentTotal=baseAFT+baseBFT;
+let h2hTotal=avg(aH)+avg(bH);
+
+if(currentTotal>0 && Math.abs(h2hTotal-currentTotal)/currentTotal>0.20){
+wA*=0.5; wB*=0.5;
+}
+
+baseAFT=baseAFT*(1-wA)+avg(aH)*wA;
+baseBFT=baseBFT*(1-wB)+avg(bH)*wB;
+}
+}
+
+if(document.getElementById("use1HH2H").checked){
+let aH=parseGames("aH1H2H");
+let bH=parseGames("bH1H2H");
+
+if(aH==="error"||bH==="error"){ renderError(table); return; }
+
+if(aH&&bH){
+let wA=dynamicWeight(aH);
+let wB=dynamicWeight(bH);
+
+baseAH1=baseAH1*(1-wA)+avg(aH)*wA;
+baseBH1=baseBH1*(1-wB)+avg(bH)*wB;
+}
+}
 
 let ftProj=baseAFT+baseBFT;
+let h1Proj=baseAH1+baseBH1;
 
-let edge=ftProj-ftLine;
+let picks=[
+{name:"FT Total",proj:ftProj,line:ftLine,type:"ft_total",teamSc:null,aSc:aFTSc,bSc:bFTSc},
+{name:"1H Total",proj:h1Proj,line:h1Line,type:"h1_total",teamSc:null,aSc:aH1Sc,bSc:bH1Sc},
+{name:"Team A Total",proj:baseAFT,line:aLine,type:"team",teamSc:aFTSc,aSc:aFTSc,bSc:bFTSc},
+{name:"Team B Total",proj:baseBFT,line:bLine,type:"team",teamSc:bFTSc,aSc:aFTSc,bSc:bFTSc}
+];
 
-let pick=decision(edge,ftLine,"ft_total",null,aFTSc,bFTSc);
+let lockIndex=-1,maxStrength=0;
 
+picks.forEach((p,i)=>{
+if(isNaN(p.proj)||isNaN(p.line)){p.edge=NaN;p.pick="NaN";return;}
+p.edge=p.proj-p.line;
+p.strength=Math.abs(p.edge/p.line);
+p.pick=decision(p.edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
+if(p.pick!=="NO PLAY"&&p.strength>=0.08&&p.strength>maxStrength){
+maxStrength=p.strength; lockIndex=i;
+}
+});
+
+picks.forEach((p,i)=>{
 let row=table.insertRow();
-row.innerHTML=`<td>FT Total</td>
-<td>${ftProj.toFixed(2)}</td>
-<td>${edge.toFixed(2)}</td>
-<td>${pick}</td>`;
+let pred=p.pick;
+if(i===lockIndex&&p.pick!=="NO PLAY"){
+pred+=` <span class="lock">🔒</span>`;
+}
+row.innerHTML=`
+<td>${p.name}</td>
+<td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
+<td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
+<td class="${
+pred&&pred.startsWith("OVER")?"pred-over":
+pred&&pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
+${pred}</td>`;
+});
+}
+
+function renderError(table){
+["FT Total","1H Total","Team A Total","Team B Total"].forEach(name=>{
+let row=table.insertRow();
+row.innerHTML=`<td>${name}</td><td>Error</td><td>Error</td><td>Error</td>`;
+});
 }
 
 function clearAll(){
 document.querySelectorAll("input").forEach(i=>i.value="");
+document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
 document.getElementById("results").style.display="none";
 }
 </script>
-
 </body>
 </html>
