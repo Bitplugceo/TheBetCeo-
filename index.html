@@ -228,6 +228,7 @@ function dynamicWeight(sample){
 }
 
 function applyVolatility(proj, std, limit){
+  if(isNaN(proj) || isNaN(std)) return NaN;
   if(std > limit) return proj * 0.96;
   return proj;
 }
@@ -241,12 +242,14 @@ function decision(edge, line, type, teamSc, aSc, bSc){
   else if(type === "h1_total") threshold = edge > 0 ? line * 0.06  : line * 0.075;
   else return "NaN";
 
+  if(isNaN(threshold)) return "NaN";
+
   if(Math.abs(edge) < threshold) return "NO PLAY";
 
   if(edge < 0){
-    if(type === "ft_total")  { if(aSc >= line*0.58 || bSc >= line*0.58) return "NO PLAY"; }
-    if(type === "team")      { if(teamSc >= line*0.58) return "NO PLAY"; }
-    if(type === "h1_total")  { if(aSc >= line*0.63 || bSc >= line*0.63) return "NO PLAY"; }
+    if(type === "ft_total")  { if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY"; }
+    if(type === "team")      { if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY"; }
+    if(type === "h1_total")  { if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.63 || bSc >= line*0.63)) return "NO PLAY"; }
   }
 
   return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
@@ -284,22 +287,16 @@ function runEngine(){
   let bH1ScArr  = parseGames("bH1Scored");
   let bH1AllArr = parseGames("bH1Allowed");
 
-  let hasParseError = [aFTScArr, aFTAllArr, bFTScArr, bFTAllArr,
-                       aH1ScArr, aH1AllArr, bH1ScArr, bH1AllArr].includes("error");
+  // Calculate bases independently - NaN if input error/missing
+  let aFTSc  = aFTScArr  === "error" ? NaN : avg(aFTScArr);
+  let aFTAll = aFTAllArr === "error" ? NaN : avg(aFTAllArr);
+  let bFTSc  = bFTScArr  === "error" ? NaN : avg(bFTScArr);
+  let bFTAll = bFTAllArr === "error" ? NaN : avg(bFTAllArr);
 
-  if(hasParseError){
-    renderError(table);
-    return;
-  }
-
-  let aFTSc  = avg(aFTScArr);
-  let aFTAll = avg(aFTAllArr);
-  let bFTSc  = avg(bFTScArr);
-  let bFTAll = avg(bFTAllArr);
-  let aH1Sc  = avg(aH1ScArr);
-  let aH1All = avg(aH1AllArr);
-  let bH1Sc  = avg(bH1ScArr);
-  let bH1All = avg(bH1AllArr);
+  let aH1Sc  = aH1ScArr  === "error" ? NaN : avg(aH1ScArr);
+  let aH1All = aH1AllArr === "error" ? NaN : avg(aH1AllArr);
+  let bH1Sc  = bH1ScArr  === "error" ? NaN : avg(bH1ScArr);
+  let bH1All = bH1AllArr === "error" ? NaN : avg(bH1AllArr);
 
   let baseAFT = (aFTSc + bFTAll) / 2;
   let baseBFT = (bFTSc + aFTAll) / 2;
@@ -322,12 +319,12 @@ function runEngine(){
       let wB = dynamicWeight(bH);
       let currentTotal = baseAFT + baseBFT;
       let h2hTotal = avg(aH) + avg(bH);
-      if(currentTotal > 0 && Math.abs(h2hTotal - currentTotal) / currentTotal > 0.20){
+      if(!isNaN(currentTotal) && currentTotal > 0 && Math.abs(h2hTotal - currentTotal) / currentTotal > 0.20){
         wA *= 0.5;
         wB *= 0.5;
       }
-      baseAFT = baseAFT * (1 - wA) + avg(aH) * wA;
-      baseBFT = baseBFT * (1 - wB) + avg(bH) * wB;
+      if(!isNaN(avg(aH))) baseAFT = baseAFT * (1 - wA) + avg(aH) * wA;
+      if(!isNaN(avg(bH))) baseBFT = baseBFT * (1 - wB) + avg(bH) * wB;
     }
   }
 
@@ -337,30 +334,30 @@ function runEngine(){
     if(aH !== "error" && bH !== "error" && aH && bH){
       let wA = dynamicWeight(aH);
       let wB = dynamicWeight(bH);
-      baseAH1 = baseAH1 * (1 - wA) + avg(aH) * wA;
-      baseBH1 = baseBH1 * (1 - wB) + avg(bH) * wB;
+      if(!isNaN(avg(aH))) baseAH1 = baseAH1 * (1 - wA) + avg(aH) * wA;
+      if(!isNaN(avg(bH))) baseBH1 = baseBH1 * (1 - wB) + avg(bH) * wB;
     }
   }
 
-  // Apply pace and volatility
-  baseAFT *= pace;
-  baseBFT *= pace;
+  // Apply pace and volatility independently
+  baseAFT = isNaN(baseAFT) ? NaN : baseAFT * pace;
+  baseBFT = isNaN(baseBFT) ? NaN : baseBFT * pace;
 
-  let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
-  let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
+  let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
+  let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
   baseAFT = applyVolatility(baseAFT, aVol, 12);
   baseBFT = applyVolatility(baseBFT, bVol, 12);
 
-  baseAH1 *= pace;
-  baseBH1 *= pace;
+  baseAH1 = isNaN(baseAH1) ? NaN : baseAH1 * pace;
+  baseBH1 = isNaN(baseBH1) ? NaN : baseBH1 * pace;
 
-  let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
-  let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
+  let aH1Vol = (stdDev(aH1ScArr === "error" ? [] : aH1ScArr) + stdDev(aH1AllArr === "error" ? [] : aH1AllArr)) / 2;
+  let bH1Vol = (stdDev(bH1ScArr === "error" ? [] : bH1ScArr) + stdDev(bH1AllArr === "error" ? [] : bH1AllArr)) / 2;
   baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
   baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
 
-  let ftProj  = baseAFT + baseBFT;
-  let h1Proj  = baseAH1 + baseBH1;
+  let ftProj  = (isNaN(baseAFT) || isNaN(baseBFT)) ? NaN : baseAFT + baseBFT;
+  let h1Proj  = (isNaN(baseAH1) || isNaN(baseBH1)) ? NaN : baseAH1 + baseBH1;
 
   let picks = [
     {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
@@ -373,31 +370,38 @@ function runEngine(){
   let maxStrength = 0;
 
   picks.forEach((p, i) => {
-    if(isNaN(p.proj) || isNaN(p.line)){
-      p.edge = NaN;
-      p.pick = "NaN";
-    } else {
-      p.edge = p.proj - p.line;
-      p.strength = Math.abs(p.edge / p.line);
-      p.pick = decision(p.edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
-      if(p.pick !== "NO PLAY" && p.strength >= 0.08 && p.strength > maxStrength){
-        maxStrength = p.strength;
+    let edge = NaN;
+    let pickText = "NaN";
+
+    if(!isNaN(p.proj) && !isNaN(p.line)){
+      edge = p.proj - p.line;
+      let strength = Math.abs(edge / p.line);
+      pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+
+      if(pickText !== "NO PLAY" && pickText !== "NaN" && strength >= 0.08 && strength > maxStrength){
+        maxStrength = strength;
         lockIndex = i;
       }
     }
 
     let row = table.insertRow();
-    let pred = p.pick;
-    if(i === lockIndex && p.pick !== "NO PLAY" && p.pick !== "NaN"){
+    let pred = pickText;
+    if(i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN"){
       pred += ` <span class="lock">🔒</span>`;
     }
+
+    let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
+    let edgeDisplay = isNaN(edge) ? "NaN" : edge.toFixed(2);
+
+    let className = "pred-noplay";
+    if(pred.startsWith("OVER")) className = "pred-over";
+    else if(pred.startsWith("UNDER")) className = "pred-under";
+
     row.innerHTML = `
       <td>${p.name}</td>
-      <td>${isNaN(p.proj) ? "NaN" : p.proj.toFixed(2)}</td>
-      <td>${isNaN(p.edge) ? "NaN" : p.edge.toFixed(2)}</td>
-      <td class="${pred.startsWith("OVER") ? "pred-over" : pred.startsWith("UNDER") ? "pred-under" : "pred-noplay"}">
-        ${pred}
-      </td>`;
+      <td>${projDisplay}</td>
+      <td>${edgeDisplay}</td>
+      <td class="${className}">${pred}</td>`;
   });
 }
 
