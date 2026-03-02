@@ -41,6 +41,10 @@ input{
   color:#d4af37;
   border:1px solid #d4af37;
   margin-bottom:4px;
+
+  border-radius:0;
+  -webkit-appearance:none;
+  appearance:none;
 }
   
 input[type="checkbox"]{
@@ -94,14 +98,43 @@ transform: translateY(-1px); margin-left: 4px;
   <h3>League Tier</h3>
   
   <label>Select League</label>
-  <select id="leagueSelect" class="input-box">
-    <option value="225">Tier 1 – NBA (225)</option>
-    <option value="160" selected>Tier 2 – Elite Europe (160)</option>
-    <option value="150">Tier 3 – Mid Europe (150)</option>
-    <option value="140">Tier 4 – NCAA (140)</option>
-    <option value="135">Tier 5 – Slow / FIBA (135)</option>
-    <option value="145">Tier 6 – Unknown (145)</option>
-  </select>
+<select id="leagueSelect">
+
+  <option value="225">
+    NBA
+  </option>
+
+  <option value="160" selected>
+    Elite Europe
+    (EuroLeague, EuroCup, ABA Liga, Spain ACB,
+     Turkey BSL, Italy Serie A, Germany BBL, France Pro A)
+  </option>
+
+  <option value="150">
+    Mid Europe
+    (Turkey TBL, France Pro B, Israel Super League,
+     Lithuania LKL, Poland PLK, Greece A2)
+  </option>
+
+  <option value="140">
+    NCAA
+    (NCAA, NCAAB, College Basketball)
+  </option>
+
+  <option value="135">
+    Africa / FIBA
+    (BAL – Basketball Africa League,
+     Nigeria Premier Basketball League,
+     Rwanda Basketball League,
+     FIBA AfroBasket, FIBA World Cup Qualifiers)
+  </option>
+
+  <option value="145">
+    Unknown / Mixed
+    (SportyBet Specials, Unclear Leagues)
+  </option>
+
+</select>
 </div>
   
 <div class="section">
