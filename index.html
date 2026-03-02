@@ -9,7 +9,6 @@
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#d4af37">
-
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
@@ -22,7 +21,7 @@ h1 {text-align:center;font-size:18px;margin:10px 0;}
 .section {border:1px solid #d4af37;background:#1a1a1a;padding:8px;margin:6px auto;}
 label {display:block;font-size:12px;margin-bottom:3px;}
 
-input, select {
+input {
   width:100%;
   max-width:260px;
   padding:5px;
@@ -31,6 +30,18 @@ input, select {
   color:#d4af37;
   border:1px solid #d4af37;
   margin-bottom:4px;
+}
+
+.league-box {
+  width:100%;
+  max-width:260px;
+  padding:5px;
+  font-size:12px;
+  background:#222;
+  color:#d4af37;
+  border:1px solid #d4af37;
+  margin-bottom:4px;
+  border-radius:0;
   appearance:none;
 }
 
@@ -38,6 +49,7 @@ input[type="checkbox"] {
   width:12px;
   height:12px;
   margin-right:6px;
+  vertical-align:middle;
 }
 
 button {
@@ -68,31 +80,29 @@ th, td {
 .pred-noplay {background:#444;color:#bbb;font-weight:bold;}
 
 .lock {
-  font-size:4px;
+  font-size: 4px;
   display:inline-block;
-  vertical-align:middle;
-  transform:translateY(-1px);
-  margin-left:4px;
+  vertical-align: middle;
+  transform: translateY(-1px);
+  margin-left: 4px;
 }
-
-small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 </style>
 </head>
 
 <body>
 <h1>🏀 Basketball Prediction Engine</h1>
-
 <div class="wrapper">
 
 <div class="section">
-<h3>League Tier</h3>
-<select id="leagueSelect">
+<h3 style="font-size:22px;">League Tier</h3>
+<label style="font-size:18px; margin-top:10px;">Select League</label>
+<select id="leagueSelect" class="league-box">
   <option value="nba">NBA</option>
-  <option value="euro_elite">EuroLeague / ACB / BBL</option>
-  <option value="secondary">Secondary Europe</option>
-  <option value="ncaa">NCAA</option>
-  <option value="africa">Africa</option>
-  <option value="unknown">Unknown</option>
+  <option value="euro_elite">EuroLeague / EuroCup / ACB / BSL / Serie A / BBL / Pro A</option>
+  <option value="secondary">ABA / TBL / Pro B / PLK / A2</option>
+  <option value="ncaa">NCAA / NCAAB</option>
+  <option value="africa">BAL / Nigeria / Rwanda / AfroBasket</option>
+  <option value="unknown">Unknown / Mixed</option>
 </select>
 </div>
 
@@ -123,10 +133,10 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 </div>
 
 <div class="section">
-<h3>H2H (Optional)</h3>
+<h3>H2H</h3>
 <label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
-<input id="aFTH2H" placeholder="82,78,84">
-<input id="bFTH2H" placeholder="79,81,77">
+<input id="aFTH2H" placeholder="82,78,84,76,82">
+<input id="bFTH2H" placeholder="79,81,77,80,78">
 </div>
 
 <div style="text-align:center;">
@@ -146,6 +156,8 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 </div>
 
 <script>
+
+/* Utility */
 
 function parseGames(id){
   let raw=document.getElementById(id).value.trim();
@@ -187,8 +199,11 @@ function applyVolatility(proj,std,limit){
   return proj*(1-cut);
 }
 
+/* Decision (unchanged thresholds, fixed precedence) */
+
 function decision(edge,line,type,teamSc,aSc,bSc){
   if(isNaN(edge)||isNaN(line)) return "NaN";
+
   let threshold;
   if(type==="ft_total") threshold=edge>0?line*0.045:line*0.06;
   else threshold=edge>0?line*0.05:line*0.065;
@@ -196,12 +211,18 @@ function decision(edge,line,type,teamSc,aSc,bSc){
   if(Math.abs(edge)<threshold) return "NO PLAY";
 
   if(edge<0){
-    if(type==="ft_total"&&aSc>=line*0.58||bSc>=line*0.58) return "NO PLAY";
-    if(type==="team"&&teamSc>=line*0.58) return "NO PLAY";
+    if(type==="ft_total"){
+      if(!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.58||bSc>=line*0.58)) return "NO PLAY";
+    }
+    if(type==="team"){
+      if(!isNaN(teamSc)&&teamSc>=line*0.58) return "NO PLAY";
+    }
   }
 
   return edge>0?"OVER "+line.toFixed(1):"UNDER "+line.toFixed(1);
 }
+
+/* Engine */
 
 function runEngine(){
 
@@ -210,8 +231,27 @@ table.style.display="table";
 table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
 const league=document.getElementById("leagueSelect").value;
-const leagueBase={nba:230,euro_elite:175,secondary:170,ncaa:150,africa:160,unknown:160};
-const expectedBase=leagueBase[league]||160;
+
+const leagueBases={
+nba:230,
+euro_elite:175,
+secondary:170,
+ncaa:150,
+africa:160,
+unknown:160
+};
+
+const leaguePaceClamps={
+nba:{min:0.90,max:1.15},
+euro_elite:{min:0.92,max:1.10},
+secondary:{min:0.92,max:1.10},
+ncaa:{min:0.90,max:1.12},
+africa:{min:0.90,max:1.12},
+unknown:{min:0.90,max:1.12}
+};
+
+const expectedBase=leagueBases[league]||160;
+const clamps=leaguePaceClamps[league]||{min:0.90,max:1.12};
 
 let ftLine=mid(ftMarket.value);
 let aLine=mid(teamAMarket.value);
@@ -222,32 +262,35 @@ let aAllArr=parseGames("aFTAllowed");
 let bScArr=parseGames("bFTScored");
 let bAllArr=parseGames("bFTAllowed");
 
-let aSc=avg(aScArr);
-let aAll=avg(aAllArr);
-let bSc=avg(bScArr);
-let bAll=avg(bAllArr);
+let aSc=(aScArr==="error"||!aScArr)?NaN:avg(aScArr);
+let aAll=(aAllArr==="error"||!aAllArr)?NaN:avg(aAllArr);
+let bSc=(bScArr==="error"||!bScArr)?NaN:avg(bScArr);
+let bAll=(bAllArr==="error"||!bAllArr)?NaN:avg(bAllArr);
 
 let baseA=(aSc+bAll)/2;
 let baseB=(bSc+aAll)/2;
 
+/* FIXED Pace (true total based) */
 let rawTotal=((aSc+aAll)+(bSc+bAll))/2;
-let pace=Math.max(0.90,Math.min(1.15,rawTotal/expectedBase));
+let pace=Math.max(clamps.min,Math.min(clamps.max,rawTotal/expectedBase));
 
 baseA*=pace;
 baseB*=pace;
 
+/* FIXED H2H (no double sample weighting) */
 if(useFTH2H.checked){
   let h2ha=parseGames("aFTH2H");
   let h2hb=parseGames("bFTH2H");
-  if(h2ha&&h2hb&&h2ha.length>=2&&h2hb.length>=2){
-    let w=dynamicWeight(h2ha);
-    baseA=baseA*(1-w)+avg(h2ha)*w;
-    baseB=baseB*(1-w)+avg(h2hb)*w;
+  if(h2ha&&h2hb&&h2ha!=="error"&&h2hb!=="error"&&h2ha.length>=2&&h2hb.length>=2){
+    let weight=Math.min(dynamicWeight(h2ha),0.30);
+    baseA=baseA*(1-weight)+avg(h2ha)*weight;
+    baseB=baseB*(1-weight)+avg(h2hb)*weight;
   }
 }
 
-baseA=applyVolatility(baseA,stdDev(aScArr),12);
-baseB=applyVolatility(baseB,stdDev(bScArr),12);
+/* Volatility */
+baseA=applyVolatility(baseA,stdDev(aScArr||[]),12);
+baseB=applyVolatility(baseB,stdDev(bScArr||[]),12);
 
 let ftProj=baseA+baseB;
 
@@ -260,9 +303,12 @@ let picks=[
 let lockIndex=-1,maxStrength=0;
 
 picks.forEach((p,i)=>{
+if(isNaN(p.line)||isNaN(p.proj)) return;
+
 let edge=p.proj-p.line;
 let pickText=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
 let strength=Math.abs(edge/p.line);
+
 if(pickText!=="NO PLAY"&&strength>=0.08&&strength>maxStrength){
 maxStrength=strength;
 lockIndex=i;
@@ -287,7 +333,7 @@ row.innerHTML=`
 function clearAll(){
 document.querySelectorAll("input").forEach(i=>i.value="");
 document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
-results.style.display="none";
+document.getElementById("results").style.display="none";
 }
 
 </script>
