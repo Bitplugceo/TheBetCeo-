@@ -265,8 +265,8 @@ baseBFT = applyVolatility(baseBFT * pace, bVol, 12);
 let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
 let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
 
-baseAH1 = applyVolatility((aH1Sc + bH1All)/2, aH1Vol, 8);
-baseBH1 = applyVolatility((bH1Sc + aH1All)/2, bH1Vol, 8);
+baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
+baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
 
 // SAFE H2H
 if(document.getElementById("useFTH2H").checked){
