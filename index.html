@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 
-<title>Basketball Prediction Engine</title>
+<title>Basketball Prediction Engine (FT Only)</title>
 
 <style>
 body {background:#111;color:#d4af37;font-family:Segoe UI,sans-serif;margin:0;}
@@ -93,82 +93,68 @@ small.error-note {color:#ff6b6b; font-size:10px; display:block; margin-top:2px;}
 </head>
 
 <body>
-<h1>🏀 Basketball Prediction Engine</h1>
+<h1>🏀 Basketball Prediction Engine (FT Only)</h1>
 <div class="wrapper">
 
   <div class="section">
-  <h3 style="font-size:22px;">League Tier</h3>
-  <label style="font-size:18px; margin-top:10px;">Select League</label>
-  <select id="leagueSelect" class="league-box">
-    <option value="nba">NBA</option>
-    <option value="euro_elite">EuroLeague / EuroCup / ACB / BSL / Serie A / BBL / Pro A</option>
-    <option value="secondary">ABA / TBL / Pro B / PLK / A2</option>
-    <option value="ncaa">NCAA / NCAAB</option>
-    <option value="africa">BAL / Nigeria / Rwanda / AfroBasket</option>
-    <option value="unknown">Unknown / Mixed</option>
-  </select>
-</div>
+    <h3 style="font-size:22px;">League Tier</h3>
+    <label style="font-size:18px; margin-top:10px;">Select League</label>
+    <select id="leagueSelect" class="league-box">
+      <option value="nba">NBA</option>
+      <option value="euro_elite">EuroLeague / EuroCup / ACB / BSL / Serie A / BBL / Pro A</option>
+      <option value="secondary">ABA / TBL / Pro B / PLK / A2</option>
+      <option value="ncaa">NCAA / NCAAB</option>
+      <option value="africa">BAL / Nigeria / Rwanda / AfroBasket</option>
+      <option value="unknown">Unknown / Mixed</option>
+    </select>
+  </div>
 
-<div class="section">
-<h3>Market Lines</h3>
-<label>FT Total</label>
-<input id="ftMarket" placeholder="150.5 - 160.5">
-<label>1H Total</label>
-<input id="h1Market" placeholder="78.5 - 82.5">
-<label>Team A Total</label>
-<input id="teamAMarket" placeholder="75.5 - 79.5">
-<label>Team B Total</label>
-<input id="teamBMarket" placeholder="75.5 - 79.5">
-</div>
+  <div class="section">
+    <h3>Market Lines</h3>
+    <label>FT Total</label>
+    <input id="ftMarket" placeholder="225.5">
+    <label>Team A Total</label>
+    <input id="teamAMarket" placeholder="114.5">
+    <label>Team B Total</label>
+    <input id="teamBMarket" placeholder="111.0">
+  </div>
 
-<div class="section">
-<h3>Team A (Last 5)</h3>
-<label>FT Scored</label>
-<input id="aFTScored" placeholder="85,79,88,74,82">
-<label>FT Allowed</label>
-<input id="aFTAllowed" placeholder="76,80,72,79,77">
-<label>1H Scored</label>
-<input id="aH1Scored" placeholder="41,38,42,36,39">
-<label>1H Allowed</label>
-<input id="aH1Allowed" placeholder="37,35,38,34,39">
-</div>
+  <div class="section">
+    <h3>Team A (Last 5)</h3>
+    <label>FT Scored</label>
+    <input id="aFTScored" placeholder="118,112,124,108,115">
+    <label>FT Allowed</label>
+    <input id="aFTAllowed" placeholder="110,119,105,122,108">
+  </div>
 
-<div class="section">
-<h3>Team B (Last 5)</h3>
-<label>FT Scored</label>
-<input id="bFTScored" placeholder="83,77,81,79,80">
-<label>FT Allowed</label>
-<input id="bFTAllowed" placeholder="78,82,74,77,80">
-<label>1H Scored</label>
-<input id="bH1Scored" placeholder="39,37,40,36,38">
-<label>1H Allowed</label>
-<input id="bH1Allowed" placeholder="36,39,35,38,37">
-</div>
+  <div class="section">
+    <h3>Team B (Last 5)</h3>
+    <label>FT Scored</label>
+    <input id="bFTScored" placeholder="109,116,104,121,110">
+    <label>FT Allowed</label>
+    <input id="bFTAllowed" placeholder="113,107,118,106,115">
+  </div>
 
-<div class="section">
-<h3>H2H</h3>
-<label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
-<input id="aFTH2H" placeholder="82,78,84,76,82">
-<input id="bFTH2H" placeholder="79,81,77,80,78">
+  <div class="section">
+    <h3>H2H (Full Time only)</h3>
+    <label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
+    <input id="aFTH2H" placeholder="122,108,115">
+    <input id="bFTH2H" placeholder="110,119,112">
+  </div>
 
-<label><input type="checkbox" id="use1HH2H"> Use 1H H2H (min 2 games)</label>
-<input id="aH1H2H" placeholder="41,38,42,36,39">
-<input id="bH1H2H" placeholder="39,37,40,36,38">
-</div>
+  <div style="text-align:center;">
+    <button onclick="runEngine()">Run</button>
+    <button onclick="clearAll()">Clear</button>
+  </div>
 
-<div style="text-align:center;">
-<button onclick="runEngine()">Run</button>
-<button onclick="clearAll()">Clear</button>
-</div>
-
-<table id="results" style="display:none;">
-<tr>
-<th>Pick</th>
-<th>Projection</th>
-<th>Edge</th>
-<th>Prediction</th>
-</tr>
-</table>
+  <table id="results" style="display:none;">
+    <tr>
+      <th>Pick</th>
+      <th>Projection</th>
+      <th>Edge</th>
+      <th>Prediction</th>
+    </tr>
+  </table>
 
 </div>
 
@@ -197,7 +183,7 @@ function stdDev(arr){
 function mid(val){
   if(!val) return NaN;
   val = val.trim();
-  if(!val.includes("-")) return NaN;
+  if(!val.includes("-")) return parseFloat(val); // allow single number too
   let p = val.split("-").map(x=>x.trim());
   let a = parseFloat(p[0]), b = parseFloat(p[1]);
   if(isNaN(a) || isNaN(b)) return NaN;
@@ -228,13 +214,12 @@ function applyVolatility(proj, std, limit){
   return proj * (1 - cut);
 }
 
-function decision(edge, line, type, teamSc, aSc, bSc){
+function decision(edge, line, type, teamSc){
   if(isNaN(edge) || isNaN(line)) return "NaN";
 
   let threshold;
-  if(type === "ft_total")      threshold = edge > 0 ? line * 0.045 : line * 0.06;
-  else if(type === "team")     threshold = edge > 0 ? line * 0.05  : line * 0.065;
-  else if(type === "h1_total") threshold = edge > 0 ? line * 0.06  : line * 0.075;
+  if(type === "ft_total") threshold = edge > 0 ? line * 0.045 : line * 0.06;
+  else if(type === "team")    threshold = edge > 0 ? line * 0.05  : line * 0.065;
   else return "NaN";
 
   if(isNaN(threshold)) return "NaN";
@@ -242,14 +227,11 @@ function decision(edge, line, type, teamSc, aSc, bSc){
   if(Math.abs(edge) < threshold) return "NO PLAY";
 
   if(edge < 0){
-    if(type === "ft_total")  { 
-      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY"; 
-    }
-    if(type === "team")      { 
+    if(type === "ft_total") { 
       if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY"; 
     }
-    if(type === "h1_total")  { 
-      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.63 || bSc >= line*0.63)) return "NO PLAY"; 
+    if(type === "team") { 
+      if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY"; 
     }
   }
 
@@ -285,7 +267,6 @@ function runEngine(){
   const clamps = leaguePaceClamps[league] || { min: 0.90, max: 1.12 };
 
   let ftLine  = mid(document.getElementById("ftMarket").value);
-  let h1Line  = mid(document.getElementById("h1Market").value);
   let aLine   = mid(document.getElementById("teamAMarket").value);
   let bLine   = mid(document.getElementById("teamBMarket").value);
 
@@ -293,25 +274,14 @@ function runEngine(){
   let aFTAllArr = parseGames("aFTAllowed");
   let bFTScArr  = parseGames("bFTScored");
   let bFTAllArr = parseGames("bFTAllowed");
-  let aH1ScArr  = parseGames("aH1Scored");
-  let aH1AllArr = parseGames("aH1Allowed");
-  let bH1ScArr  = parseGames("bH1Scored");
-  let bH1AllArr = parseGames("bH1Allowed");
 
   let aFTSc  = (aFTScArr  === "error" || aFTScArr  === null) ? NaN : avg(aFTScArr);
   let aFTAll = (aFTAllArr === "error" || aFTAllArr === null) ? NaN : avg(aFTAllArr);
   let bFTSc  = (bFTScArr  === "error" || bFTScArr  === null) ? NaN : avg(bFTScArr);
   let bFTAll = (bFTAllArr === "error" || bFTAllArr === null) ? NaN : avg(bFTAllArr);
 
-  let aH1Sc  = (aH1ScArr  === "error" || aH1ScArr  === null) ? NaN : avg(aH1ScArr);
-  let aH1All = (aH1AllArr === "error" || aH1AllArr === null) ? NaN : avg(aH1AllArr);
-  let bH1Sc  = (bH1ScArr  === "error" || bH1ScArr  === null) ? NaN : avg(bH1ScArr);
-  let bH1All = (bH1AllArr === "error" || bH1AllArr === null) ? NaN : avg(bH1AllArr);
-
   let baseAFT = (aFTSc + bFTAll) / 2;
   let baseBFT = (bFTSc + aFTAll) / 2;
-  let baseAH1 = (aH1Sc + bH1All) / 2;
-  let baseBH1 = (bH1Sc + aH1All) / 2;
 
   let teamAPace = aFTSc + aFTAll;
   let teamBPace = bFTSc + bFTAll;
@@ -325,19 +295,12 @@ function runEngine(){
 
   baseAFT = isNaN(baseAFT) ? NaN : baseAFT * pace;
   baseBFT = isNaN(baseBFT) ? NaN : baseBFT * pace;
-  baseAH1 = isNaN(baseAH1) ? NaN : baseAH1 * pace;
-  baseBH1 = isNaN(baseBH1) ? NaN : baseBH1 * pace;
 
   let ftH2Ha = null, ftH2Hb = null;
-  let h1H2Ha = null, h1H2Hb = null;
 
   if(document.getElementById("useFTH2H").checked){
     ftH2Ha = parseGames("aFTH2H");
     ftH2Hb = parseGames("bFTH2H");
-  }
-  if(document.getElementById("use1HH2H").checked){
-    h1H2Ha = parseGames("aH1H2H");
-    h1H2Hb = parseGames("bH1H2H");
   }
 
   if(document.getElementById("useFTH2H").checked){
@@ -349,7 +312,6 @@ function runEngine(){
       wA = wA * (ftH2Ha.length / totalGames);
       wB = wB * (ftH2Hb.length / totalGames);
 
-      // Cap total H2H influence at ~30%
       let totalH2HWeight = wA + wB;
       if (totalH2HWeight > 0.30) {
         const scale = 0.30 / totalH2HWeight;
@@ -363,26 +325,9 @@ function runEngine(){
         wA *= 0.5;
         wB *= 0.5;
       }
+
       if(!isNaN(avg(ftH2Ha))) baseAFT = baseAFT * (1 - wA) + avg(ftH2Ha) * wA;
       if(!isNaN(avg(ftH2Hb))) baseBFT = baseBFT * (1 - wB) + avg(ftH2Hb) * wB;
-    }
-  }
-
-  if(document.getElementById("use1HH2H").checked){
-    if(h1H2Ha !== "error" && h1H2Hb !== "error" && h1H2Ha && h1H2Hb && h1H2Ha.length >= 2 && h1H2Hb.length >= 2){
-      let wA = dynamicWeight(h1H2Ha);
-      let wB = dynamicWeight(h1H2Hb);
-      const totalGames = h1H2Ha.length + h1H2Hb.length;
-      wA = wA * (h1H2Ha.length / totalGames);
-      wB = wB * (h1H2Hb.length / totalGames);
-      let totalH2HWeight = wA + wB;
-      if (totalH2HWeight > 0.30) {
-        const scale = 0.30 / totalH2HWeight;
-        wA *= scale;
-        wB *= scale;
-      }
-      if(!isNaN(avg(h1H2Ha))) baseAH1 = baseAH1 * (1 - wA) + avg(h1H2Ha) * wA;
-      if(!isNaN(avg(h1H2Hb))) baseBH1 = baseBH1 * (1 - wB) + avg(h1H2Hb) * wB;
     }
   }
 
@@ -391,17 +336,10 @@ function runEngine(){
   baseAFT = applyVolatility(baseAFT, aVol, 12);
   baseBFT = applyVolatility(baseBFT, bVol, 12);
 
-  let aH1Vol = (stdDev(aH1ScArr === "error" ? [] : aH1ScArr) + stdDev(aH1AllArr === "error" ? [] : aH1AllArr)) / 2;
-  let bH1Vol = (stdDev(bH1ScArr === "error" ? [] : bH1ScArr) + stdDev(bH1AllArr === "error" ? [] : bH1AllArr)) / 2;
-  baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
-  baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
-
   let ftProj  = (isNaN(baseAFT) || isNaN(baseBFT)) ? NaN : baseAFT + baseBFT;
-  let h1Proj  = (isNaN(baseAH1) || isNaN(baseBH1)) ? NaN : baseAH1 + baseBH1;
 
   let picks = [
-    {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
-    {name:"1H Total",     proj:h1Proj,  line:h1Line,  type:"h1_total", teamSc:null, aSc:aH1Sc, bSc:bH1Sc},
+    {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null,           aSc:aFTSc, bSc:bFTSc},
     {name:"Team A Total", proj:baseAFT, line:aLine,   type:"team",     teamSc:aFTSc, aSc:aFTSc, bSc:bFTSc},
     {name:"Team B Total", proj:baseBFT, line:bLine,   type:"team",     teamSc:bFTSc, aSc:aFTSc, bSc:bFTSc}
   ];
@@ -418,24 +356,16 @@ function runEngine(){
       displayNote = "Missing / Invalid Line";
       pickText = "—";
     } else if (isNaN(p.proj)) {
-      if (p.name.includes("FT") || p.name.includes("Team")) {
-        if (aFTScArr === null || aFTAllArr === null || bFTScArr === null || bFTAllArr === null) {
-          displayNote = "Missing Last-5 Data (FT)";
-        } else {
-          displayNote = "Missing / Invalid Last-5 Data";
-        }
-      } else if (p.name.includes("1H")) {
-        if (aH1ScArr === null || aH1AllArr === null || bH1ScArr === null || bH1AllArr === null) {
-          displayNote = "Missing Last-5 Data (1H)";
-        } else {
-          displayNote = "Missing / Invalid Last-5 Data";
-        }
+      if (aFTScArr === null || aFTAllArr === null || bFTScArr === null || bFTAllArr === null) {
+        displayNote = "Missing Last-5 Data";
+      } else {
+        displayNote = "Missing / Invalid Last-5 Data";
       }
       pickText = "—";
     } else {
       edge = p.proj - p.line;
       let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
-      pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+      pickText = decision(edge, p.line, p.type, p.teamSc);
 
       if (pickText !== "NO PLAY" && pickText !== "NaN" && strength >= 0.08 && strength > maxStrength) {
         maxStrength = strength;
@@ -443,24 +373,13 @@ function runEngine(){
       }
     }
 
-    if ((document.getElementById("useFTH2H").checked || document.getElementById("use1HH2H").checked) &&
+    if (document.getElementById("useFTH2H").checked &&
         pickText !== "—" && displayNote === "") {
       let h2hNote = "";
-      if (document.getElementById("useFTH2H").checked) {
-        if (ftH2Ha === null || ftH2Hb === null) {
-          h2hNote = "H2H FT fields empty";
-        } else if (ftH2Ha === "error" || ftH2Hb === "error") {
-          h2hNote = "H2H FT invalid (ignored)";
-        }
-      }
-      if (document.getElementById("use1HH2H").checked) {
-        let tempNote = "";
-        if (h1H2Ha === null || h1H2Hb === null) {
-          tempNote = "H2H 1H fields empty";
-        } else if (h1H2Ha === "error" || h1H2Hb === "error") {
-          tempNote = "H2H 1H invalid (ignored)";
-        }
-        h2hNote = h2hNote ? h2hNote + " & " + tempNote : tempNote;
+      if (ftH2Ha === null || ftH2Hb === null) {
+        h2hNote = "H2H fields empty";
+      } else if (ftH2Ha === "error" || ftH2Hb === "error") {
+        h2hNote = "H2H invalid (ignored)";
       }
       if (h2hNote) {
         displayNote = h2hNote;
