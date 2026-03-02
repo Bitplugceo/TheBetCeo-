@@ -242,14 +242,28 @@ let bH1Sc=avg(bH1ScArr), bH1All=avg(bH1AllArr);
 let baseAFT=(aFTSc+bFTAll)/2;
 let baseBFT=(bFTSc+aFTAll)/2;
 
-let pace=((aFTSc+aFTAll+bFTSc+bFTAll)/2)/160;
-pace=Math.max(0.9,Math.min(1.1,pace));
+let teamAPace = aFTSc + aFTAll;
+let teamBPace = bFTSc + bFTAll;
 
-baseAFT=applyVolatility(baseAFT*pace,stdDev(aFTScArr),12);
-baseBFT=applyVolatility(baseBFT*pace,stdDev(bFTScArr),12);
+let rawPace = (teamAPace + teamBPace) / 2;
 
-let baseAH1=applyVolatility((aH1Sc+bH1All)/2,stdDev(aH1ScArr),8);
-let baseBH1=applyVolatility((bH1Sc+aH1All)/2,stdDev(bH1ScArr),8);
+let expectedBase = (baseAFT + baseBFT) || 160;
+
+let pace = rawPace / expectedBase;
+
+pace = Math.max(0.92, Math.min(1.08, pace));
+
+let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
+let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
+
+baseAFT = applyVolatility(baseAFT * pace, aVol, 12);
+baseBFT = applyVolatility(baseBFT * pace, bVol, 12);
+
+let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
+let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
+
+baseAH1 = applyVolatility((aH1Sc + bH1All)/2, aH1Vol, 8);
+baseBH1 = applyVolatility((bH1Sc + aH1All)/2, bH1Vol, 8);
 
 // SAFE H2H
 if(document.getElementById("useFTH2H").checked){
