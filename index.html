@@ -1,3 +1,6 @@
+Now audit this 
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -178,7 +181,7 @@ function parseGames(id){
   let raw = document.getElementById(id).value.trim();
   if(!raw) return null;
   let arr = raw.split(",").map(x => parseFloat(x.trim()));
-  if(arr.some(x => isNaN(x) || x < 0 || x > 250)) return "error"; // upper bound
+  if(arr.some(x => isNaN(x) || x < 0 || x > 250)) return "error";
   return arr;
 }
 
@@ -242,9 +245,15 @@ function decision(edge, line, type, teamSc, aSc, bSc){
   if(Math.abs(edge) < threshold) return "NO PLAY";
 
   if(edge < 0){
-    if(type === "ft_total")  { if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY"; }
-    if(type === "team")      { if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY"; }
-    if(type === "h1_total")  { if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.63 || bSc >= line*0.63)) return "NO PLAY"; }
+    if(type === "ft_total")  { 
+      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY"; 
+    }
+    if(type === "team")      { 
+      if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY"; 
+    }
+    if(type === "h1_total")  { 
+      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.63 || bSc >= line*0.63)) return "NO PLAY"; 
+    }
   }
 
   return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
@@ -311,16 +320,17 @@ function runEngine(){
   let teamBPace = bFTSc + bFTAll;
   let rawPace   = (teamAPace + teamBPace) / 2;
 
-  let pace = expectedBase ? rawPace / expectedBase : 1;
-  pace = Math.max(clamps.min, Math.min(clamps.max, pace));
+  let pace = 1;
+  if (!isNaN(rawPace) && expectedBase !== 0 && !isNaN(expectedBase)) {
+    pace = rawPace / expectedBase;
+    pace = Math.max(clamps.min, Math.min(clamps.max, pace));
+  }
 
-  // Pace first
   baseAFT = isNaN(baseAFT) ? NaN : baseAFT * pace;
   baseBFT = isNaN(baseBFT) ? NaN : baseBFT * pace;
   baseAH1 = isNaN(baseAH1) ? NaN : baseAH1 * pace;
   baseBH1 = isNaN(baseBH1) ? NaN : baseBH1 * pace;
 
-  // Pre-parse H2H once (fix for double parsing)
   let ftH2Ha = null, ftH2Hb = null;
   let h1H2Ha = null, h1H2Hb = null;
 
@@ -328,17 +338,28 @@ function runEngine(){
     ftH2Ha = parseGames("aFTH2H");
     ftH2Hb = parseGames("bFTH2H");
   }
-
   if(document.getElementById("use1HH2H").checked){
     h1H2Ha = parseGames("aH1H2H");
     h1H2Hb = parseGames("bH1H2H");
   }
 
-  // H2H blending (after pace)
   if(document.getElementById("useFTH2H").checked){
     if(ftH2Ha !== "error" && ftH2Hb !== "error" && ftH2Ha && ftH2Hb && ftH2Ha.length >= 2 && ftH2Hb.length >= 2){
       let wA = dynamicWeight(ftH2Ha);
       let wB = dynamicWeight(ftH2Hb);
+
+      const totalGames = ftH2Ha.length + ftH2Hb.length;
+      wA = wA * (ftH2Ha.length / totalGames);
+      wB = wB * (ftH2Hb.length / totalGames);
+
+      // Cap total H2H influence at ~30%
+      let totalH2HWeight = wA + wB;
+      if (totalH2HWeight > 0.30) {
+        const scale = 0.30 / totalH2HWeight;
+        wA *= scale;
+        wB *= scale;
+      }
+
       let currentTotal = baseAFT + baseBFT;
       let h2hTotal = avg(ftH2Ha) + avg(ftH2Hb);
       if(!isNaN(currentTotal) && currentTotal > 0 && Math.abs(h2hTotal - currentTotal) / currentTotal > 0.20){
@@ -354,12 +375,20 @@ function runEngine(){
     if(h1H2Ha !== "error" && h1H2Hb !== "error" && h1H2Ha && h1H2Hb && h1H2Ha.length >= 2 && h1H2Hb.length >= 2){
       let wA = dynamicWeight(h1H2Ha);
       let wB = dynamicWeight(h1H2Hb);
+      const totalGames = h1H2Ha.length + h1H2Hb.length;
+      wA = wA * (h1H2Ha.length / totalGames);
+      wB = wB * (h1H2Hb.length / totalGames);
+      let totalH2HWeight = wA + wB;
+      if (totalH2HWeight > 0.30) {
+        const scale = 0.30 / totalH2HWeight;
+        wA *= scale;
+        wB *= scale;
+      }
       if(!isNaN(avg(h1H2Ha))) baseAH1 = baseAH1 * (1 - wA) + avg(h1H2Ha) * wA;
       if(!isNaN(avg(h1H2Hb))) baseBH1 = baseBH1 * (1 - wB) + avg(h1H2Hb) * wB;
     }
   }
 
-  // Volatility LAST (after H2H) - fixes asymmetry
   let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
   let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
   baseAFT = applyVolatility(baseAFT, aVol, 12);
@@ -408,7 +437,7 @@ function runEngine(){
       pickText = "—";
     } else {
       edge = p.proj - p.line;
-      let strength = Math.abs(edge / p.line);
+      let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
       pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
       if (pickText !== "NO PLAY" && pickText !== "NaN" && strength >= 0.08 && strength > maxStrength) {
@@ -417,18 +446,27 @@ function runEngine(){
       }
     }
 
-    // H2H empty note (using pre-parsed variables)
     if ((document.getElementById("useFTH2H").checked || document.getElementById("use1HH2H").checked) &&
         pickText !== "—" && displayNote === "") {
       let h2hNote = "";
-      if (document.getElementById("useFTH2H").checked && (ftH2Ha === null || ftH2Hb === null)) {
-        h2hNote = "H2H FT fields empty";
+      if (document.getElementById("useFTH2H").checked) {
+        if (ftH2Ha === null || ftH2Hb === null) {
+          h2hNote = "H2H FT fields empty";
+        } else if (ftH2Ha === "error" || ftH2Hb === "error") {
+          h2hNote = "H2H FT invalid (ignored)";
+        }
       }
-      if (document.getElementById("use1HH2H").checked && (h1H2Ha === null || h1H2Hb === null)) {
-        h2hNote = (h2hNote ? h2hNote + " & " : "") + "H2H 1H fields empty";
+      if (document.getElementById("use1HH2H").checked) {
+        let tempNote = "";
+        if (h1H2Ha === null || h1H2Hb === null) {
+          tempNote = "H2H 1H fields empty";
+        } else if (h1H2Ha === "error" || h1H2Hb === "error") {
+          tempNote = "H2H 1H invalid (ignored)";
+        }
+        h2hNote = h2hNote ? h2hNote + " & " + tempNote : tempNote;
       }
       if (h2hNote) {
-        displayNote = h2hNote + " (ignored)";
+        displayNote = h2hNote;
       }
     }
 
