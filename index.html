@@ -32,6 +32,19 @@ input{
   margin-bottom:4px;
 }
 
+  .league-box{
+  width:100%;
+  padding:14px;
+  font-size:20px;
+  background:#1a1a1a;
+  color:#d4af37;
+  border:2px solid #d4af37;
+  margin-top:8px;
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+}
+  
 input[type="checkbox"]{
   width:12px;
   height:12px;
@@ -79,6 +92,35 @@ transform: translateY(-1px); margin-left: 4px;
 <h1>🏀 Basketball Prediction Engine</h1>
 <div class="wrapper">
 
+  <div class="section">
+  <h3 style="font-size:22px;">League Tier</h3>
+
+  <label style="font-size:18px; margin-top:10px;">Select League</label>
+
+  <select id="leagueSelect" class="league-box">
+    <option value="nba">NBA</option>
+    <option value="euro_elite">EuroLeague</option>
+    <option value="euro_elite">EuroCup</option>
+    <option value="euro_elite">Spain Liga ACB</option>
+    <option value="euro_elite">Turkey BSL</option>
+    <option value="euro_elite">Italy Serie A</option>
+    <option value="euro_elite">Germany BBL</option>
+    <option value="euro_elite">France Pro A</option>
+    <option value="secondary">ABA Liga</option>
+    <option value="secondary">Turkey TBL</option>
+    <option value="secondary">France Pro B</option>
+    <option value="secondary">Poland PLK</option>
+    <option value="secondary">Greece A2</option>
+    <option value="ncaa">NCAA</option>
+    <option value="ncaa">NCAAB</option>
+    <option value="africa">BAL</option>
+    <option value="africa">Nigeria League</option>
+    <option value="africa">Rwanda League</option>
+    <option value="africa">AfroBasket</option>
+    <option value="unknown">Unknown / Mixed</option>
+  </select>
+</div>
+  
 <div class="section">
 <h3>Market Lines</h3>
 <label>FT Total</label>
@@ -210,6 +252,14 @@ return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
 
 function runEngine(){
 
+  let league = document.getElementById("leagueSelect").value;
+
+  let paceMin = 0.92;
+let paceMax = 1.08;
+let ftOverEdge = 0.045;
+let ftUnderEdge = 0.06;
+let volatilityLimit = 12;
+  
 const table=document.getElementById("results");
 table.style.display="table";
 table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
@@ -254,13 +304,13 @@ let expectedBase = (baseAFT + baseBFT) || 160;
 
 let pace = rawPace / expectedBase;
 
-pace = Math.max(0.92, Math.min(1.08, pace));
+pace = Math.max(paceMin, Math.min(paceMax, pace));
 
 let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
 let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
 
-baseAFT = applyVolatility(baseAFT * pace, aVol, 12);
-baseBFT = applyVolatility(baseBFT * pace, bVol, 12);
+baseAFT = applyVolatility(baseAFT * pace, aVol, volatilityLimit);
+baseBFT = applyVolatility(baseBFT * pace, bVol, volatilityLimit);
 
 let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
 let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
