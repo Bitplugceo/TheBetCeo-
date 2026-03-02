@@ -41,8 +41,7 @@ input{
   color:#d4af37;
   border:1px solid #d4af37;
   margin-bottom:4px;
-
-  border-radius:0;              /* 🔥 This removes round corners */
+  border-radius:0;
   appearance:none;
   -webkit-appearance:none;
   -moz-appearance:none;
@@ -85,8 +84,8 @@ th,td{
 .pred-noplay{background:#444;color:#bbb;font-weight:bold;}
 
 .lock {
-font-size: 4px; display: inline-block; vertical-align: middle;
-transform: translateY(-1px); margin-left: 4px;
+  font-size: 4px; display: inline-block; vertical-align: middle;
+  transform: translateY(-1px); margin-left: 4px;
 }
 </style>
 </head>
@@ -97,9 +96,7 @@ transform: translateY(-1px); margin-left: 4px;
 
   <div class="section">
   <h3 style="font-size:22px;">League Tier</h3>
-
   <label style="font-size:18px; margin-top:10px;">Select League</label>
-
   <select id="leagueSelect" class="league-box">
     <option value="nba">NBA</option>
     <option value="euro_elite">EuroLeague</option>
@@ -162,7 +159,6 @@ transform: translateY(-1px); margin-left: 4px;
 
 <div class="section">
 <h3>H2H</h3>
-
 <label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
 <input id="aFTH2H" placeholder="82,78,84,76,82">
 <input id="bFTH2H" placeholder="79,81,77,80,78">
@@ -191,78 +187,77 @@ transform: translateY(-1px); margin-left: 4px;
 <script>
 
 function parseGames(id){
-let raw=document.getElementById(id).value;
-if(!raw) return null;
-let arr=raw.split(",").map(x=>parseFloat(x.trim()));
-if(arr.some(x=>isNaN(x) || x < 0)) return "error";
-return arr;
+  let raw = document.getElementById(id).value.trim();
+  if(!raw) return null;
+  let arr = raw.split(",").map(x => parseFloat(x.trim()));
+  if(arr.some(x => isNaN(x) || x < 0)) return "error";
+  return arr;
 }
 
 function avg(arr){
-if(!arr||arr.length===0) return NaN;
-return arr.reduce((a,b)=>a+b,0)/arr.length;
+  if(!arr || arr.length === 0) return NaN;
+  return arr.reduce((a,b)=>a+b,0) / arr.length;
 }
 
 function stdDev(arr){
-if(!arr||arr.length < 2) return 0;
-let m=avg(arr);
-let variance = arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1);
-return Math.sqrt(variance);
+  if(!arr || arr.length < 2) return 0;
+  let m = avg(arr);
+  let variance = arr.reduce((a,b)=>a+Math.pow(b-m,2),0) / (arr.length - 1);
+  return Math.sqrt(variance);
 }
 
 function mid(val){
-if(!val||!val.includes("-")) return NaN;
-let p=val.split("-").map(x=>x.trim());
-let a=parseFloat(p[0]), b=parseFloat(p[1]);
-if(isNaN(a)||isNaN(b)) return NaN;
-return (a+b)/2;
+  if(!val) return NaN;
+  val = val.trim();
+  if(!val.includes("-")) return NaN;
+  let p = val.split("-").map(x=>x.trim());
+  let a = parseFloat(p[0]), b = parseFloat(p[1]);
+  if(isNaN(a) || isNaN(b)) return NaN;
+  return (a + b) / 2;
 }
 
 function displayLine(val){
-if(isNaN(val)) return "NaN";
-return (Math.round(val*2)/2).toFixed(1);
+  if(isNaN(val)) return "NaN";
+  return (Math.round(val * 2) / 2).toFixed(1);
 }
 
 function dynamicWeight(sample){
-if(!sample||sample.length<2) return 0;
-if(sample.length<=3) return 0.20;
-return 0.30;
+  if(!sample || sample.length < 2) return 0;
+  if(sample.length <= 3) return 0.20;
+  return 0.30;
 }
 
-function applyVolatility(proj,std,limit){
-if(std>limit) return proj*0.96;
-return proj;
+function applyVolatility(proj, std, limit){
+  if(std > limit) return proj * 0.96;
+  return proj;
 }
 
-function decision(edge,line,type,teamSc,aSc,bSc){
+function decision(edge, line, type, teamSc, aSc, bSc){
+  if(isNaN(edge) || isNaN(line)) return "NaN";
 
-if(isNaN(edge)||isNaN(line)) return "NaN";
+  let threshold;
+  if(type === "ft_total")      threshold = edge > 0 ? line * 0.045 : line * 0.06;
+  else if(type === "team")     threshold = edge > 0 ? line * 0.05  : line * 0.065;
+  else if(type === "h1_total") threshold = edge > 0 ? line * 0.06  : line * 0.075;
+  else return "NaN";
 
-let threshold;
-if(type==="ft_total"){ threshold=edge>0?line*ftOverEdge:line*ftUnderEdge; }
-else if(type==="team"){ threshold=edge>0?line*0.05:line*0.065; }
-else if(type==="h1_total"){ threshold=edge>0?line*0.06:line*0.075; }
+  if(Math.abs(edge) < threshold) return "NO PLAY";
 
-if(Math.abs(edge)<threshold) return "NO PLAY";
+  if(edge < 0){
+    if(type === "ft_total")  { if(aSc >= line*0.58 || bSc >= line*0.58) return "NO PLAY"; }
+    if(type === "team")      { if(teamSc >= line*0.58) return "NO PLAY"; }
+    if(type === "h1_total")  { if(aSc >= line*0.63 || bSc >= line*0.63) return "NO PLAY"; }
+  }
 
-if(edge<0){
-if(type==="ft_total"){ if(aSc>=line*0.58||bSc>=line*0.58) return "NO PLAY"; }
-if(type==="team"){ if(teamSc>=line*0.58) return "NO PLAY"; }
-if(type==="h1_total"){ if(aSc>=line*0.63||bSc>=line*0.63) return "NO PLAY"; }
-}
-
-return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
+  return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
 }
 
 function runEngine(){
+  const table = document.getElementById("results");
+  table.style.display = "table";
+  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
-  let league = document.getElementById("leagueSelect").value;
-
-  let paceMin = 0.92;
-  let paceMax = 1.08;
-  let ftOverEdge = 0.045;
-  let ftUnderEdge = 0.06;
-  let volatilityLimit = 12;
+  const league = document.getElementById("leagueSelect").value;
 
   const leagueBases = {
     "nba": 230,
@@ -274,165 +269,151 @@ function runEngine(){
   };
 
   let expectedBase = leagueBases[league] || 160;
-  
-const table=document.getElementById("results");
-table.style.display="table";
-table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
-let ftLine=mid(document.getElementById("ftMarket").value);
-let h1Line=mid(document.getElementById("h1Market").value);
-let aLine=mid(document.getElementById("teamAMarket").value);
-let bLine=mid(document.getElementById("teamBMarket").value);
+  let ftLine  = mid(document.getElementById("ftMarket").value);
+  let h1Line  = mid(document.getElementById("h1Market").value);
+  let aLine   = mid(document.getElementById("teamAMarket").value);
+  let bLine   = mid(document.getElementById("teamBMarket").value);
 
-if(isNaN(ftLine) || isNaN(h1Line) || isNaN(aLine) || isNaN(bLine)){
-  renderError(table);
-  return;
-}
+  let aFTScArr  = parseGames("aFTScored");
+  let aFTAllArr = parseGames("aFTAllowed");
+  let bFTScArr  = parseGames("bFTScored");
+  let bFTAllArr = parseGames("bFTAllowed");
+  let aH1ScArr  = parseGames("aH1Scored");
+  let aH1AllArr = parseGames("aH1Allowed");
+  let bH1ScArr  = parseGames("bH1Scored");
+  let bH1AllArr = parseGames("bH1Allowed");
 
-let aFTScArr=parseGames("aFTScored");
-let aFTAllArr=parseGames("aFTAllowed");
-let bFTScArr=parseGames("bFTScored");
-let bFTAllArr=parseGames("bFTAllowed");
-let aH1ScArr=parseGames("aH1Scored");
-let aH1AllArr=parseGames("aH1Allowed");
-let bH1ScArr=parseGames("bH1Scored");
-let bH1AllArr=parseGames("bH1Allowed");
+  let hasParseError = [aFTScArr, aFTAllArr, bFTScArr, bFTAllArr,
+                       aH1ScArr, aH1AllArr, bH1ScArr, bH1AllArr].includes("error");
 
-if([aFTScArr,aFTAllArr,bFTScArr,bFTAllArr,
-aH1ScArr,aH1AllArr,bH1ScArr,bH1AllArr].includes("error")){
-renderError(table);
-return;
-}
+  if(hasParseError){
+    renderError(table);
+    return;
+  }
 
-let aFTSc=avg(aFTScArr), aFTAll=avg(aFTAllArr);
-let bFTSc=avg(bFTScArr), bFTAll=avg(bFTAllArr);
-let aH1Sc=avg(aH1ScArr), aH1All=avg(aH1AllArr);
-let bH1Sc=avg(bH1ScArr), bH1All=avg(bH1AllArr);
+  let aFTSc  = avg(aFTScArr);
+  let aFTAll = avg(aFTAllArr);
+  let bFTSc  = avg(bFTScArr);
+  let bFTAll = avg(bFTAllArr);
+  let aH1Sc  = avg(aH1ScArr);
+  let aH1All = avg(aH1AllArr);
+  let bH1Sc  = avg(bH1ScArr);
+  let bH1All = avg(bH1AllArr);
 
-let baseAFT=(aFTSc+bFTAll)/2;
-let baseBFT=(bFTSc+aFTAll)/2;
+  let baseAFT = (aFTSc + bFTAll) / 2;
+  let baseBFT = (bFTSc + aFTAll) / 2;
+  let baseAH1 = (aH1Sc + bH1All) / 2;
+  let baseBH1 = (bH1Sc + aH1All) / 2;
 
-let baseAH1 = (aH1Sc + bH1All) / 2;
-let baseBH1 = (bH1Sc + aH1All) / 2;
-  
-let teamAPace = aFTSc + aFTAll;
-let teamBPace = bFTSc + bFTAll;
+  let teamAPace = aFTSc + aFTAll;
+  let teamBPace = bFTSc + bFTAll;
+  let rawPace   = (teamAPace + teamBPace) / 2;
 
-let rawPace = (teamAPace + teamBPace) / 2;
+  let pace = expectedBase ? rawPace / expectedBase : 1;
+  pace = Math.max(0.92, Math.min(1.08, pace));
 
-let pace = rawPace / expectedBase;
+  // H2H blending (different lengths allowed)
+  if(document.getElementById("useFTH2H").checked){
+    let aH = parseGames("aFTH2H");
+    let bH = parseGames("bFTH2H");
+    if(aH !== "error" && bH !== "error" && aH && bH){
+      let wA = dynamicWeight(aH);
+      let wB = dynamicWeight(bH);
+      let currentTotal = baseAFT + baseBFT;
+      let h2hTotal = avg(aH) + avg(bH);
+      if(currentTotal > 0 && Math.abs(h2hTotal - currentTotal) / currentTotal > 0.20){
+        wA *= 0.5;
+        wB *= 0.5;
+      }
+      baseAFT = baseAFT * (1 - wA) + avg(aH) * wA;
+      baseBFT = baseBFT * (1 - wB) + avg(bH) * wB;
+    }
+  }
 
-pace = Math.max(paceMin, Math.min(paceMax, pace));
+  if(document.getElementById("use1HH2H").checked){
+    let aH = parseGames("aH1H2H");
+    let bH = parseGames("bH1H2H");
+    if(aH !== "error" && bH !== "error" && aH && bH){
+      let wA = dynamicWeight(aH);
+      let wB = dynamicWeight(bH);
+      baseAH1 = baseAH1 * (1 - wA) + avg(aH) * wA;
+      baseBH1 = baseBH1 * (1 - wB) + avg(bH) * wB;
+    }
+  }
 
-// SAFE H2H before adjustments
-if(document.getElementById("useFTH2H").checked){
-let aH=parseGames("aFTH2H");
-let bH=parseGames("bFTH2H");
+  // Apply pace and volatility
+  baseAFT *= pace;
+  baseBFT *= pace;
 
-if(aH==="error"||bH==="error"){ renderError(table); return; }
+  let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
+  let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
+  baseAFT = applyVolatility(baseAFT, aVol, 12);
+  baseBFT = applyVolatility(baseBFT, bVol, 12);
 
-if(aH&&bH){
-let wA=dynamicWeight(aH);
-let wB=dynamicWeight(bH);
+  baseAH1 *= pace;
+  baseBH1 *= pace;
 
-let currentTotal=baseAFT+baseBFT;
-let h2hTotal=avg(aH)+avg(bH);
+  let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
+  let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
+  baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
+  baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
 
-if(currentTotal>0 && Math.abs(h2hTotal-currentTotal)/currentTotal>0.20){
-wA*=0.5; wB*=0.5;
-}
+  let ftProj  = baseAFT + baseBFT;
+  let h1Proj  = baseAH1 + baseBH1;
 
-baseAFT=baseAFT*(1-wA)+avg(aH)*wA;
-baseBFT=baseBFT*(1-wB)+avg(bH)*wB;
-}
-}
+  let picks = [
+    {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
+    {name:"1H Total",     proj:h1Proj,  line:h1Line,  type:"h1_total", teamSc:null, aSc:aH1Sc, bSc:bH1Sc},
+    {name:"Team A Total", proj:baseAFT, line:aLine,   type:"team",     teamSc:aFTSc, aSc:aFTSc, bSc:bFTSc},
+    {name:"Team B Total", proj:baseBFT, line:bLine,   type:"team",     teamSc:bFTSc, aSc:aFTSc, bSc:bFTSc}
+  ];
 
-if(document.getElementById("use1HH2H").checked){
-let aH=parseGames("aH1H2H");
-let bH=parseGames("bH1H2H");
+  let lockIndex = -1;
+  let maxStrength = 0;
 
-if(aH==="error"||bH==="error"){ renderError(table); return; }
+  picks.forEach((p, i) => {
+    if(isNaN(p.proj) || isNaN(p.line)){
+      p.edge = NaN;
+      p.pick = "NaN";
+    } else {
+      p.edge = p.proj - p.line;
+      p.strength = Math.abs(p.edge / p.line);
+      p.pick = decision(p.edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+      if(p.pick !== "NO PLAY" && p.strength >= 0.08 && p.strength > maxStrength){
+        maxStrength = p.strength;
+        lockIndex = i;
+      }
+    }
 
-if(aH&&bH){
-let wA=dynamicWeight(aH);
-let wB=dynamicWeight(bH);
-
-baseAH1=baseAH1*(1-wA)+avg(aH)*wA;
-baseBH1=baseBH1*(1-wB)+avg(bH)*wB;
-}
-}
-
-// Now apply pace and volatility
-baseAFT *= pace;
-baseBFT *= pace;
-
-let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
-let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
-
-baseAFT = applyVolatility(baseAFT, aVol, volatilityLimit);
-baseBFT = applyVolatility(baseBFT, bVol, volatilityLimit);
-
-baseAH1 *= pace;
-baseBH1 *= pace;
-
-let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
-let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
-
-baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
-baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
-
-let ftProj=baseAFT+baseBFT;
-let h1Proj=baseAH1+baseBH1;
-
-let picks=[
-{name:"FT Total",proj:ftProj,line:ftLine,type:"ft_total",teamSc:null,aSc:aFTSc,bSc:bFTSc},
-{name:"1H Total",proj:h1Proj,line:h1Line,type:"h1_total",teamSc:null,aSc:aH1Sc,bSc:bH1Sc},
-{name:"Team A Total",proj:baseAFT,line:aLine,type:"team",teamSc:aFTSc,aSc:aFTSc,bSc:bFTSc},
-{name:"Team B Total",proj:baseBFT,line:bLine,type:"team",teamSc:bFTSc,aSc:aFTSc,bSc:bFTSc}
-];
-
-let lockIndex=-1,maxStrength=0;
-
-picks.forEach((p,i)=>{
-if(isNaN(p.proj)||isNaN(p.line)){p.edge=NaN;p.pick="NaN";return;}
-p.edge=p.proj-p.line;
-p.strength=Math.abs(p.edge/p.line);
-p.pick=decision(p.edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
-if(p.pick!=="NO PLAY"&&p.strength>=0.08&&p.strength>maxStrength){
-maxStrength=p.strength; lockIndex=i;
-}
-});
-
-picks.forEach((p,i)=>{
-let row=table.insertRow();
-let pred=p.pick;
-if(i===lockIndex&&p.pick!=="NO PLAY"){
-pred+=` <span class="lock">🔒</span>`;
-}
-row.innerHTML=`
-<td>${p.name}</td>
-<td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
-<td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
-<td class="${
-pred&&pred.startsWith("OVER")?"pred-over":
-pred&&pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
-${pred}</td>`;
-});
+    let row = table.insertRow();
+    let pred = p.pick;
+    if(i === lockIndex && p.pick !== "NO PLAY" && p.pick !== "NaN"){
+      pred += ` <span class="lock">🔒</span>`;
+    }
+    row.innerHTML = `
+      <td>${p.name}</td>
+      <td>${isNaN(p.proj) ? "NaN" : p.proj.toFixed(2)}</td>
+      <td>${isNaN(p.edge) ? "NaN" : p.edge.toFixed(2)}</td>
+      <td class="${pred.startsWith("OVER") ? "pred-over" : pred.startsWith("UNDER") ? "pred-under" : "pred-noplay"}">
+        ${pred}
+      </td>`;
+  });
 }
 
 function renderError(table){
-["FT Total","1H Total","Team A Total","Team B Total"].forEach(name=>{
-let row=table.insertRow();
-row.innerHTML=`<td>${name}</td><td>Error</td><td>Error</td><td>Error</td>`;
-});
+  ["FT Total","1H Total","Team A Total","Team B Total"].forEach(name => {
+    let row = table.insertRow();
+    row.innerHTML = `<td>${name}</td><td>Error</td><td>Error</td><td>Error</td>`;
+  });
 }
 
 function clearAll(){
-document.querySelectorAll("input").forEach(i=>i.value="");
-document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
-const table=document.getElementById("results");
-table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
-table.style.display="none";
+  document.querySelectorAll("input").forEach(i => i.value = "");
+  document.querySelectorAll("input[type=checkbox]").forEach(i => i.checked = false);
+  const table = document.getElementById("results");
+  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+  table.style.display = "none";
 }
 </script>
 </body>
