@@ -28,12 +28,11 @@ th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
 .pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
 .pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
 .pred-noplay{background:#444;color:#bbb;font-weight:bold;}
-.lock{font-size:4px;vertical-align:middle;margin-left:4px;}
+.lock{font-size:12px;margin-left:4px;}
 </style>
 </head>
 
 <body>
-
 <h1>🏀 Basketball Prediction Engine</h1>
 <div class="wrapper">
 
@@ -74,20 +73,14 @@ th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
 </div>
 
 <div class="section">
-<h3>H2H (Optional)</h3>
-<label><input type="checkbox" id="useFTH2H"> Use FT H2H</label>
-<label>Team A FT H2H</label>
-<input id="aFTH2H" placeholder="80.4">
-<label>Team B FT H2H</label>
-<input id="bFTH2H" placeholder="79.3">
+<h3>H2H (2024+, OT removed)</h3>
+<label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
+<input id="aFTH2H" placeholder="82,78,84,76,82">
+<input id="bFTH2H" placeholder="79,81,77,80,78">
 
-<br>
-
-<label><input type="checkbox" id="use1HH2H"> Use 1H H2H</label>
-<label>Team A 1H H2H</label>
-<input id="aH1H2H" placeholder="39.1">
-<label>Team B 1H H2H</label>
-<input id="bH1H2H" placeholder="38.7">
+<label><input type="checkbox" id="use1HH2H"> Use 1H H2H (min 2 games)</label>
+<input id="aH1H2H" placeholder="41,38,42,36,39">
+<input id="bH1H2H" placeholder="39,37,40,36,38">
 </div>
 
 <div style="text-align:center;">
@@ -109,49 +102,46 @@ th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
 <script>
 
 function parseGames(id){
-  let raw=document.getElementById(id).value;
-  if(!raw) return null;
-  let arr=raw.split(",").map(x=>parseFloat(x.trim()));
-  if(arr.some(x=>isNaN(x))) return "error";
-  return arr;
+let raw=document.getElementById(id).value;
+if(!raw) return null;
+let arr=raw.split(",").map(x=>parseFloat(x.trim()));
+if(arr.some(x=>isNaN(x))) return "error";
+return arr;
 }
 
 function avg(arr){
-  if(!arr||arr.length===0) return NaN;
-  return arr.reduce((a,b)=>a+b,0)/arr.length;
+if(!arr||arr.length===0) return NaN;
+return arr.reduce((a,b)=>a+b,0)/arr.length;
 }
 
 function stdDev(arr){
-  if(!arr||arr.length===0) return 0;
-  let m=avg(arr);
-  return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/arr.length);
+if(!arr||arr.length===0) return 0;
+let m=avg(arr);
+return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/arr.length);
 }
 
 function mid(val){
-  if(!val||!val.includes("-")) return NaN;
-  let p=val.split("-");
-  let a=parseFloat(p[0]), b=parseFloat(p[1]);
-  if(isNaN(a)||isNaN(b)) return NaN;
-  return (a+b)/2;
+if(!val||!val.includes("-")) return NaN;
+let p=val.split("-");
+let a=parseFloat(p[0]), b=parseFloat(p[1]);
+if(isNaN(a)||isNaN(b)) return NaN;
+return (a+b)/2;
 }
 
 function displayLine(val){
-  if(isNaN(val)) return "NaN";
-  return (Math.round(val*2)/2).toFixed(1);
+if(isNaN(val)) return "NaN";
+return (Math.round(val*2)/2).toFixed(1);
 }
 
 function dynamicWeight(sample){
-  if(!sample||sample.length===0) return 0;
-  if(sample.length===1) return 0.10;
-  if(sample.length<=3) return 0.20;
-  return 0.30;
+if(!sample||sample.length<2) return 0; // force min 2 games
+if(sample.length<=3) return 0.20;
+return 0.30;
 }
 
-function applyVolatilityAdjustment(proj,std,threshold){
-  if(std>threshold){
-    return proj*0.96;
-  }
-  return proj;
+function applyVolatility(proj,std,limit){
+if(std>limit) return proj*0.96;
+return proj;
 }
 
 function decision(edge,line,type,teamSc,aSc,bSc){
@@ -159,7 +149,6 @@ function decision(edge,line,type,teamSc,aSc,bSc){
 if(isNaN(edge)||isNaN(line)) return "NaN";
 
 let threshold;
-
 if(type==="ft_total"){ threshold=edge>0?line*0.045:line*0.06; }
 if(type==="team"){ threshold=edge>0?line*0.05:line*0.065; }
 if(type==="h1_total"){ threshold=edge>0?line*0.06:line*0.075; }
@@ -209,51 +198,39 @@ let bH1Sc=avg(bH1ScArr), bH1All=avg(bH1AllArr);
 let baseAFT=(aFTSc+bFTAll)/2;
 let baseBFT=(bFTSc+aFTAll)/2;
 
-let paceModifier=((aFTSc+aFTAll+bFTSc+bFTAll)/2)/160;
-paceModifier=Math.max(0.9,Math.min(1.1,paceModifier));
+let pace=((aFTSc+aFTAll+bFTSc+bFTAll)/2)/160;
+pace=Math.max(0.9,Math.min(1.1,pace));
 
-baseAFT*=paceModifier;
-baseBFT*=paceModifier;
+baseAFT=applyVolatility(baseAFT*pace,stdDev(aFTScArr),12);
+baseBFT=applyVolatility(baseBFT*pace,stdDev(bFTScArr),12);
 
-baseAFT=applyVolatilityAdjustment(baseAFT,stdDev(aFTScArr),12);
-baseBFT=applyVolatilityAdjustment(baseBFT,stdDev(bFTScArr),12);
+let baseAH1=applyVolatility((aH1Sc+bH1All)/2,stdDev(aH1ScArr),8);
+let baseBH1=applyVolatility((bH1Sc+aH1All)/2,stdDev(bH1ScArr),8);
 
-let baseAH1=(aH1Sc+bH1All)/2;
-let baseBH1=(bH1Sc+aH1All)/2;
-
-baseAH1=applyVolatilityAdjustment(baseAH1,stdDev(aH1ScArr),8);
-baseBH1=applyVolatilityAdjustment(baseBH1,stdDev(bH1ScArr),8);
-
-// H2H Adaptive
 if(document.getElementById("useFTH2H").checked){
-let aH2HArr=parseGames("aFTH2H");
-let bH2HArr=parseGames("bFTH2H");
-if(aH2HArr!=="error"&&bH2HArr!=="error"){
-let weightA=dynamicWeight(aH2HArr);
-let weightB=dynamicWeight(bH2HArr);
-
+let aH=parseGames("aFTH2H");
+let bH=parseGames("bFTH2H");
+if(aH!=="error"&&bH!=="error"){
+let wA=dynamicWeight(aH);
+let wB=dynamicWeight(bH);
 let currentTotal=baseAFT+baseBFT;
-let h2hTotal=avg(aH2HArr)+avg(bH2HArr);
-
+let h2hTotal=avg(aH)+avg(bH);
 if(Math.abs(h2hTotal-currentTotal)/currentTotal>0.20){
-weightA*=0.5;
-weightB*=0.5;
+wA*=0.5; wB*=0.5;
 }
-
-baseAFT=baseAFT*(1-weightA)+avg(aH2HArr)*weightA;
-baseBFT=baseBFT*(1-weightB)+avg(bH2HArr)*weightB;
+baseAFT=baseAFT*(1-wA)+avg(aH)*wA;
+baseBFT=baseBFT*(1-wB)+avg(bH)*wB;
 }
 }
 
 if(document.getElementById("use1HH2H").checked){
-let aH2HArr=parseGames("aH1H2H");
-let bH2HArr=parseGames("bH1H2H");
-if(aH2HArr!=="error"&&bH2HArr!=="error"){
-let weightA=dynamicWeight(aH2HArr);
-let weightB=dynamicWeight(bH2HArr);
-
-baseAH1=baseAH1*(1-weightA)+avg(aH2HArr)*weightA;
-baseBH1=baseBH1*(1-weightB)+avg(bH2HArr)*weightB;
+let aH=parseGames("aH1H2H");
+let bH=parseGames("bH1H2H");
+if(aH!=="error"&&bH!=="error"){
+let wA=dynamicWeight(aH);
+let wB=dynamicWeight(bH);
+baseAH1=baseAH1*(1-wA)+avg(aH)*wA;
+baseBH1=baseBH1*(1-wB)+avg(bH)*wB;
 }
 }
 
@@ -270,39 +247,42 @@ let picks=[
 let lockIndex=-1,maxStrength=0;
 
 picks.forEach((p,i)=>{
-if(isNaN(p.proj)||isNaN(p.line)){ p.edge=NaN; p.pick="NaN"; return; }
+if(isNaN(p.proj)||isNaN(p.line)){p.edge=NaN;p.pick="NaN";return;}
 p.edge=p.proj-p.line;
 p.strength=Math.abs(p.edge/p.line);
 p.pick=decision(p.edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
 if(p.pick!=="NO PLAY"&&p.strength>=0.08&&p.strength>maxStrength){
-maxStrength=p.strength;
-lockIndex=i;
+maxStrength=p.strength; lockIndex=i;
 }
 });
 
 picks.forEach((p,i)=>{
 let row=table.insertRow();
 let pred=p.pick;
-if(i===lockIndex&&p.pick!=="NO PLAY"){pred+=` <span class="lock">🔒</span>`;}
+if(i===lockIndex&&p.pick!=="NO PLAY"){pred+=" 🔒";}
 row.innerHTML=`
 <td>${p.name}</td>
 <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
 <td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
 <td class="${
-pred&&pred.startsWith("OVER")?"pred-over":
-pred&&pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
+pred.startsWith("OVER")?"pred-over":
+pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
 ${pred}</td>`;
 });
 }
 
 function renderError(table){
-let picks=["FT Total","1H Total","Team A Total","Team B Total"];
-picks.forEach(name=>{
+["FT Total","1H Total","Team A Total","Team B Total"].forEach(name=>{
 let row=table.insertRow();
 row.innerHTML=`<td>${name}</td><td>Error</td><td>Error</td><td>Error</td>`;
 });
 }
 
+function clearAll(){
+document.querySelectorAll("input").forEach(i=>i.value="");
+document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
+document.getElementById("results").style.display="none";
+}
 </script>
 </body>
 </html>
