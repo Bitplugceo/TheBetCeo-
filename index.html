@@ -150,8 +150,11 @@ th,td{
 <br>
 
 <label><input type="checkbox" id="use1HH2H"></label>
-<label>1H Combined H2H</label>
-<input id="h1H2H" placeholder="78.6">
+<label>Team A 1H H2H</label>
+<input id="aH1H2H" placeholder="39.1">
+
+<label>Team B 1H H2H</label>
+<input id="bH1H2H" placeholder="38.7">
 
 </div>
 
@@ -281,13 +284,11 @@ if(document.getElementById("useFTH2H").checked){
 }
 
 if(document.getElementById("use1HH2H").checked){
-  let h1H2H=parseFloat(document.getElementById("h1H2H").value);
-  if(!isNaN(h1H2H)){
-    let combined=(baseAH1+baseBH1);
-    let blended=(combined*0.7)+(h1H2H*0.3);
-    baseAH1=blended/2;
-    baseBH1=blended/2;
-  }
+  let aH2H=parseFloat(document.getElementById("aH1H2H").value);
+  let bH2H=parseFloat(document.getElementById("bH1H2H").value);
+
+  if(!isNaN(aH2H)) baseAH1=(baseAH1*0.7)+(aH2H*0.3);
+  if(!isNaN(bH2H)) baseBH1=(baseBH1*0.7)+(bH2H*0.3);
 }
 
 let ftProj=baseAFT+baseBFT;
