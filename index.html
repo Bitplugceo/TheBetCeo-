@@ -20,15 +20,59 @@ body{background:#111;color:#d4af37;font-family:Segoe UI,sans-serif;margin:0;}
 h1{text-align:center;font-size:18px;margin:10px 0;}
 .section{border:1px solid #d4af37;background:#1a1a1a;padding:8px;margin:6px auto;}
 label{display:block;font-size:12px;margin-bottom:3px;}
-input{width:100%;max-width:260px;padding:5px;font-size:12px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
+
+input{
+  width:100%;
+  max-width:260px;
+  padding:5px;
+  font-size:12px;
+  background:#222;
+  color:#d4af37;
+  border:1px solid #d4af37;
+  margin-bottom:4px;
+}
+
+input[type="checkbox"]{
+  width:12px;
+  height:12px;
+  margin-right:6px;
+  vertical-align:middle;
+}
+
 ::placeholder{color:rgba(255,255,255,0.35);}
-button{padding:6px 16px;margin:6px;font-weight:bold;background:#d4af37;color:#111;border:none;cursor:pointer;}
-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
-th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
+
+button{
+  padding:6px 16px;
+  margin:6px;
+  font-weight:bold;
+  background:#d4af37;
+  color:#111;
+  border:none;
+  cursor:pointer;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+  font-size:12px;
+}
+
+th,td{
+  border:1px solid #d4af37;
+  padding:6px;
+  text-align:center;
+}
+
 .pred-over{background:#1e7d3a;color:#fff;font-weight:bold;}
 .pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
 .pred-noplay{background:#444;color:#bbb;font-weight:bold;}
-.lock{font-size:12px;margin-left:4px;}
+
+.lock{
+  font-size:4px;
+  vertical-align:middle;
+  margin-left:4px;
+}
 </style>
 </head>
 
@@ -74,6 +118,7 @@ th,td{border:1px solid #d4af37;padding:6px;text-align:center;}
 
 <div class="section">
 <h3>H2H (2024+, OT removed)</h3>
+
 <label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
 <input id="aFTH2H" placeholder="82,78,84,76,82">
 <input id="bFTH2H" placeholder="79,81,77,80,78">
@@ -134,7 +179,7 @@ return (Math.round(val*2)/2).toFixed(1);
 }
 
 function dynamicWeight(sample){
-if(!sample||sample.length<2) return 0; // force min 2 games
+if(!sample||sample.length<2) return 0;
 if(sample.length<=3) return 0.20;
 return 0.30;
 }
@@ -207,17 +252,24 @@ baseBFT=applyVolatility(baseBFT*pace,stdDev(bFTScArr),12);
 let baseAH1=applyVolatility((aH1Sc+bH1All)/2,stdDev(aH1ScArr),8);
 let baseBH1=applyVolatility((bH1Sc+aH1All)/2,stdDev(bH1ScArr),8);
 
+// SAFE H2H
 if(document.getElementById("useFTH2H").checked){
 let aH=parseGames("aFTH2H");
 let bH=parseGames("bFTH2H");
-if(aH!=="error"&&bH!=="error"){
+
+if(aH==="error"||bH==="error"){ renderError(table); return; }
+
+if(aH&&bH){
 let wA=dynamicWeight(aH);
 let wB=dynamicWeight(bH);
+
 let currentTotal=baseAFT+baseBFT;
 let h2hTotal=avg(aH)+avg(bH);
-if(Math.abs(h2hTotal-currentTotal)/currentTotal>0.20){
+
+if(currentTotal>0 && Math.abs(h2hTotal-currentTotal)/currentTotal>0.20){
 wA*=0.5; wB*=0.5;
 }
+
 baseAFT=baseAFT*(1-wA)+avg(aH)*wA;
 baseBFT=baseBFT*(1-wB)+avg(bH)*wB;
 }
@@ -226,9 +278,13 @@ baseBFT=baseBFT*(1-wB)+avg(bH)*wB;
 if(document.getElementById("use1HH2H").checked){
 let aH=parseGames("aH1H2H");
 let bH=parseGames("bH1H2H");
-if(aH!=="error"&&bH!=="error"){
+
+if(aH==="error"||bH==="error"){ renderError(table); return; }
+
+if(aH&&bH){
 let wA=dynamicWeight(aH);
 let wB=dynamicWeight(bH);
+
 baseAH1=baseAH1*(1-wA)+avg(aH)*wA;
 baseBH1=baseBH1*(1-wB)+avg(bH)*wB;
 }
@@ -259,14 +315,16 @@ maxStrength=p.strength; lockIndex=i;
 picks.forEach((p,i)=>{
 let row=table.insertRow();
 let pred=p.pick;
-if(i===lockIndex&&p.pick!=="NO PLAY"){pred+=" 🔒";}
+if(i===lockIndex&&p.pick!=="NO PLAY"){
+pred+=` <span class="lock">🔒</span>`;
+}
 row.innerHTML=`
 <td>${p.name}</td>
 <td>${isNaN(p.proj)?"NaN":p.proj.toFixed(2)}</td>
 <td>${isNaN(p.edge)?"NaN":p.edge.toFixed(2)}</td>
 <td class="${
-pred.startsWith("OVER")?"pred-over":
-pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
+pred&&pred.startsWith("OVER")?"pred-over":
+pred&&pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">
 ${pred}</td>`;
 });
 }
