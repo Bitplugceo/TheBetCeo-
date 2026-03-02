@@ -194,7 +194,7 @@ function parseGames(id){
 let raw=document.getElementById(id).value;
 if(!raw) return null;
 let arr=raw.split(",").map(x=>parseFloat(x.trim()));
-if(arr.some(x=>isNaN(x))) return "error";
+if(arr.some(x=>isNaN(x) || x < 0)) return "error";
 return arr;
 }
 
@@ -204,14 +204,15 @@ return arr.reduce((a,b)=>a+b,0)/arr.length;
 }
 
 function stdDev(arr){
-if(!arr||arr.length===0) return 0;
+if(!arr||arr.length < 2) return 0;
 let m=avg(arr);
-return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/arr.length);
+let variance = arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1);
+return Math.sqrt(variance);
 }
 
 function mid(val){
 if(!val||!val.includes("-")) return NaN;
-let p=val.split("-");
+let p=val.split("-").map(x=>x.trim());
 let a=parseFloat(p[0]), b=parseFloat(p[1]);
 if(isNaN(a)||isNaN(b)) return NaN;
 return (a+b)/2;
@@ -238,9 +239,9 @@ function decision(edge,line,type,teamSc,aSc,bSc){
 if(isNaN(edge)||isNaN(line)) return "NaN";
 
 let threshold;
-if(type==="ft_total"){ threshold=edge>0?line*0.045:line*0.06; }
-if(type==="team"){ threshold=edge>0?line*0.05:line*0.065; }
-if(type==="h1_total"){ threshold=edge>0?line*0.06:line*0.075; }
+if(type==="ft_total"){ threshold=edge>0?line*ftOverEdge:line*ftUnderEdge; }
+else if(type==="team"){ threshold=edge>0?line*0.05:line*0.065; }
+else if(type==="h1_total"){ threshold=edge>0?line*0.06:line*0.075; }
 
 if(Math.abs(edge)<threshold) return "NO PLAY";
 
@@ -258,10 +259,21 @@ function runEngine(){
   let league = document.getElementById("leagueSelect").value;
 
   let paceMin = 0.92;
-let paceMax = 1.08;
-let ftOverEdge = 0.045;
-let ftUnderEdge = 0.06;
-let volatilityLimit = 12;
+  let paceMax = 1.08;
+  let ftOverEdge = 0.045;
+  let ftUnderEdge = 0.06;
+  let volatilityLimit = 12;
+
+  const leagueBases = {
+    "nba": 230,
+    "euro_elite": 175,
+    "secondary": 170,
+    "ncaa": 150,
+    "africa": 160,
+    "unknown": 160
+  };
+
+  let expectedBase = leagueBases[league] || 160;
   
 const table=document.getElementById("results");
 table.style.display="table";
@@ -271,6 +283,11 @@ let ftLine=mid(document.getElementById("ftMarket").value);
 let h1Line=mid(document.getElementById("h1Market").value);
 let aLine=mid(document.getElementById("teamAMarket").value);
 let bLine=mid(document.getElementById("teamBMarket").value);
+
+if(isNaN(ftLine) || isNaN(h1Line) || isNaN(aLine) || isNaN(bLine)){
+  renderError(table);
+  return;
+}
 
 let aFTScArr=parseGames("aFTScored");
 let aFTAllArr=parseGames("aFTAllowed");
@@ -295,7 +312,7 @@ let bH1Sc=avg(bH1ScArr), bH1All=avg(bH1AllArr);
 let baseAFT=(aFTSc+bFTAll)/2;
 let baseBFT=(bFTSc+aFTAll)/2;
 
-  let baseAH1 = (aH1Sc + bH1All) / 2;
+let baseAH1 = (aH1Sc + bH1All) / 2;
 let baseBH1 = (bH1Sc + aH1All) / 2;
   
 let teamAPace = aFTSc + aFTAll;
@@ -303,25 +320,11 @@ let teamBPace = bFTSc + bFTAll;
 
 let rawPace = (teamAPace + teamBPace) / 2;
 
-let expectedBase = (baseAFT + baseBFT) || 160;
-
 let pace = rawPace / expectedBase;
 
 pace = Math.max(paceMin, Math.min(paceMax, pace));
 
-let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
-let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
-
-baseAFT = applyVolatility(baseAFT * pace, aVol, volatilityLimit);
-baseBFT = applyVolatility(baseBFT * pace, bVol, volatilityLimit);
-
-let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
-let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
-
-baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
-baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
-
-// SAFE H2H
+// SAFE H2H before adjustments
 if(document.getElementById("useFTH2H").checked){
 let aH=parseGames("aFTH2H");
 let bH=parseGames("bFTH2H");
@@ -358,6 +361,25 @@ baseAH1=baseAH1*(1-wA)+avg(aH)*wA;
 baseBH1=baseBH1*(1-wB)+avg(bH)*wB;
 }
 }
+
+// Now apply pace and volatility
+baseAFT *= pace;
+baseBFT *= pace;
+
+let aVol = (stdDev(aFTScArr) + stdDev(aFTAllArr)) / 2;
+let bVol = (stdDev(bFTScArr) + stdDev(bFTAllArr)) / 2;
+
+baseAFT = applyVolatility(baseAFT, aVol, volatilityLimit);
+baseBFT = applyVolatility(baseBFT, bVol, volatilityLimit);
+
+baseAH1 *= pace;
+baseBH1 *= pace;
+
+let aH1Vol = (stdDev(aH1ScArr) + stdDev(aH1AllArr)) / 2;
+let bH1Vol = (stdDev(bH1ScArr) + stdDev(bH1AllArr)) / 2;
+
+baseAH1 = applyVolatility(baseAH1, aH1Vol, 8);
+baseBH1 = applyVolatility(baseBH1, bH1Vol, 8);
 
 let ftProj=baseAFT+baseBFT;
 let h1Proj=baseAH1+baseBH1;
@@ -408,7 +430,9 @@ row.innerHTML=`<td>${name}</td><td>Error</td><td>Error</td><td>Error</td>`;
 function clearAll(){
 document.querySelectorAll("input").forEach(i=>i.value="");
 document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
-document.getElementById("results").style.display="none";
+const table=document.getElementById("results");
+table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+table.style.display="none";
 }
 </script>
 </body>
