@@ -32,6 +32,17 @@ input{
   margin-bottom:4px;
 }
 
+  select{
+  width:100%;
+  max-width:260px;
+  padding:5px;
+  font-size:12px;
+  background:#222;
+  color:#d4af37;
+  border:1px solid #d4af37;
+  margin-bottom:4px;
+}
+  
 input[type="checkbox"]{
   width:12px;
   height:12px;
@@ -79,6 +90,20 @@ transform: translateY(-1px); margin-left: 4px;
 <h1>🏀 Basketball Prediction Engine</h1>
 <div class="wrapper">
 
+  <div class="section">
+  <h3>League Tier</h3>
+  
+  <label>Select League</label>
+  <select id="leagueSelect" class="input-box">
+    <option value="225">Tier 1 – NBA (225)</option>
+    <option value="160" selected>Tier 2 – Elite Europe (160)</option>
+    <option value="150">Tier 3 – Mid Europe (150)</option>
+    <option value="140">Tier 4 – NCAA (140)</option>
+    <option value="135">Tier 5 – Slow / FIBA (135)</option>
+    <option value="145">Tier 6 – Unknown (145)</option>
+  </select>
+</div>
+  
 <div class="section">
 <h3>Market Lines</h3>
 <label>FT Total</label>
@@ -250,7 +275,8 @@ let teamBPace = bFTSc + bFTAll;
 
 let rawPace = (teamAPace + teamBPace) / 2;
 
-let expectedBase = (baseAFT + baseBFT) || 160;
+let leagueBase = parseFloat(document.getElementById("leagueSelect").value);
+let expectedBase = (baseAFT + baseBFT + leagueBase) / 2;
 
 let pace = rawPace / expectedBase;
 
