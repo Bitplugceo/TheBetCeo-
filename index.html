@@ -298,7 +298,6 @@ function runEngine(){
   baseBFT = isNaN(baseBFT) ? NaN : baseBFT * pace;
 
   let ftH2Ha = null, ftH2Hb = null;
-  let h1H2Ha = null, h1H2Hb = null;
 
   if(document.getElementById("useFTH2H").checked){
     ftH2Ha = parseGames("aFTH2H");
@@ -365,13 +364,6 @@ function runEngine(){
         } else {
           displayNote = "Missing / Invalid Last-5 Data";
         }
-      } else if (p.name.includes("1H")) {
-        if (aH1ScArr === null || aH1AllArr === null || bH1ScArr === null || bH1AllArr === null) {
-          displayNote = "Missing Last-5 Data (1H)";
-        } else {
-          displayNote = "Missing / Invalid Last-5 Data";
-        }
-      }
       pickText = "—";
     } else {
       edge = p.proj - p.line;
@@ -384,7 +376,7 @@ function runEngine(){
       }
     }
 
-    if ((document.getElementById("useFTH2H").checked || document.getElementById("use1HH2H").checked) &&
+    if (document.getElementById("useFTH2H").checked &&
         pickText !== "—" && displayNote === "") {
       let h2hNote = "";
       if (document.getElementById("useFTH2H").checked) {
@@ -393,15 +385,6 @@ function runEngine(){
         } else if (ftH2Ha === "error" || ftH2Hb === "error") {
           h2hNote = "H2H FT invalid (ignored)";
         }
-      }
-      if (document.getElementById("use1HH2H").checked) {
-        let tempNote = "";
-        if (h1H2Ha === null || h1H2Hb === null) {
-          tempNote = "H2H 1H fields empty";
-        } else if (h1H2Ha === "error" || h1H2Hb === "error") {
-          tempNote = "H2H 1H invalid (ignored)";
-        }
-        h2hNote = h2hNote ? h2hNote + " & " + tempNote : tempNote;
       }
       if (h2hNote) {
         displayNote = h2hNote;
