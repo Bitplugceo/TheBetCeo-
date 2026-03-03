@@ -3,122 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Basketball Projection Engine</title>
-
-<!-- App Icons -->
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#111111">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BB Engine">
-
+<title>Basketball Prediction Engine</title>
 <style>
-body { background:#111; color:#d4af37; font-family:Segoe UI,sans-serif; margin:0; padding:10px; }
-.wrapper { max-width:1000px; margin:0 auto; }
-h1 { text-align:center; margin:10px 0; }
-.section { border:1px solid #d4af37; background:#1a1a1a; padding:12px; margin:10px 0; border-radius:6px; }
-label { display:block; margin:6px 0 2px; }
-input, select {
-  width:100%; max-width:400px; padding:8px;
-  background:#222; color:#d4af37;
-  border:1px solid #d4af37; border-radius:4px;
-}
-input.error { border-color:#ff6b6b; }
-button {
-  padding:8px 18px; margin:8px 4px;
-  background:#d4af37; color:#111;
-  border:none; border-radius:4px; font-weight:bold;
-  cursor:pointer;
-}
-table { width:100%; border-collapse:collapse; margin-top:14px; display:none; }
-th,td { border:1px solid #d4af37; padding:8px; text-align:center; }
-.pred-over { background:#1e7d3a; color:#fff; font-weight:bold; }
-.pred-under { background:#8b1e1e; color:#fff; font-weight:bold; }
-.pred-noplay { background:#444; color:#bbb; }
-.lock { font-size:0.85em; }
-small { color:#ff6b6b; display:block; }
-#globalError { color:#ff6b6b; min-height:1.2em; margin-top:6px; }
+body{background:#111;color:#ffeb3b;font-family:Segoe UI,Tahoma,sans-serif;margin:0;padding:10px}
+.wrapper{max-width:800px;margin:0 auto}
+.section{border:1px solid #ffeb3b;background:#1a1a1a;padding:14px;margin:10px 0;border-radius:6px}
+label{display:block;margin:6px 0 3px}
+input,select{width:100%;max-width:340px;padding:8px;background:#222;color:#ffeb3b;border:1px solid #ffeb3b;border-radius:4px}
+button{padding:10px 20px;margin:10px 6px;background:#ffeb3b;color:#111;border:none;border-radius:5px;font-weight:bold}
+table{width:100%;border-collapse:collapse;margin-top:16px;display:none}
+th,td{border:1px solid #ffeb3b;padding:8px;text-align:center}
+.pred-over{background:#228B22;color:#fff;font-weight:bold}
+.pred-under{background:#B22222;color:#fff;font-weight:bold}
+.pred-noplay{background:#444;color:#ccc}
 </style>
 </head>
-
 <body>
-<h1>🏀 Basketball Projection Engine</h1>
+<h1>🏀 Basketball Prediction Engine</h1>
 <div class="wrapper">
 
-<!-- ===== LEAGUE DROPDOWN (DETAILED UI) ===== -->
 <div class="section">
 <label>League</label>
 <select id="league">
 <option value="nba">NBA</option>
-
-<option value="euroleague">EuroLeague</option>
-<option value="eurocup">EuroCup</option>
-<option value="acb">Spain Liga ACB</option>
-<option value="bsl">Turkey BSL</option>
-<option value="seriea">Italy Serie A</option>
-<option value="bbl">Germany BBL</option>
-<option value="proa">France Pro A</option>
-
-<option value="aba">ABA Liga</option>
-<option value="tbl">Turkey TBL</option>
-<option value="prob">France Pro B</option>
-<option value="plk">Poland PLK</option>
-<option value="a2">Greece A2</option>
-
-<option value="ncaa">NCAA</option>
-<option value="bal">BAL</option>
-<option value="rwanda">Rwanda League</option>
-<option value="nigeria">Nigeria League</option>
-
-<option value="unknown">Unknown / Mixed</option>
+<option value="euro">EuroLeague</option>
+<option value="unknown">Other</option>
 </select>
+<label><input type="checkbox" id="home"> Team A Home</label>
 </div>
 
 <div class="section">
-<label>FT Total (e.g. 225.5 - 230.5)</label>
-<input id="ftLine"><small id="ftLineErr"></small>
-
-<label>Team A Total</label>
-<input id="aLine"><small id="aLineErr"></small>
-
-<label>Team B Total</label>
-<input id="bLine"><small id="bLineErr"></small>
+<label>Full Game Line</label>
+<input id="ftLine">
+<label>Team A Line</label>
+<input id="aLine">
+<label>Team B Line</label>
+<input id="bLine">
 </div>
 
 <div class="section">
-<h3>Team A Last 5</h3>
-<label>Scored</label>
-<input id="aSc"><small id="aScErr"></small>
-<label>Allowed</label>
-<input id="aAl"><small id="aAlErr"></small>
+<label>Team A Scored</label>
+<input id="aSc">
+<label>Team A Allowed</label>
+<input id="aAl">
+<label>Team B Scored</label>
+<input id="bSc">
+<label>Team B Allowed</label>
+<input id="bAl">
 </div>
 
-<div class="section">
-<h3>Team B Last 5</h3>
-<label>Scored</label>
-<input id="bSc"><small id="bScErr"></small>
-<label>Allowed</label>
-<input id="bAl"><small id="bAlErr"></small>
-</div>
-
-<div style="text-align:center;">
-<button onclick="runEngine()">Run Engine</button>
-<button onclick="clearAll()">Clear</button>
-<div id="globalError"></div>
+<div style="text-align:center">
+<button onclick="run()">Run</button>
 </div>
 
 <table id="results">
 <thead>
 <tr>
-<th>Pick</th>
-<th>Proj</th>
-<th>Edge</th>
-<th>Edge %</th>
-<th>Conf</th>
-<th>Prediction</th>
+<th>Pick</th><th>Proj</th><th>Edge</th><th>Edge %</th><th>Conf</th><th>Decision</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -127,195 +68,150 @@ small { color:#ff6b6b; display:block; }
 </div>
 
 <script>
-
-/* ================= INTERNAL LEAGUE BUCKET MAP ================= */
-
-const leagueMap = {
-  nba:"nba",
-
-  euroleague:"euro_elite",
-  eurocup:"euro_elite",
-  acb:"euro_elite",
-  bsl:"euro_elite",
-  seriea:"euro_elite",
-  bbl:"euro_elite",
-  proa:"euro_elite",
-
-  aba:"secondary",
-  tbl:"secondary",
-  prob:"secondary",
-  plk:"secondary",
-  a2:"secondary",
-
-  ncaa:"ncaa",
-  bal:"africa",
-  rwanda:"africa",
-  nigeria:"africa",
-
-  unknown:"unknown"
+const config={
+leagues:{
+nba:{base:230.6,pace:{min:0.88,max:1.18},offWeight:0.55,minEdge:2,relEdge:0.028,highMult:1.085,rho:0.30},
+euro:{base:172,pace:{min:0.90,max:1.12},offWeight:0.50,minEdge:1.5,relEdge:0.03,highMult:1.085,rho:0.25},
+unknown:{base:165,pace:{min:0.88,max:1.15},offWeight:0.52,minEdge:1.5,relEdge:0.032,highMult:1.085,rho:0.27}
+},
+regPrior:7,
+volLimit:13,
+volPenaltyMax:0.07,
+volPenaltyScale:1.4,
+marketShrink:0.06,
+floorMult:0.68,
+capMult:1.20,
+homeBoost:1.028,
+homeReduce:0.972,
+minLine:50,
+maxInput:250
 };
 
-/* ================= CONFIG ================= */
-
-const CONFIG = {
-  nba:{base:230.6, off:0.57, under:0.63, max:200},
-  euro_elite:{base:172, off:0.54, under:0.64, max:160},
-  secondary:{base:165, off:0.53, under:0.64, max:160},
-  ncaa:{base:148, off:0.56, under:0.62, max:150},
-  africa:{base:158, off:0.55, under:0.63, max:170},
-  unknown:{base:160, off:0.55, under:0.63, max:170}
-};
-
-const paceClamp = {min:0.88,max:1.18};
-const decisionThreshold = {pos:0.028,neg:0.038};
-
-/* ================= UTIL ================= */
-
-const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
-const std=a=>a.length<2?0:Math.sqrt(a.reduce((s,x)=>s+(x-avg(a))**2,0)/(a.length-1));
-
-function parseList(id,errId,max){
-  const el=document.getElementById(id);
-  const err=document.getElementById(errId);
-  err.textContent=''; el.classList.remove('error');
-  const raw=el.value.trim();
-  if(!raw) return null;
-  const parts=raw.split(',');
-  if(parts.some(p=>isNaN(parseFloat(p)))) {
-    err.textContent='Invalid format';
-    el.classList.add('error');
-    return null;
-  }
-  const arr=parts.map(p=>parseFloat(p));
-  if(arr.some(n=>n<0||n>max)){
-    err.textContent='Unrealistic values';
-    el.classList.add('error');
-    return null;
-  }
-  return arr;
+function parseList(str){
+return str.split(",")
+.map(x=>parseFloat(x.trim()))
+.filter(n=>!isNaN(n)&&n>0&&n<config.maxInput);
 }
 
-function parseLine(id,errId){
-  const el=document.getElementById(id);
-  const err=document.getElementById(errId);
-  err.textContent=''; el.classList.remove('error');
-  const v=el.value.trim();
-  if(!v.includes('-')){ err.textContent='Use: low - high'; el.classList.add('error'); return NaN; }
-  const [l,h]=v.split('-').map(x=>parseFloat(x.trim()));
-  if(isNaN(l)||isNaN(h)){ err.textContent='Invalid numbers'; el.classList.add('error'); return NaN; }
-  return (l+h)/2;
+function avg(a){return a.reduce((x,y)=>x+y,0)/a.length;}
+function std(a){
+if(a.length<2)return 0;
+let m=avg(a);
+return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));
 }
 
-function shrink(sample,leagueAvg){
-  const n=sample.length;
-  const w=n>=5?0.25:n>=3?0.40:0.55;
-  return (1-w)*avg(sample)+w*leagueAvg;
+function shrink(mean,prior,n){
+let w=config.regPrior/(config.regPrior+n);
+return mean*(1-w)+prior*w;
 }
 
-function runEngine(){
-
-  const rawLeague=document.getElementById('league').value;
-  const bucket=leagueMap[rawLeague];
-  const cfg=CONFIG[bucket];
-
-  const ftLine=parseLine('ftLine','ftLineErr');
-  const aLine=parseLine('aLine','aLineErr');
-  const bLine=parseLine('bLine','bLineErr');
-
-  const aScA=parseList('aSc','aScErr',cfg.max);
-  const aAlA=parseList('aAl','aAlErr',cfg.max);
-  const bScA=parseList('bSc','bScErr',cfg.max);
-  const bAlA=parseList('bAl','bAlErr',cfg.max);
-
-  if([ftLine,aLine,bLine].some(isNaN) ||
-     [aScA,aAlA,bScA,bAlA].some(v=>!v)){
-    document.getElementById('globalError').textContent='Please fix errors above';
-    return;
-  }
-
-  const teamAvg=cfg.base/2;
-
-  const aSc=shrink(aScA,teamAvg);
-  const aAl=shrink(aAlA,teamAvg);
-  const bSc=shrink(bScA,teamAvg);
-  const bAl=shrink(bAlA,teamAvg);
-
-  const pace=Math.max(paceClamp.min,
-    Math.min(paceClamp.max,
-      (((aSc+aAl)/2 + (bSc+bAl)/2)/cfg.base)
-  ));
-
-  let pA=(cfg.off*aSc + (1-cfg.off)*bAl)*pace;
-  let pB=(cfg.off*bSc + (1-cfg.off)*aAl)*pace;
-
-  pA=Math.min(pA,cfg.max);
-  pB=Math.min(pB,cfg.max);
-
-  const ftProj=pA+pB;
-
-  const picks=[
-    {name:'FT Total',proj:ftProj,line:ftLine,avg:aSc+bSc},
-    {name:'Team A',proj:pA,line:aLine,avg:aSc},
-    {name:'Team B',proj:pB,line:bLine,avg:bSc}
-  ];
-
-  const tbody=document.querySelector('#results tbody');
-  tbody.innerHTML='';
-  let best={val:0,idx:-1};
-
-  picks.forEach((p,i)=>{
-    const edge=p.proj-p.line;
-    const pct=(edge/p.line)*100;
-    const thr=edge>0?decisionThreshold.pos:decisionThreshold.neg;
-
-    let txt='NO PLAY',cls='pred-noplay';
-
-    if(Math.abs(edge)>=thr*p.line){
-      if(edge<0 && p.avg>=p.line*cfg.under){
-        txt='NO PLAY (high scoring)';
-      } else {
-        txt=(edge>0?'OVER ':'UNDER ')+p.line.toFixed(1);
-        cls=edge>0?'pred-over':'pred-under';
-      }
-    }
-
-    if(Math.abs(edge/p.line)>best.val && txt!=='NO PLAY')
-      best={val:Math.abs(edge/p.line),idx:i};
-
-    const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td>${p.name}</td>
-      <td>${p.proj.toFixed(1)}</td>
-      <td>${edge.toFixed(1)}</td>
-      <td>${pct.toFixed(1)}%</td>
-      <td>${confidence(aScA.length,std(aScA))}</td>
-      <td class="${cls}">
-        ${txt}${i===best.idx && txt!=='NO PLAY'?' <span class="lock">🔒</span>':''}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  document.getElementById('results').style.display='table';
+function pace(aSc,aAl,bSc,bAl,base,clamp){
+let offA=(aSc+bAl)/2;
+let offB=(bSc+aAl)/2;
+let raw=(offA+offB)/base;
+return Math.max(clamp.min,Math.min(clamp.max,raw));
 }
 
-function confidence(n,vol){
-  if(n>=5&&vol<9) return 'High';
-  if(n>=3&&vol<13) return 'Medium';
-  return 'Low';
+function volPenalty(p,sd){
+if(sd<=config.volLimit)return p;
+let f=Math.min(1,(sd-config.volLimit)/(config.volLimit*config.volPenaltyScale));
+return p*(1-config.volPenaltyMax*f);
 }
 
-function clearAll(){
-  document.querySelectorAll('input').forEach(el=>{
-    el.value='';
-    el.classList.remove('error');
-  });
-  document.querySelectorAll('small').forEach(s=>s.textContent='');
-  document.getElementById('results').style.display='none';
-  document.querySelector('#results tbody').innerHTML='';
-  document.getElementById('globalError').textContent='';
+function clamp(val,min,max){
+return Math.max(min,Math.min(max,val));
 }
 
+function decision(edge,line,cfg,teamAvg,isUnder){
+if(line<=0)return{txt:"NO PLAY",cls:"pred-noplay"};
+let absE=Math.abs(edge);
+if(absE<cfg.minEdge||absE<cfg.relEdge*line)return{txt:"NO PLAY",cls:"pred-noplay"};
+if(isUnder&&teamAvg>=(cfg.base/2)*cfg.highMult)return{txt:"NO PLAY",cls:"pred-noplay"};
+return edge>0?{txt:`OVER ${line.toFixed(1)}`,cls:"pred-over"}:{txt:`UNDER ${line.toFixed(1)}`,cls:"pred-under"};
+}
+
+function confidence(sample,vol,rel){
+if(sample>=7&&vol<9&&rel>0.025)return"High";
+if(sample>=4&&vol<13&&rel>0.015)return"Medium";
+return"Low";
+}
+
+function run(){
+let leagueKey=document.getElementById("league").value;
+let cfg=config.leagues[leagueKey];
+let base=cfg.base;
+let prior=base/2;
+
+let ft=parseFloat(document.getElementById("ftLine").value);
+let aL=parseFloat(document.getElementById("aLine").value);
+let bL=parseFloat(document.getElementById("bLine").value);
+
+if(isNaN(ft)||isNaN(aL)||isNaN(bL)||ft<config.minLine)return;
+
+let aSc=parseList(document.getElementById("aSc").value);
+let aAl=parseList(document.getElementById("aAl").value);
+let bSc=parseList(document.getElementById("bSc").value);
+let bAl=parseList(document.getElementById("bAl").value);
+
+if(!aSc.length||!aAl.length||!bSc.length||!bAl.length)return;
+
+let aScRaw=avg(aSc),aAlRaw=avg(aAl),bScRaw=avg(bSc),bAlRaw=avg(bAl);
+
+if(document.getElementById("home").checked){
+aScRaw*=config.homeBoost;
+aAlRaw*=config.homeReduce;
+bScRaw*=config.homeReduce;
+bAlRaw*=config.homeBoost;
+}
+
+let pFactor=pace(aScRaw,aAlRaw,bScRaw,bAlRaw,base,cfg.pace);
+
+let aScAdj=shrink(aScRaw,prior,aSc.length);
+let aAlAdj=shrink(aAlRaw,prior,aAl.length);
+let bScAdj=shrink(bScRaw,prior,bSc.length);
+let bAlAdj=shrink(bAlRaw,prior,bAl.length);
+
+let pA=(cfg.offWeight*aScAdj+(1-cfg.offWeight)*bAlAdj)*pFactor;
+let pB=(cfg.offWeight*bScAdj+(1-cfg.offWeight)*aAlAdj)*pFactor;
+
+let aVol=(std(aSc)+std(aAl))/2;
+let bVol=(std(bSc)+std(bAl))/2;
+let totalVol=Math.sqrt(aVol**2+bVol**2+2*cfg.rho*aVol*bVol);
+
+pA=volPenalty(pA,aVol);
+pB=volPenalty(pB,bVol);
+
+pA=(1-config.marketShrink)*pA+config.marketShrink*aL;
+pB=(1-config.marketShrink)*pB+config.marketShrink*bL;
+
+pA=clamp(pA,prior*0.6,prior*1.3);
+pB=clamp(pB,prior*0.6,prior*1.3);
+
+let total=pA+pB;
+total=volPenalty(total,totalVol);
+total=clamp(total,base*config.floorMult,base*config.capMult);
+
+let rows=[
+{name:"Full Game",proj:total,line:ft,teamAvg:aScRaw+bScRaw,isUnder:false,vol:totalVol,sample:Math.min(aSc.length,bSc.length)},
+{name:"Team A",proj:pA,line:aL,teamAvg:aScRaw,isUnder:true,vol:aVol,sample:aSc.length},
+{name:"Team B",proj:pB,line:bL,teamAvg:bScRaw,isUnder:true,vol:bVol,sample:bSc.length}
+];
+
+let tbody=document.querySelector("#results tbody");
+tbody.innerHTML="";
+
+rows.forEach(r=>{
+let edge=r.proj-r.line;
+let rel=Math.abs(edge)/r.line;
+let d=decision(edge,r.line,cfg,r.teamAvg,r.isUnder);
+let conf=confidence(r.sample,r.vol,rel);
+let tr=document.createElement("tr");
+tr.innerHTML=`<td>${r.name}</td><td>${r.proj.toFixed(1)}</td><td>${edge.toFixed(1)}</td><td>${(rel*100).toFixed(1)}%</td><td>${conf}</td><td class="${d.cls}">${d.txt}</td>`;
+tbody.appendChild(tr);
+});
+
+document.getElementById("results").style.display="table";
+}
 </script>
 </body>
 </html>
