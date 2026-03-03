@@ -305,7 +305,7 @@ function runEngine(){
     ftH2Hb = parseGames("bFTH2H");
   }
 
-  if(document.getElementById("useFTH2H").checked){
+  if(ftH2Ha && ftH2Hb){
     if(ftH2Ha !== "error" && ftH2Hb !== "error" && ftH2Ha && ftH2Hb && ftH2Ha.length >= 2 && ftH2Hb.length >= 2){
       let wA = dynamicWeight(ftH2Ha);
       let wB = dynamicWeight(ftH2Hb);
