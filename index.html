@@ -433,7 +433,7 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
 
     let row = table.insertRow();
     let pred = pickText;
-    if (i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN") {
+    if (i === lockIndex && lockIndex !== -1 && pickText !== "NO PLAY" && pickText !== "NaN") {
       pred += ` <span class="lock">🔒</span>`;
     }
 
