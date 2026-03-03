@@ -374,7 +374,7 @@ let fullModelActive =
   !isNaN(bFTSc) &&
   !isNaN(bFTAll);
   
-  let ftProj  = (isNaN(baseAFT) || isNaN(baseBFT)) ? NaN : baseAFT + baseBFT;
+  let ftProj = fullModelActive ? (baseAFT + baseBFT) : NaN;
   let picks = [
     {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
     {name:"Team A Total", proj:baseAFT, line:aLine,   type:"team",     teamSc:aFTSc, aSc:aFTSc, bSc:bFTSc},
