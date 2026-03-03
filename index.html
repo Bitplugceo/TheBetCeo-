@@ -383,80 +383,70 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
   let lockIndex = -1;
   let maxStrength = 0;
 
-  picks.forEach((p, i) => {
-    let edge = NaN;
-    let pickText = "NaN";
-    let displayNote = "";
+  let lockIndex = -1;
+let maxStrength = 0;
 
-    if (isNaN(p.line)) {
-      displayNote = "Missing / Invalid Line";
-      pickText = "—";
-   } else if (isNaN(p.proj)) {
-  if (p.name.includes("FT") || p.name.includes("Team")) {
-    if (aFTScArr === null || aFTAllArr === null || bFTScArr === null || bFTAllArr === null) {
-      displayNote = "Missing Last-5 Data (FT)";
-    } else {
-      displayNote = "Missing / Invalid Last-5 Data";
-    }
+/* -------- PHASE 1: Find strongest pick -------- */
+picks.forEach((p, i) => {
+  if (isNaN(p.line) || isNaN(p.proj)) return;
+
+  let edge = p.proj - p.line;
+  let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
+  let pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+
+  if (fullModelActive &&
+      pickText !== "NO PLAY" &&
+      pickText !== "NaN" &&
+      strength >= 0.08 &&
+      strength > maxStrength) {
+
+      maxStrength = strength;
+      lockIndex = i;
   }
-  pickText = "—";
-} else {
-      edge = p.proj - p.line;
-      let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
-      pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+});
 
-      if (fullModelActive && 
-    pickText !== "NO PLAY" && 
-    pickText !== "NaN" && 
-    strength >= 0.08) {
 
-  if (strength > maxStrength) {
-    maxStrength = strength;
-    lockIndex = i;
+/* -------- PHASE 2: Render table -------- */
+picks.forEach((p, i) => {
+
+  let edge = NaN;
+  let pickText = "NaN";
+  let displayNote = "";
+
+  if (isNaN(p.line)) {
+    displayNote = "Missing / Invalid Line";
+    pickText = "—";
+
+  } else if (isNaN(p.proj)) {
+    displayNote = "Missing / Invalid Last-5 Data";
+    pickText = "—";
+
+  } else {
+    edge = p.proj - p.line;
+    pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
   }
-}
 
-    if (document.getElementById("useFTH2H").checked &&
-        pickText !== "—" && displayNote === "") {
-      let h2hNote = "";
-      if (document.getElementById("useFTH2H").checked) {
-        if (ftH2Ha === null || ftH2Hb === null) {
-          h2hNote = "H2H FT fields empty";
-        } else if (ftH2Ha === "error" || ftH2Hb === "error") {
-          h2hNote = "H2H FT invalid (ignored)";
-        }
-      }
-      if (h2hNote) {
-        displayNote = h2hNote;
-      }
-    }
+  let row = table.insertRow();
+  let pred = pickText;
 
-    let row = table.insertRow();
-    let pred = pickText;
-    if (i === lockIndex && lockIndex !== -1 && pickText !== "NO PLAY" && pickText !== "NaN") {
-      pred += ` <span class="lock">🔒</span>`;
-    }
+  if (i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN") {
+    pred += ` <span class="lock">🔒</span>`;
+  }
 
-    let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
-    let edgeDisplay = isNaN(edge) ? "NaN" : edge.toFixed(2);
+  let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
+  let edgeDisplay = isNaN(edge) ? "NaN" : edge.toFixed(2);
 
-    let finalPred = pred;
-    if (displayNote) {
-      finalPred += `<br><small class="error-note">${displayNote}</small>`;
-    }
+  let className = "pred-noplay";
+  if (pred.startsWith("OVER")) className = "pred-over";
+  else if (pred.startsWith("UNDER")) className = "pred-under";
 
-    let className = "pred-noplay";
-    if (pred.startsWith("OVER")) className = "pred-over";
-    else if (pred.startsWith("UNDER")) className = "pred-under";
-
-    row.innerHTML = `
-      <td>${p.name}</td>
-      <td>${projDisplay}</td>
-      <td>${edgeDisplay}</td>
-      <td class="${className}">${finalPred}</td>`;
-  });
-}
-
+  row.innerHTML = `
+    <td>${p.name}</td>
+    <td>${projDisplay}</td>
+    <td>${edgeDisplay}</td>
+    <td class="${className}">${pred}</td>`;
+});
+  
 function clearAll(){
   document.querySelectorAll("input").forEach(i => i.value = "");
   document.querySelectorAll("input[type=checkbox]").forEach(i => i.checked = false);
