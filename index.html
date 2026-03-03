@@ -281,7 +281,12 @@ function runEngine(){
   let bFTSc  = (bFTScArr  === "error" || bFTScArr  === null) ? NaN : avg(bFTScArr);
   let bFTAll = (bFTAllArr === "error" || bFTAllArr === null) ? NaN : avg(bFTAllArr);
 
-
+let fullModelActive = 
+  !isNaN(aFTSc) &&
+  !isNaN(aFTAll) &&
+  !isNaN(bFTSc) &&
+  !isNaN(bFTAll);
+  
   let baseAFT = NaN;
 let baseBFT = NaN;
 
@@ -367,12 +372,6 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
   let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
   baseAFT = applyVolatility(baseAFT, aVol, 12);
   baseBFT = applyVolatility(baseBFT, bVol, 12);
-
-let fullModelActive = 
-  !isNaN(aFTSc) &&
-  !isNaN(aFTAll) &&
-  !isNaN(bFTSc) &&
-  !isNaN(bFTAll);
   
   let ftProj = fullModelActive ? (baseAFT + baseBFT) : NaN;
   let picks = [
