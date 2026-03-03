@@ -333,23 +333,6 @@ function runEngine(){
     }
   }
 
-  if(document.getElementById("use1HH2H").checked){
-    if(h1H2Ha !== "error" && h1H2Hb !== "error" && h1H2Ha && h1H2Hb && h1H2Ha.length >= 2 && h1H2Hb.length >= 2){
-      let wA = dynamicWeight(h1H2Ha);
-      let wB = dynamicWeight(h1H2Hb);
-      const totalGames = h1H2Ha.length + h1H2Hb.length;
-      wA = wA * (h1H2Ha.length / totalGames);
-      wB = wB * (h1H2Hb.length / totalGames);
-      let totalH2HWeight = wA + wB;
-      if (totalH2HWeight > 0.30) {
-        const scale = 0.30 / totalH2HWeight;
-        wA *= scale;
-        wB *= scale;
-      }
-      if(!isNaN(avg(h1H2Ha))) baseAH1 = baseAH1 * (1 - wA) + avg(h1H2Ha) * wA;
-      if(!isNaN(avg(h1H2Hb))) baseBH1 = baseBH1 * (1 - wB) + avg(h1H2Hb) * wB;
-    }
-  }
 
   let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
   let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
