@@ -165,222 +165,324 @@
   </div>
 
   <script>
-    const CONFIG = {
-      leagueBases: { nba: 230.6, euro_elite: 172, secondary: 165, ncaa: 148, africa: 158, unknown: 160 },
-      paceClamps: {
-        nba: {min:0.88, max:1.18}, euro_elite: {min:0.90, max:1.12},
-        secondary: {min:0.90, max:1.12}, ncaa: {min:0.88, max:1.15},
-        africa: {min:0.88, max:1.15}, unknown: {min:0.88, max:1.15}
-      },
-      offenseWeight: 0.55,
-      h2hTargetWeight: 0.25,
-      volLimit: 12,
-      meanRegWeight: 0.30,
-      decisionThresholds: {
-        nba: {pos:0.022, neg:0.032},
-        euro_elite: {pos:0.028, neg:0.038},
-        default: {pos:0.030, neg:0.040}
-      },
-      maxPoints: {nba:200, default:180}
+    <script>
+(function () {
+
+  const CONFIG = {
+    leagueBases: {
+      nba: 230.6,
+      euro_elite: 172,
+      secondary: 165,
+      ncaa: 148,
+      africa: 158,
+      unknown: 160
+    },
+    paceClamps: {
+      nba: {min:0.88, max:1.18},
+      euro_elite: {min:0.90, max:1.12},
+      secondary: {min:0.90, max:1.12},
+      ncaa: {min:0.88, max:1.15},
+      africa: {min:0.88, max:1.15},
+      unknown: {min:0.88, max:1.15}
+    },
+    offenseWeight: 0.55,
+    h2hTargetWeight: 0.25,
+    volLimit: 12,
+    meanRegWeight: 0.30,
+    decisionThresholds: {
+      nba: {pos:0.022, neg:0.032},
+      euro_elite: {pos:0.028, neg:0.038},
+      default: {pos:0.030, neg:0.040}
+    },
+    maxPoints: { nba:200, default:180 }
+  };
+
+  const DOM = {
+    league: document.getElementById('leagueSelect'),
+    runBtn: document.getElementById('runBtn'),
+    clearBtn: document.getElementById('clearBtn'),
+    globalError: document.getElementById('globalError'),
+    results: document.getElementById('results'),
+    tbody: document.querySelector('#results tbody')
+  };
+
+  function getLeagueConfig(league) {
+    return {
+      base: CONFIG.leagueBases[league] || 160,
+      clamps: CONFIG.paceClamps[league] || CONFIG.paceClamps.unknown,
+      thresh: CONFIG.decisionThresholds[league] || CONFIG.decisionThresholds.default,
+      maxPt: CONFIG.maxPoints[league] || CONFIG.maxPoints.default
     };
+  }
 
-    function getLeagueConfig(league) {
-      return {
-        base: CONFIG.leagueBases[league] || 160,
-        clamps: CONFIG.paceClamps[league] || CONFIG.paceClamps.unknown,
-        thresh: CONFIG.decisionThresholds[league] || CONFIG.decisionThresholds.default,
-        maxPt: CONFIG.maxPoints[league] || CONFIG.maxPoints.default
-      };
+  function avg(a) { return a.length ? a.reduce((x,y)=>x+y,0)/a.length : NaN; }
+
+  function std(a) {
+    if (a.length < 2) return 1; // prevent division by zero in z-score
+    const m = avg(a);
+    return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));
+  }
+
+  function shrink(sampleAvg, leagueAvg, w = CONFIG.meanRegWeight) {
+    return (1-w)*sampleAvg + w*leagueAvg;
+  }
+
+  function parseNumbers(id, errId, maxPt) {
+    const el = document.getElementById(id);
+    const err = document.getElementById(errId);
+    err.textContent = '';
+    el.classList.remove('error');
+
+    const raw = el.value.trim();
+    if (!raw) return null;
+
+    const arr = raw.split(',')
+      .map(x => parseFloat(x.trim()))
+      .filter(n => Number.isFinite(n));
+
+    if (!arr.length || arr.some(n => n < 0 || n > maxPt)) {
+      err.textContent = 'Invalid format or unrealistic values';
+      el.classList.add('error');
+      return null;
     }
 
-    function parseNumbers(id, errId, maxPt) {
-      const el = document.getElementById(id);
-      const err = document.getElementById(errId);
-      err.textContent = ''; el.classList.remove('error');
-      const raw = el.value.trim();
-      if (!raw) return null;
-      const arr = raw.split(',').map(x => parseFloat(x.trim())).filter(n => !isNaN(n));
-      if (arr.length === 0 || arr.some(n => n < 0 || n > maxPt)) {
-        err.textContent = 'Invalid format or unrealistic values';
-        el.classList.add('error');
-        return null;
-      }
-      return arr;
+    return arr;
+  }
+
+  function midRange(id, errId) {
+    const el = document.getElementById(id);
+    const err = document.getElementById(errId);
+    err.textContent = '';
+    el.classList.remove('error');
+
+    const v = el.value.trim();
+    if (!v.includes('-')) {
+      err.textContent = 'Use format: low - high';
+      el.classList.add('error');
+      return NaN;
     }
 
-    function midRange(id, errId) {
-      const el = document.getElementById(id);
-      const err = document.getElementById(errId);
-      err.textContent = ''; el.classList.remove('error');
-      const v = el.value.trim();
-      if (!v || !v.includes('-')) {
-        err.textContent = 'Use format: low - high';
-        el.classList.add('error');
-        return NaN;
-      }
-      const [low, high] = v.split('-').map(x => parseFloat(x.trim()));
-      if (isNaN(low) || isNaN(high)) {
-        err.textContent = 'Invalid numbers';
-        el.classList.add('error');
-        return NaN;
-      }
-      return (low + high) / 2;
+    const [low, high] = v.split('-').map(x => parseFloat(x.trim()));
+
+    if (!Number.isFinite(low) || !Number.isFinite(high) ||
+        low <= 0 || high <= 0 || high <= low) {
+      err.textContent = 'Invalid market range';
+      el.classList.add('error');
+      return NaN;
     }
 
-    function avg(a) { return a.length ? a.reduce((x,y)=>x+y,0)/a.length : NaN; }
-    function std(a) {
-      if (a.length < 2) return 0;
-      const m = avg(a);
-      return Math.sqrt(a.reduce((s,x)=>s+Math.pow(x-m,2),0)/(a.length-1));
-    }
+    return (low + high) / 2;
+  }
 
-    function shrink(sampleAvg, leagueAvg, w = CONFIG.meanRegWeight) {
-      return (1-w) * sampleAvg + w * leagueAvg;
-    }
+  function getPaceFactor(aSc, aAl, bSc, bAl, cfg) {
+    if ([aSc,aAl,bSc,bAl].some(isNaN)) return 1;
 
-    function getPaceFactor(aSc, aAl, bSc, bAl, expected) {
-      if ([aSc,aAl,bSc,bAl].some(isNaN)) return 1;
-      const pA = (aSc + aAl) / 2;
-      const pB = (bSc + bAl) / 2;
-      const raw = (pA + pB) / 2 / (expected / 2);
-      const clamps = getLeagueConfig(document.getElementById('leagueSelect').value).clamps;
-      return Math.max(clamps.min, Math.min(clamps.max, raw));
-    }
+    const raw = (aSc + aAl + bSc + bAl) / (2 * cfg.base);
 
-    function applyVolatility(p, sd, lim = CONFIG.volLimit) {
-      if (isNaN(p) || isNaN(sd)) return p;
-      if (sd < lim * 0.6) return p * 1.02;
-      if (sd <= lim) return p;
-      const f = Math.min(1, (sd - lim) / (lim * 1.4));
-      return p * (1 - 0.09 * f);
-    }
+    return Math.max(cfg.clamps.min,
+           Math.min(cfg.clamps.max, raw));
+  }
 
-    function getDecision(edge, line, teamAvg, thresh, isUnder) {
-      if (isNaN(edge) || isNaN(line)) return {txt:'—', cls:'pred-noplay'};
-      const absE = Math.abs(edge);
-      const thr = edge > 0 ? thresh.pos : thresh.neg;
-      if (absE < thr * line) return {txt:'NO PLAY', cls:'pred-noplay'};
-      if (isUnder && !isNaN(teamAvg) && teamAvg >= line * 0.625) {
-        return {txt:'NO PLAY (high scoring)', cls:'pred-noplay'};
-      }
-      const pred = edge > 0 ? `OVER ${line.toFixed(1)}` : `UNDER ${line.toFixed(1)}`;
-      return {txt:pred, cls: edge>0 ? 'pred-over' : 'pred-under'};
-    }
+  function applyVolatility(p, sd, lim = CONFIG.volLimit) {
+    if (!Number.isFinite(p) || !Number.isFinite(sd)) return p;
 
-    function getConf(n, vol) {
-      if (n >= 5 && vol < 10) return 'High';
-      if (n >= 3 && vol < 14) return 'Medium';
-      return 'Low';
-    }
+    if (sd < lim * 0.6) return p * 1.01;
+    if (sd <= lim) return p;
 
-    function runEngine() {
-      document.getElementById('globalError').textContent = '';
-      const league = document.getElementById('leagueSelect').value;
-      const cfg = getLeagueConfig(league);
-      const teamLeagueAvg = cfg.base / 2;
+    const f = Math.min(1, (sd - lim) / (lim * 1.5));
+    return p * (1 - 0.05 * f);
+  }
 
-      const ftL  = midRange('ftMarket', 'ftMarketErr');
-      const aL   = midRange('teamAMarket', 'teamAMarketErr');
-      const bL   = midRange('teamBMarket', 'teamBMarketErr');
+  function getDecision(edge, line, thresh, zScore) {
+    if (!Number.isFinite(edge) || !Number.isFinite(line))
+      return {txt:'—', cls:'pred-noplay'};
 
-      const aScA = parseNumbers('aFTScored', 'aFTScoredErr', cfg.maxPt);
-      const aAlA = parseNumbers('aFTAllowed', 'aFTAllowedErr', cfg.maxPt);
-      const bScA = parseNumbers('bFTScored', 'bFTScoredErr', cfg.maxPt);
-      const bAlA = parseNumbers('bFTAllowed', 'bFTAllowedErr', cfg.maxPt);
+    const absE = Math.abs(edge);
+    const thr = edge > 0 ? thresh.pos : thresh.neg;
 
-      if ([ftL, aL, bL].some(isNaN) || [aScA, aAlA, bScA, bAlA].some(v => !v || !v.length)) {
-        document.getElementById('globalError').textContent = 'Please fill all required fields correctly';
-        return;
-      }
+    if (absE < thr * line || Math.abs(zScore) < 0.5)
+      return {txt:'NO PLAY', cls:'pred-noplay'};
 
-      const aSc = shrink(avg(aScA), teamLeagueAvg);
-      const aAl = shrink(avg(aAlA), teamLeagueAvg);
-      const bSc = shrink(avg(bScA), teamLeagueAvg);
-      const bAl = shrink(avg(bAlA), teamLeagueAvg);
-
-      const pace = getPaceFactor(aSc, aAl, bSc, bAl, cfg.base);
-
-      let pA = CONFIG.offenseWeight * aSc + (1 - CONFIG.offenseWeight) * bAl * pace;
-      let pB = CONFIG.offenseWeight * bSc + (1 - CONFIG.offenseWeight) * aAl * pace;
-
-      let h2hNote = '';
-      if (document.getElementById('useFTH2H').checked) {
-        const ha = parseNumbers('aFTH2H', 'aFTH2HErr', cfg.maxPt);
-        const hb = parseNumbers('bFTH2H', 'bFTH2HErr', cfg.maxPt);
-        if (ha && hb && ha.length >= 2 && hb.length >= 2) {
-          const waBase = ha.length <= 3 ? 0.20 : 0.30;
-          const wbBase = hb.length <= 3 ? 0.20 : 0.30;
-          const totW = waBase + wbBase;
-          let wa = (waBase / totW) * CONFIG.h2hTargetWeight * (ha.length / (ha.length + hb.length));
-          let wb = (wbBase / totW) * CONFIG.h2hTargetWeight * (hb.length / (ha.length + hb.length));
-          pA = pA * (1 - wa) + avg(ha) * wa;
-          pB = pB * (1 - wb) + avg(hb) * wb;
-        } else {
-          h2hNote = ' (H2H checked but invalid/empty — ignored)';
-        }
-      }
-
-      const aVol = (std(aScA) + std(aAlA)) / 2;
-      const bVol = (std(bScA) + std(bAlA)) / 2;
-      pA = applyVolatility(pA, aVol);
-      pB = applyVolatility(pB, bVol);
-
-      const ftP = pA + pB;
-
-      const picks = [
-        {name:'FT Total', proj:ftP, line:ftL,  team:aSc+bSc, isUnder:false},
-        {name:'Team A',   proj:pA, line:aL,   team:aSc,     isUnder:true},
-        {name:'Team B',   proj:pB, line:bL,   team:bSc,     isUnder:true}
-      ];
-
-      const tbody = document.querySelector('#results tbody');
-      tbody.innerHTML = '';
-      let best = {val:0, idx:-1};
-
-      picks.forEach((p, i) => {
-        const e = p.proj - p.line;
-        const epct = p.line ? (e / p.line * 100).toFixed(1) : '—';
-        const d = getDecision(e, p.line, p.team, cfg.thresh, p.isUnder);
-        const conf = getConf(Math.max(aScA.length, bScA.length, aAlA.length, bAlA.length), Math.max(aVol, bVol));
-
-        if (d.txt !== 'NO PLAY' && d.txt !== '—' && Math.abs(e)/p.line > best.val) {
-          best = {val: Math.abs(e)/p.line, idx: i};
-        }
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${p.name}</td>
-          <td>${isNaN(p.proj)?'—':p.proj.toFixed(1)}</td>
-          <td>${isNaN(e)?'—':e.toFixed(1)}</td>
-          <td>${epct}%</td>
-          <td>${conf}</td>
-          <td class="${d.cls}">${d.txt}${i===best.idx && d.txt!=='NO PLAY'?' <span class="lock">🔒</span>':''}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      document.getElementById('results').style.display = 'table';
-      if (h2hNote) document.getElementById('globalError').textContent = h2hNote;
-    }
-
-    // Wire buttons & keyboard
-    document.getElementById('runBtn').onclick = runEngine;
-    document.getElementById('clearBtn').onclick = () => {
-      document.querySelectorAll('input[type="text"], input[type="number"]').forEach(el => el.value = '');
-      document.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
-      document.querySelectorAll('small.error-note').forEach(el => el.textContent = '');
-      document.querySelectorAll('input').forEach(el => el.classList.remove('error'));
-      document.getElementById('globalError').textContent = '';
-      document.getElementById('results').style.display = 'none';
-      document.querySelector('#results tbody').innerHTML = '';
+    return {
+      txt: edge > 0
+        ? `OVER ${line.toFixed(1)}`
+        : `UNDER ${line.toFixed(1)}`,
+      cls: edge > 0 ? 'pred-over' : 'pred-under'
     };
+  }
 
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && document.activeElement.tagName !== 'BUTTON') {
-        e.preventDefault();
-        runEngine();
-      }
-    });
+  function getConfidence(sample, vol, zScore, leagueBase) {
+    const adj = leagueBase > 200 ? 1 : 0.85;
+
+    if (Math.abs(zScore) > 1.0*adj && sample >= 5 && vol < 10)
+      return 'High';
+
+    if (Math.abs(zScore) > 0.7*adj && sample >= 3)
+      return 'Medium';
+
+    return 'Low';
+  }
+
+  function calculate() {
+
+    const cfg = getLeagueConfig(DOM.league.value);
+    const teamLeagueAvg = cfg.base / 2;
+
+    const ftL = midRange('ftMarket','ftMarketErr');
+    const aL  = midRange('teamAMarket','teamAMarketErr');
+    const bL  = midRange('teamBMarket','teamBMarketErr');
+
+    const aScA = parseNumbers('aFTScored','aFTScoredErr',cfg.maxPt);
+    const aAlA = parseNumbers('aFTAllowed','aFTAllowedErr',cfg.maxPt);
+    const bScA = parseNumbers('bFTScored','bFTScoredErr',cfg.maxPt);
+    const bAlA = parseNumbers('bFTAllowed','bFTAllowedErr',cfg.maxPt);
+
+    if ([ftL,aL,bL].some(isNaN) ||
+        [aScA,aAlA,bScA,bAlA].some(v=>!v||!v.length)) {
+      DOM.globalError.textContent =
+        'Please fill all required fields correctly';
+      return null;
+    }
+
+    const aSc = shrink(avg(aScA), teamLeagueAvg);
+    const aAl = shrink(avg(aAlA), teamLeagueAvg);
+    const bSc = shrink(avg(bScA), teamLeagueAvg);
+    const bAl = shrink(avg(bAlA), teamLeagueAvg);
+
+    const pace = getPaceFactor(aSc,aAl,bSc,bAl,cfg);
+
+    let pA = CONFIG.offenseWeight*aSc +
+             (1-CONFIG.offenseWeight)*bAl*pace;
+
+    let pB = CONFIG.offenseWeight*bSc +
+             (1-CONFIG.offenseWeight)*aAl*pace;
+
+    const aVol = (std(aScA)+std(aAlA))/2;
+    const bVol = (std(bScA)+std(bAlA))/2;
+
+    pA = applyVolatility(pA,aVol);
+    pB = applyVolatility(pB,bVol);
+
+    pA = Math.min(pA, cfg.maxPt);
+    pB = Math.min(pB, cfg.maxPt);
+
+    return {
+      cfg,
+      ftL,aL,bL,
+      pA,pB,
+      ftP: pA+pB,
+      aVol,bVol,
+      sample: Math.max(
+        aScA.length,bScA.length,
+        aAlA.length,bAlA.length
+      )
+    };
+  }
+
+function render(data) {
+
+  DOM.tbody.innerHTML = '';
+
+  // Correct total volatility aggregation
+  const totalVol = Math.sqrt(
+    Math.pow(data.aVol, 2) +
+    Math.pow(data.bVol, 2)
+  );
+
+  const picks = [
+    {name:'FT Total', proj:data.ftP, line:data.ftL, vol:totalVol},
+    {name:'Team A', proj:data.pA, line:data.aL, vol:data.aVol},
+    {name:'Team B', proj:data.pB, line:data.bL, vol:data.bVol}
+  ];
+
+  let best = {val:0, idx:-1};
+
+  picks.forEach((p,i)=>{
+
+    if (!Number.isFinite(p.line) || p.line <= 0) return;
+
+    const edge = p.proj - p.line;
+    const edgePct = (edge / p.line) * 100;
+
+    // Protect against extremely small volatility
+    const safeVol = p.vol < 0.01 ? 0.01 : p.vol;
+    const zScore = edge / safeVol;
+
+    const d = getDecision(edge,p.line,data.cfg.thresh,zScore);
+
+    const conf = getConfidence(
+      data.sample,
+      p.vol,
+      zScore,
+      data.cfg.base
+    );
+
+    if (d.txt !== 'NO PLAY' &&
+        Math.abs(zScore) > best.val)
+      best = {val:Math.abs(zScore),idx:i};
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.name}</td>
+      <td>${p.proj.toFixed(1)}</td>
+      <td>${edge.toFixed(1)}</td>
+      <td>${edgePct.toFixed(1)}%</td>
+      <td>${zScore.toFixed(2)}</td>
+      <td>${conf}</td>
+      <td class="${d.cls}">
+        ${d.txt}${i===best.idx && d.txt!=='NO PLAY'?' <span class="lock">🔒</span>':''}
+      </td>
+    `;
+    DOM.tbody.appendChild(tr);
+  });
+
+  DOM.results.style.display = 'table';
+}
+
+  function runEngine() {
+    DOM.globalError.textContent = '';
+    DOM.results.style.display = 'none';
+    DOM.runBtn.disabled = true;
+
+    try {
+      const data = calculate();
+      if (data) render(data);
+    } finally {
+      DOM.runBtn.disabled = false;
+    }
+  }
+
+  function clearAll() {
+    document.querySelectorAll('input:not([type="checkbox"])')
+      .forEach(el=>el.value='');
+
+    document.querySelectorAll('input[type="checkbox"]')
+      .forEach(el=>el.checked=false);
+
+    document.querySelectorAll('small.error-note')
+      .forEach(el=>el.textContent='');
+
+    document.querySelectorAll('input')
+      .forEach(el=>el.classList.remove('error'));
+
+    DOM.results.style.display='none';
+    DOM.tbody.innerHTML='';
+    DOM.globalError.textContent='';
+  }
+
+  DOM.runBtn.onclick = runEngine;
+  DOM.clearBtn.onclick = clearAll;
+
+  document.addEventListener('keydown', e=>{
+    if (e.key==='Enter' &&
+        document.activeElement.tagName!=='BUTTON') {
+      e.preventDefault();
+      runEngine();
+    }
+  });
+
+})();
+</script>
   </script>
 </body>
 </html>
