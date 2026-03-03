@@ -405,11 +405,16 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
       let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
       pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
-      if (fullModelActive && pickText !== "NO PLAY" && pickText !== "NaN" && strength >= 0.08 && strength > maxStrength) {
-        maxStrength = strength;
-        lockIndex = i;
-      }
-    }
+      if (fullModelActive && 
+    pickText !== "NO PLAY" && 
+    pickText !== "NaN" && 
+    strength >= 0.08) {
+
+  if (strength > maxStrength) {
+    maxStrength = strength;
+    lockIndex = i;
+  }
+}
 
     if (document.getElementById("useFTH2H").checked &&
         pickText !== "—" && displayNote === "") {
