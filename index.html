@@ -282,8 +282,22 @@ function runEngine(){
   let bFTAll = (bFTAllArr === "error" || bFTAllArr === null) ? NaN : avg(bFTAllArr);
 
 
-  let baseAFT = (aFTSc + bFTAll) / 2;
-  let baseBFT = (bFTSc + aFTAll) / 2;
+  let baseAFT = NaN;
+let baseBFT = NaN;
+
+// Team A projection logic
+if (!isNaN(aFTSc) && !isNaN(bFTAll)) {
+  baseAFT = (aFTSc + bFTAll) / 2;
+} else if (!isNaN(aFTSc)) {
+  baseAFT = aFTSc;  // fallback to own scoring only
+}
+
+// Team B projection logic
+if (!isNaN(bFTSc) && !isNaN(aFTAll)) {
+  baseBFT = (bFTSc + aFTAll) / 2;
+} else if (!isNaN(bFTSc)) {
+  baseBFT = bFTSc;  // fallback to own scoring only
+}
 
   let teamAPace = aFTSc + aFTAll;
   let teamBPace = bFTSc + bFTAll;
