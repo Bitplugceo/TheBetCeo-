@@ -166,67 +166,23 @@
 
   <script>
     const CONFIG = {
-      leagueBases: {
-  nba: 232,
-  euroleague: 171,
-  eurocup: 168,
-  acb: 174,
-  bsl: 170,
-  seriea: 168,
-  bbl: 167,
-  proa: 165,
-  secondary: 165,
-  ncaa: 148,
-  africa: 158,
-  unknown: 160
-},
+      leagueBases: { nba: 230.6, euro_elite: 172, secondary: 165, ncaa: 148, africa: 158, unknown: 160 },
       paceClamps: {
-  nba: {min:0.88, max:1.18},
-
-  euroleague: {min:0.90, max:1.12},
-  eurocup: {min:0.90, max:1.12},
-  acb: {min:0.90, max:1.12},
-  bsl: {min:0.90, max:1.12},
-  seriea: {min:0.90, max:1.12},
-  bbl: {min:0.90, max:1.12},
-  proa: {min:0.90, max:1.12},
-
-  secondary: {min:0.90, max:1.12},
-  ncaa: {min:0.88, max:1.15},
-  africa: {min:0.88, max:1.15},
-  unknown: {min:0.88, max:1.15}
-},
+        nba: {min:0.88, max:1.18}, euro_elite: {min:0.90, max:1.12},
+        secondary: {min:0.90, max:1.12}, ncaa: {min:0.88, max:1.15},
+        africa: {min:0.88, max:1.15}, unknown: {min:0.88, max:1.15}
+      },
       offenseWeight: 0.55,
       h2hTargetWeight: 0.25,
       volLimit: 12,
       meanRegWeight: 0.30,
       decisionThresholds: {
-  nba: {pos:0.022, neg:0.032},
-
-  euroleague: {pos:0.028, neg:0.038},
-  eurocup: {pos:0.028, neg:0.038},
-  acb: {pos:0.028, neg:0.038},
-  bsl: {pos:0.028, neg:0.038},
-  seriea: {pos:0.028, neg:0.038},
-  bbl: {pos:0.028, neg:0.038},
-  proa: {pos:0.028, neg:0.038},
-
-  default: {pos:0.030, neg:0.040}
-},
-      maxPoints: {
-  nba: 200,
-  euroleague: 190,
-  eurocup: 190,
-  acb: 195,
-  bsl: 190,
-  seriea: 185,
-  bbl: 190,
-  proa: 185,
-  secondary: 185,
-  ncaa: 170,
-  africa: 175,
-  default: 180
-}
+        nba: {pos:0.022, neg:0.032},
+        euro_elite: {pos:0.028, neg:0.038},
+        default: {pos:0.030, neg:0.040}
+      },
+      maxPoints: {nba:200, default:180}
+    };
 
     function getLeagueConfig(league) {
       return {
@@ -344,11 +300,8 @@
 
       const pace = getPaceFactor(aSc, aAl, bSc, bAl, cfg.base);
 
-      let rawA = CONFIG.offenseWeight * aSc + (1 - CONFIG.offenseWeight) * bAl;
-let rawB = CONFIG.offenseWeight * bSc + (1 - CONFIG.offenseWeight) * aAl;
-
-let pA = rawA * pace;
-let pB = rawB * pace;
+      let pA = CONFIG.offenseWeight * aSc + (1 - CONFIG.offenseWeight) * bAl * pace;
+      let pB = CONFIG.offenseWeight * bSc + (1 - CONFIG.offenseWeight) * aAl * pace;
 
       let h2hNote = '';
       if (document.getElementById('useFTH2H').checked) {
@@ -385,20 +338,13 @@ let pB = rawB * pace;
       let best = {val:0, idx:-1};
 
       picks.forEach((p, i) => {
-        let e = p.proj - p.line;
-
-// extra volatility dampener
-const vol = Math.max(aVol, bVol);
-if (vol > CONFIG.volLimit) {
-  const reduction = Math.min(0.15, (vol - CONFIG.volLimit) / 50);
-  e *= (1 - reduction);
-}
+        const e = p.proj - p.line;
         const epct = p.line ? (e / p.line * 100).toFixed(1) : '—';
         const d = getDecision(e, p.line, p.team, cfg.thresh, p.isUnder);
         const conf = getConf(Math.max(aScA.length, bScA.length, aAlA.length, bAlA.length), Math.max(aVol, bVol));
 
-        if (d.txt !== 'NO PLAY' && d.txt !== '—' && (p.line ? Math.abs(e)/p.line : 0) > best.val) {
-          best = {val: p.line ? Math.abs(e)/p.line : 0, idx: i};
+        if (d.txt !== 'NO PLAY' && d.txt !== '—' && Math.abs(e)/p.line > best.val) {
+          best = {val: Math.abs(e)/p.line, idx: i};
         }
 
         const tr = document.createElement('tr');
@@ -406,7 +352,7 @@ if (vol > CONFIG.volLimit) {
           <td>${p.name}</td>
           <td>${isNaN(p.proj)?'—':p.proj.toFixed(1)}</td>
           <td>${isNaN(e)?'—':e.toFixed(1)}</td>
-<td>${epct === '—' ? '—' : epct + '%'}</td>
+          <td>${epct}%</td>
           <td>${conf}</td>
           <td class="${d.cls}">${d.txt}${i===best.idx && d.txt!=='NO PLAY'?' <span class="lock">🔒</span>':''}</td>
         `;
