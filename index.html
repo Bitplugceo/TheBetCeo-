@@ -357,15 +357,16 @@ function runEngine(){
     if (isNaN(p.line)) {
       displayNote = "Missing / Invalid Line";
       pickText = "—";
-    } else if (isNaN(p.proj)) {
-      if (p.name.includes("FT") || p.name.includes("Team")) {
-        if (aFTScArr === null || aFTAllArr === null || bFTScArr === null || bFTAllArr === null) {
-          displayNote = "Missing Last-5 Data (FT)";
-        } else {
-          displayNote = "Missing / Invalid Last-5 Data";
-        }
-      pickText = "—";
+   } else if (isNaN(p.proj)) {
+  if (p.name.includes("FT") || p.name.includes("Team")) {
+    if (aFTScArr === null || aFTAllArr === null || bFTScArr === null || bFTAllArr === null) {
+      displayNote = "Missing Last-5 Data (FT)";
     } else {
+      displayNote = "Missing / Invalid Last-5 Data";
+    }
+  }
+  pickText = "—";
+} else {
       edge = p.proj - p.line;
       let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
       pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
