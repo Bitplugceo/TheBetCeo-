@@ -439,11 +439,13 @@ picks.forEach((p, i) => {
   else if (pred.startsWith("UNDER")) className = "pred-under";
 
   row.innerHTML = `
-    <td>${p.name}</td>
-    <td>${projDisplay}</td>
-    <td>${edgeDisplay}</td>
-    <td class="${className}">${pred}</td>`;
-});
+  <td>${p.name}</td>
+  <td>${projDisplay}</td>
+  <td>${edgeDisplay}</td>
+  <td class="${className}">
+    ${pred}
+    ${displayNote ? `<br><small class="error-note">${displayNote}</small>` : ""}
+  </td>`;
 
 }
   
