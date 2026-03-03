@@ -299,9 +299,18 @@ if (!isNaN(bFTSc) && !isNaN(aFTAll)) {
   baseBFT = bFTSc;  // fallback to own scoring only
 }
 
-  let teamAPace = aFTSc + aFTAll;
-  let teamBPace = bFTSc + bFTAll;
-  let rawPace   = (teamAPace + teamBPace) / 2;
+  let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? aFTSc + aFTAll : NaN;
+let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? bFTSc + bFTAll : NaN;
+
+let rawPace = NaN;
+
+if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
+  rawPace = (teamAPace + teamBPace) / 2;
+} else if (!isNaN(teamAPace)) {
+  rawPace = teamAPace;
+} else if (!isNaN(teamBPace)) {
+  rawPace = teamBPace;
+}
 
   let pace = 1;
   if (!isNaN(rawPace) && expectedBase !== 0 && !isNaN(expectedBase)) {
