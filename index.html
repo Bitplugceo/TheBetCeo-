@@ -337,7 +337,6 @@ function runEngine(){
       if(!isNaN(avg(ftH2Ha))) baseAFT = baseAFT * (1 - wA) + avg(ftH2Ha) * wA;
       if(!isNaN(avg(ftH2Hb))) baseBFT = baseBFT * (1 - wB) + avg(ftH2Hb) * wB;
     }
-  }
 
 
   let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
