@@ -369,7 +369,10 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
   let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
   baseAFT = applyVolatility(baseAFT, aVol, 12);
   baseBFT = applyVolatility(baseBFT, bVol, 12);
-
+  
+baseAFT = baseAFT * (0.5 + pace/2);
+baseBFT = baseBFT * (0.5 + pace/2);
+  
   let ftProj = NaN;
 
 if(!isNaN(baseAFT) && !isNaN(baseBFT)){
