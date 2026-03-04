@@ -397,6 +397,12 @@ let volLimit = volatilityLimits[league] || 12;
 baseAFT = applyVolatility(baseAFT, aVol, volLimit);
 baseBFT = applyVolatility(baseBFT, bVol, volLimit);
 
+ // regression to league mean
+let leagueTeamAvg = expectedBase / 2;
+
+baseAFT = (baseAFT * 0.85) + (leagueTeamAvg * 0.15);
+baseBFT = (baseBFT * 0.85) + (leagueTeamAvg * 0.15);
+  
 baseAFT = baseAFT * (0.5 + pace/2);
 baseBFT = baseBFT * (0.5 + pace/2);
 
