@@ -209,7 +209,7 @@ function applyVolatility(proj, std, limit){
   const excess = std - limit;
   const maxExcess = limit;
   const reductionFactor = Math.min(1, excess / maxExcess);
-  const maxCut = 0.10;
+  const maxCut = 0.05;
 
   const cut = maxCut * reductionFactor;
   return proj * (1 - cut);
@@ -323,9 +323,6 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
     pace = Math.max(clamps.min, Math.min(clamps.max, pace));
   }
 
-  baseAFT = isNaN(baseAFT) ? NaN : baseAFT * pace;
-  baseBFT = isNaN(baseBFT) ? NaN : baseBFT * pace;
-
   let ftH2Ha = null, ftH2Hb = null;
 
   if(document.getElementById("useFTH2H").checked){
@@ -372,8 +369,13 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
   let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
   baseAFT = applyVolatility(baseAFT, aVol, 12);
   baseBFT = applyVolatility(baseBFT, bVol, 12);
+
+  let ftProj = NaN;
+
+if(!isNaN(baseAFT) && !isNaN(baseBFT)){
+  ftProj = (baseAFT + baseBFT) * pace;
+}
   
-  let ftProj = fullModelActive ? (baseAFT + baseBFT) : NaN;
   let picks = [
     {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
     {name:"Team A Total", proj:baseAFT, line:aLine,   type:"team",     teamSc:aFTSc, aSc:aFTSc, bSc:bFTSc},
@@ -395,7 +397,7 @@ picks.forEach((p, i) => {
   if (fullModelActive &&
       pickText !== "NO PLAY" &&
       pickText !== "NaN" &&
-      strength >= 0.08 &&
+      strength >= 0.055 &&
       strength > maxStrength) {
 
       maxStrength = strength;
