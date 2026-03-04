@@ -396,8 +396,11 @@ let volLimit = volatilityLimits[league] || 12;
 
 baseAFT = applyVolatility(baseAFT, aVol, volLimit);
 baseBFT = applyVolatility(baseBFT, bVol, volLimit);
-  
-  let ftProj = NaN;
+
+baseAFT = baseAFT * (0.5 + pace/2);
+baseBFT = baseBFT * (0.5 + pace/2);
+
+let ftProj = NaN;
 
 if(!isNaN(baseAFT) && !isNaN(baseBFT)){
   ftProj = baseAFT + baseBFT;
