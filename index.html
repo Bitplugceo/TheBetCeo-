@@ -406,8 +406,9 @@ if(!isNaN(baseAFT) && !isNaN(baseBFT)){
   ftProj = baseAFT + baseBFT;
 }
 
-  let projDiff = Math.abs(baseAFT - baseBFT);
-
+  let projDiff = (!isNaN(baseAFT) && !isNaN(baseBFT))
+  ? Math.abs(baseAFT - baseBFT)
+  : NaN;
 if(!isNaN(projDiff) && projDiff > 18){
   ftProj = ftProj * 0.98;
 }
