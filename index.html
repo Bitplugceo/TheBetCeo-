@@ -378,6 +378,12 @@ baseBFT = baseBFT * (0.5 + pace/2);
 if(!isNaN(baseAFT) && !isNaN(baseBFT)){
   ftProj = (baseAFT + baseBFT) * pace;
 }
+
+  if(!isNaN(ftProj) && !isNaN(ftLine)){
+  if(Math.abs(ftProj - ftLine) > 25){
+    ftProj = ftLine + (ftProj - ftLine) * 0.5;
+  }
+}
   
   let picks = [
     {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
