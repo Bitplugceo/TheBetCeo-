@@ -51,8 +51,6 @@ margin-right:6px;
 vertical-align:middle;
 }
 
-::placeholder{color:rgba(255,255,255,0.35);}
-
 button{
 padding:6px 16px;
 margin:6px;
@@ -80,6 +78,13 @@ text-align:center;
 .pred-under{background:#8b1e1e;color:#fff;font-weight:bold;}
 .pred-noplay{background:#444;color:#bbb;font-weight:bold;}
 
+.lock{
+font-size:6px;
+display:inline-block;
+vertical-align:middle;
+margin-left:4px;
+}
+
 small.error-note{
 color:#ff6b6b;
 font-size:10px;
@@ -96,9 +101,8 @@ margin-top:2px;
 <div class="wrapper">
 
 <div class="section">
-<h3 style="font-size:22px;">League Tier</h3>
-<label style="font-size:18px;margin-top:10px;">Select League</label>
-
+<h3>League Tier</h3>
+<label>Select League</label>
 <select id="leagueSelect" class="league-box">
 <option value="nba">USA - NBA</option>
 <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
@@ -137,7 +141,7 @@ margin-top:2px;
 
 <div class="section">
 <h3>H2H</h3>
-<label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
+<label><input type="checkbox" id="useFTH2H">Use FT H2H (min 2 games)</label>
 <input id="aFTH2H" placeholder="82,78,84,76,82">
 <input id="bFTH2H" placeholder="79,81,77,80,78">
 </div>
@@ -163,10 +167,8 @@ margin-top:2px;
 function parseGames(id){
 let raw=document.getElementById(id).value.trim();
 if(!raw)return null;
-
 let arr=raw.split(",").map(x=>parseFloat(x.trim()));
-if(arr.some(x=>isNaN(x)||x<0||x>250))return "error";
-
+if(arr.some(x=>isNaN(x)||x<0||x>250))return"error";
 return arr;
 }
 
@@ -178,101 +180,25 @@ return arr.reduce((a,b)=>a+b,0)/arr.length;
 function trimmedAvg(arr){
 if(!arr||arr.length===0)return NaN;
 if(arr.length<5)return avg(arr);
-
 let sorted=[...arr].sort((a,b)=>a-b);
 sorted.shift();
 sorted.pop();
-
 return avg(sorted);
-}
-
-function stdDev(arr){
-if(!arr||arr.length<2)return 0;
-
-let m=avg(arr);
-let variance=arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1);
-
-return Math.sqrt(variance);
 }
 
 function mid(val){
 if(!val)return NaN;
-
-val=val.trim();
 if(!val.includes("-"))return NaN;
-
-let p=val.split("-").map(x=>x.trim());
-let a=parseFloat(p[0]);
-let b=parseFloat(p[1]);
-
-if(isNaN(a)||isNaN(b))return NaN;
-
-return(a+b)/2;
+let p=val.split("-").map(x=>parseFloat(x.trim()));
+if(isNaN(p[0])||isNaN(p[1]))return NaN;
+return(p[0]+p[1])/2;
 }
 
-function displayLine(val){
-if(isNaN(val))return"NaN";
-return(Math.round(val*2)/2).toFixed(1);
-}
-
-function dynamicWeight(sample){
-if(!sample||sample.length<2)return 0;
-if(sample.length<=3)return 0.20;
-return 0.30;
-}
-
-function applyVolatility(proj,std,limit){
-if(isNaN(proj)||isNaN(std))return NaN;
-if(std<=limit)return proj;
-
-const excess=std-limit;
-const factor=Math.min(1,excess/limit);
-const maxCut=0.05;
-
-return proj*(1-maxCut*factor);
-}
-
-/* DECISION ENGINE */
-
-function decision(edge,line,type,teamSc,aSc,bSc,aAllowed,bAllowed){
-
+function decision(edge,line){
 if(isNaN(edge)||isNaN(line))return"NaN";
 if(Math.abs(edge)<3)return"NO PLAY";
-
-let threshold;
-
-if(type==="ft_total")
-threshold=edge>0?line*0.045:line*0.06;
-else if(type==="team")
-threshold=edge>0?line*0.05:line*0.065;
-else return"NaN";
-
-if(Math.abs(edge)<threshold)return"NO PLAY";
-
-if(type==="ft_total"){
-if(!isNaN(aAllowed)&&aAllowed<70)return"NO PLAY";
-if(!isNaN(bAllowed)&&bAllowed<70)return"NO PLAY";
+return edge>0?"OVER "+line.toFixed(1):"UNDER "+line.toFixed(1);
 }
-
-if(edge<0){
-
-if(type==="ft_total"){
-if(!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.58||bSc>=line*0.58))
-return"NO PLAY";
-}
-
-if(type==="team"){
-if(!isNaN(teamSc)&&teamSc>=line*0.58)
-return"NO PLAY";
-}
-
-}
-
-return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
-
-}
-
-/* MAIN ENGINE */
 
 function runEngine(){
 
@@ -280,131 +206,85 @@ const table=document.getElementById("results");
 table.style.display="table";
 table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
-const league=document.getElementById("leagueSelect").value;
-
-const leagueBases={
-nba:230,
-euro_elite:175,
-secondary:170,
-ncaa:150,
-africa:160,
-unknown:160
-};
-
-const leaguePaceClamps={
-nba:{min:0.90,max:1.15},
-euro_elite:{min:0.92,max:1.10},
-secondary:{min:0.92,max:1.10},
-ncaa:{min:0.90,max:1.12},
-africa:{min:0.90,max:1.12},
-unknown:{min:0.90,max:1.12}
-};
-
-let expectedBase=leagueBases[league]||160;
-const clamps=leaguePaceClamps[league];
-
 let ftLine=mid(document.getElementById("ftMarket").value);
 let aLine=mid(document.getElementById("teamAMarket").value);
 let bLine=mid(document.getElementById("teamBMarket").value);
 
-let aFTScArr=parseGames("aFTScored");
-let aFTAllArr=parseGames("aFTAllowed");
-let bFTScArr=parseGames("bFTScored");
-let bFTAllArr=parseGames("bFTAllowed");
-
-let aFTSc=(aFTScArr==="error"||aFTScArr===null)?NaN:trimmedAvg(aFTScArr);
-let aFTAll=(aFTAllArr==="error"||aFTAllArr===null)?NaN:trimmedAvg(aFTAllArr);
-let bFTSc=(bFTScArr==="error"||bFTScArr===null)?NaN:trimmedAvg(bFTScArr);
-let bFTAll=(bFTAllArr==="error"||bFTAllArr===null)?NaN:trimmedAvg(bFTAllArr);
+let aFTSc=trimmedAvg(parseGames("aFTScored"));
+let aFTAll=trimmedAvg(parseGames("aFTAllowed"));
+let bFTSc=trimmedAvg(parseGames("bFTScored"));
+let bFTAll=trimmedAvg(parseGames("bFTAllowed"));
 
 let baseAFT=(aFTSc*0.6)+(bFTAll*0.4);
 let baseBFT=(bFTSc*0.6)+(aFTAll*0.4);
 
+/* H2H */
+
+if(document.getElementById("useFTH2H").checked){
+
+let aH=parseGames("aFTH2H");
+let bH=parseGames("bFTH2H");
+
+if(aH&&bH&&aH.length>=2&&bH.length>=2){
+
+let w=0.25;
+
+baseAFT=baseAFT*(1-w)+avg(aH)*w;
+baseBFT=baseBFT*(1-w)+avg(bH)*w;
+
+}
+
+}
+
 let ftProj=baseAFT+baseBFT;
 
 let picks=[
-{name:"FT Total",proj:ftProj,line:ftLine,type:"ft_total",teamSc:null,aSc:aFTSc,bSc:bFTSc},
-{name:"Team A Total",proj:baseAFT,line:aLine,type:"team",teamSc:aFTSc,aSc:aFTSc,bSc:bFTSc},
-{name:"Team B Total",proj:baseBFT,line:bLine,type:"team",teamSc:bFTSc,aSc:aFTSc,bSc:bFTSc}
+{name:"FT Total",proj:ftProj,line:ftLine},
+{name:"Team A Total",proj:baseAFT,line:aLine},
+{name:"Team B Total",proj:baseBFT,line:bLine}
 ];
 
 let lockIndex=-1;
 let maxStrength=0;
 
 picks.forEach((p,i)=>{
+
 if(isNaN(p.line)||isNaN(p.proj))return;
 
 let edge=p.proj-p.line;
 let strength=Math.abs(edge/p.line);
 
-let pickText=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
-
-if(strength<0.045)pickText="NO PLAY";
-
-if(pickText!=="NO PLAY"&&strength>=0.045&&strength>maxStrength){
+if(strength>maxStrength){
 maxStrength=strength;
 lockIndex=i;
 }
+
 });
 
 picks.forEach((p,i)=>{
 
-let edge=NaN;
-let pickText="NaN";
-let displayNote="";
+let edge=p.proj-p.line;
+let pred=decision(edge,p.line);
 
-if(isNaN(p.line)){
-displayNote="Missing / Invalid Line";
-pickText="—";
+if(i===lockIndex&&pred!=="NO PLAY"){
+pred+=' <span class="lock">🔒</span>';
 }
-
-else if(isNaN(p.proj)){
-displayNote="Missing / Invalid Last-5 Data";
-pickText="—";
-}
-
-else{
-edge=p.proj-p.line;
-pickText=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
-
-let strength=Math.abs(edge/p.line);
-if(strength<0.045)pickText="NO PLAY";
-}
-
-let pred=pickText;
-
-if(i===lockIndex&&pickText!=="NO PLAY"&&pickText!=="NaN"){
-pred+=" 🔒";
-}
-
-let projDisplay=isNaN(p.proj)?"NaN":p.proj.toFixed(2);
-let edgeDisplay=isNaN(edge)?"NaN":edge.toFixed(2);
-
-let className="pred-noplay";
-
-if(pred.startsWith("OVER"))className="pred-over";
-else if(pred.startsWith("UNDER"))className="pred-under";
 
 let row=table.insertRow();
 
 row.innerHTML=
 `<td>${p.name}</td>
-<td>${projDisplay}</td>
-<td>${edgeDisplay}</td>
-<td class="${className}">
-${pred}
-${displayNote?`<br><small class="error-note">${displayNote}</small>`:""}
-</td>`;
+<td>${p.proj.toFixed(2)}</td>
+<td>${edge.toFixed(2)}</td>
+<td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>`;
+
 });
 
 }
 
 function clearAll(){
 document.querySelectorAll("input").forEach(i=>i.value="");
-document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
-
-const table=document.getElementById("results");
-table.style.display="none";
+document.getElementById("results").style.display="none";
 }
 
 </script>
