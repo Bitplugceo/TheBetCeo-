@@ -413,7 +413,9 @@ row.innerHTML=
 `<td>${p.name}</td>
 <td>${projDisplay}</td>
 <td>${edgeDisplay}</td>
-<td class="${className}">${pred}</td>`;
+<td class="${className}">
+${pred.includes("Invalid") ? `<small class="error-note">${pred}</small>` : pred}
+</td>
 
 });
 
