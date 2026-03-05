@@ -534,25 +534,24 @@ let bVol = (
     let displayNote = "";
 
     if(isNaN(p.line)){
-      displayNote="Missing / Invalid Line";
-      pickText="—";
-    }
+  displayNote="Missing / Invalid Line";
+  pickText="—";
+}
 
-    else if(isNaN(p.proj)){
-      displayNote="Missing / Invalid Last-5 Data";
-      pickText="—";
-    }
+else if(isNaN(p.proj)){
+  displayNote="Missing / Invalid Last-5 Data";
+  pickText="—";
+}
 
+else{
 
-      else{
+  edge = p.proj - p.line;
 
-    edge = p.proj - p.line;
+  pickText = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
 
-    pickText = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
+  let strength = Math.abs(edge / p.line);
 
-    let strength = Math.abs(edge / p.line);
-
-    if(strength < 0.045) pickText = "NO PLAY";
+  if(strength < 0.045) pickText = "NO PLAY";
 
 }
 
