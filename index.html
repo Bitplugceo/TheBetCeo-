@@ -518,12 +518,12 @@ let bVol = (
 
     if(strength < 0.045) pickText="NO PLAY";
 
-    if(pickText!=="NO PLAY" && strength>maxStrength){
+    if(pickText !== "NO PLAY" && strength >= 0.045 && strength > maxStrength){
 
-      maxStrength=strength;
-      lockIndex=i;
+  maxStrength = strength;
+  lockIndex = i;
 
-    }
+}
 
   });
 
