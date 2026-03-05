@@ -243,6 +243,13 @@ function decision(edge, line, type, teamSc, aSc, bSc){
 
   if(Math.abs(edge) < threshold) return "NO PLAY";
 
+  /* --- UPGRADE 2: Defensive Floor Filter --- */
+
+if(type === "ft_total"){
+  if(!isNaN(aFTAll) && aFTAll < 70) return "NO PLAY";
+  if(!isNaN(bFTAll) && bFTAll < 70) return "NO PLAY";
+}
+  
   if(edge < 0){
     if(type === "ft_total")  { 
       if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY"; 
@@ -322,6 +329,14 @@ if (!isNaN(bFTSc) && !isNaN(aFTAll)) {
   let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? aFTSc + aFTAll : NaN;
 let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? bFTSc + bFTAll : NaN;
 
+  /* --- UPGRADE 1: Pace Gap Filter --- */
+
+let paceGap = Math.abs(teamAPace - teamBPace);
+
+if(!isNaN(paceGap) && paceGap > 15){
+  ftProj = ftProj * 0.97; // reduce projection slightly
+}
+  
 let rawPace = NaN;
 
 if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
@@ -443,6 +458,14 @@ picks.forEach((p, i) => {
   let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
   let pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
+  /* --- UPGRADE 3: Strong Edge Filter --- */
+
+let strength = Math.abs(edge / p.line);
+
+if(strength < 0.045){
+  pickText = "NO PLAY";
+}
+  
   if (fullModelActive &&
       pickText !== "NO PLAY" &&
       pickText !== "NaN" &&
