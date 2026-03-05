@@ -169,7 +169,6 @@ let raw=document.getElementById(id).value.trim();
 if(!raw) return null;
 
 let arr=raw.split(",").map(x=>parseFloat(x.trim()));
-
 if(arr.some(x=>isNaN(x)||x<0||x>250)) return "error";
 
 return arr;
@@ -181,6 +180,7 @@ return arr.reduce((a,b)=>a+b,0)/arr.length;
 }
 
 function trimmedAvg(arr){
+
 if(!arr||arr.length===0) return NaN;
 if(arr.length<5) return avg(arr);
 
@@ -189,6 +189,7 @@ sorted.shift();
 sorted.pop();
 
 return avg(sorted);
+
 }
 
 function mid(val){
@@ -196,13 +197,12 @@ function mid(val){
 if(!val) return NaN;
 
 val=val.trim();
+let parts=val.split("-");
 
-if(!val.includes("-")) return NaN;
+if(parts.length!==2) return NaN;
 
-let p=val.split("-").map(x=>x.trim());
-
-let a=parseFloat(p[0]);
-let b=parseFloat(p[1]);
+let a=parseFloat(parts[0]);
+let b=parseFloat(parts[1]);
 
 if(isNaN(a)||isNaN(b)) return NaN;
 
@@ -221,32 +221,15 @@ return(Math.round(val*2)/2).toFixed(1);
 function dynamicWeight(sample){
 
 if(!sample||sample.length<2) return 0;
-
 if(sample.length<=3) return 0.20;
 
 return 0.30;
 
 }
 
-function applyVolatility(proj,std,limit){
-
-if(isNaN(proj)||isNaN(std)) return NaN;
-
-if(std<=limit) return proj;
-
-const excess=std-limit;
-const factor=Math.min(1,excess/limit);
-const maxCut=0.05;
-
-return proj*(1-maxCut*factor);
-
-}
-
-/* DECISION ENGINE */
-
 function decision(edge,line,type,teamSc,aSc,bSc,aAllowed,bAllowed){
 
-if(isNaN(edge)||isNaN(line)) return "NaN";
+if(isNaN(edge)||isNaN(line)) return "NO PLAY";
 
 if(Math.abs(edge)<3) return "NO PLAY";
 
@@ -255,10 +238,8 @@ let threshold;
 if(type==="ft_total")
 threshold=edge>0?line*0.045:line*0.06;
 
-else if(type==="team")
+else
 threshold=edge>0?line*0.05:line*0.065;
-
-else return "NaN";
 
 if(Math.abs(edge)<threshold) return "NO PLAY";
 
@@ -299,19 +280,6 @@ table.style.display="table";
 
 table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
-const league=document.getElementById("leagueSelect").value;
-
-const leagueBases={
-nba:230,
-euro_elite:175,
-secondary:170,
-ncaa:150,
-africa:160,
-unknown:160
-};
-
-let expectedBase=leagueBases[league]||160;
-
 let ftLine=mid(document.getElementById("ftMarket").value);
 let aLine=mid(document.getElementById("teamAMarket").value);
 let bLine=mid(document.getElementById("teamBMarket").value);
@@ -329,7 +297,7 @@ let bFTAll=(bFTAllArr==="error"||bFTAllArr===null)?NaN:trimmedAvg(bFTAllArr);
 let baseAFT=(aFTSc*0.6)+(bFTAll*0.4);
 let baseBFT=(bFTSc*0.6)+(aFTAll*0.4);
 
-/* H2H Integration */
+/* H2H */
 
 let ftH2Ha=null;
 let ftH2Hb=null;
@@ -353,19 +321,6 @@ ftH2Hb.length>=2
 let wA=dynamicWeight(ftH2Ha);
 let wB=dynamicWeight(ftH2Hb);
 
-let totalGames=ftH2Ha.length+ftH2Hb.length;
-
-wA=wA*(ftH2Ha.length/totalGames);
-wB=wB*(ftH2Hb.length/totalGames);
-
-let totalWeight=wA+wB;
-
-if(totalWeight>0.30){
-let scale=0.30/totalWeight;
-wA*=scale;
-wB*=scale;
-}
-
 baseAFT=baseAFT*(1-wA)+avg(ftH2Ha)*wA;
 baseBFT=baseBFT*(1-wB)+avg(ftH2Hb)*wB;
 
@@ -386,8 +341,6 @@ let picks=[
 let lockIndex=-1;
 let maxStrength=0;
 
-/* LOCK CALCULATION */
-
 picks.forEach((p,i)=>{
 
 if(isNaN(p.line)||isNaN(p.proj)) return;
@@ -397,9 +350,7 @@ let strength=Math.abs(edge/p.line);
 
 let pickText=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
 
-if(strength<0.045) pickText="NO PLAY";
-
-if(pickText!=="NO PLAY" && strength>=0.045 && strength>maxStrength){
+if(strength>=0.045 && pickText!=="NO PLAY" && strength>maxStrength){
 
 maxStrength=strength;
 lockIndex=i;
@@ -412,39 +363,32 @@ lockIndex=i;
 
 picks.forEach((p,i)=>{
 
-let edge=NaN;
-let pickText="NaN";
-let displayNote="";
+let edge=p.proj-p.line;
+let pred="";
 
 if(isNaN(p.line)){
 
-displayNote="Missing / Invalid Line";
-pickText="—";
+pred="Missing / Invalid Line";
 
 }
 
 else if(isNaN(p.proj)){
 
-displayNote="Missing / Invalid Last-5 Data";
-pickText="—";
+pred="Missing / Invalid Last-5 Data";
 
 }
 
 else{
 
-edge=p.proj-p.line;
-
-pickText=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
+pred=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
 
 let strength=Math.abs(edge/p.line);
 
-if(strength<0.045) pickText="NO PLAY";
+if(strength<0.045) pred="NO PLAY";
 
 }
 
-let pred=pickText;
-
-if(i===lockIndex && pickText!=="NO PLAY" && pickText!=="NaN"){
+if(i===lockIndex && !pred.includes("Invalid") && pred!=="NO PLAY"){
 pred+=' <span class="lock">🔒</span>';
 }
 
@@ -462,10 +406,7 @@ row.innerHTML=
 `<td>${p.name}</td>
 <td>${projDisplay}</td>
 <td>${edgeDisplay}</td>
-<td class="${className}">
-${pred}
-${displayNote?`<br><small class="error-note">${displayNote}</small>`:""}
-</td>`;
+<td class="${className}">${pred}</td>`;
 
 });
 
