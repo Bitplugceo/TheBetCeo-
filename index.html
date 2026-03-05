@@ -165,7 +165,7 @@ function parseGames(id){
   let raw = document.getElementById(id).value.trim();
   if(!raw) return null;
   let arr = raw.split(",").map(x => parseFloat(x.trim()));
-  if(arr.some(x => isNaN(x) || x < 0 || x > 250)) return "error";
+  if(arr.some(x => isNaN(x) || x < 0 || x > 300)) return "error";
   return arr;
 }
 
@@ -322,6 +322,18 @@ if (!isNaN(bFTSc) && !isNaN(aFTAll)) {
   let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? aFTSc + aFTAll : NaN;
 let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? bFTSc + bFTAll : NaN;
 
+/* -------- Pace Gap Filter -------- */
+
+let paceGapRisk = false;
+
+if(!isNaN(teamAPace) && !isNaN(teamBPace)){
+  let paceGap = Math.abs(teamAPace - teamBPace);
+
+  if(paceGap > 18){
+    paceGapRisk = true;
+  }
+}
+  
 let rawPace = NaN;
 
 if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
@@ -383,6 +395,17 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
   let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
 let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
 
+  /* -------- Defensive Floor Filter -------- */
+
+let defensiveFloorRisk = false;
+
+if(
+ (!isNaN(aFTAll) && aFTAll < 70) ||
+ (!isNaN(bFTAll) && bFTAll < 70)
+){
+ defensiveFloorRisk = true;
+}
+  
 let volatilityLimits = {
   "nba": 14,
   "euro_elite": 12,
@@ -475,6 +498,20 @@ picks.forEach((p, i) => {
     pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
   }
 
+  /* -------- Upgrade Filters -------- */
+
+if(p.type === "ft_total" && pickText.startsWith("OVER")){
+
+  if(paceGapRisk){
+    pickText = "NO PLAY";
+  }
+
+  if(defensiveFloorRisk){
+    pickText = "NO PLAY";
+  }
+
+}
+  
   let row = table.insertRow();
   let pred = pickText;
 
