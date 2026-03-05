@@ -441,6 +441,10 @@ if(!isNaN(baseAFT) && !isNaN(baseBFT)){
 if(!isNaN(projDiff) && projDiff > 18){
   ftProj = ftProj * 0.98;
 }
+
+ if(paceGapRisk){
+  ftProj = ftProj * 0.97;
+}
   
   if(!isNaN(ftProj) && !isNaN(ftLine)){
   if(Math.abs(ftProj - ftLine) > 25){
