@@ -174,20 +174,20 @@ function avg(arr){
   return arr.reduce((a,b)=>a+b,0) / arr.length;
 }
 
-  function trimmedAvg(arr){
+function trimmedAvg(arr){
   if(!arr || arr.length === 0) return NaN;
 
   if(arr.length < 5){
-    return avg(arr); // use normal average if less than 5 games
+    return avg(arr);
   }
 
   let sorted = [...arr].sort((a,b)=>a-b);
-  sorted.shift();   // remove lowest
-  sorted.pop();     // remove highest
+  sorted.shift();
+  sorted.pop();
 
   return avg(sorted);
 }
-  
+
 function stdDev(arr){
   if(!arr || arr.length < 2) return 0;
   let m = avg(arr);
@@ -221,315 +221,233 @@ function applyVolatility(proj, std, limit){
   if(std <= limit) return proj;
 
   const excess = std - limit;
-  const maxExcess = limit;
-  const reductionFactor = Math.min(1, excess / maxExcess);
+  const reductionFactor = Math.min(1, excess / limit);
   const maxCut = 0.05;
 
-  const cut = maxCut * reductionFactor;
-  return proj * (1 - cut);
+  return proj * (1 - maxCut * reductionFactor);
 }
 
-function decision(edge, line, type, teamSc, aSc, bSc){
+/* DECISION FUNCTION */
+
+function decision(edge, line, type, teamSc, aSc, bSc, aAllowed, bAllowed){
+
   if(isNaN(edge) || isNaN(line)) return "NaN";
 
   if(Math.abs(edge) < 3) return "NO PLAY";
-  
-  let threshold;
-  if(type === "ft_total")      threshold = edge > 0 ? line * 0.045 : line * 0.06;
-  else if(type === "team")     threshold = edge > 0 ? line * 0.05  : line * 0.065;
-  else return "NaN";
 
-  if(isNaN(threshold)) return "NaN";
+  let threshold;
+
+  if(type === "ft_total")
+      threshold = edge > 0 ? line * 0.045 : line * 0.06;
+
+  else if(type === "team")
+      threshold = edge > 0 ? line * 0.05 : line * 0.065;
+
+  else return "NaN";
 
   if(Math.abs(edge) < threshold) return "NO PLAY";
 
-  /* --- UPGRADE 2: Defensive Floor Filter --- */
+  /* UPGRADE 2 — Defensive Floor Filter */
 
-if(type === "ft_total"){
-  if(!isNaN(aFTAll) && aFTAll < 70) return "NO PLAY";
-  if(!isNaN(bFTAll) && bFTAll < 70) return "NO PLAY";
-}
-  
+  if(type === "ft_total"){
+    if(!isNaN(aAllowed) && aAllowed < 70) return "NO PLAY";
+    if(!isNaN(bAllowed) && bAllowed < 70) return "NO PLAY";
+  }
+
   if(edge < 0){
-    if(type === "ft_total")  { 
-      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY"; 
+
+    if(type === "ft_total"){
+      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58))
+        return "NO PLAY";
     }
-    if(type === "team")      { 
-      if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY"; 
+
+    if(type === "team"){
+      if(!isNaN(teamSc) && teamSc >= line*0.58)
+        return "NO PLAY";
     }
+
   }
 
   return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
+
 }
 
+/* MAIN ENGINE */
+
 function runEngine(){
+
   const table = document.getElementById("results");
+
   table.style.display = "table";
-  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+
+  table.innerHTML =
+  "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
   const league = document.getElementById("leagueSelect").value;
 
   const leagueBases = {
-    "nba": 230,
-    "euro_elite": 175,
-    "secondary": 170,
-    "ncaa": 150,
-    "africa": 160,
-    "unknown": 160
+    nba:230,
+    euro_elite:175,
+    secondary:170,
+    ncaa:150,
+    africa:160,
+    unknown:160
   };
 
   const leaguePaceClamps = {
-    "nba":       { min: 0.90, max: 1.15 },
-    "euro_elite": { min: 0.92, max: 1.10 },
-    "secondary":  { min: 0.92, max: 1.10 },
-    "ncaa":       { min: 0.90, max: 1.12 },
-    "africa":     { min: 0.90, max: 1.12 },
-    "unknown":    { min: 0.90, max: 1.12 }
+    nba:{min:0.90,max:1.15},
+    euro_elite:{min:0.92,max:1.10},
+    secondary:{min:0.92,max:1.10},
+    ncaa:{min:0.90,max:1.12},
+    africa:{min:0.90,max:1.12},
+    unknown:{min:0.90,max:1.12}
   };
 
   let expectedBase = leagueBases[league] || 160;
-  const clamps = leaguePaceClamps[league] || { min: 0.90, max: 1.12 };
+  const clamps = leaguePaceClamps[league];
 
-  let ftLine  = mid(document.getElementById("ftMarket").value);
-  let aLine   = mid(document.getElementById("teamAMarket").value);
-  let bLine   = mid(document.getElementById("teamBMarket").value);
+  let ftLine = mid(document.getElementById("ftMarket").value);
+  let aLine = mid(document.getElementById("teamAMarket").value);
+  let bLine = mid(document.getElementById("teamBMarket").value);
 
-  let aFTScArr  = parseGames("aFTScored");
+  let aFTScArr = parseGames("aFTScored");
   let aFTAllArr = parseGames("aFTAllowed");
-  let bFTScArr  = parseGames("bFTScored");
+  let bFTScArr = parseGames("bFTScored");
   let bFTAllArr = parseGames("bFTAllowed");
 
-  let aFTSc  = (aFTScArr  === "error" || aFTScArr  === null) ? NaN : trimmedAvg(aFTScArr);
-let aFTAll = (aFTAllArr === "error" || aFTAllArr === null) ? NaN : trimmedAvg(aFTAllArr);
-let bFTSc  = (bFTScArr  === "error" || bFTScArr  === null) ? NaN : trimmedAvg(bFTScArr);
-let bFTAll = (bFTAllArr === "error" || bFTAllArr === null) ? NaN : trimmedAvg(bFTAllArr);
-let fullModelActive = 
-  !isNaN(aFTSc) &&
-  !isNaN(aFTAll) &&
-  !isNaN(bFTSc) &&
-  !isNaN(bFTAll);
-  
-  let baseAFT = NaN;
-let baseBFT = NaN;
+  let aFTSc = trimmedAvg(aFTScArr);
+  let aFTAll = trimmedAvg(aFTAllArr);
+  let bFTSc = trimmedAvg(bFTScArr);
+  let bFTAll = trimmedAvg(bFTAllArr);
 
-// Team A projection logic
-if (!isNaN(aFTSc) && !isNaN(bFTAll)) {
-  baseAFT = (aFTSc * 0.6) + (bFTAll * 0.4);
-} else if (!isNaN(aFTSc)) {
-  baseAFT = aFTSc;
-}
+  let baseAFT = (aFTSc * 0.6) + (bFTAll * 0.4);
+  let baseBFT = (bFTSc * 0.6) + (aFTAll * 0.4);
 
-// Team B projection logic
-if (!isNaN(bFTSc) && !isNaN(aFTAll)) {
-  baseBFT = (bFTSc * 0.6) + (aFTAll * 0.4);
-} else if (!isNaN(bFTSc)) {
-  baseBFT = bFTSc;
-}
+  let teamAPace = aFTSc + aFTAll;
+  let teamBPace = bFTSc + bFTAll;
 
-  let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? aFTSc + aFTAll : NaN;
-let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? bFTSc + bFTAll : NaN;
+  let rawPace = (teamAPace + teamBPace) / 2;
 
-  /* --- UPGRADE 1: Pace Gap Filter --- */
+  let pace = rawPace / expectedBase;
 
-let paceGap = Math.abs(teamAPace - teamBPace);
+  pace = Math.max(clamps.min, Math.min(clamps.max, pace));
 
-if(!isNaN(paceGap) && paceGap > 15){
-  ftProj = ftProj * 0.97; // reduce projection slightly
-}
-  
-let rawPace = NaN;
+  let aVol = (stdDev(aFTScArr)+stdDev(aFTAllArr))/2;
+  let bVol = (stdDev(bFTScArr)+stdDev(bFTAllArr))/2;
 
-if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
-  rawPace = (teamAPace + teamBPace) / 2;
-} else if (!isNaN(teamAPace)) {
-  rawPace = teamAPace;
-} else if (!isNaN(teamBPace)) {
-  rawPace = teamBPace;
-}
+  const volatilityLimits = {
+    nba:14,
+    euro_elite:12,
+    secondary:12,
+    ncaa:11,
+    africa:11,
+    unknown:12
+  };
 
-  let pace = 1;
-  if (!isNaN(rawPace) && expectedBase !== 0 && !isNaN(expectedBase)) {
-    pace = rawPace / expectedBase;
-    pace = Math.max(clamps.min, Math.min(clamps.max, pace));
+  let volLimit = volatilityLimits[league];
+
+  baseAFT = applyVolatility(baseAFT,aVol,volLimit);
+  baseBFT = applyVolatility(baseBFT,bVol,volLimit);
+
+  let leagueTeamAvg = expectedBase/2;
+
+  baseAFT = (baseAFT*0.85)+(leagueTeamAvg*0.15);
+  baseBFT = (baseBFT*0.85)+(leagueTeamAvg*0.15);
+
+  baseAFT = baseAFT*(0.5+pace/2);
+  baseBFT = baseBFT*(0.5+pace/2);
+
+  let ftProj = baseAFT + baseBFT;
+
+  /* UPGRADE 1 — Pace Gap Filter */
+
+  let paceGap = Math.abs(teamAPace-teamBPace);
+
+  if(paceGap > 15){
+    ftProj = ftProj * 0.97;
   }
 
-  let ftH2Ha = null, ftH2Hb = null;
-
-  if(document.getElementById("useFTH2H").checked){
-    ftH2Ha = parseGames("aFTH2H");
-    ftH2Hb = parseGames("bFTH2H");
+  if(Math.abs(baseAFT-baseBFT)>18){
+    ftProj = ftProj*0.98;
   }
-  
-    if(
-  fullModelActive &&
-  ftH2Ha &&
-  ftH2Hb &&
-  ftH2Ha !== "error" &&
-  ftH2Hb !== "error" &&
-  ftH2Ha.length >= 2 &&
-  ftH2Hb.length >= 2
-){
-      let wA = dynamicWeight(ftH2Ha);
-      let wB = dynamicWeight(ftH2Hb);
 
-      const totalGames = ftH2Ha.length + ftH2Hb.length;
-      wA = wA * (ftH2Ha.length / totalGames);
-      wB = wB * (ftH2Hb.length / totalGames);
-
-      // Cap total H2H influence at ~30%
-      let totalH2HWeight = wA + wB;
-      if (totalH2HWeight > 0.30) {
-        const scale = 0.30 / totalH2HWeight;
-        wA *= scale;
-        wB *= scale;
-      }
-
-      let currentTotal = baseAFT + baseBFT;
-      let h2hTotal = avg(ftH2Ha) + avg(ftH2Hb);
-      if(!isNaN(currentTotal) && currentTotal > 0 && Math.abs(h2hTotal - currentTotal) / currentTotal > 0.20){
-        wA *= 0.5;
-        wB *= 0.5;
-      }
-      if(!isNaN(avg(ftH2Ha))) baseAFT = baseAFT * (1 - wA) + avg(ftH2Ha) * wA;
-      if(!isNaN(avg(ftH2Hb))) baseBFT = baseBFT * (1 - wB) + avg(ftH2Hb) * wB;
-    }
-
-
-  let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
-let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
-
-let volatilityLimits = {
-  "nba": 14,
-  "euro_elite": 12,
-  "secondary": 12,
-  "ncaa": 11,
-  "africa": 11,
-  "unknown": 12
-};
-
-let volLimit = volatilityLimits[league] || 12;
-
-baseAFT = applyVolatility(baseAFT, aVol, volLimit);
-baseBFT = applyVolatility(baseBFT, bVol, volLimit);
-
- // regression to league mean
-let leagueTeamAvg = expectedBase / 2;
-
-baseAFT = (baseAFT * 0.85) + (leagueTeamAvg * 0.15);
-baseBFT = (baseBFT * 0.85) + (leagueTeamAvg * 0.15);
-  
-baseAFT = baseAFT * (0.5 + pace/2);
-baseBFT = baseBFT * (0.5 + pace/2);
-
-let ftProj = NaN;
-
-if(!isNaN(baseAFT) && !isNaN(baseBFT)){
-  ftProj = baseAFT + baseBFT;
-}
-
-  let projDiff = (!isNaN(baseAFT) && !isNaN(baseBFT))
-  ? Math.abs(baseAFT - baseBFT)
-  : NaN;
-if(!isNaN(projDiff) && projDiff > 18){
-  ftProj = ftProj * 0.98;
-}
-  
-  if(!isNaN(ftProj) && !isNaN(ftLine)){
-  if(Math.abs(ftProj - ftLine) > 25){
-    ftProj = ftLine + (ftProj - ftLine) * 0.5;
+  if(Math.abs(ftProj-ftLine)>25){
+    ftProj = ftLine + (ftProj-ftLine)*0.5;
   }
-}
-  
+
   let picks = [
-    {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
-    {name:"Team A Total", proj:baseAFT, line:aLine,   type:"team",     teamSc:aFTSc, aSc:aFTSc, bSc:bFTSc},
-    {name:"Team B Total", proj:baseBFT, line:bLine,   type:"team",     teamSc:bFTSc, aSc:aFTSc, bSc:bFTSc}
+
+    {name:"FT Total",proj:ftProj,line:ftLine,type:"ft_total",teamSc:null,aSc:aFTSc,bSc:bFTSc},
+
+    {name:"Team A Total",proj:baseAFT,line:aLine,type:"team",teamSc:aFTSc,aSc:aFTSc,bSc:bFTSc},
+
+    {name:"Team B Total",proj:baseBFT,line:bLine,type:"team",teamSc:bFTSc,aSc:aFTSc,bSc:bFTSc}
+
   ];
 
-  let lockIndex = -1;
-  let maxStrength = 0;
+  let lockIndex=-1;
+  let maxStrength=0;
 
+  picks.forEach((p,i)=>{
 
-/* -------- PHASE 1: Find strongest pick -------- */
-picks.forEach((p, i) => {
-  if (isNaN(p.line) || isNaN(p.proj)) return;
+    if(isNaN(p.line)||isNaN(p.proj)) return;
 
-  let edge = p.proj - p.line;
-  let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
-  let pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+    let edge=p.proj-p.line;
 
-  /* --- UPGRADE 3: Strong Edge Filter --- */
+    let strength=Math.abs(edge/p.line);
 
-let strength = Math.abs(edge / p.line);
+    let pickText = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
 
-if(strength < 0.045){
-  pickText = "NO PLAY";
+    /* UPGRADE 3 — Strong Edge Filter */
+
+    if(strength<0.045) pickText="NO PLAY";
+
+    if(pickText!=="NO PLAY" && strength>maxStrength){
+
+      maxStrength=strength;
+      lockIndex=i;
+
+    }
+
+  });
+
+  picks.forEach((p,i)=>{
+
+    let edge=p.proj-p.line;
+
+    let pickText=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
+
+    let pred=pickText;
+
+    if(i===lockIndex && pickText!=="NO PLAY"){
+      pred+=" 🔒";
+    }
+
+    let row=table.insertRow();
+
+    row.innerHTML=`
+    <td>${p.name}</td>
+    <td>${p.proj.toFixed(2)}</td>
+    <td>${edge.toFixed(2)}</td>
+    <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
+    `;
+
+  });
+
 }
-  
-  if (fullModelActive &&
-      pickText !== "NO PLAY" &&
-      pickText !== "NaN" &&
-      strength >= 0.045 &&
-      strength > maxStrength) {
 
-      maxStrength = strength;
-      lockIndex = i;
-  }
-});
-
-
-/* -------- PHASE 2: Render table -------- */
-picks.forEach((p, i) => {
-
-  let edge = NaN;
-  let pickText = "NaN";
-  let displayNote = "";
-
-  if (isNaN(p.line)) {
-    displayNote = "Missing / Invalid Line";
-    pickText = "—";
-
-  } else if (isNaN(p.proj)) {
-    displayNote = "Missing / Invalid Last-5 Data";
-    pickText = "—";
-
-  } else {
-    edge = p.proj - p.line;
-    pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
-  }
-
-  let row = table.insertRow();
-  let pred = pickText;
-
-  if (i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN") {
-    pred += ` <span class="lock">🔒</span>`;
-  }
-
-  let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
-  let edgeDisplay = isNaN(edge) ? "NaN" : edge.toFixed(2);
-
-  let className = "pred-noplay";
-  if (pred.startsWith("OVER")) className = "pred-over";
-  else if (pred.startsWith("UNDER")) className = "pred-under";
-
-  row.innerHTML = `
-  <td>${p.name}</td>
-  <td>${projDisplay}</td>
-  <td>${edgeDisplay}</td>
-  <td class="${className}">
-    ${pred}
-    ${displayNote ? `<br><small class="error-note">${displayNote}</small>` : ""}
-  </td>`;
-});
-}
-  
 function clearAll(){
-  document.querySelectorAll("input").forEach(i => i.value = "");
-  document.querySelectorAll("input[type=checkbox]").forEach(i => i.checked = false);
-  const table = document.getElementById("results");
-  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
-  table.style.display = "none";
+
+  document.querySelectorAll("input").forEach(i=>i.value="");
+
+  document.querySelectorAll("input[type=checkbox]").forEach(i=>i.checked=false);
+
+  const table=document.getElementById("results");
+
+  table.style.display="none";
+
 }
+
 </script>
 </body>
 </html>
