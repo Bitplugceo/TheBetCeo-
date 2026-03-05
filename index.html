@@ -164,8 +164,11 @@ small.error-note {color:#ff6b6b; font-size:10px; display:block; margin-top:2px;}
 function parseGames(id){
   let raw = document.getElementById(id).value.trim();
   if(!raw) return null;
+
   let arr = raw.split(",").map(x => parseFloat(x.trim()));
+
   if(arr.some(x => isNaN(x) || x < 0 || x > 250)) return "error";
+
   return arr;
 }
 
@@ -175,13 +178,13 @@ function avg(arr){
 }
 
 function trimmedAvg(arr){
+
   if(!arr || arr.length === 0) return NaN;
 
-  if(arr.length < 5){
-    return avg(arr);
-  }
+  if(arr.length < 5) return avg(arr);
 
   let sorted = [...arr].sort((a,b)=>a-b);
+
   sorted.shift();
   sorted.pop();
 
@@ -189,47 +192,75 @@ function trimmedAvg(arr){
 }
 
 function stdDev(arr){
+
   if(!arr || arr.length < 2) return 0;
+
   let m = avg(arr);
-  let variance = arr.reduce((a,b)=>a+Math.pow(b-m,2),0) / (arr.length - 1);
+
+  let variance = arr.reduce((a,b)=>a + Math.pow(b-m,2),0) / (arr.length-1);
+
   return Math.sqrt(variance);
+
 }
 
 function mid(val){
+
   if(!val) return NaN;
+
   val = val.trim();
+
   if(!val.includes("-")) return NaN;
+
   let p = val.split("-").map(x=>x.trim());
-  let a = parseFloat(p[0]), b = parseFloat(p[1]);
+
+  let a = parseFloat(p[0]);
+  let b = parseFloat(p[1]);
+
   if(isNaN(a) || isNaN(b)) return NaN;
-  return (a + b) / 2;
+
+  return (a+b)/2;
+
 }
 
 function displayLine(val){
+
   if(isNaN(val)) return "NaN";
-  return (Math.round(val * 2) / 2).toFixed(1);
+
+  return (Math.round(val*2)/2).toFixed(1);
+
 }
 
 function dynamicWeight(sample){
+
   if(!sample || sample.length < 2) return 0;
+
   if(sample.length <= 3) return 0.20;
+
   return 0.30;
+
 }
 
-function applyVolatility(proj, std, limit){
+function applyVolatility(proj,std,limit){
+
   if(isNaN(proj) || isNaN(std)) return NaN;
+
   if(std <= limit) return proj;
 
-  const excess = std - limit;
-  const reductionFactor = Math.min(1, excess / limit);
+  const excess = std-limit;
+
+  const factor = Math.min(1, excess/limit);
+
   const maxCut = 0.05;
 
-  return proj * (1 - maxCut * reductionFactor);
+  return proj*(1-maxCut*factor);
+
 }
 
-/* DECISION FUNCTION */
+/* =====================
+DECISION ENGINE
+===================== */
 
-function decision(edge, line, type, teamSc, aSc, bSc, aAllowed, bAllowed){
+function decision(edge,line,type,teamSc,aSc,bSc,aAllowed,bAllowed){
 
   if(isNaN(edge) || isNaN(line)) return "NaN";
 
@@ -237,11 +268,11 @@ function decision(edge, line, type, teamSc, aSc, bSc, aAllowed, bAllowed){
 
   let threshold;
 
-  if(type === "ft_total")
-      threshold = edge > 0 ? line * 0.045 : line * 0.06;
+  if(type==="ft_total")
+    threshold = edge>0 ? line*0.045 : line*0.06;
 
-  else if(type === "team")
-      threshold = edge > 0 ? line * 0.05 : line * 0.065;
+  else if(type==="team")
+    threshold = edge>0 ? line*0.05 : line*0.065;
 
   else return "NaN";
 
@@ -249,43 +280,47 @@ function decision(edge, line, type, teamSc, aSc, bSc, aAllowed, bAllowed){
 
   /* UPGRADE 2 — Defensive Floor Filter */
 
-  if(type === "ft_total"){
+  if(type==="ft_total"){
     if(!isNaN(aAllowed) && aAllowed < 70) return "NO PLAY";
     if(!isNaN(bAllowed) && bAllowed < 70) return "NO PLAY";
   }
 
+  /* UNDER PROTECTION */
+
   if(edge < 0){
 
-    if(type === "ft_total"){
+    if(type==="ft_total"){
       if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58))
         return "NO PLAY";
     }
 
-    if(type === "team"){
+    if(type==="team"){
       if(!isNaN(teamSc) && teamSc >= line*0.58)
         return "NO PLAY";
     }
 
   }
 
-  return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
+  return edge>0 ? "OVER "+displayLine(line) : "UNDER "+displayLine(line);
 
 }
 
-/* MAIN ENGINE */
+/* =====================
+MAIN ENGINE
+===================== */
 
 function runEngine(){
 
   const table = document.getElementById("results");
 
-  table.style.display = "table";
+  table.style.display="table";
 
   table.innerHTML =
   "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
 
   const league = document.getElementById("leagueSelect").value;
 
-  const leagueBases = {
+  const leagueBases={
     nba:230,
     euro_elite:175,
     secondary:170,
@@ -294,7 +329,7 @@ function runEngine(){
     unknown:160
   };
 
-  const leaguePaceClamps = {
+  const leaguePaceClamps={
     nba:{min:0.90,max:1.15},
     euro_elite:{min:0.92,max:1.10},
     secondary:{min:0.92,max:1.10},
@@ -304,6 +339,7 @@ function runEngine(){
   };
 
   let expectedBase = leagueBases[league] || 160;
+
   const clamps = leaguePaceClamps[league];
 
   let ftLine = mid(document.getElementById("ftMarket").value);
@@ -320,22 +356,22 @@ function runEngine(){
   let bFTSc = trimmedAvg(bFTScArr);
   let bFTAll = trimmedAvg(bFTAllArr);
 
-  let baseAFT = (aFTSc * 0.6) + (bFTAll * 0.4);
-  let baseBFT = (bFTSc * 0.6) + (aFTAll * 0.4);
+  let baseAFT = (aFTSc*0.6)+(bFTAll*0.4);
+  let baseBFT = (bFTSc*0.6)+(aFTAll*0.4);
 
   let teamAPace = aFTSc + aFTAll;
   let teamBPace = bFTSc + bFTAll;
 
-  let rawPace = (teamAPace + teamBPace) / 2;
+  let rawPace = (teamAPace + teamBPace)/2;
 
   let pace = rawPace / expectedBase;
 
-  pace = Math.max(clamps.min, Math.min(clamps.max, pace));
+  pace = Math.max(clamps.min,Math.min(clamps.max,pace));
 
   let aVol = (stdDev(aFTScArr)+stdDev(aFTAllArr))/2;
   let bVol = (stdDev(bFTScArr)+stdDev(bFTAllArr))/2;
 
-  const volatilityLimits = {
+  const volatilityLimits={
     nba:14,
     euro_elite:12,
     secondary:12,
@@ -363,19 +399,21 @@ function runEngine(){
 
   let paceGap = Math.abs(teamAPace-teamBPace);
 
-  if(paceGap > 15){
-    ftProj = ftProj * 0.97;
+  if(!isNaN(paceGap) && paceGap > 15){
+    ftProj = ftProj*0.97;
   }
 
-  if(Math.abs(baseAFT-baseBFT)>18){
+  if(Math.abs(baseAFT-baseBFT) > 18){
     ftProj = ftProj*0.98;
   }
 
-  if(Math.abs(ftProj-ftLine)>25){
-    ftProj = ftLine + (ftProj-ftLine)*0.5;
+  if(!isNaN(ftProj) && !isNaN(ftLine)){
+    if(Math.abs(ftProj-ftLine) > 25){
+      ftProj = ftLine + (ftProj-ftLine)*0.5;
+    }
   }
 
-  let picks = [
+  let picks=[
 
     {name:"FT Total",proj:ftProj,line:ftLine,type:"ft_total",teamSc:null,aSc:aFTSc,bSc:bFTSc},
 
@@ -400,7 +438,7 @@ function runEngine(){
 
     /* UPGRADE 3 — Strong Edge Filter */
 
-    if(strength<0.045) pickText="NO PLAY";
+    if(strength < 0.045) pickText="NO PLAY";
 
     if(pickText!=="NO PLAY" && strength>maxStrength){
 
@@ -413,23 +451,52 @@ function runEngine(){
 
   picks.forEach((p,i)=>{
 
-    let edge=p.proj-p.line;
+    let edge = NaN;
+    let pickText = "NaN";
+    let displayNote = "";
 
-    let pickText=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
+    if(isNaN(p.line)){
+      displayNote="Missing / Invalid Line";
+      pickText="—";
+    }
+
+    else if(isNaN(p.proj)){
+      displayNote="Missing / Invalid Last-5 Data";
+      pickText="—";
+    }
+
+    else{
+
+      edge = p.proj-p.line;
+
+      pickText = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
+
+    }
 
     let pred=pickText;
 
-    if(i===lockIndex && pickText!=="NO PLAY"){
-      pred+=" 🔒";
+    if(i===lockIndex && pickText!=="NO PLAY" && pickText!=="NaN"){
+      pred += " 🔒";
     }
 
-    let row=table.insertRow();
+    let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
+    let edgeDisplay = isNaN(edge) ? "NaN" : edge.toFixed(2);
 
-    row.innerHTML=`
-    <td>${p.name}</td>
-    <td>${p.proj.toFixed(2)}</td>
-    <td>${edge.toFixed(2)}</td>
-    <td class="${pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay"}">${pred}</td>
+    let className="pred-noplay";
+
+    if(pred.startsWith("OVER")) className="pred-over";
+    else if(pred.startsWith("UNDER")) className="pred-under";
+
+    let row = table.insertRow();
+
+    row.innerHTML = `
+      <td>${p.name}</td>
+      <td>${projDisplay}</td>
+      <td>${edgeDisplay}</td>
+      <td class="${className}">
+        ${pred}
+        ${displayNote ? `<br><small class="error-note">${displayNote}</small>` : ""}
+      </td>
     `;
 
   });
