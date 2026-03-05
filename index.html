@@ -363,37 +363,43 @@ lockIndex=i;
 
 picks.forEach((p,i)=>{
 
-let edge=p.proj-p.line;
-let pred="";
+let edge = p.proj - p.line;
+let pred = "";
+
+/* Detect invalid line */
 
 if(isNaN(p.line)){
-
-pred="Missing / Invalid Line";
-
+pred = "Missing / Invalid Line";
 }
+
+/* Detect missing data */
 
 else if(isNaN(p.proj)){
-
-pred="Missing / Invalid Last-5 Data";
-
+pred = "Missing / Invalid Last-5 Data";
 }
+
+/* Normal calculation */
 
 else{
 
-pred=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
+pred = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
 
-let strength=Math.abs(edge/p.line);
+let strength = Math.abs(edge / p.line);
 
-if(strength<0.045) pred="NO PLAY";
+if(strength < 0.045) pred = "NO PLAY";
 
 }
+
+/* Lock */
 
 if(i===lockIndex && !pred.includes("Invalid") && pred!=="NO PLAY"){
-pred+=' <span class="lock">🔒</span>';
+pred += ' <span class="lock">🔒</span>';
 }
 
-let projDisplay=isNaN(p.proj)?"NaN":p.proj.toFixed(2);
-let edgeDisplay=isNaN(edge)?"NaN":edge.toFixed(2);
+/* Display values */
+
+let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
+let edgeDisplay = isNaN(edge) ? "NaN" : edge.toFixed(2);
 
 let className="pred-noplay";
 
