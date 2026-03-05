@@ -363,7 +363,7 @@ lockIndex=i;
 
 picks.forEach((p,i)=>{
 
-let edge = p.proj - p.line;
+let edge = NaN;
 let pred = "";
 
 /* Detect invalid line */
@@ -382,12 +382,13 @@ pred = "Missing / Invalid Last-5 Data";
 
 else{
 
+edge = p.proj - p.line;
+
 pred = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc,aFTAll,bFTAll);
 
 let strength = Math.abs(edge / p.line);
 
 if(strength < 0.045) pred = "NO PLAY";
-
 }
 
 /* Lock */
