@@ -457,6 +457,15 @@ if(!isNaN(projDiff) && projDiff > 18){
     ftProj = ftLine + (ftProj - ftLine) * 0.5;
   }
 }
+
+/* -------- NBA Stabilizer -------- */
+
+if(league === "nba" && !isNaN(ftProj) && !isNaN(ftLine)){
+  
+  if(Math.abs(ftProj - ftLine) > 18){
+      ftProj = ftLine + (ftProj - ftLine) * 0.65;
+  }
+}
   
   let picks = [
     {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
@@ -516,21 +525,27 @@ if(Math.abs(edge) < trapThreshold){
     pickText = "NO PLAY";
 }
 
-    /* -------- Upgrade Filters -------- */
+/* -------- Upgrade Filters -------- */
 
-    if(p.type === "ft_total" && pickText.startsWith("OVER")){
+if(p.type === "ft_total" && pickText.startsWith("OVER")){
 
-      if(paceGapRisk){
-        pickText = "NO PLAY";
-      }
-
-      if(defensiveFloorRisk){
-        pickText = "NO PLAY";
-      }
-
-    }
+  if(paceGapRisk){
+    pickText = "NO PLAY";
   }
 
+  if(defensiveFloorRisk){
+    pickText = "NO PLAY";
+  }
+
+  /* -------- Blowout Filter -------- */
+
+  let blowoutGap = Math.abs(baseAFT - baseBFT);
+
+  if(blowoutGap > 20){
+      pickText = "NO PLAY";
+  }
+}
+  }
   let row = table.insertRow();
   let pred = pickText;
 
