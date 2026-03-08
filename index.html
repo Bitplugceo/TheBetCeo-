@@ -394,7 +394,7 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
 
   let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
 let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
-
+  
   /* -------- Defensive Floor Filter -------- */
 
 let defensiveFloorRisk = false;
@@ -416,6 +416,12 @@ let volatilityLimits = {
 };
 
 let volLimit = volatilityLimits[league] || 12;
+
+let volatilityBlock = false;
+
+if(aVol > volLimit * 1.35 || bVol > volLimit * 1.35){
+  volatilityBlock = true;
+}
 
 baseAFT = applyVolatility(baseAFT, aVol, volLimit);
 baseBFT = applyVolatility(baseBFT, bVol, volLimit);
@@ -487,6 +493,9 @@ picks.forEach((p, i) => {
 
   let edge = NaN;
   let pickText = "NaN";
+  if(volatilityBlock){
+    pickText = "NO PLAY";
+}
   let displayNote = "";
 
   if (isNaN(p.line)) {
@@ -499,8 +508,7 @@ picks.forEach((p, i) => {
 
   } else {
     edge = p.proj - p.line;
-    pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
-  }
+pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
   /* -------- Upgrade Filters -------- */
 
