@@ -357,20 +357,20 @@ let baseBFT = NaN;
 
 // Team A projection logic
 if (!isNaN(aFTSc) && !isNaN(bFTAll)) {
-  baseAFT = (aFTSc * 0.6) + (bFTAll * 0.4);
+  baseAFT = (aFTSc + bFTAll) / 2;
 } else if (!isNaN(aFTSc)) {
   baseAFT = aFTSc;
 }
 
 // Team B projection logic
 if (!isNaN(bFTSc) && !isNaN(aFTAll)) {
-  baseBFT = (bFTSc * 0.6) + (aFTAll * 0.4);
+  baseBFT = (bFTSc + aFTAll) / 2;
 } else if (!isNaN(bFTSc)) {
   baseBFT = bFTSc;
 }
 
-  let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? aFTSc + aFTAll : NaN;
-let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? bFTSc + bFTAll : NaN;
+let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? (aFTSc + aFTAll) / 2 : NaN;
+let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? (bFTSc + bFTAll) / 2 : NaN;
 
 /* -------- Pace Gap Filter -------- */
 
