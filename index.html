@@ -544,6 +544,13 @@ if(p.type === "ft_total" && pickText.startsWith("OVER")){
   if(blowoutGap > 20){
       pickText = "NO PLAY";
   }
+
+  /* -------- Late Game Variance Filter -------- */
+
+  if(aVol > volLimit && bVol > volLimit){
+      pickText = "NO PLAY";
+  }
+
 }
   }
   let row = table.insertRow();
