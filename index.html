@@ -271,7 +271,7 @@ function applyVolatility(proj, std, limit){
   const excess = std - limit;
   const maxExcess = limit;
   const reductionFactor = Math.min(1, excess / maxExcess);
-  const maxCut = 0.05;
+  const maxCut = 0.07;
 
   const cut = maxCut * reductionFactor;
   return proj * (1 - cut);
@@ -455,9 +455,13 @@ let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === 
 
 let defensiveFloorRisk = false;
 
+/* Dynamic Defensive Floor */
+
+let defensiveFloorLimit = expectedBase * 0.40;
+
 if(
- (!isNaN(aFTAll) && aFTAll < 70) ||
- (!isNaN(bFTAll) && bFTAll < 70)
+ (!isNaN(aFTAll) && aFTAll < defensiveFloorLimit) ||
+ (!isNaN(bFTAll) && bFTAll < defensiveFloorLimit)
 ){
  defensiveFloorRisk = true;
 }
@@ -569,7 +573,7 @@ pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
 /* -------- Market Trap Filter -------- */
 
-let trapThreshold = p.line * 0.015;
+let trapThreshold = p.line * 0.025;
 
 if(Math.abs(edge) < trapThreshold){
     pickText = "NO PLAY";
