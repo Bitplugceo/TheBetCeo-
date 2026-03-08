@@ -416,31 +416,33 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
   ftH2Ha.length >= 2 &&
   ftH2Hb.length >= 2
 ){
-      let wA = dynamicWeight(ftH2Ha);
-      let wB = dynamicWeight(ftH2Hb);
 
-      const totalGames = ftH2Ha.length + ftH2Hb.length;
-      wA = wA * (ftH2Ha.length / totalGames);
-      wB = wB * (ftH2Hb.length / totalGames);
+  let wA = dynamicWeight(ftH2Ha);
+  let wB = dynamicWeight(ftH2Hb);
 
-      // Cap total H2H influence at ~30%
-      let totalH2HWeight = wA + wB;
-      if (totalH2HWeight > 0.30) {
-        const scale = 0.30 / totalH2HWeight;
-        wA *= scale;
-        wB *= scale;
+  const totalGames = ftH2Ha.length + ftH2Hb.length;
+  wA = wA * (ftH2Ha.length / totalGames);
+  wB = wB * (ftH2Hb.length / totalGames);
+
+  let totalH2HWeight = Math.min(0.30, wA + wB);
+
+  let baseTotal = baseAFT + baseBFT;
+  let h2hTotal = avg(ftH2Ha) + avg(ftH2Hb);
+
+  if(!isNaN(baseTotal) && !isNaN(h2hTotal) && baseTotal > 0){
+
+      if(Math.abs(h2hTotal - baseTotal) / baseTotal > 0.20){
+          totalH2HWeight *= 0.5;
       }
 
-      let currentTotal = baseAFT + baseBFT;
-      let h2hTotal = avg(ftH2Ha) + avg(ftH2Hb);
-      if(!isNaN(currentTotal) && currentTotal > 0 && Math.abs(h2hTotal - currentTotal) / currentTotal > 0.20){
-        wA *= 0.5;
-        wB *= 0.5;
-      }
-      if(!isNaN(avg(ftH2Ha))) baseAFT = baseAFT * (1 - wA) + avg(ftH2Ha) * wA;
-      if(!isNaN(avg(ftH2Hb))) baseBFT = baseBFT * (1 - wB) + avg(ftH2Hb) * wB;
-    }
+      let blendedTotal = baseTotal * (1 - totalH2HWeight) + h2hTotal * totalH2HWeight;
+      let ratio = blendedTotal / baseTotal;
 
+      baseAFT *= ratio;
+      baseBFT *= ratio;
+  }
+
+}
 
   let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
 let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
