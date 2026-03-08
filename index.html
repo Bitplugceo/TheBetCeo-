@@ -506,7 +506,15 @@ picks.forEach((p, i) => {
   } else {
 
     edge = p.proj - p.line;
-    pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+
+/* -------- Market Trap Filter -------- */
+
+let trapThreshold = p.line * 0.015;
+
+if(Math.abs(edge) < trapThreshold){
+    pickText = "NO PLAY";
+}
 
     /* -------- Upgrade Filters -------- */
 
