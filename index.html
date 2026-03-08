@@ -379,9 +379,13 @@ let paceGapRisk = false;
 if(!isNaN(teamAPace) && !isNaN(teamBPace)){
   let paceGap = Math.abs(teamAPace - teamBPace);
 
-  if(paceGap > 18){
-    paceGapRisk = true;
-  }
+/* Dynamic Pace Gap Threshold */
+
+let paceGapLimit = expectedBase * 0.10; // 10% of league pace
+
+if(paceGap > paceGapLimit){
+  paceGapRisk = true;
+}
 }
   
 let rawPace = NaN;
@@ -468,12 +472,6 @@ let volatilityLimits = {
 };
 
 let volLimit = volatilityLimits[league] || 12;
-
-let volatilityBlock = false;
-
-if(aVol > volLimit * 1.35 || bVol > volLimit * 1.35){
-  volatilityBlock = true;
-}
 
 baseAFT = applyVolatility(baseAFT, aVol, volLimit);
 baseBFT = applyVolatility(baseBFT, bVol, volLimit);
