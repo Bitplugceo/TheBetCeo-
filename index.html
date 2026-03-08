@@ -493,9 +493,6 @@ picks.forEach((p, i) => {
 
   let edge = NaN;
   let pickText = "NaN";
-  if(volatilityBlock){
-    pickText = "NO PLAY";
-}
   let displayNote = "";
 
   if (isNaN(p.line)) {
@@ -507,23 +504,25 @@ picks.forEach((p, i) => {
     pickText = "—";
 
   } else {
+
     edge = p.proj - p.line;
-pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+    pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
-  /* -------- Upgrade Filters -------- */
+    /* -------- Upgrade Filters -------- */
 
-if(p.type === "ft_total" && pickText.startsWith("OVER")){
+    if(p.type === "ft_total" && pickText.startsWith("OVER")){
 
-  if(paceGapRisk){
-    pickText = "NO PLAY";
+      if(paceGapRisk){
+        pickText = "NO PLAY";
+      }
+
+      if(defensiveFloorRisk){
+        pickText = "NO PLAY";
+      }
+
+    }
   }
 
-  if(defensiveFloorRisk){
-    pickText = "NO PLAY";
-  }
-
-}
-  
   let row = table.insertRow();
   let pred = pickText;
 
