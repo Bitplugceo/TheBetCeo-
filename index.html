@@ -423,10 +423,7 @@ if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
 
   let wA = dynamicWeight(ftH2Ha);
   let wB = dynamicWeight(ftH2Hb);
-
-  const totalGames = ftH2Ha.length + ftH2Hb.length;
-  wA = wA * (ftH2Ha.length / totalGames);
-  wB = wB * (ftH2Hb.length / totalGames);
+      
 
   let totalH2HWeight = Math.min(0.30, wA + wB);
 
