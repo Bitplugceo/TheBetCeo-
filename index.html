@@ -161,6 +161,54 @@ small.error-note {color:#ff6b6b; font-size:10px; display:block; margin-top:2px;}
 
 <script>
 
+  /* =========================================================
+BASKETBALL PREDICTION ENGINE — MODEL DESIGN NOTES
+Version: 1.0 (Stable Core)
+
+This engine is designed for quick statistical projections
+using last-5-game inputs and market lines.
+
+Key Design Principles:
+
+1. Pace Approximation
+Game pace is estimated using scoring totals since possession
+data is not available from manual user input.
+
+2. Offense vs Defense Interaction
+Team projections combine a team's offensive scoring with the
+opponent's defensive allowance.
+
+3. Trimmed Mean Stability
+Highest and lowest values from the last 5 games are removed
+to reduce outlier influence.
+
+4. Regression to League Mean
+Projections partially regress toward league averages to avoid
+overfitting to small sample sizes.
+
+5. Volatility Dampening
+Teams with high scoring variance have projections reduced
+to prevent unstable projections.
+
+6. Pace Clamp by League
+Each league has realistic pace boundaries.
+
+7. Defensive Floor Filter
+Very strong defensive teams suppress OVER predictions.
+
+8. Pace Gap Filter
+Large tempo mismatches reduce totals reliability.
+
+9. Market Trap Protection
+Small statistical edges are ignored to avoid bookmaker traps.
+
+10. Lock Indicator
+The lock icon highlights the strongest statistical edge among
+available picks when edge ≥ 4.5%. It does NOT influence the
+prediction model itself.
+
+========================================================= */
+  
 function parseGames(id){
   let raw = document.getElementById(id).value.trim();
   if(!raw) return null;
@@ -232,7 +280,9 @@ function applyVolatility(proj, std, limit){
 function decision(edge, line, type, teamSc, aSc, bSc){
   if(isNaN(edge) || isNaN(line)) return "NaN";
 
-  if(Math.abs(edge) < 3) return "NO PLAY";
+/* Minimum Edge Rule (4.5%) */
+let strength = Math.abs(edge / line);
+if(strength < 0.045) return "NO PLAY";
   
   let threshold;
   if(type === "ft_total")      threshold = edge > 0 ? line * 0.045 : line * 0.06;
