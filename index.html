@@ -580,22 +580,38 @@ function extractLastFive(games, teamId) {
 }
 
 /* =============================================
-   TEAM SEARCH FALLBACK (NCAA / unknown teams)
+   TEAM SEARCH — ESPN search endpoint first,
+   then team list fallback. Works for NCAA full
+   names like "Xavier Musketeers".
    ============================================= */
 async function searchTeamFromAPI(base, name) {
+  // 1) Try ESPN's search suggest endpoint — best for NCAA full names
   try {
-    const url = `${base}/teams?limit=200`;
+    const searchUrl = `https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=5&type=team&sport=basketball`;
+    const data = await proxyFetch(searchUrl);
+    const results = data?.items || data?.results || [];
+    for (const r of results) {
+      const id = r?.id || r?.team?.id;
+      if (id) return String(id);
+    }
+  } catch(e) { /* fall through */ }
+
+  // 2) Try team list with smarter matching
+  try {
+    const url = `${base}/teams?limit=500`;
     const data = await proxyFetch(url);
     const leagues = data?.sports?.[0]?.leagues || data?.leagues || [];
     let teams = [];
     if (leagues.length > 0) {
-      teams = leagues[0]?.teams || [];
+      for (const l of leagues) {
+        teams = teams.concat(l?.teams || []);
+      }
     } else {
       teams = data?.teams || [];
     }
 
     const n = name.toLowerCase().trim();
-    const words = n.split(/\s+/).filter(w => w.length >= 2);
+    const words = n.split(/\s+/).filter(w => w.length >= 3);
 
     let best = null, bestScore = 0;
     for (let t of teams) {
@@ -605,12 +621,14 @@ async function searchTeamFromAPI(base, name) {
         team.name, team.nickname, team.abbreviation, team.location
       ].filter(Boolean).map(f => f.toLowerCase()).join(" ");
 
-      if (fields.includes(n)) return team.id;
+      if (fields.includes(n)) return String(team.id);
 
       let score = words.filter(w => fields.includes(w)).length;
-      if (score > bestScore) { bestScore = score; best = team.id; }
+      // Bonus: if the school name (location) matches
+      if (team.location && n.includes(team.location.toLowerCase())) score += 2;
+      if (score > bestScore) { bestScore = score; best = String(team.id); }
     }
-    return bestScore >= 1 ? best : null;
+    return bestScore >= 2 ? best : null;
   } catch(e) {
     return null;
   }
