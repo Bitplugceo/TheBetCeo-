@@ -373,94 +373,127 @@ async function fetchESPN() {
 const EURO_TEAM_MAP = {
   "real madrid":"MAD","madrid":"MAD",
   "barcelona":"BAR","fc barcelona":"BAR","barca":"BAR",
-  "olympiacos":"OLY","olympiakos":"OLY",
+  "olympiacos":"OLY","olympiakos":"OLY","piraeus":"OLY",
   "panathinaikos":"PAN","pana":"PAN",
   "fenerbahce":"ULK","fenerbahçe":"ULK","fener":"ULK",
   "anadolu efes":"IST","efes":"IST",
   "baskonia":"BAS","saski baskonia":"BAS","vitoria":"BAS",
   "olympia milan":"MIL","milan":"MIL","armani milan":"MIL","olimpia milan":"MIL",
   "monaco":"ASM","as monaco":"ASM",
-  "maccabi":"MTA","maccabi tel aviv":"MTA","maccabi playtika":"MTA",
+  "maccabi":"MTA","maccabi tel aviv":"MTA",
   "zalgiris":"ZAL","zalgiris kaunas":"ZAL",
   "bayern":"MUN","fc bayern":"MUN","bay munich":"MUN","bayern munich":"MUN",
   "asvel":"ASV","ldlc asvel":"ASV","villeurbanne":"ASV",
   "paris":"PRS","paris basketball":"PRS",
-  "red star":"RED","crvena zvezda":"RED","red star belgrade":"RED",
+  "red star":"RED","crvena zvezda":"RED",
   "partizan":"PAR","partizan belgrade":"PAR","kk partizan":"PAR","partizan mozzart":"PAR",
-  "virtus":"VIR","virtus bologna":"VIR","virtus segafredo":"VIR","bologna":"VIR",
+  "virtus":"VIR","virtus bologna":"VIR","bologna":"VIR",
   "valencia":"PAM","valencia basket":"PAM",
   "hapoel tel aviv":"HIT","hapoel ibi":"HIT",
   "dubai":"DUB","dubai basketball":"DUB",
-  "lietkabelis":"LKB","aris":"ARI","bahcesehir":"BAH",
-  "besiktas":"BES","buducnost":"BUD","cedevita":"CEL","olimpija":"CEL",
-  "trento":"DET","gran canaria":"GCZ","hapoel jerusalem":"HJE",
-  "bourg":"JLB","jl bourg":"JLB","joventut":"BAD",
-  "ulm":"RAT","ratiopharm":"RAT","sopot":"TRE","turk telekom":"TKA",
-  "cluj":"CLJ","venice":"VEN","reyer venice":"VEN","umana reyer":"VEN",
-  "hamburg":"HBG","vilnius":"WOL","wolves vilnius":"WOL",
-  "neptunas":"NEP","neptūnas":"NEP","panionios":"PNI",
-  "london lions":"LON","london":"LON","slask":"WRO","niners":"CHE",
-  "manresa":"MAN","baxi manresa":"MAN"
+  "lietkabelis":"LKB","7bet":"LKB",
+  "aris":"ARI","aris thessaloniki":"ARI",
+  "bahcesehir":"BAH","bahçeşehir":"BAH",
+  "besiktas":"BES","beşiktaş":"BES",
+  "buducnost":"BUD","budućnost":"BUD",
+  "cedevita":"CEL","olimpija":"CEL","cedevita olimpija":"CEL",
+  "trento":"DET","dolomiti":"DET",
+  "gran canaria":"GCZ","dreamland":"GCZ",
+  "hapoel jerusalem":"HJE","bank yahav":"HJE",
+  "hapoel shlomo":"HST",
+  "bourg":"JLB","jl bourg":"JLB",
+  "joventut":"BAD","badalona":"BAD",
+  "ulm":"RAT","ratiopharm":"RAT",
+  "sopot":"TRE","trefl":"TRE",
+  "turk telekom":"TKA","türk telekom":"TKA",
+  "cluj":"CLJ","u-bt":"CLJ",
+  "venice":"VEN","reyer":"VEN","umana":"VEN",
+  "hamburg":"HBG","veolia towers":"HBG",
+  "vilnius":"WOL","wolves":"WOL",
+  "neptunas":"NEP","neptūnas":"NEP",
+  "panionios":"PNI",
+  "london lions":"LON","london":"LON",
+  "slask":"WRO","wroclaw":"WRO",
+  "niners":"CHE","chemnitz":"CHE",
+  "manresa":"MAN","baxi":"MAN"
 };
 
-// Cache XML per season so we don't fetch twice
+// Cache XML per season
 const _euroXmlCache = {};
+
+async function proxyFetchRaw(url) {
+  const res = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url));
+  if (!res.ok) throw new Error("Worker HTTP " + res.status);
+  return await res.text();
+}
 
 async function getEuroXML(seasonCode) {
   if (_euroXmlCache[seasonCode]) return _euroXmlCache[seasonCode];
-  const xml = await proxyFetchRaw(
-    `https://api-live.euroleague.net/v1/results?seasonCode=${seasonCode}`
-  );
+  // EuroLeague = E prefix -> euroleague.net
+  // EuroCup    = U prefix -> eurocupbasketball.com
+  const isEuroCup = seasonCode.startsWith("U");
+  const base = isEuroCup
+    ? "https://api-live.eurocupbasketball.com/v1/results"
+    : "https://api-live.euroleague.net/v1/results";
+  const xml = await proxyFetchRaw(`${base}?seasonCode=${seasonCode}`);
   _euroXmlCache[seasonCode] = xml;
   return xml;
 }
 
+const EURO_MONTHS = {"Jan":"01","Feb":"02","Mar":"03","Apr":"04","May":"05","Jun":"06",
+  "Jul":"07","Aug":"08","Sep":"09","Oct":"10","Nov":"11","Dec":"12"};
+
+function euroDateToISO(raw) {
+  // "Mar 07, 2026" -> "2026-03-07"
+  if (!raw) return "";
+  const parts = raw.trim().split(/[\s,]+/).filter(Boolean);
+  if (parts.length >= 3) {
+    const m = EURO_MONTHS[parts[0]] || "01";
+    const d = parts[1].padStart(2,"0");
+    const y = parts[2];
+    return `${y}-${m}-${d}`;
+  }
+  return raw;
+}
+
 function buildEuroTeamMap(xml) {
-  // Block-by-block parse — reliable, no cross-tag regex needed
   const map = {};
   const blocks = xml.split('<game>').slice(1);
   for (const block of blocks) {
-    const get = tag => { const m = block.match(new RegExp(`<${tag}>([^<]*)<\/${tag}>`)); return m ? m[1].trim() : ""; };
-    const hname = get('hometeam').toLowerCase();
-    const hcode = get('homecode').toUpperCase();
-    const aname = get('awayteam').toLowerCase();
-    const acode = get('awaycode').toUpperCase();
-    if (hname && hcode) map[hname] = hcode;
-    if (aname && acode) map[aname] = acode;
+    const get = tag => { const m = block.match(new RegExp('<' + tag + '>([^<]*)</' + tag + '>')); return m ? m[1].trim() : ""; };
+    const hn = get('hometeam').toLowerCase(), hc = get('homecode').toUpperCase();
+    const an = get('awayteam').toLowerCase(), ac = get('awaycode').toUpperCase();
+    if (hn && hc) map[hn] = hc;
+    if (an && ac) map[an] = ac;
   }
   return map;
 }
 
 function fuzzyFindCode(name, teamMap) {
   const n = name.toLowerCase().trim();
-  // 1. Exact
   if (teamMap[n]) return teamMap[n];
-  // 2. Substring both ways
-  for (const [tname, tcode] of Object.entries(teamMap)) {
-    if (n.includes(tname) || tname.includes(n)) return tcode;
+  for (const [t,c] of Object.entries(teamMap)) {
+    if (n.includes(t) || t.includes(n)) return c;
   }
-  // 3. Word overlap (any word 4+ chars)
-  const nwords = n.split(/\s+/).filter(w => w.length >= 4);
-  for (const [tname, tcode] of Object.entries(teamMap)) {
-    const twords = tname.split(/\s+/);
-    if (nwords.some(nw => twords.some(tw => tw.includes(nw) || nw.includes(tw)))) return tcode;
+  const nw = n.split(/\s+/).filter(w => w.length >= 4);
+  for (const [t,c] of Object.entries(teamMap)) {
+    const tw = t.split(/\s+/);
+    if (nw.some(nword => tw.some(tword => tword.includes(nword) || nword.includes(tword)))) return c;
   }
   return null;
 }
 
-function lookupEuroCode(name, teamMap) {
+function lookupEuroCode(name, liveMap) {
   const n = name.toLowerCase().trim();
-  // Static map first (instant)
   if (EURO_TEAM_MAP[n]) return EURO_TEAM_MAP[n];
-  for (const [key, code] of Object.entries(EURO_TEAM_MAP)) {
-    if (n.includes(key) || key.includes(n)) return code;
+  for (const [k,c] of Object.entries(EURO_TEAM_MAP)) {
+    if (n.includes(k) || k.includes(n)) return c;
   }
-  const words = n.split(/\s+/).filter(w => w.length >= 4);
-  for (const [key, code] of Object.entries(EURO_TEAM_MAP)) {
-    if (words.some(w => key.includes(w))) return code;
+  const nw = n.split(/\s+/).filter(w => w.length >= 4);
+  for (const [k,c] of Object.entries(EURO_TEAM_MAP)) {
+    if (nw.some(w => k.includes(w))) return c;
   }
-  // Dynamic map from live season data
-  if (teamMap) return fuzzyFindCode(name, teamMap);
+  if (liveMap) return fuzzyFindCode(name, liveMap);
   return null;
 }
 
@@ -468,49 +501,24 @@ function getCurrentEuroSeason(compCode) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-  const seasonYear = month >= 9 ? year : year - 1;
-  return compCode + seasonYear;
-}
-
-const EURO_MONTHS = {"Jan":"01","Feb":"02","Mar":"03","Apr":"04","May":"05","Jun":"06",
-  "Jul":"07","Aug":"08","Sep":"09","Oct":"10","Nov":"11","Dec":"12"};
-
-function euroDateToISO(raw) {
-  // "Oct 17, 2025" -> "2025-10-17" (reliable ISO for JS Date sorting)
-  if (!raw) return "";
-  const parts = raw.trim().split(/[\s,]+/).filter(Boolean); // ["Oct","17","2025"]
-  if (parts.length === 3) {
-    const m = EURO_MONTHS[parts[0]] || "01";
-    const d = parts[1].padStart(2,"0");
-    const y = parts[2];
-    return `${y}-${m}-${d}`;
-  }
-  return raw; // already ISO or unknown format
+  return compCode + (month >= 9 ? year : year - 1);
 }
 
 function parseEuroXML(xml) {
-  const games = [];
-  const seen = new Set();
-  const blocks = xml.split('<game>').slice(1);
-  for (const block of blocks) {
-    const get = tag => { const m = block.match(new RegExp(`<${tag}>([^<]*)<\/${tag}>`)); return m ? m[1].trim() : ""; };
+  const games = [], seen = new Set();
+  for (const block of xml.split('<game>').slice(1)) {
+    const get = tag => { const m = block.match(new RegExp('<' + tag + '>([^<]*)</' + tag + '>')); return m ? m[1].trim() : ""; };
     if (get('played') !== 'true') continue;
-    const homeCode  = get('homecode').toUpperCase();
-    const awayCode  = get('awaycode').toUpperCase();
-    const homeScore = parseInt(get('homescore')) || 0;
-    const awayScore = parseInt(get('awayscore')) || 0;
-    const gameCode  = get('gamecode');
-    const dateRaw   = get('date'); // "Oct 17, 2025"
-    if (!homeCode || !awayCode || homeScore <= 0 || awayScore <= 0) continue;
+    const localCode  = get('homecode').toUpperCase();
+    const roadCode   = get('awaycode').toUpperCase();
+    const localScore = parseInt(get('homescore')) || 0;
+    const roadScore  = parseInt(get('awayscore')) || 0;
+    const gameCode   = get('gamecode');
+    const date       = euroDateToISO(get('date'));
+    if (!localCode || !roadCode || localScore <= 0 || roadScore <= 0) continue;
     if (seen.has(gameCode)) continue;
     seen.add(gameCode);
-    const dateISO = euroDateToISO(dateRaw);
-    games.push({
-      localCode: homeCode, roadCode: awayCode,
-      localScore: homeScore, roadScore: awayScore,
-      localH1: 0, roadH1: 0,
-      date: dateISO, gameCode
-    });
+    games.push({ localCode, roadCode, localScore, roadScore, localH1:0, roadH1:0, date, gameCode });
   }
   return games;
 }
@@ -519,7 +527,7 @@ function parseEuroGameV2(g) {
   if (!g.played) return null;
   const local = g.local, road = g.road;
   if (!local || !road) return null;
-  const lp = local.partials || {}, rp = road.partials || {};
+  const lp = local.partials||{}, rp = road.partials||{};
   const lQ1=Number(lp.partials1||0), lQ2=Number(lp.partials2||0);
   const lQ3=Number(lp.partials3||0), lQ4=Number(lp.partials4||0);
   const rQ1=Number(rp.partials1||0), rQ2=Number(rp.partials2||0);
@@ -539,89 +547,79 @@ function parseEuroGameV2(g) {
 }
 
 async function fetchEuroGames(compCode, seasonCode) {
-  const games = [];
-  const seen = new Set();
-
-  function addGame(g) {
+  const games = [], seen = new Set();
+  const addGame = g => {
     if (!g) return;
-    const key = g.gameCode || `${g.localCode}-${g.roadCode}-${g.date}`;
+    const key = g.gameCode || (g.localCode+g.roadCode+g.date);
     if (seen.has(key)) return;
-    seen.add(key);
-    games.push(g);
-  }
+    seen.add(key); games.push(g);
+  };
 
-  // Step 1: v1 XML — all results in one clean call
+  // v1 XML — all scores + dates in one call
   try {
     const xml = await getEuroXML(seasonCode);
-    if (xml && xml.includes('<game>')) {
-      for (const g of parseEuroXML(xml)) addGame(g);
-    }
+    if (xml && xml.includes('<game>')) parseEuroXML(xml).forEach(addGame);
   } catch(e) {}
 
-  // Step 2: v2 per-round — enrich with 1H quarter data
-  const base = `https://api-live.euroleague.net/v2/competitions`;
+  // v2 round-by-round — only for 1H enrichment
+  // EuroCup uses competition code "U", EuroLeague uses "E"
+  // EuroCup uses different domain for v2 as well
+  const isEuroCup = compCode === "U";
+  const base = isEuroCup
+    ? 'https://api-live.eurocupbasketball.com/v2/competitions'
+    : 'https://api-live.euroleague.net/v2/competitions';
   const maxRound = compCode === "E" ? 34 : 28;
   const rsResults = await Promise.allSettled(
-    Array.from({length: maxRound}, (_, i) =>
+    Array.from({length: maxRound}, (_,i) =>
       proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
     )
   );
   for (const r of rsResults) {
     if (r.status !== "fulfilled") continue;
-    for (const g of (r.value?.data || [])) {
-      const parsed = parseEuroGameV2(g);
-      if (!parsed) continue;
-      const existing = games.find(x => x.gameCode === parsed.gameCode);
-      if (existing) {
-        // Enrich v1 game with 1H data from v2
-        if (parsed.localH1 > 0) { existing.localH1 = parsed.localH1; existing.roadH1 = parsed.roadH1; }
-      } else {
-        addGame(parsed);
-      }
+    for (const g of (r.value?.data||[])) {
+      const p = parseEuroGameV2(g);
+      if (!p) continue;
+      const ex = games.find(x => x.gameCode === p.gameCode);
+      if (ex) { if (p.localH1>0){ ex.localH1=p.localH1; ex.roadH1=p.roadH1; } }
+      else addGame(p);
     }
   }
 
-  // Sort newest first
-  games.sort((a, b) => {
-    const ta = new Date(a.date).getTime() || 0;
-    const tb = new Date(b.date).getTime() || 0;
-    return tb - ta;
-  });
+  // Sort newest first using ISO date string (safe for JS)
+  games.sort((a,b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
   return games;
 }
 
 async function fetchEuroLeague() {
-  const league = document.getElementById("leagueSelect").value;
+  const league    = document.getElementById("leagueSelect").value;
   const teamAName = document.getElementById("teamAName").value.trim();
   const teamBName = document.getElementById("teamBName").value.trim();
-  if (!teamAName || !teamBName) { setStatus("❌ Enter both team names first.", "err"); return; }
+  if (!teamAName || !teamBName) { setStatus("❌ Enter both team names first.","err"); return; }
 
   const btn = document.getElementById("fetchBtn");
   btn.disabled = true;
-  setStatus('<span class="spinner"></span>Loading all season games...', "loading");
+  setStatus('<span class="spinner"></span>Loading season data...', "loading");
 
   try {
     const compCode   = league === "euroleague" ? "E" : "U";
     const seasonCode = getCurrentEuroSeason(compCode);
 
-    // Fetch all games + build team name->code map from real season data
-    const [allGames, xml] = await Promise.all([
-      fetchEuroGames(compCode, seasonCode),
-      getEuroXML(seasonCode).catch(() => "")
-    ]);
+    // Fetch XML first (needed for team name lookup AND scores)
+    const xml = await getEuroXML(seasonCode).catch(() => "");
+    if (!xml || !xml.includes('<game>')) throw new Error("No season data found. API may be unavailable.");
 
-    if (!allGames.length) throw new Error("No game data found. Check league/season.");
-
-    // Build live team map from XML — works for every team in every season
-    const liveTeamMap = xml ? buildEuroTeamMap(xml) : {};
-
-    const codeA = lookupEuroCode(teamAName, liveTeamMap);
-    const codeB = lookupEuroCode(teamBName, liveTeamMap);
+    // Build live team map from actual season data — works for every team
+    const liveMap = buildEuroTeamMap(xml);
+    const codeA   = lookupEuroCode(teamAName, liveMap);
+    const codeB   = lookupEuroCode(teamBName, liveMap);
     if (!codeA) throw new Error(`Can't find "${teamAName}". Try the full club name.`);
     if (!codeB) throw new Error(`Can't find "${teamBName}". Try the full club name.`);
 
-    setStatus('<span class="spinner"></span>Extracting stats...', "loading");
+    setStatus('<span class="spinner"></span>Fetching game stats...', "loading");
+    const allGames = await fetchEuroGames(compCode, seasonCode);
+    if (!allGames.length) throw new Error("No game data found.");
 
+    // Last 5 for each team
     const aStats = extractEuroLastFive(allGames, codeA);
     const bStats = extractEuroLastFive(allGames, codeB);
 
@@ -644,47 +642,46 @@ async function fetchEuroLeague() {
       document.getElementById("bAutoTag").style.display = "inline";
     }
 
-    // H2H — current season first
+    // H2H — current season + previous season to fill up to 5
     setStatus('<span class="spinner"></span>Scanning H2H...', "loading");
-    let h2hGames = allGames.filter(g =>
+    const filterH2H = gs => gs.filter(g =>
       (g.localCode===codeA && g.roadCode===codeB) ||
       (g.localCode===codeB && g.roadCode===codeA)
-    ).slice(0, 5);
-
-    // Search previous season if fewer than 2
-    if (h2hGames.length < 2) {
-      const prevYear = parseInt(seasonCode.replace(compCode,"")) - 1;
+    );
+    let h2hGames = filterH2H(allGames);
+    if (h2hGames.length < 5) {
       try {
-        const prevGames = await fetchEuroGames(compCode, compCode + prevYear);
-        const prevH2H = prevGames.filter(g =>
-          (g.localCode===codeA && g.roadCode===codeB) ||
-          (g.localCode===codeB && g.roadCode===codeA)
-        );
-        h2hGames = [...h2hGames, ...prevH2H].slice(0, 5);
+        const prevCode = compCode + (parseInt(seasonCode.replace(compCode,"")) - 1);
+        const prevGames = await fetchEuroGames(compCode, prevCode);
+        h2hGames = [...h2hGames, ...filterH2H(prevGames)];
       } catch(e) {}
     }
+    h2hGames.sort((a,b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+    h2hGames = h2hGames.slice(0,5);
 
     if (h2hGames.length >= 2) {
-      const h2hA   = h2hGames.map(g => g.localCode===codeA ? g.localScore : g.roadScore);
-      const h2hB   = h2hGames.map(g => g.localCode===codeA ? g.roadScore  : g.localScore);
-      const h2hA1H = h2hGames.map(g => g.localCode===codeA ? g.localH1 : g.roadH1).filter(v=>v>0);
-      const h2hB1H = h2hGames.map(g => g.localCode===codeA ? g.roadH1  : g.localH1).filter(v=>v>0);
-      document.getElementById("aFTH2H").value = h2hA.join(",");
-      document.getElementById("bFTH2H").value = h2hB.join(",");
+      const toA  = g => g.localCode===codeA ? g.localScore : g.roadScore;
+      const toB  = g => g.localCode===codeA ? g.roadScore  : g.localScore;
+      const toA1 = g => g.localCode===codeA ? g.localH1    : g.roadH1;
+      const toB1 = g => g.localCode===codeA ? g.roadH1     : g.localH1;
+      document.getElementById("aFTH2H").value   = h2hGames.map(toA).join(",");
+      document.getElementById("bFTH2H").value   = h2hGames.map(toB).join(",");
       document.getElementById("useFTH2H").checked = true;
       document.getElementById("h2hAutoTag").style.display = "inline";
+      const h2hA1H = h2hGames.map(toA1).filter(v=>v>0);
+      const h2hB1H = h2hGames.map(toB1).filter(v=>v>0);
       if (h2hA1H.length >= 2) {
-        document.getElementById("a1HH2H").value = h2hA1H.join(",");
-        document.getElementById("b1HH2H").value = h2hB1H.join(",");
+        document.getElementById("a1HH2H").value   = h2hA1H.join(",");
+        document.getElementById("b1HH2H").value   = h2hB1H.join(",");
         document.getElementById("use1HH2H").checked = true;
       }
     } else {
       document.getElementById("useFTH2H").checked = false;
     }
 
-    setStatus("", "");
+    setStatus("","");
   } catch(e) {
-    setStatus("❌ " + e.message, "err");
+    setStatus("❌ " + e.message,"err");
   } finally {
     btn.disabled = false;
   }
@@ -696,13 +693,13 @@ function extractEuroLastFive(games, teamCode) {
     if (scored.length >= 5) break;
     if (g.localCode === teamCode) {
       scored.push(g.localScore); allowed.push(g.roadScore);
-      if (g.localH1 > 0) { h1Scored.push(g.localH1); h1Allowed.push(g.roadH1); }
+      if (g.localH1>0){ h1Scored.push(g.localH1); h1Allowed.push(g.roadH1); }
     } else if (g.roadCode === teamCode) {
       scored.push(g.roadScore); allowed.push(g.localScore);
-      if (g.roadH1 > 0) { h1Scored.push(g.roadH1); h1Allowed.push(g.localH1); }
+      if (g.roadH1>0){ h1Scored.push(g.roadH1); h1Allowed.push(g.localH1); }
     }
   }
-  return scored.length >= 2 ? { scored, allowed, h1Scored, h1Allowed } : null;
+  return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed} : null;
 }
 
 
