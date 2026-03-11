@@ -368,18 +368,30 @@ async function fetchESPN(){
       fetchTeamLastFive(espnBase, teamBId, teamBName)
     ]);
 
-    if(!aStats) throw new Error(`No game data found for "${teamAName}" (ID:${teamAId})`);
-    if(!bStats) throw new Error(`No game data found for "${teamBName}" (ID:${teamBId})`);
+    let messages = [];
 
-    document.getElementById("aFTScored").value  = aStats.scored.join(",");
-    document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
-    document.getElementById("aAutoTag").style.display = "inline";
+    if(aStats && aStats.scored.length > 0){
+      document.getElementById("aFTScored").value  = aStats.scored.join(",");
+      document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
+      document.getElementById("aAutoTag").style.display = "inline";
+      messages.push(`${teamAName}: ${aStats.scored.length} games ✅`);
+    } else {
+      messages.push(`${teamAName}: not found ❌`);
+    }
 
-    document.getElementById("bFTScored").value  = bStats.scored.join(",");
-    document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
-    document.getElementById("bAutoTag").style.display = "inline";
+    if(bStats && bStats.scored.length > 0){
+      document.getElementById("bFTScored").value  = bStats.scored.join(",");
+      document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
+      document.getElementById("bAutoTag").style.display = "inline";
+      messages.push(`${teamBName}: ${bStats.scored.length} games ✅`);
+    } else {
+      messages.push(`${teamBName}: not found ❌`);
+    }
 
-    setStatus(`✅ Loaded last ${aStats.scored.length} games for each team. Add market lines then hit Run!`, "ok");
+    const allGood = aStats && bStats;
+    const statusClass = allGood ? "ok" : (aStats || bStats) ? "loading" : "err";
+    const prefix = allGood ? "✅ " : "⚠️ ";
+    setStatus(prefix + messages.join(" | ") + (allGood ? " — Add lines then hit Run!" : " — Fill missing fields manually"), statusClass);
 
   } catch(e) {
     setStatus("❌ " + e.message, "err");
@@ -430,19 +442,25 @@ async function fetchTeamLastFive(base, teamId, teamName){
     const data = await proxyFetch(url);
     const events = data?.events || [];
 
-    setStatus(`<span class="spinner"></span>${teamName}: ${events.length} games found, filtering...`, "loading");
+    // Log first event structure to status for debugging
+    if(events.length > 0){
+      const firstStatus = events[events.length-1]?.status?.type;
+      const firstComp = events[events.length-1]?.competitions?.[0]?.competitors?.[0];
+      setStatus(`DEBUG ${teamName}: ${events.length} events. Last status state="${firstStatus?.state}" completed=${firstStatus?.completed}. Comp id="${firstComp?.id}" team.id="${firstComp?.team?.id}" score="${firstComp?.score}"`, "loading");
+      await new Promise(r => setTimeout(r, 3000)); // pause so you can read it
+    } else {
+      setStatus(`DEBUG ${teamName}: 0 events returned`, "err");
+      return null;
+    }
 
-    // Filter completed — ESPN uses status.type.state === "post" for finished games
+    // Filter completed
     let completed = events.filter(e => {
       const s = e?.status?.type;
       return s?.state === "post" || s?.completed === true || s?.description === "Final";
     });
 
-    setStatus(`<span class="spinner"></span>${teamName}: ${completed.length} completed games`, "loading");
-
     // Take last 5
     completed = completed.slice(-5);
-
     if(completed.length < 1) return null;
 
     let scored = [], allowed = [];
@@ -451,18 +469,11 @@ async function fetchTeamLastFive(base, teamId, teamName){
       const comps = ev?.competitions?.[0]?.competitors || [];
       if(comps.length < 2) continue;
 
-      // Try matching by team id in multiple places
       let myTeam = comps.find(c =>
         String(c.team?.id) === String(teamId) ||
-        String(c.uid)?.includes(`:${teamId}`) ||
         String(c.id) === String(teamId)
       );
-
-      if(!myTeam){
-        // fallback: pick first competitor as "my team"
-        myTeam = comps[0];
-      }
-
+      if(!myTeam) myTeam = comps[0];
       let opp = comps.find(c => c !== myTeam);
       if(!opp) continue;
 
@@ -476,7 +487,6 @@ async function fetchTeamLastFive(base, teamId, teamName){
     }
 
     if(scored.length < 1) return null;
-
     return { scored, allowed };
 
   } catch(e){
