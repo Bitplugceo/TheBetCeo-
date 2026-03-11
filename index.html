@@ -219,7 +219,7 @@ small.error-note {color:#ff6b6b; font-size:10px; display:block; margin-top:2px;}
     <label>FT Scored</label>
     <input id="bFTScored" placeholder="83,77,81,79,80">
     <label>FT Allowed</label>
-    <input id="bFTAllowed" placeholder="78,82,74,77,80">
+    <input id="bFTAllowed" placeholder="75.5 - 79.5">
   </div>
 
   <!-- H2H -->
@@ -254,19 +254,18 @@ small.error-note {color:#ff6b6b; font-size:10px; display:block; margin-top:2px;}
    ============================================= */
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 
-async function proxyFetch(url){
+async function proxyFetch(url) {
   const res = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url));
-  if(!res.ok) throw new Error("Worker HTTP " + res.status);
+  if (!res.ok) throw new Error("Worker HTTP " + res.status);
   const text = await res.text();
   try { return JSON.parse(text); }
-  catch(e){ throw new Error("Bad JSON from worker: " + text.slice(0,100)); }
+  catch(e) { throw new Error("Bad JSON: " + text.slice(0, 100)); }
 }
 
 /* =============================================
    HARDCODED NBA TEAM IDs (ESPN IDs)
    ============================================= */
 const NBA_TEAM_MAP = {
-  // keywords → ESPN team ID
   "hawks":1, "atlanta":1,
   "celtics":2, "boston":2,
   "nets":17, "brooklyn":17,
@@ -299,44 +298,54 @@ const NBA_TEAM_MAP = {
   "wizards":27, "washington":27
 };
 
-function lookupTeamId(name){
+function lookupTeamId(name) {
   const n = name.toLowerCase().trim();
-  // Try exact or substring match against all keys
-  for(let key of Object.keys(NBA_TEAM_MAP)){
-    if(n === key || n.includes(key) || key.includes(n)){
+  for (let key of Object.keys(NBA_TEAM_MAP)) {
+    if (n === key || n.includes(key) || key.includes(n)) {
       return NBA_TEAM_MAP[key];
     }
   }
   return null;
 }
 
-function onLeagueChange(){
+function onLeagueChange() {
   const league = document.getElementById("leagueSelect").value;
   const espnSection = document.getElementById("espnSection");
   espnSection.style.display = (league === "nba" || league === "ncaa") ? "block" : "none";
 }
 
-function clearAutoFill(){
+function clearAutoFill() {
   document.getElementById("aAutoTag").style.display = "none";
   document.getElementById("bAutoTag").style.display = "none";
-  setStatus("","");
+  setStatus("", "");
 }
 
-function setStatus(msg, type){
+function setStatus(msg, type) {
   const el = document.getElementById("fetchStatus");
   el.className = type;
   el.innerHTML = msg;
 }
 
 /* =============================================
-   ESPN FETCH LOGIC
+   DATE HELPERS
    ============================================= */
-async function fetchESPN(){
+function getDateString(daysAgo) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+/* =============================================
+   ESPN FETCH — SCOREBOARD-BASED (THE FIX)
+   Uses scoreboard endpoint with date range instead
+   of team schedule, which had empty scores.
+   ============================================= */
+async function fetchESPN() {
   const league = document.getElementById("leagueSelect").value;
   const teamAName = document.getElementById("teamAName").value.trim();
   const teamBName = document.getElementById("teamBName").value.trim();
 
-  if(!teamAName || !teamBName){
+  if (!teamAName || !teamBName) {
     setStatus("❌ Enter both team names first.", "err");
     return;
   }
@@ -349,28 +358,31 @@ async function fetchESPN(){
     const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
     const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
 
-    // Use hardcoded ID map for NBA; for NCAA use name search
+    // Resolve team IDs
     let teamAId = lookupTeamId(teamAName);
     let teamBId = lookupTeamId(teamBName);
 
-    // If not found in map, try ESPN team list search
-    if(!teamAId) teamAId = await searchTeamFromAPI(espnBase, teamAName);
-    if(!teamBId) teamBId = await searchTeamFromAPI(espnBase, teamBName);
+    if (!teamAId) teamAId = await searchTeamFromAPI(espnBase, teamAName);
+    if (!teamBId) teamBId = await searchTeamFromAPI(espnBase, teamBName);
 
-    if(!teamAId) throw new Error(`Can't find team: "${teamAName}". Try just the nickname e.g. "Warriors", "Lakers"`);
-    if(!teamBId) throw new Error(`Can't find team: "${teamBName}". Try just the nickname e.g. "Bulls", "Celtics"`);
+    if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname e.g. "Warriors", "Lakers"`);
+    if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname e.g. "Bulls", "Celtics"`);
 
-    setStatus('<span class="spinner"></span>Loading game stats...', "loading");
+    setStatus('<span class="spinner"></span>Scanning recent scoreboards...', "loading");
 
-    // Fetch last 5 games for each team
-    const [aStats, bStats] = await Promise.all([
-      fetchTeamLastFive(espnBase, teamAId, teamAName),
-      fetchTeamLastFive(espnBase, teamBId, teamBName)
-    ]);
+    // Collect all completed games from the last 45 days via scoreboard
+    const allGames = await fetchRecentGamesFromScoreboard(espnBase, 45);
+
+    if (allGames.length === 0) {
+      throw new Error("No recent game data available from ESPN scoreboard.");
+    }
+
+    const aStats = extractLastFive(allGames, String(teamAId));
+    const bStats = extractLastFive(allGames, String(teamBId));
 
     let messages = [];
 
-    if(aStats && aStats.scored.length > 0){
+    if (aStats && aStats.scored.length > 0) {
       document.getElementById("aFTScored").value  = aStats.scored.join(",");
       document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
       document.getElementById("aAutoTag").style.display = "inline";
@@ -379,7 +391,7 @@ async function fetchESPN(){
       messages.push(`${teamAName}: not found ❌`);
     }
 
-    if(bStats && bStats.scored.length > 0){
+    if (bStats && bStats.scored.length > 0) {
       document.getElementById("bFTScored").value  = bStats.scored.join(",");
       document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
       document.getElementById("bAutoTag").style.display = "inline";
@@ -388,10 +400,13 @@ async function fetchESPN(){
       messages.push(`${teamBName}: not found ❌`);
     }
 
-    const allGood = aStats && bStats;
+    const allGood = aStats && bStats && aStats.scored.length > 0 && bStats.scored.length > 0;
     const statusClass = allGood ? "ok" : (aStats || bStats) ? "loading" : "err";
     const prefix = allGood ? "✅ " : "⚠️ ";
-    setStatus(prefix + messages.join(" | ") + (allGood ? " — Add lines then hit Run!" : " — Fill missing fields manually"), statusClass);
+    setStatus(
+      prefix + messages.join(" | ") + (allGood ? " — Add lines then hit Run!" : " — Fill missing fields manually"),
+      statusClass
+    );
 
   } catch(e) {
     setStatus("❌ " + e.message, "err");
@@ -400,17 +415,117 @@ async function fetchESPN(){
   }
 }
 
-async function searchTeamFromAPI(base, name){
+/* =============================================
+   FETCH SCOREBOARD FOR DATE RANGE
+   Pulls day-by-day scoreboards and collects
+   all completed games with real scores.
+   ============================================= */
+async function fetchRecentGamesFromScoreboard(base, daysBack) {
+  const allGames = [];
+  const today = getDateString(0);
+  const from  = getDateString(daysBack);
+
+  // ESPN supports a date range param: ?dates=YYYYMMDD-YYYYMMDD
+  // Some versions support limit param too
+  const url = `${base}/scoreboard?dates=${from}-${today}&limit=500`;
+
+  try {
+    const data = await proxyFetch(url);
+    const events = data?.events || [];
+    for (const ev of events) {
+      const comp = ev?.competitions?.[0];
+      if (!comp) continue;
+      const competitors = comp?.competitors || [];
+      if (competitors.length < 2) continue;
+
+      // Only include completed games with real scores
+      const status = comp?.status?.type?.completed;
+      if (!status) continue;
+
+      const scoreA = Number(competitors[0]?.score);
+      const scoreB = Number(competitors[1]?.score);
+      if (scoreA <= 0 || scoreB <= 0) continue;
+
+      allGames.push({
+        teamAId: String(competitors[0]?.team?.id),
+        teamBId: String(competitors[1]?.team?.id),
+        scoreA,
+        scoreB,
+        date: ev?.date || ""
+      });
+    }
+  } catch(e) {
+    // Fallback: try fetching day by day for last 14 days if range fails
+    for (let i = 1; i <= 14; i++) {
+      const dateStr = getDateString(i);
+      try {
+        const data = await proxyFetch(`${base}/scoreboard?dates=${dateStr}`);
+        const events = data?.events || [];
+        for (const ev of events) {
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+          const competitors = comp?.competitors || [];
+          if (competitors.length < 2) continue;
+          const scoreA = Number(competitors[0]?.score);
+          const scoreB = Number(competitors[1]?.score);
+          if (scoreA <= 0 || scoreB <= 0) continue;
+          allGames.push({
+            teamAId: String(competitors[0]?.team?.id),
+            teamBId: String(competitors[1]?.team?.id),
+            scoreA,
+            scoreB,
+            date: ev?.date || ""
+          });
+        }
+      } catch(e2) { /* skip bad day */ }
+    }
+  }
+
+  return allGames;
+}
+
+/* =============================================
+   EXTRACT LAST 5 GAMES FOR A TEAM
+   Searches collected games for a given team ID
+   ============================================= */
+function extractLastFive(games, teamId) {
+  const scored = [], allowed = [];
+
+  // Sort newest first
+  const sorted = [...games].sort((a, b) => (b.date > a.date ? 1 : -1));
+
+  for (const g of sorted) {
+    if (scored.length >= 5) break;
+    if (g.teamAId === teamId) {
+      scored.push(g.scoreA);
+      allowed.push(g.scoreB);
+    } else if (g.teamBId === teamId) {
+      scored.push(g.scoreB);
+      allowed.push(g.scoreA);
+    }
+  }
+
+  if (scored.length < 2) return null;
+
+  // Return oldest-first so the engine sees chronological order
+  return {
+    scored:  scored.reverse(),
+    allowed: allowed.reverse()
+  };
+}
+
+/* =============================================
+   TEAM SEARCH FALLBACK (NCAA / unknown teams)
+   ============================================= */
+async function searchTeamFromAPI(base, name) {
   try {
     const url = `${base}/teams?limit=200`;
     const data = await proxyFetch(url);
-    // ESPN teams endpoint returns: { sports:[{ leagues:[{ teams:[{ team:{} }] }] }] }
     const leagues = data?.sports?.[0]?.leagues || data?.leagues || [];
     let teams = [];
-    if(leagues.length > 0){
+    if (leagues.length > 0) {
       teams = leagues[0]?.teams || [];
     } else {
-      // fallback: maybe data.teams directly
       teams = data?.teams || [];
     }
 
@@ -418,118 +533,79 @@ async function searchTeamFromAPI(base, name){
     const words = n.split(/\s+/).filter(w => w.length >= 2);
 
     let best = null, bestScore = 0;
-    for(let t of teams){
+    for (let t of teams) {
       const team = t.team || t;
       const fields = [
         team.displayName, team.shortDisplayName,
         team.name, team.nickname, team.abbreviation, team.location
       ].filter(Boolean).map(f => f.toLowerCase()).join(" ");
 
-      if(fields.includes(n)) return team.id;
+      if (fields.includes(n)) return team.id;
 
       let score = words.filter(w => fields.includes(w)).length;
-      if(score > bestScore){ bestScore = score; best = team.id; }
+      if (score > bestScore) { bestScore = score; best = team.id; }
     }
     return bestScore >= 1 ? best : null;
-  } catch(e){
-    return null;
-  }
-}
-
-async function fetchTeamLastFive(base, teamId, teamName){
-  try {
-    const url = `${base}/teams/${teamId}/schedule`;
-    const data = await proxyFetch(url);
-    const events = data?.events || [];
-    if(events.length === 0) return null;
-
-    let scored = [], allowed = [];
-
-    // Go through events in reverse (most recent first)
-    for(let i = events.length - 1; i >= 0 && scored.length < 5; i--){
-      const ev = events[i];
-      const competitors = ev?.competitions?.[0]?.competitors || [];
-      if(competitors.length < 2) continue;
-
-      const mine = competitors.find(c => String(c.team?.id) === String(teamId));
-      const opp  = competitors.find(c => String(c.team?.id) !== String(teamId));
-      if(!mine || !opp) continue;
-
-      const myScore  = Number(mine.score);
-      const oppScore = Number(opp.score);
-
-      if(myScore > 0 && oppScore > 0){
-        scored.push(myScore);
-        allowed.push(oppScore);
-      }
-    }
-
-    if(scored.length < 2) return null;
-    return { scored: scored.reverse(), allowed: allowed.reverse() };
-
-  } catch(e){
-    setStatus("❌ Fetch error: " + e.message, "err");
+  } catch(e) {
     return null;
   }
 }
 
 /* =============================================
-   ENGINE CORE (unchanged from v1)
+   ENGINE CORE (unchanged)
    ============================================= */
-
-function parseGames(id){
+function parseGames(id) {
   let raw = document.getElementById(id).value.trim();
-  if(!raw) return null;
+  if (!raw) return null;
   let arr = raw.split(",").map(x => parseFloat(x.trim()));
-  if(arr.some(x => isNaN(x) || x < 0 || x > 300)) return "error";
+  if (arr.some(x => isNaN(x) || x < 0 || x > 300)) return "error";
   return arr;
 }
 
-function avg(arr){
-  if(!arr || arr.length === 0) return NaN;
-  return arr.reduce((a,b)=>a+b,0) / arr.length;
+function avg(arr) {
+  if (!arr || arr.length === 0) return NaN;
+  return arr.reduce((a,b) => a+b, 0) / arr.length;
 }
 
-function trimmedAvg(arr){
-  if(!arr || arr.length === 0) return NaN;
-  if(arr.length < 5) return avg(arr);
-  let sorted = [...arr].sort((a,b)=>a-b);
-  sorted.shift();
-  sorted.pop();
+function trimmedAvg(arr) {
+  if (!arr || arr.length === 0) return NaN;
+  if (arr.length < 5) return avg(arr);
+  let sorted = [...arr].sort((a,b) => a-b);
+  sorted.shift(); sorted.pop();
   return avg(sorted);
 }
 
-function stdDev(arr){
-  if(!arr || arr.length < 2) return 0;
+function stdDev(arr) {
+  if (!arr || arr.length < 2) return 0;
   let m = avg(arr);
-  let variance = arr.reduce((a,b)=>a+Math.pow(b-m,2),0) / (arr.length - 1);
+  let variance = arr.reduce((a,b) => a + Math.pow(b-m, 2), 0) / (arr.length - 1);
   return Math.sqrt(variance);
 }
 
-function mid(val){
-  if(!val) return NaN;
+function mid(val) {
+  if (!val) return NaN;
   val = val.trim();
-  if(!val.includes("-")) return NaN;
-  let p = val.split("-").map(x=>x.trim());
+  if (!val.includes("-")) return NaN;
+  let p = val.split("-").map(x => x.trim());
   let a = parseFloat(p[0]), b = parseFloat(p[1]);
-  if(isNaN(a) || isNaN(b)) return NaN;
+  if (isNaN(a) || isNaN(b)) return NaN;
   return (a + b) / 2;
 }
 
-function displayLine(val){
-  if(isNaN(val)) return "NaN";
+function displayLine(val) {
+  if (isNaN(val)) return "NaN";
   return (Math.round(val * 2) / 2).toFixed(1);
 }
 
-function dynamicWeight(sample){
-  if(!sample || sample.length < 2) return 0;
-  if(sample.length <= 3) return 0.20;
+function dynamicWeight(sample) {
+  if (!sample || sample.length < 2) return 0;
+  if (sample.length <= 3) return 0.20;
   return 0.30;
 }
 
-function applyVolatility(proj, std, limit){
-  if(isNaN(proj) || isNaN(std)) return NaN;
-  if(std <= limit) return proj;
+function applyVolatility(proj, std, limit) {
+  if (isNaN(proj) || isNaN(std)) return NaN;
+  if (std <= limit) return proj;
   const excess = std - limit;
   const maxExcess = limit;
   const reductionFactor = Math.min(1, excess / maxExcess);
@@ -538,32 +614,32 @@ function applyVolatility(proj, std, limit){
   return proj * (1 - cut);
 }
 
-function decision(edge, line, type, teamSc, aSc, bSc){
-  if(isNaN(edge) || isNaN(line)) return "NaN";
+function decision(edge, line, type, teamSc, aSc, bSc) {
+  if (isNaN(edge) || isNaN(line)) return "NaN";
   let strength = Math.abs(edge / line);
-  if(strength < 0.045) return "NO PLAY";
+  if (strength < 0.045) return "NO PLAY";
 
   let threshold;
-  if(type === "ft_total")  threshold = edge > 0 ? line * 0.045 : line * 0.06;
-  else if(type === "team") threshold = edge > 0 ? line * 0.05  : line * 0.065;
+  if (type === "ft_total")  threshold = edge > 0 ? line * 0.045 : line * 0.06;
+  else if (type === "team") threshold = edge > 0 ? line * 0.05  : line * 0.065;
   else return "NaN";
 
-  if(isNaN(threshold)) return "NaN";
-  if(Math.abs(edge) < threshold) return "NO PLAY";
+  if (isNaN(threshold)) return "NaN";
+  if (Math.abs(edge) < threshold) return "NO PLAY";
 
-  if(edge < 0){
-    if(type === "ft_total"){
-      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY";
+  if (edge < 0) {
+    if (type === "ft_total") {
+      if (!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY";
     }
-    if(type === "team"){
-      if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY";
+    if (type === "team") {
+      if (!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY";
     }
   }
 
   return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
 }
 
-function runEngine(){
+function runEngine() {
   const table = document.getElementById("results");
   table.style.display = "table";
   table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
@@ -602,48 +678,48 @@ function runEngine(){
   let fullModelActive = !isNaN(aFTSc) && !isNaN(aFTAll) && !isNaN(bFTSc) && !isNaN(bFTAll);
 
   let baseAFT = NaN, baseBFT = NaN;
-  if(!isNaN(aFTSc) && !isNaN(bFTAll)) baseAFT = (aFTSc + bFTAll) / 2;
-  else if(!isNaN(aFTSc)) baseAFT = aFTSc;
-  if(!isNaN(bFTSc) && !isNaN(aFTAll)) baseBFT = (bFTSc + aFTAll) / 2;
-  else if(!isNaN(bFTSc)) baseBFT = bFTSc;
+  if (!isNaN(aFTSc) && !isNaN(bFTAll)) baseAFT = (aFTSc + bFTAll) / 2;
+  else if (!isNaN(aFTSc)) baseAFT = aFTSc;
+  if (!isNaN(bFTSc) && !isNaN(aFTAll)) baseBFT = (bFTSc + aFTAll) / 2;
+  else if (!isNaN(bFTSc)) baseBFT = bFTSc;
 
   let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? (aFTSc + aFTAll) / 2 : NaN;
   let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? (bFTSc + bFTAll) / 2 : NaN;
 
   let paceGapRisk = false;
-  if(!isNaN(teamAPace) && !isNaN(teamBPace)){
+  if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
     let paceGap = Math.abs(teamAPace - teamBPace);
     let paceGapLimit = expectedBase * 0.10;
-    if(paceGap > paceGapLimit) paceGapRisk = true;
+    if (paceGap > paceGapLimit) paceGapRisk = true;
   }
 
   let rawPace = NaN;
-  if(!isNaN(teamAPace) && !isNaN(teamBPace)) rawPace = (teamAPace + teamBPace) / 2;
-  else if(!isNaN(teamAPace)) rawPace = teamAPace;
-  else if(!isNaN(teamBPace)) rawPace = teamBPace;
+  if (!isNaN(teamAPace) && !isNaN(teamBPace)) rawPace = (teamAPace + teamBPace) / 2;
+  else if (!isNaN(teamAPace)) rawPace = teamAPace;
+  else if (!isNaN(teamBPace)) rawPace = teamBPace;
 
   let pace = 1;
-  if(!isNaN(rawPace) && expectedBase !== 0 && !isNaN(expectedBase)){
+  if (!isNaN(rawPace) && expectedBase !== 0 && !isNaN(expectedBase)) {
     pace = rawPace / expectedBase;
     pace = Math.max(clamps.min, Math.min(clamps.max, pace));
   }
 
   let ftH2Ha = null, ftH2Hb = null;
-  if(document.getElementById("useFTH2H").checked){
+  if (document.getElementById("useFTH2H").checked) {
     ftH2Ha = parseGames("aFTH2H");
     ftH2Hb = parseGames("bFTH2H");
   }
 
-  if(fullModelActive && ftH2Ha && ftH2Hb &&
-     ftH2Ha !== "error" && ftH2Hb !== "error" &&
-     ftH2Ha.length >= 2 && ftH2Hb.length >= 2){
+  if (fullModelActive && ftH2Ha && ftH2Hb &&
+      ftH2Ha !== "error" && ftH2Hb !== "error" &&
+      ftH2Ha.length >= 2 && ftH2Hb.length >= 2) {
     let wA = dynamicWeight(ftH2Ha);
     let wB = dynamicWeight(ftH2Hb);
     let totalH2HWeight = Math.min(0.30, wA + wB);
     let baseTotal = baseAFT + baseBFT;
     let h2hTotal  = avg(ftH2Ha) + avg(ftH2Hb);
-    if(!isNaN(baseTotal) && !isNaN(h2hTotal) && baseTotal > 0){
-      if(Math.abs(h2hTotal - baseTotal) / baseTotal > 0.20) totalH2HWeight *= 0.5;
+    if (!isNaN(baseTotal) && !isNaN(h2hTotal) && baseTotal > 0) {
+      if (Math.abs(h2hTotal - baseTotal) / baseTotal > 0.20) totalH2HWeight *= 0.5;
       let blendedTotal = baseTotal * (1 - totalH2HWeight) + h2hTotal * totalH2HWeight;
       let ratio = blendedTotal / baseTotal;
       baseAFT *= ratio;
@@ -656,8 +732,8 @@ function runEngine(){
 
   let defensiveFloorRisk = false;
   let defensiveFloorLimit = expectedBase * 0.40;
-  if((!isNaN(aFTAll) && aFTAll < defensiveFloorLimit) ||
-     (!isNaN(bFTAll) && bFTAll < defensiveFloorLimit)){
+  if ((!isNaN(aFTAll) && aFTAll < defensiveFloorLimit) ||
+      (!isNaN(bFTAll) && bFTAll < defensiveFloorLimit)) {
     defensiveFloorRisk = true;
   }
 
@@ -677,18 +753,18 @@ function runEngine(){
   baseBFT = baseBFT * (0.5 + pace/2);
 
   let ftProj = NaN;
-  if(!isNaN(baseAFT) && !isNaN(baseBFT)) ftProj = baseAFT + baseBFT;
+  if (!isNaN(baseAFT) && !isNaN(baseBFT)) ftProj = baseAFT + baseBFT;
 
   let projDiff = (!isNaN(baseAFT) && !isNaN(baseBFT)) ? Math.abs(baseAFT - baseBFT) : NaN;
-  if(!isNaN(projDiff) && projDiff > 18) ftProj = ftProj * 0.98;
-  if(paceGapRisk) ftProj = ftProj * 0.97;
+  if (!isNaN(projDiff) && projDiff > 18) ftProj = ftProj * 0.98;
+  if (paceGapRisk) ftProj = ftProj * 0.97;
 
-  if(!isNaN(ftProj) && !isNaN(ftLine)){
-    if(Math.abs(ftProj - ftLine) > 25) ftProj = ftLine + (ftProj - ftLine) * 0.5;
+  if (!isNaN(ftProj) && !isNaN(ftLine)) {
+    if (Math.abs(ftProj - ftLine) > 25) ftProj = ftLine + (ftProj - ftLine) * 0.5;
   }
 
-  if(league === "nba" && !isNaN(ftProj) && !isNaN(ftLine)){
-    if(Math.abs(ftProj - ftLine) > 18) ftProj = ftLine + (ftProj - ftLine) * 0.65;
+  if (league === "nba" && !isNaN(ftProj) && !isNaN(ftLine)) {
+    if (Math.abs(ftProj - ftLine) > 18) ftProj = ftLine + (ftProj - ftLine) * 0.65;
   }
 
   let picks = [
@@ -700,12 +776,12 @@ function runEngine(){
   let lockIndex = -1, maxStrength = 0;
 
   picks.forEach((p, i) => {
-    if(isNaN(p.line) || isNaN(p.proj)) return;
+    if (isNaN(p.line) || isNaN(p.proj)) return;
     let edge = p.proj - p.line;
     let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
     let pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
-    if(fullModelActive && pickText !== "NO PLAY" && pickText !== "NaN" &&
-       strength >= 0.045 && strength > maxStrength){
+    if (fullModelActive && pickText !== "NO PLAY" && pickText !== "NaN" &&
+        strength >= 0.045 && strength > maxStrength) {
       maxStrength = strength;
       lockIndex = i;
     }
@@ -714,29 +790,29 @@ function runEngine(){
   picks.forEach((p, i) => {
     let edge = NaN, pickText = "NaN", displayNote = "";
 
-    if(isNaN(p.line)){
+    if (isNaN(p.line)) {
       displayNote = "Missing / Invalid Line"; pickText = "—";
-    } else if(isNaN(p.proj)){
+    } else if (isNaN(p.proj)) {
       displayNote = "Missing / Invalid Last-5 Data"; pickText = "—";
     } else {
       edge = p.proj - p.line;
       pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
       let trapThreshold = p.line * 0.025;
-      if(Math.abs(edge) < trapThreshold) pickText = "NO PLAY";
+      if (Math.abs(edge) < trapThreshold) pickText = "NO PLAY";
 
-      if(p.type === "ft_total" && pickText.startsWith("OVER")){
-        if(paceGapRisk) pickText = "NO PLAY";
-        if(defensiveFloorRisk) pickText = "NO PLAY";
+      if (p.type === "ft_total" && pickText.startsWith("OVER")) {
+        if (paceGapRisk) pickText = "NO PLAY";
+        if (defensiveFloorRisk) pickText = "NO PLAY";
         let blowoutGap = Math.abs(baseAFT - baseBFT);
-        if(blowoutGap > 20) pickText = "NO PLAY";
-        if(aVol > volLimit && bVol > volLimit) pickText = "NO PLAY";
+        if (blowoutGap > 20) pickText = "NO PLAY";
+        if (aVol > volLimit && bVol > volLimit) pickText = "NO PLAY";
       }
     }
 
     let row = table.insertRow();
     let pred = pickText;
-    if(i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN"){
+    if (i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN") {
       pred += ` <span class="lock">🔒</span>`;
     }
 
@@ -744,8 +820,8 @@ function runEngine(){
     let edgeDisplay = isNaN(edge)   ? "NaN" : edge.toFixed(2);
 
     let className = "pred-noplay";
-    if(pred.startsWith("OVER"))  className = "pred-over";
-    else if(pred.startsWith("UNDER")) className = "pred-under";
+    if (pred.startsWith("OVER"))  className = "pred-over";
+    else if (pred.startsWith("UNDER")) className = "pred-under";
 
     row.innerHTML = `
       <td>${p.name}</td>
@@ -758,14 +834,14 @@ function runEngine(){
   });
 }
 
-function clearAll(){
+function clearAll() {
   document.querySelectorAll("input").forEach(i => {
-    if(i.type !== "checkbox") i.value = "";
+    if (i.type !== "checkbox") i.value = "";
     else i.checked = false;
   });
   document.getElementById("aAutoTag").style.display = "none";
   document.getElementById("bAutoTag").style.display = "none";
-  setStatus("","");
+  setStatus("", "");
   const table = document.getElementById("results");
   table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   table.style.display = "none";
