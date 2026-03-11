@@ -296,7 +296,114 @@ const NCAA_TEAM_MAP = {
   "columbia":171,
   "cornell":172,"big red":172,
   "dartmouth":159,
-  "brown":225
+  "brown":225,
+  // Mountain West
+  "boise state":68,"boise st":68,
+  "san jose state":23,"san jose st":23,"sjsu":23,
+  "fresno state":278,"fresno st":278,
+  "nevada":2440,"wolf pack":2440,
+  "unlv":2439,"runnin rebels":2439,
+  "utah state":328,"utah st":328,
+  "air force":2005,"falcons":2005,
+  "wyoming":2751,
+  "colorado state":36,"colorado st":36,
+  "new mexico":167,"lobos":167,
+  "san diego state":21,"sdsu":21,
+  "hawaii":62,"rainbow warriors":62,
+  // Sun Belt / C-USA
+  "georgia state":2247,"panthers":2247,
+  "louisiana monroe":2433,"warhawks":2433,
+  "southern miss":2572,
+  "utsa":2636,"roadrunners":2636,
+  "rice":242,
+  "uab":2437,"blazers":2437,
+  "charlotte":2429,
+  "florida atlantic":2226,
+  "florida international":2229,"fiu":2229,
+  "middle tennessee":2393,"blue raiders":2393,
+  "western kentucky":98,"hilltoppers":98,
+  "marshall":276,"thundering herd":276,
+  "utep":2638,"miners":2638,
+  "north texas":249,"mean green":249,
+  "old dominion":295,"monarchs":295,
+  "appalachian state":2026,
+  "coastal carolina":324,"chanticleers":324,
+  "south alabama":6,
+  "troy":2653,
+  "louisiana":309,"ragin cajuns":309,
+  "arkansas state":2032,"red wolves":2032,
+  "texas state":326,"bobcats":326,
+  // Big South / A-Sun / SWAC / MEAC
+  "liberty":2335,"flames":2335,
+  "kennesaw state":2390,"owls":2390,
+  "northern kentucky":2754,"norse":2754,
+  "bellarmine":2872,
+  "eastern kentucky":2198,"colonels":2198,
+  "gardner webb":2260,
+  "high point":2272,"panthers":2272,
+  "presbyterian":2504,
+  "radford":2503,"highlanders":2503,
+  "south carolina upstate":2579,
+  "winthrop":2675,"eagles":2675,
+  "longwood":2344,"lancers":2344,
+  // Horizon / Summit / WAC
+  "cleveland state":325,"vikings":325,
+  "detroit mercy":2172,"titans":2172,
+  "green bay":2229,"phoenix":2229,
+  "iupui":2535,
+  "milwaukee":258,"panthers":258,
+  "northern illinois":2459,"huskies":2459,
+  "oakland":2402,"grizzlies":2402,
+  "wright state":2750,"raiders":2750,
+  "youngstown state":2752,"penguins":2752,
+  "denver":2172,"pioneers":2172,
+  "north dakota state":2446,"bison":2446,
+  "south dakota state":2571,"jackrabbits":2571,
+  "south dakota":2569,"coyotes":2569,
+  "north dakota":2749,"fighting hawks":2749,
+  "western illinois":2710,"leathernecks":2710,
+  "oral roberts":492,
+  "umkc":2380,"kangaroos":2380,
+  "new mexico state":2463,"aggies":2463,
+  "utah valley":3084,"wolverines":3084,
+  "grand canyon":2253,"antelopes":2253,
+  "seattle":2547,"redhawks":2547,
+  "california baptist":2856,
+  "tarleton state":2876,
+  "abilene christian":2000,"wildcats":2000,
+  "lamar":2350,
+  "stephen f austin":2609,"lumberjacks":2609,
+  "sam houston":2534,"bearkats":2534,
+  "nicholls state":2440,
+  "southeastern louisiana":2550,"lions":2550,
+  "mcneese":2383,"cowboys":2383,
+  "incarnate word":2429,
+  // CAA / Southern / OVC / MVFC
+  "james madison":256,
+  "elon":2210,
+  "hofstra":2219,"pride":2219,
+  "northeastern":111,"huskies":111,
+  "towson":2534,"tigers":2534,
+  "william & mary":2729,
+  "delaware":2183,"blue hens":2183,
+  "stony brook":2548,
+  "hampton":2222,
+  "chattanooga":2132,"mocs":2132,
+  "east tennessee state":2193,"buccaneers":2193,
+  "mercer":2382,"bears":2382,
+  "samford":2534,
+  "western carolina":2747,"catamounts":2747,
+  "wofford":2747,
+  "austin peay":2046,"governors":2046,
+  "belmont":2057,"bruins":2057,
+  "eastern illinois":2210,
+  "jacksonville state":2348,"gamecocks":2348,
+  "morehead state":2370,"eagles":2370,
+  "murray state":93,"racers":93,
+  "southern illinois":2565,"salukis":2565,
+  "tennessee state":2534,"tigers":2534,
+  "tennessee tech":2597,"golden eagles":2597,
+  "ut martin":2617,"skyhawks":2617
 };
 
 function lookupTeamId(name) {
@@ -737,7 +844,15 @@ async function fetchESPN() {
     if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname.`);
     if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname.`);
 
-    setStatus('<span class="spinner"></span>Loading game stats...', "loading");
+    // Clear all fields before filling
+  ["aFTScored","aFTAllowed","a1HScored","a1HAllowed",
+   "bFTScored","bFTAllowed","b1HScored","b1HAllowed",
+   "aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("useFTH2H").checked = false;
+  document.getElementById("use1HH2H").checked = false;
+  setStatus('<span class="spinner"></span>Loading game stats...', "loading");
 
     let aStats, bStats;
     if (isNcaa) {
