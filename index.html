@@ -511,11 +511,19 @@ async function fetchESPN() {
 
     let aStats, bStats, allGames = [];
 
-    // Both NBA and NCAA: use scoreboard date range
-    allGames = await fetchRecentGamesFromScoreboard(espnBase, 60, leagueSlug);
-    if (allGames.length === 0) throw new Error("No recent game data available from ESPN scoreboard.");
-    aStats = extractLastFive(allGames, String(teamAId));
-    bStats = extractLastFive(allGames, String(teamBId));
+    if (leagueSlug === "mens-college-basketball") {
+      // NCAA: team schedule endpoint is the only reliable source
+      [aStats, bStats] = await Promise.all([
+        fetchTeamSchedule(espnBase, teamAId, leagueSlug),
+        fetchTeamSchedule(espnBase, teamBId, leagueSlug)
+      ]);
+    } else {
+      // NBA: scoreboard date range works perfectly
+      allGames = await fetchRecentGamesFromScoreboard(espnBase, 60, leagueSlug);
+      if (allGames.length === 0) throw new Error("No recent game data available from ESPN scoreboard.");
+      aStats = extractLastFive(allGames, String(teamAId));
+      bStats = extractLastFive(allGames, String(teamBId));
+    }
 
     let messages = [];
 
@@ -540,8 +548,11 @@ async function fetchESPN() {
     // --- H2H FETCH (2024 → today) ---
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
     let h2hGames;
-    // Both NBA and NCAA: use scoreboard-based H2H
-    h2hGames = await fetchH2HGames(espnBase, teamAId, teamBId, leagueSlug);
+    if (leagueSlug === "mens-college-basketball") {
+      h2hGames = await fetchH2HFromSchedules(espnBase, teamAId, teamBId, leagueSlug);
+    } else {
+      h2hGames = await fetchH2HGames(espnBase, teamAId, teamBId, leagueSlug);
+    }
 
     if (h2hGames.length >= 2) {
       const last5h2h = h2hGames.slice(0, 5);
@@ -721,56 +732,66 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
   try {
     const url = `${base}/teams/${teamId}/schedule`;
     const data = await proxyFetch(url);
-    const events = data?.events || [];
+    // ESPN returns either data.events or data.team.schedule.events
+    const events = data?.events || data?.team?.schedule?.events || [];
 
     const scored = [], allowed = [];
+    const tId = String(teamId);
 
-    // Go newest first
-    for (let i = events.length - 1; i >= 0 && scored.length < 5; i--) {
-      const ev = events[i];
-      // Only 2024+ games
-      const dateStr = ev?.date || "";
-      if (dateStr && dateStr < "2024-01-01") continue;
-
+    // Collect all completed games, newest first
+    const completed = [];
+    for (const ev of events) {
       const comp = ev?.competitions?.[0];
       if (!comp) continue;
-      const status = comp?.status?.type?.completed;
-      if (!status) continue;
-
+      const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL";
+      if (!done) continue;
       const competitors = comp?.competitors || [];
       if (competitors.length < 2) continue;
+      completed.push({ ev, comp, competitors });
+    }
+    // Reverse so newest is first
+    completed.reverse();
 
-      const mine = competitors.find(c => String(c.team?.id) === String(teamId));
-      const opp  = competitors.find(c => String(c.team?.id) !== String(teamId));
+    for (const { comp, competitors } of completed) {
+      if (scored.length >= 5) break;
+
+      // Find our team — try id match, fallback to homeAway
+      let mine = competitors.find(c => String(c.team?.id) === tId);
+      let opp  = competitors.find(c => String(c.team?.id) !== tId);
+
+      // If id match fails, use score directly from competitors[0] vs [1]
+      if (!mine) {
+        mine = competitors[0];
+        opp  = competitors[1];
+      }
       if (!mine || !opp) continue;
 
-      let myScore  = Number(mine.score) || parseInt(mine.score) || 0;
-      let oppScore = Number(opp.score)  || parseInt(opp.score)  || 0;
-      if (myScore <= 0 || oppScore <= 0) continue;
+      let myScore  = parseFloat(mine.score);
+      let oppScore = parseFloat(opp.score);
+      if (isNaN(myScore) || isNaN(oppScore) || myScore <= 0 || oppScore <= 0) continue;
 
-      // OT stripping with validation
-      const regulationPeriods = 2; // NCAA = 2 halves
+      // OT strip — NCAA = 2 halves regulation
       const linesMe  = mine?.linescores || [];
       const linesOpp = opp?.linescores  || [];
-      if (linesMe.length > regulationPeriods && linesOpp.length > regulationPeriods) {
-        const totalMe  = linesMe.reduce((s, p) => s + Number(p?.value || 0), 0);
-        const totalOpp = linesOpp.reduce((s, p) => s + Number(p?.value || 0), 0);
-        if (Math.abs(totalMe - myScore) <= 1 && Math.abs(totalOpp - oppScore) <= 1) {
+      if (linesMe.length > 2 && linesOpp.length > 2) {
+        const sumMe  = linesMe.reduce((s, p)  => s + parseFloat(p?.value || 0), 0);
+        const sumOpp = linesOpp.reduce((s, p) => s + parseFloat(p?.value || 0), 0);
+        if (Math.abs(sumMe - myScore) <= 1 && Math.abs(sumOpp - oppScore) <= 1) {
           let otMe = 0, otOpp = 0;
-          for (let p = regulationPeriods; p < linesMe.length; p++)  otMe  += Number(linesMe[p]?.value  || 0);
-          for (let p = regulationPeriods; p < linesOpp.length; p++) otOpp += Number(linesOpp[p]?.value || 0);
+          for (let p = 2; p < linesMe.length; p++)  otMe  += parseFloat(linesMe[p]?.value  || 0);
+          for (let p = 2; p < linesOpp.length; p++) otOpp += parseFloat(linesOpp[p]?.value || 0);
           if (otMe > 0 || otOpp > 0) { myScore -= otMe; oppScore -= otOpp; }
         }
       }
 
       if (myScore > 0 && oppScore > 0) {
-        scored.push(myScore);
-        allowed.push(oppScore);
+        scored.push(Math.round(myScore));
+        allowed.push(Math.round(oppScore));
       }
     }
 
     if (scored.length < 2) return null;
-    return { scored, allowed }; // newest first already
+    return { scored, allowed };
   } catch(e) {
     return null;
   }
@@ -785,7 +806,7 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
   try {
     const url = `${base}/teams/${teamAId}/schedule`;
     const data = await proxyFetch(url);
-    const events = data?.events || [];
+    const events = data?.events || data?.team?.schedule?.events || [];
     const h2hGames = [];
     const tA = String(teamAId);
     const tB = String(teamBId);
@@ -796,42 +817,43 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
 
       const comp = ev?.competitions?.[0];
       if (!comp) continue;
-      const status = comp?.status?.type?.completed;
-      if (!status) continue;
+      const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL";
+      if (!done) continue;
 
       const competitors = comp?.competitors || [];
       if (competitors.length < 2) continue;
 
-      const ids = competitors.map(c => String(c.team?.id));
-      if (!ids.includes(tB)) continue; // not a matchup between our two teams
+      // Check if opponent is Team B — check all possible id fields
+      const hasTeamB = competitors.some(c =>
+        String(c.team?.id) === tB || String(c.id) === tB
+      );
+      if (!hasTeamB) continue;
 
-      const cA = competitors.find(c => String(c.team?.id) === tA);
-      const cB = competitors.find(c => String(c.team?.id) === tB);
-      if (!cA || !cB) continue;
+      // Get scores — use index-based if id match fails
+      const cA = competitors.find(c => String(c.team?.id) === tA) || competitors[0];
+      const cB = competitors.find(c => String(c.team?.id) === tB) || competitors[1];
 
-      let scoreA = Number(cA.score) || parseInt(cA.score) || 0;
-      let scoreB = Number(cB.score) || parseInt(cB.score) || 0;
-      if (scoreA <= 0 || scoreB <= 0) continue;
+      let scoreA = parseFloat(cA.score);
+      let scoreB = parseFloat(cB.score);
+      if (isNaN(scoreA) || isNaN(scoreB) || scoreA <= 0 || scoreB <= 0) continue;
 
-      // OT stripping with validation
-      const regulationPeriods = 2;
+      // OT strip
       const linesA = cA?.linescores || [];
       const linesB = cB?.linescores || [];
-      if (linesA.length > regulationPeriods && linesB.length > regulationPeriods) {
-        const totalA = linesA.reduce((s, p) => s + Number(p?.value || 0), 0);
-        const totalB = linesB.reduce((s, p) => s + Number(p?.value || 0), 0);
-        if (Math.abs(totalA - scoreA) <= 1 && Math.abs(totalB - scoreB) <= 1) {
+      if (linesA.length > 2 && linesB.length > 2) {
+        const sumA = linesA.reduce((s, p) => s + parseFloat(p?.value || 0), 0);
+        const sumB = linesB.reduce((s, p) => s + parseFloat(p?.value || 0), 0);
+        if (Math.abs(sumA - scoreA) <= 1 && Math.abs(sumB - scoreB) <= 1) {
           let otA = 0, otB = 0;
-          for (let p = regulationPeriods; p < linesA.length; p++) otA += Number(linesA[p]?.value || 0);
-          for (let p = regulationPeriods; p < linesB.length; p++) otB += Number(linesB[p]?.value || 0);
+          for (let p = 2; p < linesA.length; p++) otA += parseFloat(linesA[p]?.value || 0);
+          for (let p = 2; p < linesB.length; p++) otB += parseFloat(linesB[p]?.value || 0);
           if (otA > 0 || otB > 0) { scoreA -= otA; scoreB -= otB; }
         }
       }
 
-      h2hGames.push({ teamAId: tA, teamBId: tB, scoreA, scoreB, date: dateStr, hasOT: false });
+      h2hGames.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(scoreA), scoreB: Math.round(scoreB), date: dateStr, hasOT: false });
     }
 
-    // Sort newest first
     h2hGames.sort((a, b) => (a.date > b.date ? -1 : 1));
     return h2hGames;
   } catch(e) {
