@@ -751,7 +751,9 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
     for (const ev of events) {
       const comp = ev?.competitions?.[0];
       if (!comp) continue;
-      const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL";
+      const done = comp?.status?.type?.completed || 
+                   comp?.status?.type?.name === "STATUS_FINAL" ||
+                   comp?.status?.type?.state === "post";
       if (!done) continue;
       const competitors = comp?.competitors || [];
       if (competitors.length < 2) continue;
@@ -763,15 +765,10 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
     for (const { comp, competitors } of completed) {
       if (scored.length >= 5) break;
 
-      // Find our team — try id match, fallback to homeAway
-      let mine = competitors.find(c => String(c.team?.id) === tId);
-      let opp  = competitors.find(c => String(c.team?.id) !== tId);
-
-      // If id match fails, use score directly from competitors[0] vs [1]
-      if (!mine) {
-        mine = competitors[0];
-        opp  = competitors[1];
-      }
+      // ESPN schedule uses c.id directly (not c.team.id)
+      let mine = competitors.find(c => String(c.id) === tId || String(c.team?.id) === tId);
+      let opp  = competitors.find(c => String(c.id) !== tId && String(c.team?.id) !== tId);
+      if (!mine) { mine = competitors[0]; opp = competitors[1]; }
       if (!mine || !opp) continue;
 
       let myScore  = parseFloat(mine.score);
@@ -832,21 +829,20 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
 
       const comp = ev?.competitions?.[0];
       if (!comp) continue;
-      const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL";
+      const done = comp?.status?.type?.completed || 
+                   comp?.status?.type?.name === "STATUS_FINAL" ||
+                   comp?.status?.type?.state === "post";
       if (!done) continue;
 
       const competitors = comp?.competitors || [];
       if (competitors.length < 2) continue;
 
-      // Check if opponent is Team B — check all possible id fields
-      const hasTeamB = competitors.some(c =>
-        String(c.team?.id) === tB || String(c.id) === tB
-      );
+      // ESPN schedule uses c.id directly (not c.team.id)
+      const hasTeamB = competitors.some(c => String(c.id) === tB || String(c.team?.id) === tB);
       if (!hasTeamB) continue;
 
-      // Get scores — use index-based if id match fails
-      const cA = competitors.find(c => String(c.team?.id) === tA) || competitors[0];
-      const cB = competitors.find(c => String(c.team?.id) === tB) || competitors[1];
+      const cA = competitors.find(c => String(c.id) === tA || String(c.team?.id) === tA) || competitors[0];
+      const cB = competitors.find(c => String(c.id) === tB || String(c.team?.id) === tB) || competitors[1];
 
       let scoreA = parseFloat(cA.score);
       let scoreB = parseFloat(cB.score);
