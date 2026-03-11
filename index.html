@@ -547,46 +547,43 @@ function parseEuroGameV2(g) {
 }
 
 async function fetchEuroGames(compCode, seasonCode) {
-  const games = [], seen = new Set();
-  const addGame = g => {
-    if (!g) return;
-    const key = g.gameCode || (g.localCode+g.roadCode+g.date);
-    if (seen.has(key)) return;
-    seen.add(key); games.push(g);
-  };
+  // v1 XML — single call, all played games, correct dates
+  const xml = await getEuroXML(seasonCode);
+  if (!xml || !xml.includes('<game>')) return [];
+  const games = parseEuroXML(xml); // already deduped by gameCode
 
-  // v1 XML — all scores + dates in one call
+  // v2 — fetch 1H data and match to v1 games by team codes + score (not gameCode which differs)
   try {
-    const xml = await getEuroXML(seasonCode);
-    if (xml && xml.includes('<game>')) parseEuroXML(xml).forEach(addGame);
+    const isEuroCup = compCode === "U";
+    const base = isEuroCup
+      ? 'https://api-live.eurocupbasketball.com/v2/competitions'
+      : 'https://api-live.euroleague.net/v2/competitions';
+    const maxRound = compCode === "E" ? 34 : 28;
+    const rsResults = await Promise.allSettled(
+      Array.from({length: maxRound}, (_,i) =>
+        proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
+      )
+    );
+    // Build 1H lookup: key = "LCODE-RCODE-LSCORE-RSCORE"
+    const h1Map = {};
+    for (const r of rsResults) {
+      if (r.status !== "fulfilled") continue;
+      for (const g of (r.value?.data||[])) {
+        const p = parseEuroGameV2(g);
+        if (!p || p.localH1 <= 0) continue;
+        const key = `${p.localCode}-${p.roadCode}-${p.localScore}-${p.roadScore}`;
+        h1Map[key] = {localH1: p.localH1, roadH1: p.roadH1};
+      }
+    }
+    // Enrich v1 games with 1H
+    for (const g of games) {
+      const key = `${g.localCode}-${g.roadCode}-${g.localScore}-${g.roadScore}`;
+      if (h1Map[key]) { g.localH1 = h1Map[key].localH1; g.roadH1 = h1Map[key].roadH1; }
+    }
   } catch(e) {}
 
-  // v2 round-by-round — only for 1H enrichment
-  // EuroCup uses competition code "U", EuroLeague uses "E"
-  // EuroCup uses different domain for v2 as well
-  const isEuroCup = compCode === "U";
-  const base = isEuroCup
-    ? 'https://api-live.eurocupbasketball.com/v2/competitions'
-    : 'https://api-live.euroleague.net/v2/competitions';
-  const maxRound = compCode === "E" ? 34 : 28;
-  const rsResults = await Promise.allSettled(
-    Array.from({length: maxRound}, (_,i) =>
-      proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
-    )
-  );
-  for (const r of rsResults) {
-    if (r.status !== "fulfilled") continue;
-    for (const g of (r.value?.data||[])) {
-      const p = parseEuroGameV2(g);
-      if (!p) continue;
-      const ex = games.find(x => x.gameCode === p.gameCode);
-      if (ex) { if (p.localH1>0){ ex.localH1=p.localH1; ex.roadH1=p.roadH1; } }
-      else addGame(p);
-    }
-  }
-
-  // Sort newest first using ISO date string (safe for JS)
-  games.sort((a,b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+  // Sort newest first — ISO "2026-03-07" string comparison is reliable
+  games.sort((a,b) => b.date > a.date ? 1 : b.date < a.date ? -1 : 0);
   return games;
 }
 
