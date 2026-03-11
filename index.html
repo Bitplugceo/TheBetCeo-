@@ -905,12 +905,13 @@ function runEngine(){
     if(!isNaN(ftLine)&&Math.abs(ftP-ftLine)>25)ftP=ftLine+(ftP-ftLine)*0.5;
     if(league==="nba"&&!isNaN(ftLine)&&Math.abs(ftP-ftLine)>18)ftP=ftLine+(ftP-ftLine)*0.65;
   }
-  // ---- 1H ENGINE (NBA & NCAA only) ----
+  // ---- 1H ENGINE — exact mirror of FT engine, scaled to 1H base ----
   let h1P = NaN, h1Line = NaN;
+  let aVol1 = 0, bVol1 = 0, vl1 = 7, pgr1 = false;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
   if (isNbaOrNcaa) {
-    const eb1H = eb / 2;
-    const cl1H = cl;
+    const eb1H = eb / 2;                          // 1H league base (NBA=115, NCAA=75)
+    h1Line = mid(document.getElementById("h1Market").value);  // read line first
     let a1HS = parseGames("a1HScored"), a1HA = parseGames("a1HAllowed");
     let b1HS = parseGames("b1HScored"), b1HA = parseGames("b1HAllowed");
     let aS1 = (a1HS==="error"||a1HS===null) ? NaN : trimmedAvg(a1HS);
@@ -919,11 +920,14 @@ function runEngine(){
     let bA1 = (b1HA==="error"||b1HA===null) ? NaN : trimmedAvg(b1HA);
     let fma1 = !isNaN(aS1)&&!isNaN(aA1)&&!isNaN(bS1)&&!isNaN(bA1);
     if (fma1) {
+      // Step 1 — blend scored vs opponent allowed (same as FT)
       let bA1H = (aS1+bA1)/2, bB1H = (bS1+aA1)/2;
+      // Step 2 — pace (same formula as FT)
       let tAP1 = (aS1+aA1)/2, tBP1 = (bS1+bA1)/2;
+      pgr1 = Math.abs(tAP1-tBP1) > eb1H*0.10;
       let rp1 = (tAP1+tBP1)/2;
-      let pace1 = Math.max(cl1H.min, Math.min(cl1H.max, rp1/eb1H));
-      // 1H H2H blend
+      let pace1 = Math.max(cl.min, Math.min(cl.max, rp1/eb1H));
+      // Step 3 — H2H blend (same as FT)
       if (document.getElementById("use1HH2H").checked) {
         let h2ha1 = parseGames("a1HH2H"), h2hb1 = parseGames("b1HH2H");
         if (h2ha1&&h2hb1&&h2ha1!=="error"&&h2hb1!=="error"&&h2ha1.length>=2&&h2hb1.length>=2) {
@@ -935,20 +939,28 @@ function runEngine(){
           }
         }
       }
-      let vl1 = {"nba":7,"ncaa":6}[league]||7;
-      let aVol1=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
-      let bVol1=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
+      // Step 4 — volatility (same as FT, scaled thresholds)
+      vl1 = {"nba":7,"ncaa":6}[league]||7;
+      aVol1 = (stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
+      bVol1 = (stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
+      let dfr1 = (!isNaN(aA1)&&aA1<eb1H*0.40)||(!isNaN(bA1)&&bA1<eb1H*0.40);
       bA1H = applyVolatility(bA1H, aVol1, vl1);
       bB1H = applyVolatility(bB1H, bVol1, vl1);
+      // Step 5 — regression to 1H league mean (same as FT)
       bA1H = (bA1H*0.85)+(eb1H*0.15);
       bB1H = (bB1H*0.85)+(eb1H*0.15);
+      // Step 6 — pace adjustment (same as FT)
       bA1H = bA1H*(0.5+pace1/2);
       bB1H = bB1H*(0.5+pace1/2);
+      // Step 7 — sum + same adjustments as FT
       h1P = bA1H + bB1H;
-      if (!isNaN(h1P) && !isNaN(ftP) && h1P > ftP * 0.6) h1P = Math.min(h1P, ftP * 0.58);
+      if (!isNaN(h1P)) {
+        if (Math.abs(bA1H-bB1H)>9) h1P *= 0.98;           // spread penalty (FT uses >18, 1H = half)
+        if (pgr1) h1P *= 0.97;                              // pace gap penalty
+        if (!isNaN(h1Line)&&Math.abs(h1P-h1Line)>12) h1P = h1Line+(h1P-h1Line)*0.5;   // market anchor (FT uses >25)
+        if (league==="nba"&&!isNaN(h1Line)&&Math.abs(h1P-h1Line)>9) h1P = h1Line+(h1P-h1Line)*0.65; // NBA tighter anchor
+      }
     }
-    h1Line = mid(document.getElementById("h1Market").value);
-    // For now show as separate row if we have data
   }
 
   let picks=[
@@ -956,7 +968,7 @@ function runEngine(){
     {name:"Team A Total",proj:bAFT,line:aLine,type:"team",teamSc:aS,aSc:aS,bSc:bS},
     {name:"Team B Total",proj:bBFT,line:bLine,type:"team",teamSc:bS,aSc:aS,bSc:bS}
   ];
-  if (isNbaOrNcaa && !isNaN(h1P)) picks.push({name:"1H Total",proj:h1P,line:h1Line,type:"ft_total",teamSc:null,aSc:aS,bSc:bS});
+  if (isNbaOrNcaa && !isNaN(h1P)) picks.push({name:"1H Total",proj:h1P,line:h1Line,type:"1h_total",teamSc:null,aSc:aS,bSc:bS});
   let li=-1,ms=0;
   picks.forEach((p,i)=>{
     if(isNaN(p.line)||isNaN(p.proj))return;
@@ -976,6 +988,10 @@ function runEngine(){
         if(pgr||dfr)pt="NO PLAY";
         if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";
         if(aVol>vl&&bVol>vl)pt="NO PLAY";
+      }
+      if(p.type==="1h_total"&&pt.startsWith("OVER")){
+        if(typeof pgr1!=="undefined"&&pgr1)pt="NO PLAY";
+        if(typeof aVol1!=="undefined"&&typeof bVol1!=="undefined"&&typeof vl1!=="undefined"&&aVol1>vl1&&bVol1>vl1)pt="NO PLAY";
       }
     }
     let row=table.insertRow();
