@@ -441,53 +441,31 @@ async function fetchTeamLastFive(base, teamId, teamName){
     const url = `${base}/teams/${teamId}/schedule`;
     const data = await proxyFetch(url);
     const events = data?.events || [];
-
-    // Log first event structure to status for debugging
-    if(events.length > 0){
-      const firstStatus = events[events.length-1]?.status?.type;
-      const firstComp = events[events.length-1]?.competitions?.[0]?.competitors?.[0];
-      setStatus(`DEBUG ${teamName}: ${events.length} events. Last status state="${firstStatus?.state}" completed=${firstStatus?.completed}. Comp id="${firstComp?.id}" team.id="${firstComp?.team?.id}" score="${firstComp?.score}"`, "loading");
-      await new Promise(r => setTimeout(r, 3000)); // pause so you can read it
-    } else {
-      setStatus(`DEBUG ${teamName}: 0 events returned`, "err");
-      return null;
-    }
-
-    // Filter completed
-    let completed = events.filter(e => {
-      const s = e?.status?.type;
-      return s?.state === "post" || s?.completed === true || s?.description === "Final";
-    });
-
-    // Take last 5
-    completed = completed.slice(-5);
-    if(completed.length < 1) return null;
+    if(events.length === 0) return null;
 
     let scored = [], allowed = [];
 
-    for(let ev of completed){
-      const comps = ev?.competitions?.[0]?.competitors || [];
-      if(comps.length < 2) continue;
+    // Go through events in reverse (most recent first)
+    for(let i = events.length - 1; i >= 0 && scored.length < 5; i--){
+      const ev = events[i];
+      const competitors = ev?.competitions?.[0]?.competitors || [];
+      if(competitors.length < 2) continue;
 
-      let myTeam = comps.find(c =>
-        String(c.team?.id) === String(teamId) ||
-        String(c.id) === String(teamId)
-      );
-      if(!myTeam) myTeam = comps[0];
-      let opp = comps.find(c => c !== myTeam);
-      if(!opp) continue;
+      const mine = competitors.find(c => String(c.team?.id) === String(teamId));
+      const opp  = competitors.find(c => String(c.team?.id) !== String(teamId));
+      if(!mine || !opp) continue;
 
-      const myScore  = parseInt(myTeam.score);
-      const oppScore = parseInt(opp.score);
+      const myScore  = Number(mine.score);
+      const oppScore = Number(opp.score);
 
-      if(!isNaN(myScore) && !isNaN(oppScore) && myScore > 0 && oppScore > 0){
+      if(myScore > 0 && oppScore > 0){
         scored.push(myScore);
         allowed.push(oppScore);
       }
     }
 
-    if(scored.length < 1) return null;
-    return { scored, allowed };
+    if(scored.length < 2) return null;
+    return { scored: scored.reverse(), allowed: allowed.reverse() };
 
   } catch(e){
     return null;
