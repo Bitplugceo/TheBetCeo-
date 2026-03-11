@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -66,6 +67,24 @@ button {
   cursor:pointer;
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fetch-btn {
+  background: #1e7d3a;
+  color: #fff;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: bold;
+  border: 1px solid #2ecc71;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.fetch-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
 table {
   width:100%;
   border-collapse:collapse;
@@ -89,126 +108,386 @@ th, td {
 }
 
 small.error-note {color:#ff6b6b; font-size:10px; display:block; margin-top:2px;}
+
+#fetchStatus {
+  font-size:11px;
+  margin-top:6px;
+  min-height:16px;
+  color:#aaa;
+}
+
+#fetchStatus.ok { color:#2ecc71; }
+#fetchStatus.err { color:#ff6b6b; }
+#fetchStatus.loading { color:#d4af37; }
+
+.team-name-row {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:4px;
+}
+
+.team-name-row input {
+  flex:1;
+  max-width:200px;
+  margin-bottom:0;
+}
+
+.autofill-indicator {
+  font-size:10px;
+  color:#2ecc71;
+  display:none;
+}
+
+.spinner {
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border:2px solid #d4af37;
+  border-top-color:transparent;
+  border-radius:50%;
+  animation:spin 0.6s linear infinite;
+  vertical-align:middle;
+  margin-right:4px;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
 </style>
+
 </head>
 
 <body>
 <h1>🏀 Basketball Prediction Engine</h1>
 <div class="wrapper">
 
+  <!-- LEAGUE TIER -->
+
   <div class="section">
-  <h3 style="font-size:22px;">League Tier</h3>
-  <label style="font-size:18px; margin-top:10px;">Select League</label>
-  <select id="leagueSelect" class="league-box">
-  <option value="nba">USA - NBA</option>
-  <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
-  <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
-  <option value="ncaa">USA - NCAA</option>
-  <option value="africa">Africa - BAL / Nigeria League / Rwanda League</option>
-  <option value="unknown">Other / Mixed League</option>
-</select>
-</div>
+    <h3 style="font-size:22px;">League Tier</h3>
+    <label style="font-size:18px; margin-top:10px;">Select League</label>
+    <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
+      <option value="nba">USA - NBA</option>
+      <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
+      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
+      <option value="ncaa">USA - NCAA</option>
+      <option value="africa">Africa - BAL / Nigeria League / Rwanda League</option>
+      <option value="unknown">Other / Mixed League</option>
+    </select>
+  </div>
 
-<div class="section">
-<h3>Market Lines</h3>
-<label>FT Total</label>
-<input id="ftMarket" placeholder="150.5 - 160.5">
-<label>Team A Total</label>
-<input id="teamAMarket" placeholder="75.5 - 79.5">
-<label>Team B Total</label>
-<input id="teamBMarket" placeholder="75.5 - 79.5">
-</div>
+  <!-- ESPN AUTO-FETCH -->
 
-<div class="section">
-<h3>Team A (Last 5)</h3>
-<label>FT Scored</label>
-<input id="aFTScored" placeholder="85,79,88,74,82">
-<label>FT Allowed</label>
-<input id="aFTAllowed" placeholder="76,80,72,79,77">
-</div>
+  <div class="section" id="espnSection">
+    <h3 style="font-size:15px;">⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
+    <label style="font-size:12px;">Team A Name</label>
+    <div class="team-name-row">
+      <input id="teamAName" placeholder="e.g. Lakers" oninput="clearAutoFill()">
+    </div>
+    <label style="font-size:12px;">Team B Name</label>
+    <div class="team-name-row">
+      <input id="teamBName" placeholder="e.g. Celtics" oninput="clearAutoFill()">
+    </div>
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">📡 Fetch Stats</button>
+    <div id="fetchStatus"></div>
+  </div>
 
-<div class="section">
-<h3>Team B (Last 5)</h3>
-<label>FT Scored</label>
-<input id="bFTScored" placeholder="83,77,81,79,80">
-<label>FT Allowed</label>
-<input id="bFTAllowed" placeholder="78,82,74,77,80">
-</div>
+  <!-- MARKET LINES -->
 
-<div class="section">
-<h3>H2H</h3>
-<label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
-<input id="aFTH2H" placeholder="82,78,84,76,82">
-<input id="bFTH2H" placeholder="79,81,77,80,78">
+  <div class="section">
+    <h3>Market Lines</h3>
+    <label>FT Total</label>
+    <input id="ftMarket" placeholder="150.5 - 160.5">
+    <label>Team A Total</label>
+    <input id="teamAMarket" placeholder="75.5 - 79.5">
+    <label>Team B Total</label>
+    <input id="teamBMarket" placeholder="75.5 - 79.5">
+  </div>
 
-</div>
+  <!-- TEAM A -->
 
-<div style="text-align:center;">
-<button onclick="runEngine()">Run</button>
-<button onclick="clearAll()">Clear</button>
-</div>
+  <div class="section">
+    <h3>Team A (Last 5) <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+    <label>FT Scored</label>
+    <input id="aFTScored" placeholder="85,79,88,74,82">
+    <label>FT Allowed</label>
+    <input id="aFTAllowed" placeholder="76,80,72,79,77">
+  </div>
 
-<table id="results" style="display:none;">
-<tr>
-<th>Pick</th>
-<th>Projection</th>
-<th>Edge</th>
-<th>Prediction</th>
-</tr>
-</table>
+  <!-- TEAM B -->
+
+  <div class="section">
+    <h3>Team B (Last 5) <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+    <label>FT Scored</label>
+    <input id="bFTScored" placeholder="83,77,81,79,80">
+    <label>FT Allowed</label>
+    <input id="bFTAllowed" placeholder="78,82,74,77,80">
+  </div>
+
+  <!-- H2H -->
+
+  <div class="section">
+    <h3>H2H</h3>
+    <label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
+    <input id="aFTH2H" placeholder="82,78,84,76,82">
+    <input id="bFTH2H" placeholder="79,81,77,80,78">
+  </div>
+
+  <div style="text-align:center;">
+    <button onclick="runEngine()">Run</button>
+    <button onclick="clearAll()">Clear</button>
+  </div>
+
+  <table id="results" style="display:none;">
+    <tr>
+      <th>Pick</th>
+      <th>Projection</th>
+      <th>Edge</th>
+      <th>Prediction</th>
+    </tr>
+  </table>
 
 </div>
 
 <script>
 
-  /* =========================================================
-BASKETBALL PREDICTION ENGINE — MODEL DESIGN NOTES
-Version: 1.0 (Stable Core)
+/* =============================================
+   CLOUDFLARE WORKER PROXY
+   ============================================= */
+const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 
-This engine is designed for quick statistical projections
-using last-5-game inputs and market lines.
+async function proxyFetch(url){
+  const res = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url));
+  if(!res.ok) throw new Error("Worker HTTP " + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e){ throw new Error("Bad JSON from worker: " + text.slice(0,100)); }
+}
 
-Key Design Principles:
+/* =============================================
+   HARDCODED NBA TEAM IDs (ESPN IDs)
+   ============================================= */
+const NBA_TEAM_MAP = {
+  // keywords → ESPN team ID
+  "hawks":1, "atlanta":1,
+  "celtics":2, "boston":2,
+  "nets":17, "brooklyn":17,
+  "hornets":30, "charlotte":30,
+  "bulls":4, "chicago":4,
+  "cavaliers":5, "cavs":5, "cleveland":5,
+  "mavericks":6, "mavs":6, "dallas":6,
+  "nuggets":7, "denver":7,
+  "pistons":8, "detroit":8,
+  "warriors":9, "golden state":9, "gsw":9,
+  "rockets":10, "houston":10,
+  "pacers":11, "indiana":11,
+  "clippers":12, "la clippers":12,
+  "lakers":13, "los angeles lakers":13, "la lakers":13,
+  "grizzlies":29, "memphis":29,
+  "heat":14, "miami":14,
+  "bucks":15, "milwaukee":15,
+  "timberwolves":16, "wolves":16, "minnesota":16,
+  "pelicans":3, "new orleans":3,
+  "knicks":18, "new york":18,
+  "thunder":25, "okc":25, "oklahoma":25,
+  "magic":19, "orlando":19,
+  "76ers":20, "sixers":20, "philadelphia":20,
+  "suns":21, "phoenix":21,
+  "trail blazers":22, "trailblazers":22, "blazers":22, "portland":22,
+  "kings":23, "sacramento":23,
+  "spurs":24, "san antonio":24,
+  "raptors":28, "toronto":28,
+  "jazz":26, "utah":26,
+  "wizards":27, "washington":27
+};
 
-1. Pace Approximation
-Game pace is estimated using scoring totals since possession
-data is not available from manual user input.
+function lookupTeamId(name){
+  const n = name.toLowerCase().trim();
+  // Try exact or substring match against all keys
+  for(let key of Object.keys(NBA_TEAM_MAP)){
+    if(n === key || n.includes(key) || key.includes(n)){
+      return NBA_TEAM_MAP[key];
+    }
+  }
+  return null;
+}
 
-2. Offense vs Defense Interaction
-Team projections combine a team's offensive scoring with the
-opponent's defensive allowance.
+function onLeagueChange(){
+  const league = document.getElementById("leagueSelect").value;
+  const espnSection = document.getElementById("espnSection");
+  espnSection.style.display = (league === "nba" || league === "ncaa") ? "block" : "none";
+}
 
-3. Trimmed Mean Stability
-Highest and lowest values from the last 5 games are removed
-to reduce outlier influence.
+function clearAutoFill(){
+  document.getElementById("aAutoTag").style.display = "none";
+  document.getElementById("bAutoTag").style.display = "none";
+  setStatus("","");
+}
 
-4. Regression to League Mean
-Projections partially regress toward league averages to avoid
-overfitting to small sample sizes.
+function setStatus(msg, type){
+  const el = document.getElementById("fetchStatus");
+  el.className = type;
+  el.innerHTML = msg;
+}
 
-5. Volatility Dampening
-Teams with high scoring variance have projections reduced
-to prevent unstable projections.
+/* =============================================
+   ESPN FETCH LOGIC
+   ============================================= */
+async function fetchESPN(){
+  const league = document.getElementById("leagueSelect").value;
+  const teamAName = document.getElementById("teamAName").value.trim();
+  const teamBName = document.getElementById("teamBName").value.trim();
 
-6. Pace Clamp by League
-Each league has realistic pace boundaries.
+  if(!teamAName || !teamBName){
+    setStatus("❌ Enter both team names first.", "err");
+    return;
+  }
 
-7. Defensive Floor Filter
-Very strong defensive teams suppress OVER predictions.
+  const btn = document.getElementById("fetchBtn");
+  btn.disabled = true;
+  setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
 
-8. Pace Gap Filter
-Large tempo mismatches reduce totals reliability.
+  try {
+    const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
+    const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
 
-9. Market Trap Protection
-Small statistical edges are ignored to avoid bookmaker traps.
+    // Use hardcoded ID map for NBA; for NCAA use name search
+    let teamAId = lookupTeamId(teamAName);
+    let teamBId = lookupTeamId(teamBName);
 
-10. Lock Indicator
-The lock icon highlights the strongest statistical edge among
-available picks when edge ≥ 4.5%. It does NOT influence the
-prediction model itself.
+    // If not found in map, try ESPN team list search
+    if(!teamAId) teamAId = await searchTeamFromAPI(espnBase, teamAName);
+    if(!teamBId) teamBId = await searchTeamFromAPI(espnBase, teamBName);
 
-========================================================= */
-  
+    if(!teamAId) throw new Error(`Can't find team: "${teamAName}". Try just the nickname e.g. "Warriors", "Lakers"`);
+    if(!teamBId) throw new Error(`Can't find team: "${teamBName}". Try just the nickname e.g. "Bulls", "Celtics"`);
+
+    setStatus('<span class="spinner"></span>Loading game stats...', "loading");
+
+    // Fetch last 5 games for each team
+    const [aStats, bStats] = await Promise.all([
+      fetchTeamLastFive(espnBase, teamAId, teamAName),
+      fetchTeamLastFive(espnBase, teamBId, teamBName)
+    ]);
+
+    if(!aStats) throw new Error(`No game data found for "${teamAName}" (ID:${teamAId})`);
+    if(!bStats) throw new Error(`No game data found for "${teamBName}" (ID:${teamBId})`);
+
+    document.getElementById("aFTScored").value  = aStats.scored.join(",");
+    document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
+    document.getElementById("aAutoTag").style.display = "inline";
+
+    document.getElementById("bFTScored").value  = bStats.scored.join(",");
+    document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
+    document.getElementById("bAutoTag").style.display = "inline";
+
+    setStatus(`✅ Loaded last ${aStats.scored.length} games for each team. Add market lines then hit Run!`, "ok");
+
+  } catch(e) {
+    setStatus("❌ " + e.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function searchTeamFromAPI(base, name){
+  try {
+    const url = `${base}/teams?limit=200`;
+    const data = await proxyFetch(url);
+    // ESPN teams endpoint returns: { sports:[{ leagues:[{ teams:[{ team:{} }] }] }] }
+    const leagues = data?.sports?.[0]?.leagues || data?.leagues || [];
+    let teams = [];
+    if(leagues.length > 0){
+      teams = leagues[0]?.teams || [];
+    } else {
+      // fallback: maybe data.teams directly
+      teams = data?.teams || [];
+    }
+
+    const n = name.toLowerCase().trim();
+    const words = n.split(/\s+/).filter(w => w.length >= 2);
+
+    let best = null, bestScore = 0;
+    for(let t of teams){
+      const team = t.team || t;
+      const fields = [
+        team.displayName, team.shortDisplayName,
+        team.name, team.nickname, team.abbreviation, team.location
+      ].filter(Boolean).map(f => f.toLowerCase()).join(" ");
+
+      if(fields.includes(n)) return team.id;
+
+      let score = words.filter(w => fields.includes(w)).length;
+      if(score > bestScore){ bestScore = score; best = team.id; }
+    }
+    return bestScore >= 1 ? best : null;
+  } catch(e){
+    return null;
+  }
+}
+
+async function fetchTeamLastFive(base, teamId, teamName){
+  try {
+    const url = `${base}/teams/${teamId}/schedule`;
+    const data = await proxyFetch(url);
+    const events = data?.events || [];
+
+    setStatus(`<span class="spinner"></span>${teamName}: ${events.length} games found, filtering...`, "loading");
+
+    // Filter completed — ESPN uses status.type.state === "post" for finished games
+    let completed = events.filter(e => {
+      const s = e?.status?.type;
+      return s?.state === "post" || s?.completed === true || s?.description === "Final";
+    });
+
+    setStatus(`<span class="spinner"></span>${teamName}: ${completed.length} completed games`, "loading");
+
+    // Take last 5
+    completed = completed.slice(-5);
+
+    if(completed.length < 1) return null;
+
+    let scored = [], allowed = [];
+
+    for(let ev of completed){
+      const comps = ev?.competitions?.[0]?.competitors || [];
+      if(comps.length < 2) continue;
+
+      // Try matching by team id in multiple places
+      let myTeam = comps.find(c =>
+        String(c.team?.id) === String(teamId) ||
+        String(c.uid)?.includes(`:${teamId}`) ||
+        String(c.id) === String(teamId)
+      );
+
+      if(!myTeam){
+        // fallback: pick first competitor as "my team"
+        myTeam = comps[0];
+      }
+
+      let opp = comps.find(c => c !== myTeam);
+      if(!opp) continue;
+
+      const myScore  = parseInt(myTeam.score);
+      const oppScore = parseInt(opp.score);
+
+      if(!isNaN(myScore) && !isNaN(oppScore) && myScore > 0 && oppScore > 0){
+        scored.push(myScore);
+        allowed.push(oppScore);
+      }
+    }
+
+    if(scored.length < 1) return null;
+
+    return { scored, allowed };
+
+  } catch(e){
+    return null;
+  }
+}
+
+/* =============================================
+   ENGINE CORE (unchanged from v1)
+   ============================================= */
+
 function parseGames(id){
   let raw = document.getElementById(id).value.trim();
   if(!raw) return null;
@@ -222,20 +501,15 @@ function avg(arr){
   return arr.reduce((a,b)=>a+b,0) / arr.length;
 }
 
-  function trimmedAvg(arr){
+function trimmedAvg(arr){
   if(!arr || arr.length === 0) return NaN;
-
-  if(arr.length < 5){
-    return avg(arr); // use normal average if less than 5 games
-  }
-
+  if(arr.length < 5) return avg(arr);
   let sorted = [...arr].sort((a,b)=>a-b);
-  sorted.shift();   // remove lowest
-  sorted.pop();     // remove highest
-
+  sorted.shift();
+  sorted.pop();
   return avg(sorted);
 }
-  
+
 function stdDev(arr){
   if(!arr || arr.length < 2) return 0;
   let m = avg(arr);
@@ -267,38 +541,33 @@ function dynamicWeight(sample){
 function applyVolatility(proj, std, limit){
   if(isNaN(proj) || isNaN(std)) return NaN;
   if(std <= limit) return proj;
-
   const excess = std - limit;
   const maxExcess = limit;
   const reductionFactor = Math.min(1, excess / maxExcess);
   const maxCut = 0.07;
-
   const cut = maxCut * reductionFactor;
   return proj * (1 - cut);
 }
 
 function decision(edge, line, type, teamSc, aSc, bSc){
   if(isNaN(edge) || isNaN(line)) return "NaN";
+  let strength = Math.abs(edge / line);
+  if(strength < 0.045) return "NO PLAY";
 
-/* Minimum Edge Rule (4.5%) */
-let strength = Math.abs(edge / line);
-if(strength < 0.045) return "NO PLAY";
-  
   let threshold;
-  if(type === "ft_total")      threshold = edge > 0 ? line * 0.045 : line * 0.06;
-  else if(type === "team")     threshold = edge > 0 ? line * 0.05  : line * 0.065;
+  if(type === "ft_total")  threshold = edge > 0 ? line * 0.045 : line * 0.06;
+  else if(type === "team") threshold = edge > 0 ? line * 0.05  : line * 0.065;
   else return "NaN";
 
   if(isNaN(threshold)) return "NaN";
-
   if(Math.abs(edge) < threshold) return "NO PLAY";
 
   if(edge < 0){
-    if(type === "ft_total")  { 
-      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY"; 
+    if(type === "ft_total"){
+      if(!isNaN(aSc) && !isNaN(bSc) && (aSc >= line*0.58 || bSc >= line*0.58)) return "NO PLAY";
     }
-    if(type === "team")      { 
-      if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY"; 
+    if(type === "team"){
+      if(!isNaN(teamSc) && teamSc >= line*0.58) return "NO PLAY";
     }
   }
 
@@ -313,29 +582,23 @@ function runEngine(){
   const league = document.getElementById("leagueSelect").value;
 
   const leagueBases = {
-    "nba": 230,
-    "euro_elite": 175,
-    "secondary": 170,
-    "ncaa": 150,
-    "africa": 160,
-    "unknown": 160
+    "nba":230,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160
   };
-
   const leaguePaceClamps = {
-    "nba":       { min: 0.90, max: 1.15 },
-    "euro_elite": { min: 0.92, max: 1.10 },
-    "secondary":  { min: 0.92, max: 1.10 },
-    "ncaa":       { min: 0.90, max: 1.12 },
-    "africa":     { min: 0.90, max: 1.12 },
-    "unknown":    { min: 0.90, max: 1.12 }
+    "nba":       {min:0.90,max:1.15},
+    "euro_elite":{min:0.92,max:1.10},
+    "secondary": {min:0.92,max:1.10},
+    "ncaa":      {min:0.90,max:1.12},
+    "africa":    {min:0.90,max:1.12},
+    "unknown":   {min:0.90,max:1.12}
   };
 
   let expectedBase = leagueBases[league] || 160;
-  const clamps = leaguePaceClamps[league] || { min: 0.90, max: 1.12 };
+  const clamps = leaguePaceClamps[league] || {min:0.90,max:1.12};
 
-  let ftLine  = mid(document.getElementById("ftMarket").value);
-  let aLine   = mid(document.getElementById("teamAMarket").value);
-  let bLine   = mid(document.getElementById("teamBMarket").value);
+  let ftLine = mid(document.getElementById("ftMarket").value);
+  let aLine  = mid(document.getElementById("teamAMarket").value);
+  let bLine  = mid(document.getElementById("teamBMarket").value);
 
   let aFTScArr  = parseGames("aFTScored");
   let aFTAllArr = parseGames("aFTAllowed");
@@ -343,299 +606,185 @@ function runEngine(){
   let bFTAllArr = parseGames("bFTAllowed");
 
   let aFTSc  = (aFTScArr  === "error" || aFTScArr  === null) ? NaN : trimmedAvg(aFTScArr);
-let aFTAll = (aFTAllArr === "error" || aFTAllArr === null) ? NaN : trimmedAvg(aFTAllArr);
-let bFTSc  = (bFTScArr  === "error" || bFTScArr  === null) ? NaN : trimmedAvg(bFTScArr);
-let bFTAll = (bFTAllArr === "error" || bFTAllArr === null) ? NaN : trimmedAvg(bFTAllArr);
-let fullModelActive = 
-  !isNaN(aFTSc) &&
-  !isNaN(aFTAll) &&
-  !isNaN(bFTSc) &&
-  !isNaN(bFTAll);
-  
-  let baseAFT = NaN;
-let baseBFT = NaN;
+  let aFTAll = (aFTAllArr === "error" || aFTAllArr === null) ? NaN : trimmedAvg(aFTAllArr);
+  let bFTSc  = (bFTScArr  === "error" || bFTScArr  === null) ? NaN : trimmedAvg(bFTScArr);
+  let bFTAll = (bFTAllArr === "error" || bFTAllArr === null) ? NaN : trimmedAvg(bFTAllArr);
 
-// Team A projection logic
-if (!isNaN(aFTSc) && !isNaN(bFTAll)) {
-  baseAFT = (aFTSc + bFTAll) / 2;
-} else if (!isNaN(aFTSc)) {
-  baseAFT = aFTSc;
-}
+  let fullModelActive = !isNaN(aFTSc) && !isNaN(aFTAll) && !isNaN(bFTSc) && !isNaN(bFTAll);
 
-// Team B projection logic
-if (!isNaN(bFTSc) && !isNaN(aFTAll)) {
-  baseBFT = (bFTSc + aFTAll) / 2;
-} else if (!isNaN(bFTSc)) {
-  baseBFT = bFTSc;
-}
+  let baseAFT = NaN, baseBFT = NaN;
+  if(!isNaN(aFTSc) && !isNaN(bFTAll)) baseAFT = (aFTSc + bFTAll) / 2;
+  else if(!isNaN(aFTSc)) baseAFT = aFTSc;
+  if(!isNaN(bFTSc) && !isNaN(aFTAll)) baseBFT = (bFTSc + aFTAll) / 2;
+  else if(!isNaN(bFTSc)) baseBFT = bFTSc;
 
-let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? (aFTSc + aFTAll) / 2 : NaN;
-let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? (bFTSc + bFTAll) / 2 : NaN;
+  let teamAPace = (!isNaN(aFTSc) && !isNaN(aFTAll)) ? (aFTSc + aFTAll) / 2 : NaN;
+  let teamBPace = (!isNaN(bFTSc) && !isNaN(bFTAll)) ? (bFTSc + bFTAll) / 2 : NaN;
 
-/* -------- Pace Gap Filter -------- */
+  let paceGapRisk = false;
+  if(!isNaN(teamAPace) && !isNaN(teamBPace)){
+    let paceGap = Math.abs(teamAPace - teamBPace);
+    let paceGapLimit = expectedBase * 0.10;
+    if(paceGap > paceGapLimit) paceGapRisk = true;
+  }
 
-let paceGapRisk = false;
-
-if(!isNaN(teamAPace) && !isNaN(teamBPace)){
-  let paceGap = Math.abs(teamAPace - teamBPace);
-
-/* Dynamic Pace Gap Threshold */
-
-let paceGapLimit = expectedBase * 0.10; // 10% of league pace
-
-if(paceGap > paceGapLimit){
-  paceGapRisk = true;
-}
-}
-  
-let rawPace = NaN;
-
-if (!isNaN(teamAPace) && !isNaN(teamBPace)) {
-  rawPace = (teamAPace + teamBPace) / 2;
-} else if (!isNaN(teamAPace)) {
-  rawPace = teamAPace;
-} else if (!isNaN(teamBPace)) {
-  rawPace = teamBPace;
-}
+  let rawPace = NaN;
+  if(!isNaN(teamAPace) && !isNaN(teamBPace)) rawPace = (teamAPace + teamBPace) / 2;
+  else if(!isNaN(teamAPace)) rawPace = teamAPace;
+  else if(!isNaN(teamBPace)) rawPace = teamBPace;
 
   let pace = 1;
-  if (!isNaN(rawPace) && expectedBase !== 0 && !isNaN(expectedBase)) {
+  if(!isNaN(rawPace) && expectedBase !== 0 && !isNaN(expectedBase)){
     pace = rawPace / expectedBase;
     pace = Math.max(clamps.min, Math.min(clamps.max, pace));
   }
 
   let ftH2Ha = null, ftH2Hb = null;
-
   if(document.getElementById("useFTH2H").checked){
     ftH2Ha = parseGames("aFTH2H");
     ftH2Hb = parseGames("bFTH2H");
   }
-  
-    if(
-  fullModelActive &&
-  ftH2Ha &&
-  ftH2Hb &&
-  ftH2Ha !== "error" &&
-  ftH2Hb !== "error" &&
-  ftH2Ha.length >= 2 &&
-  ftH2Hb.length >= 2
-){
 
-  let wA = dynamicWeight(ftH2Ha);
-  let wB = dynamicWeight(ftH2Hb);
-      
-
-  let totalH2HWeight = Math.min(0.30, wA + wB);
-
-  let baseTotal = baseAFT + baseBFT;
-  let h2hTotal = avg(ftH2Ha) + avg(ftH2Hb);
-
-  if(!isNaN(baseTotal) && !isNaN(h2hTotal) && baseTotal > 0){
-
-      if(Math.abs(h2hTotal - baseTotal) / baseTotal > 0.20){
-          totalH2HWeight *= 0.5;
-      }
-
+  if(fullModelActive && ftH2Ha && ftH2Hb &&
+     ftH2Ha !== "error" && ftH2Hb !== "error" &&
+     ftH2Ha.length >= 2 && ftH2Hb.length >= 2){
+    let wA = dynamicWeight(ftH2Ha);
+    let wB = dynamicWeight(ftH2Hb);
+    let totalH2HWeight = Math.min(0.30, wA + wB);
+    let baseTotal = baseAFT + baseBFT;
+    let h2hTotal  = avg(ftH2Ha) + avg(ftH2Hb);
+    if(!isNaN(baseTotal) && !isNaN(h2hTotal) && baseTotal > 0){
+      if(Math.abs(h2hTotal - baseTotal) / baseTotal > 0.20) totalH2HWeight *= 0.5;
       let blendedTotal = baseTotal * (1 - totalH2HWeight) + h2hTotal * totalH2HWeight;
       let ratio = blendedTotal / baseTotal;
-
       baseAFT *= ratio;
       baseBFT *= ratio;
+    }
   }
-
-}
 
   let aVol = (stdDev(aFTScArr === "error" ? [] : aFTScArr) + stdDev(aFTAllArr === "error" ? [] : aFTAllArr)) / 2;
-let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
-  
-  /* -------- Defensive Floor Filter -------- */
+  let bVol = (stdDev(bFTScArr === "error" ? [] : bFTScArr) + stdDev(bFTAllArr === "error" ? [] : bFTAllArr)) / 2;
 
-let defensiveFloorRisk = false;
+  let defensiveFloorRisk = false;
+  let defensiveFloorLimit = expectedBase * 0.40;
+  if((!isNaN(aFTAll) && aFTAll < defensiveFloorLimit) ||
+     (!isNaN(bFTAll) && bFTAll < defensiveFloorLimit)){
+    defensiveFloorRisk = true;
+  }
 
-/* Dynamic Defensive Floor */
+  let volatilityLimits = {
+    "nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12
+  };
+  let volLimit = volatilityLimits[league] || 12;
 
-let defensiveFloorLimit = expectedBase * 0.40;
+  baseAFT = applyVolatility(baseAFT, aVol, volLimit);
+  baseBFT = applyVolatility(baseBFT, bVol, volLimit);
 
-if(
- (!isNaN(aFTAll) && aFTAll < defensiveFloorLimit) ||
- (!isNaN(bFTAll) && bFTAll < defensiveFloorLimit)
-){
- defensiveFloorRisk = true;
-}
-  
-let volatilityLimits = {
-  "nba": 14,
-  "euro_elite": 12,
-  "secondary": 12,
-  "ncaa": 11,
-  "africa": 11,
-  "unknown": 12
-};
+  let leagueTeamAvg = expectedBase / 2;
+  baseAFT = (baseAFT * 0.85) + (leagueTeamAvg * 0.15);
+  baseBFT = (baseBFT * 0.85) + (leagueTeamAvg * 0.15);
 
-let volLimit = volatilityLimits[league] || 12;
+  baseAFT = baseAFT * (0.5 + pace/2);
+  baseBFT = baseBFT * (0.5 + pace/2);
 
-baseAFT = applyVolatility(baseAFT, aVol, volLimit);
-baseBFT = applyVolatility(baseBFT, bVol, volLimit);
+  let ftProj = NaN;
+  if(!isNaN(baseAFT) && !isNaN(baseBFT)) ftProj = baseAFT + baseBFT;
 
- // regression to league mean
-let leagueTeamAvg = expectedBase / 2;
+  let projDiff = (!isNaN(baseAFT) && !isNaN(baseBFT)) ? Math.abs(baseAFT - baseBFT) : NaN;
+  if(!isNaN(projDiff) && projDiff > 18) ftProj = ftProj * 0.98;
+  if(paceGapRisk) ftProj = ftProj * 0.97;
 
-baseAFT = (baseAFT * 0.85) + (leagueTeamAvg * 0.15);
-baseBFT = (baseBFT * 0.85) + (leagueTeamAvg * 0.15);
-  
-baseAFT = baseAFT * (0.5 + pace/2);
-baseBFT = baseBFT * (0.5 + pace/2);
-
-let ftProj = NaN;
-
-if(!isNaN(baseAFT) && !isNaN(baseBFT)){
-  ftProj = baseAFT + baseBFT;
-}
-
-  let projDiff = (!isNaN(baseAFT) && !isNaN(baseBFT))
-  ? Math.abs(baseAFT - baseBFT)
-  : NaN;
-if(!isNaN(projDiff) && projDiff > 18){
-  ftProj = ftProj * 0.98;
-}
-
- if(paceGapRisk){
-  ftProj = ftProj * 0.97;
-}
-  
   if(!isNaN(ftProj) && !isNaN(ftLine)){
-  if(Math.abs(ftProj - ftLine) > 25){
-    ftProj = ftLine + (ftProj - ftLine) * 0.5;
+    if(Math.abs(ftProj - ftLine) > 25) ftProj = ftLine + (ftProj - ftLine) * 0.5;
   }
-}
 
-/* -------- NBA Stabilizer -------- */
-
-if(league === "nba" && !isNaN(ftProj) && !isNaN(ftLine)){
-  
-  if(Math.abs(ftProj - ftLine) > 18){
-      ftProj = ftLine + (ftProj - ftLine) * 0.65;
+  if(league === "nba" && !isNaN(ftProj) && !isNaN(ftLine)){
+    if(Math.abs(ftProj - ftLine) > 18) ftProj = ftLine + (ftProj - ftLine) * 0.65;
   }
-}
-  
+
   let picks = [
-    {name:"FT Total",     proj:ftProj,  line:ftLine,  type:"ft_total", teamSc:null, aSc:aFTSc, bSc:bFTSc},
-    {name:"Team A Total", proj:baseAFT, line:aLine,   type:"team",     teamSc:aFTSc, aSc:aFTSc, bSc:bFTSc},
-    {name:"Team B Total", proj:baseBFT, line:bLine,   type:"team",     teamSc:bFTSc, aSc:aFTSc, bSc:bFTSc}
+    {name:"FT Total",     proj:ftProj,  line:ftLine, type:"ft_total", teamSc:null,  aSc:aFTSc, bSc:bFTSc},
+    {name:"Team A Total", proj:baseAFT, line:aLine,  type:"team",     teamSc:aFTSc, aSc:aFTSc, bSc:bFTSc},
+    {name:"Team B Total", proj:baseBFT, line:bLine,  type:"team",     teamSc:bFTSc, aSc:aFTSc, bSc:bFTSc}
   ];
 
-  let lockIndex = -1;
-  let maxStrength = 0;
+  let lockIndex = -1, maxStrength = 0;
 
-
-/* -------- PHASE 1: Find strongest pick -------- */
-picks.forEach((p, i) => {
-  if (isNaN(p.line) || isNaN(p.proj)) return;
-
-  let edge = p.proj - p.line;
-  let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
-  let pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
-
-  if (fullModelActive &&
-      pickText !== "NO PLAY" &&
-      pickText !== "NaN" &&
-      strength >= 0.045 &&
-      strength > maxStrength) {
-
+  picks.forEach((p, i) => {
+    if(isNaN(p.line) || isNaN(p.proj)) return;
+    let edge = p.proj - p.line;
+    let strength = (p.line !== 0 && !isNaN(p.line)) ? Math.abs(edge / p.line) : 0;
+    let pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+    if(fullModelActive && pickText !== "NO PLAY" && pickText !== "NaN" &&
+       strength >= 0.045 && strength > maxStrength){
       maxStrength = strength;
       lockIndex = i;
-  }
-});
+    }
+  });
 
+  picks.forEach((p, i) => {
+    let edge = NaN, pickText = "NaN", displayNote = "";
 
-/* -------- PHASE 2: Render table -------- */
-picks.forEach((p, i) => {
+    if(isNaN(p.line)){
+      displayNote = "Missing / Invalid Line"; pickText = "—";
+    } else if(isNaN(p.proj)){
+      displayNote = "Missing / Invalid Last-5 Data"; pickText = "—";
+    } else {
+      edge = p.proj - p.line;
+      pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
 
-  let edge = NaN;
-  let pickText = "NaN";
-  let displayNote = "";
+      let trapThreshold = p.line * 0.025;
+      if(Math.abs(edge) < trapThreshold) pickText = "NO PLAY";
 
-  if (isNaN(p.line)) {
-    displayNote = "Missing / Invalid Line";
-    pickText = "—";
+      if(p.type === "ft_total" && pickText.startsWith("OVER")){
+        if(paceGapRisk) pickText = "NO PLAY";
+        if(defensiveFloorRisk) pickText = "NO PLAY";
+        let blowoutGap = Math.abs(baseAFT - baseBFT);
+        if(blowoutGap > 20) pickText = "NO PLAY";
+        if(aVol > volLimit && bVol > volLimit) pickText = "NO PLAY";
+      }
+    }
 
-  } else if (isNaN(p.proj)) {
-    displayNote = "Missing / Invalid Last-5 Data";
-    pickText = "—";
+    let row = table.insertRow();
+    let pred = pickText;
+    if(i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN"){
+      pred += ` <span class="lock">🔒</span>`;
+    }
 
-  } else {
+    let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
+    let edgeDisplay = isNaN(edge)   ? "NaN" : edge.toFixed(2);
 
-    edge = p.proj - p.line;
-pickText = decision(edge, p.line, p.type, p.teamSc, p.aSc, p.bSc);
+    let className = "pred-noplay";
+    if(pred.startsWith("OVER"))  className = "pred-over";
+    else if(pred.startsWith("UNDER")) className = "pred-under";
 
-/* -------- Market Trap Filter -------- */
-
-let trapThreshold = p.line * 0.025;
-
-if(Math.abs(edge) < trapThreshold){
-    pickText = "NO PLAY";
+    row.innerHTML = `
+      <td>${p.name}</td>
+      <td>${projDisplay}</td>
+      <td>${edgeDisplay}</td>
+      <td class="${className}">
+        ${pred}
+        ${displayNote ? `<br><small class="error-note">${displayNote}</small>` : ""}
+      </td>`;
+  });
 }
 
-/* -------- Upgrade Filters -------- */
-
-if(p.type === "ft_total" && pickText.startsWith("OVER")){
-
-  if(paceGapRisk){
-    pickText = "NO PLAY";
-  }
-
-  if(defensiveFloorRisk){
-    pickText = "NO PLAY";
-  }
-
-  /* -------- Blowout Filter -------- */
-
-  let blowoutGap = Math.abs(baseAFT - baseBFT);
-
-  if(blowoutGap > 20){
-      pickText = "NO PLAY";
-  }
-
-  /* -------- Late Game Variance Filter -------- */
-
-  if(aVol > volLimit && bVol > volLimit){
-      pickText = "NO PLAY";
-  }
-
-}
-  }
-  let row = table.insertRow();
-  let pred = pickText;
-
-  if (i === lockIndex && pickText !== "NO PLAY" && pickText !== "NaN") {
-    pred += ` <span class="lock">🔒</span>`;
-  }
-
-  let projDisplay = isNaN(p.proj) ? "NaN" : p.proj.toFixed(2);
-  let edgeDisplay = isNaN(edge) ? "NaN" : edge.toFixed(2);
-
-  let className = "pred-noplay";
-  if (pred.startsWith("OVER")) className = "pred-over";
-  else if (pred.startsWith("UNDER")) className = "pred-under";
-
-  row.innerHTML = `
-  <td>${p.name}</td>
-  <td>${projDisplay}</td>
-  <td>${edgeDisplay}</td>
-  <td class="${className}">
-    ${pred}
-    ${displayNote ? `<br><small class="error-note">${displayNote}</small>` : ""}
-  </td>`;
-});
-}
-  
 function clearAll(){
-  document.querySelectorAll("input").forEach(i => i.value = "");
-  document.querySelectorAll("input[type=checkbox]").forEach(i => i.checked = false);
+  document.querySelectorAll("input").forEach(i => {
+    if(i.type !== "checkbox") i.value = "";
+    else i.checked = false;
+  });
+  document.getElementById("aAutoTag").style.display = "none";
+  document.getElementById("bAutoTag").style.display = "none";
+  setStatus("","");
   const table = document.getElementById("results");
   table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   table.style.display = "none";
 }
+
+// Init
+onLeagueChange();
 </script>
+
 </body>
 </html>
