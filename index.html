@@ -543,7 +543,6 @@ async function fetchEuroLeague() {
 }
 
 function parseEuroGame(g) {
-  // Only process completed games
   if (!g.played) return null;
   const local = g.local, road = g.road;
   if (!local || !road) return null;
@@ -561,12 +560,13 @@ function parseEuroGame(g) {
   const rReg = rQ1+rQ2+rQ3+rQ4;
   const lFull = Number(local.score||0);
   const rFull = Number(road.score||0);
-
-  // Use quarter sum if plausible, else fall back to reported score
   const lScore = (lReg > 0 && lReg >= lFull * 0.85) ? lReg : lFull;
   const rScore = (rReg > 0 && rReg >= rFull * 0.85) ? rReg : rFull;
 
   if (lScore <= 0 || rScore <= 0) return null;
+
+  // Use utcDate for reliable sorting (always present, always ISO)
+  const dateStr = g.utcDate || g.date || "";
 
   return {
     localCode:  (local.club?.code || local.code  || "").toUpperCase(),
@@ -575,7 +575,7 @@ function parseEuroGame(g) {
     roadScore:  Math.round(rScore),
     localH1:    lQ1 + lQ2,
     roadH1:     rQ1 + rQ2,
-    date:       g.date || g.utcDate || "",
+    date:       dateStr,
     gameCode:   g.gameCode
   };
 }
@@ -583,45 +583,46 @@ function parseEuroGame(g) {
 async function fetchEuroGames(compCode, seasonCode) {
   const base = "https://api-live.euroleague.net/v2/competitions";
   const games = [];
+  const seen = new Set();
 
-  // Fetch by round — EuroLeague RS has up to 34 rounds, EuroCup up to 28
-  // This avoids the &limit parameter issue with the Cloudflare Worker URL parsing
-  const maxRound = compCode === "E" ? 34 : 28;
-
-  // Fetch all rounds in batches of 10 parallel requests
-  const roundNums = Array.from({length: maxRound}, (_, i) => i + 1);
-  const batchSize = 10;
-
-  for (let i = 0; i < roundNums.length; i += batchSize) {
-    const batch = roundNums.slice(i, i + batchSize);
-    const results = await Promise.allSettled(
-      batch.map(r => proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${r}`))
-    );
-    for (const result of results) {
-      if (result.status !== "fulfilled") continue;
-      for (const g of (result.value?.data || [])) {
-        const parsed = parseEuroGame(g);
-        if (parsed) games.push(parsed);
-      }
-    }
-  }
-
-  // Also try playoffs
-  try {
-    const poData = await proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=PO`);
-    for (const g of (poData?.data || [])) {
+  function addGames(data) {
+    for (const g of (data?.data || [])) {
+      // Deduplicate by gameCode
+      if (seen.has(g.gameCode)) continue;
+      seen.add(g.gameCode);
       const parsed = parseEuroGame(g);
       if (parsed) games.push(parsed);
     }
+  }
+
+  // EuroLeague RS = up to 34 rounds, EuroCup = up to 28
+  const maxRound = compCode === "E" ? 34 : 28;
+
+  // Fetch ALL rounds in parallel (no batching — let Promise.allSettled handle failures)
+  const rsResults = await Promise.allSettled(
+    Array.from({length: maxRound}, (_, i) =>
+      proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
+    )
+  );
+  for (const r of rsResults) {
+    if (r.status === "fulfilled") addGames(r.value);
+  }
+
+  // Also fetch playoffs — no roundNumber needed, usually small
+  try {
+    addGames(await proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=PO`));
   } catch(e) {}
+
+  // Sort by date descending (most recent first) for correct last-5 extraction
+  games.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   return games;
 }
 
 function extractEuroLastFive(games, teamCode) {
+  // games already sorted newest→oldest by fetchEuroGames
   const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
-  const sorted = [...games].sort((a,b) => new Date(b.date) - new Date(a.date));
-  for (const g of sorted) {
+  for (const g of games) {
     if (scored.length >= 5) break;
     if (g.localCode === teamCode) {
       scored.push(g.localScore); allowed.push(g.roadScore);
