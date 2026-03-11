@@ -310,14 +310,24 @@ async function fetchESPN() {
 }
 
 /* =============================================
-   NCAA: Team schedule → last 5 completed games
-   Tries season 2026 then 2025 as fallback.
-   Normalizes IDs to handle UID format.
-   OT stripped (2 halves = regulation).
+   NCAA: Last 5 games via scoreboard date range
+   Uses same approach as NBA — scoreboard endpoint
+   reliably includes linescores for OT stripping.
+   Falls back to team schedule if scoreboard fails.
    ============================================= */
 async function fetchNcaaSchedule(base, teamId) {
   const tId = String(teamId);
 
+  // Strategy 1: scoreboard date range (last 150 days) — has linescores
+  try {
+    const today = getDateString(0);
+    const from  = getDateString(150);
+    const data = await proxyFetch(`${base}/scoreboard?dates=${from}-${today}&groups=100&limit=500`);
+    const games = parseNcaaScoreboard(data, tId);
+    if (games.scored.length >= 2) return games;
+  } catch(e) {}
+
+  // Strategy 2: team schedule fallback (no linescores, OT not strippable)
   for (const season of ["2026","2025"]) {
     try {
       const [r1, r2] = await Promise.all([
@@ -328,7 +338,6 @@ async function fetchNcaaSchedule(base, teamId) {
         ...(r1?.events || r1?.team?.schedule?.events || []),
         ...(r2?.events || r2?.team?.schedule?.events || [])
       ];
-
       const completed = [];
       for (const ev of events) {
         const comp = ev?.competitions?.[0];
@@ -340,7 +349,6 @@ async function fetchNcaaSchedule(base, teamId) {
         completed.push(comp.competitors);
       }
       completed.reverse();
-
       const scored = [], allowed = [];
       for (const competitors of completed) {
         if (scored.length >= 5) break;
@@ -350,7 +358,6 @@ async function fetchNcaaSchedule(base, teamId) {
         let opp = competitors.find(c =>
           normalizeId(c.id) !== tId && normalizeId(c.team?.id) !== tId
         ) || competitors[1];
-
         const ps = s => {
           if (s == null) return NaN;
           if (typeof s === "object") return parseFloat(s.value ?? s.displayValue ?? 0);
@@ -358,87 +365,105 @@ async function fetchNcaaSchedule(base, teamId) {
         };
         let ms = ps(mine.score), os = ps(opp.score);
         if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-
-        // OT strip — 2 halves regulation
-        const lm = mine?.linescores || [], lo = opp?.linescores || [];
-        if (lm.length > 2 && lo.length > 2) {
-          const pv = p => { const v = p?.value ?? p?.displayValue ?? p?.score ?? 0; return parseFloat(String(v)) || 0; };
-          const sm = lm.reduce((s,p) => s+pv(p), 0), so = lo.reduce((s,p) => s+pv(p), 0);
-          if (Math.abs(sm-ms) <= 3 && Math.abs(so-os) <= 3) {
-            let otm = 0, oto = 0;
-            for (let i=2; i<lm.length; i++) otm += pv(lm[i]);
-            for (let i=2; i<lo.length; i++) oto += pv(lo[i]);
-            if (otm > 0 || oto > 0) { ms -= otm; os -= oto; }
-          }
-        }
-        if (ms > 0 && os > 0) { scored.push(Math.round(ms)); allowed.push(Math.round(os)); }
+        scored.push(Math.round(ms)); allowed.push(Math.round(os));
       }
       if (scored.length >= 2) return { scored, allowed };
-    } catch(e) { /* try next season */ }
+    } catch(e) {}
   }
   return null;
 }
 
+/* Parse NCAA scoreboard for a specific team's last 5 games with OT stripping */
+function parseNcaaScoreboard(data, tId) {
+  const scored = [], allowed = [];
+  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+
+  const events = [...(data?.events || [])];
+  // Sort newest first
+  events.sort((a, b) => (a.date > b.date ? -1 : 1));
+
+  for (const ev of events) {
+    if (scored.length >= 5) break;
+    const comp = ev?.competitions?.[0];
+    if (!comp?.status?.type?.completed) continue;
+    const competitors = comp?.competitors || [];
+    if (competitors.length < 2) continue;
+
+    const mine = competitors.find(c => normalizeId(c.team?.id) === tId || normalizeId(c.id) === tId);
+    const opp  = competitors.find(c => normalizeId(c.team?.id) !== tId && normalizeId(c.id) !== tId);
+    if (!mine || !opp) continue;
+
+    let ms = parseFloat(mine.score), os = parseFloat(opp.score);
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+
+    // OT strip — NCAA = 2 halves regulation
+    const lm = mine?.linescores || [], lo = opp?.linescores || [];
+    if (lm.length > 2 && lo.length > 2) {
+      const sm = lm.reduce((s,p) => s+pv(p), 0);
+      const so = lo.reduce((s,p) => s+pv(p), 0);
+      if (Math.abs(sm-ms) <= 3 && Math.abs(so-os) <= 3) {
+        let otm = 0, oto = 0;
+        for (let i=2; i<lm.length; i++) otm += pv(lm[i]);
+        for (let i=2; i<lo.length; i++) oto += pv(lo[i]);
+        if (otm > 0 || oto > 0) { ms -= otm; os -= oto; }
+      }
+    }
+    if (ms > 0 && os > 0) { scored.push(Math.round(ms)); allowed.push(Math.round(os)); }
+  }
+  return { scored, allowed };
+}
+
 /* =============================================
-   NCAA H2H: scan Team A's schedule for games
-   vs Team B. Checks seasons 2026, 2025, 2024.
-   Uses normalizeId() for robust matching.
+   NCAA H2H: scoreboard date-range scan (2024+)
+   Same approach as NBA H2H — scoreboard has
+   linescores so OT stripping works correctly.
    ============================================= */
 async function fetchNcaaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId);
   const tB = String(teamBId);
-  const found = [];
+  const h2h = [];
+  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
 
-  for (const season of ["2026","2025","2024"]) {
+  const startDate = new Date("2024-01-01");
+  const endDate   = new Date();
+  const chunks = [];
+  let cursor = new Date(startDate);
+  while (cursor < endDate) {
+    const ce = new Date(cursor);
+    ce.setDate(ce.getDate() + 89);
+    if (ce > endDate) ce.setTime(endDate.getTime());
+    chunks.push({
+      from: cursor.toISOString().slice(0,10).replace(/-/g,""),
+      to:   ce.toISOString().slice(0,10).replace(/-/g,"")
+    });
+    cursor.setDate(cursor.getDate() + 90);
+  }
+
+  for (const chunk of chunks) {
     try {
-      const [r1, r2] = await Promise.all([
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(() => ({})),
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(() => ({}))
-      ]);
-      const events = [
-        ...(r1?.events || r1?.team?.schedule?.events || []),
-        ...(r2?.events || r2?.team?.schedule?.events || [])
-      ];
-
-      for (const ev of events) {
-        const dateStr = ev?.date || "";
-        if (dateStr && dateStr < "2024-01-01") continue;
+      const data = await proxyFetch(`${base}/scoreboard?dates=${chunk.from}-${chunk.to}&groups=100&limit=500`);
+      for (const ev of (data?.events || [])) {
         const comp = ev?.competitions?.[0];
-        if (!comp) continue;
-        const done = comp?.status?.type?.completed ||
-                     comp?.status?.type?.name === "STATUS_FINAL" ||
-                     comp?.status?.type?.state === "post";
-        if (!done) continue;
+        if (!comp?.status?.type?.completed) continue;
         const competitors = comp?.competitors || [];
         if (competitors.length < 2) continue;
 
-        // Check ALL id fields for Team B
-        const hasB = competitors.some(c =>
-          normalizeId(c.id) === tB || normalizeId(c.team?.id) === tB ||
-          normalizeId(c.uid) === tB || normalizeId(c.team?.uid) === tB
-        );
-        if (!hasB) continue;
+        const hasA = competitors.some(c => normalizeId(c.team?.id) === tA || normalizeId(c.id) === tA);
+        const hasB = competitors.some(c => normalizeId(c.team?.id) === tB || normalizeId(c.id) === tB);
+        if (!hasA || !hasB) continue;
 
-        const cA = competitors.find(c =>
-          normalizeId(c.id) === tA || normalizeId(c.team?.id) === tA || normalizeId(c.uid) === tA
-        ) || competitors[0];
-        const cB = competitors.find(c =>
-          normalizeId(c.id) === tB || normalizeId(c.team?.id) === tB || normalizeId(c.uid) === tB
-        ) || competitors[1];
+        const cA = competitors.find(c => normalizeId(c.team?.id) === tA || normalizeId(c.id) === tA);
+        const cB = competitors.find(c => normalizeId(c.team?.id) === tB || normalizeId(c.id) === tB);
+        if (!cA || !cB) continue;
 
-        const ps = s => {
-          if (s == null) return NaN;
-          if (typeof s === "object") return parseFloat(s.value ?? s.displayValue ?? 0);
-          return parseFloat(s);
-        };
-        let sA = ps(cA.score), sB = ps(cB.score);
+        let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
         if (isNaN(sA) || isNaN(sB) || sA <= 0 || sB <= 0) continue;
 
-        // OT strip
+        // OT strip — NCAA = 2 halves regulation
         const lA = cA?.linescores || [], lB = cB?.linescores || [];
         if (lA.length > 2 && lB.length > 2) {
-          const pv = p => { const v = p?.value ?? p?.displayValue ?? p?.score ?? 0; return parseFloat(String(v)) || 0; };
-          const sumA = lA.reduce((s,p) => s+pv(p), 0), sumB = lB.reduce((s,p) => s+pv(p), 0);
+          const sumA = lA.reduce((s,p) => s+pv(p), 0);
+          const sumB = lB.reduce((s,p) => s+pv(p), 0);
           if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
             let otA=0, otB=0;
             for (let i=2; i<lA.length; i++) otA += pv(lA[i]);
@@ -446,15 +471,14 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             if (otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
           }
         }
-
-        found.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: dateStr });
+        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ev?.date || "" });
       }
-    } catch(e) { /* skip season */ }
+    } catch(e) {}
   }
 
-  // Deduplicate by date and sort newest first
+  // Deduplicate and sort newest first
   const seen = new Set();
-  const unique = found.filter(g => { const k = g.date+g.scoreA+g.scoreB; if (seen.has(k)) return false; seen.add(k); return true; });
+  const unique = h2h.filter(g => { const k=g.date+g.scoreA+g.scoreB; if(seen.has(k))return false; seen.add(k); return true; });
   unique.sort((a,b) => (a.date > b.date ? -1 : 1));
   return unique.slice(0,5);
 }
