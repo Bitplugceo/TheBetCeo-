@@ -344,24 +344,17 @@ async function fetchESPN() {
 }
 
 /* =============================================
-   NCAA: Last 5 games via scoreboard date range
-   Uses same approach as NBA — scoreboard endpoint
-   reliably includes linescores for OT stripping.
-   Falls back to team schedule if scoreboard fails.
+   NCAA: Last 5 games
+   Step 1: team schedule to find last 5 game IDs
+   Step 2: fetch /summary per game for linescores
+           → enables OT stripping + 1H extraction
    ============================================= */
 async function fetchNcaaSchedule(base, teamId) {
   const tId = String(teamId);
+  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
 
-  // Strategy 1: scoreboard date range (last 150 days) — has linescores
-  try {
-    const today = getDateString(0);
-    const from  = getDateString(150);
-    const data = await proxyFetch(`${base}/scoreboard?dates=${from}-${today}&groups=100&limit=500`);
-    const games = parseNcaaScoreboard(data, tId);
-    if (games.scored.length >= 2) return games;
-  } catch(e) {}
-
-  // Strategy 2: team schedule fallback (no linescores, OT not strippable)
+  // Step 1: collect game refs from team schedule
+  const gameRefs = [];
   for (const season of ["2026","2025"]) {
     try {
       const [r1, r2] = await Promise.all([
@@ -372,39 +365,72 @@ async function fetchNcaaSchedule(base, teamId) {
         ...(r1?.events || r1?.team?.schedule?.events || []),
         ...(r2?.events || r2?.team?.schedule?.events || [])
       ];
-      const completed = [];
       for (const ev of events) {
+        if (!ev.id) continue;
         const comp = ev?.competitions?.[0];
         if (!comp) continue;
         const done = comp?.status?.type?.completed ||
                      comp?.status?.type?.name === "STATUS_FINAL" ||
                      comp?.status?.type?.state === "post";
         if (!done || (comp?.competitors||[]).length < 2) continue;
-        completed.push(comp.competitors);
+        const c = comp.competitors;
+        const mine = c.find(x => normalizeId(x.id)===tId || normalizeId(x.team?.id)===tId) || c[0];
+        const opp  = c.find(x => normalizeId(x.id)!==tId && normalizeId(x.team?.id)!==tId) || c[1];
+        const ps = s => typeof s==="object" ? parseFloat(s.value??s.displayValue??0) : parseFloat(s);
+        gameRefs.push({ id: String(ev.id), date: ev.date||"", rawS: ps(mine?.score), rawA: ps(opp?.score) });
       }
-      completed.reverse();
-      const scored = [], allowed = [];
-      for (const competitors of completed) {
-        if (scored.length >= 5) break;
-        let mine = competitors.find(c =>
-          normalizeId(c.id) === tId || normalizeId(c.team?.id) === tId || normalizeId(c.uid) === tId
-        ) || competitors[0];
-        let opp = competitors.find(c =>
-          normalizeId(c.id) !== tId && normalizeId(c.team?.id) !== tId
-        ) || competitors[1];
-        const ps = s => {
-          if (s == null) return NaN;
-          if (typeof s === "object") return parseFloat(s.value ?? s.displayValue ?? 0);
-          return parseFloat(s);
-        };
-        let ms = ps(mine.score), os = ps(opp.score);
-        if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-        scored.push(Math.round(ms)); allowed.push(Math.round(os));
-      }
-      if (scored.length >= 2) return { scored, allowed };
     } catch(e) {}
   }
-  return null;
+
+  if (!gameRefs.length) return null;
+
+  // Deduplicate and take most recent 5
+  const seen = new Set();
+  const unique = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
+  unique.sort((a,b) => { const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0; return db-da; });
+  const top5 = unique.slice(0, 5);
+
+  // Step 2: fetch /summary for each game to get linescores (1H + OT strip)
+  const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
+  for (const ref of top5) {
+    let ms = ref.rawS, os = ref.rawA, h1m = 0, h1o = 0;
+    let gotLinescores = false;
+    try {
+      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const headerComp = data?.header?.competitions?.[0];
+      if (headerComp) {
+        const competitors = headerComp?.competitors || [];
+        const mine = competitors.find(c => normalizeId(c.team?.id)===tId || normalizeId(c.id)===tId);
+        const opp  = competitors.find(c => normalizeId(c.team?.id)!==tId && normalizeId(c.id)!==tId);
+        if (mine && opp) {
+          const lm = mine?.linescores || [], lo = opp?.linescores || [];
+          if (lm.length >= 1) {
+            gotLinescores = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score)  || os;
+            // 1H = first half linescore
+            h1m = pv(lm[0]);
+            h1o = pv(lo[0]);
+            // OT strip — NCAA: 2 halves = regulation
+            if (lm.length > 2) {
+              const sm = lm.reduce((s,p)=>s+pv(p),0), so = lo.reduce((s,p)=>s+pv(p),0);
+              if (Math.abs(sm-ms)<=3 && Math.abs(so-os)<=3) {
+                let otm=0, oto=0;
+                for (let i=2;i<lm.length;i++) otm+=pv(lm[i]);
+                for (let i=2;i<lo.length;i++) oto+=pv(lo[i]);
+                if (otm>0||oto>0){ ms-=otm; os-=oto; }
+              }
+            }
+          }
+        }
+      }
+    } catch(e) {}
+    if (isNaN(ms)||isNaN(os)||ms<=0||os<=0) continue;
+    scored.push(Math.round(ms)); allowed.push(Math.round(os));
+    if (gotLinescores && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
+  }
+
+  return scored.length >= 2 ? { scored, allowed, h1Scored, h1Allowed } : null;
 }
 
 /* Parse NCAA scoreboard for a specific team's last 5 games with OT stripping */
@@ -532,9 +558,9 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
                 if (otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
               }
             }
-            // Extract 1H from linescores (Q1+Q2)
-            const h1A = lA.length >= 2 ? pvN(lA[0])+pvN(lA[1]) : 0;
-            const h1B = lB.length >= 2 ? pvN(lB[0])+pvN(lB[1]) : 0;
+            // Extract 1H: NCAA = 1st half (lA[0] only)
+            const h1A = lA.length >= 1 ? pvN(lA[0]) : 0;
+            const h1B = lB.length >= 1 ? pvN(lB[0]) : 0;
             h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), h1A, h1B, date: ref.date, eventId: ref.id });
             gameAdded = true;
             continue;
@@ -565,7 +591,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             if (otA>0||otB>0){ sA-=otA; sB-=otB; }
           }
         }
-        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id });
+        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id , h1A: 0, h1B: 0 });
         gameAdded = true;
         break;
       }
@@ -585,7 +611,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
           const ps = s => typeof s==="object" ? parseFloat(s.value??s.displayValue??0) : parseFloat(s);
           const sA = ps(cA?.score), sB = ps(cB?.score);
           if (!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0)
-            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date });
+            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date , h1A: 0, h1B: 0 });
         }
       } catch(e2) {}
     }
@@ -721,7 +747,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
                 if (otA>0||otB>0){ sA-=otA; sB-=otB; }
               }
             }
-            // Extract 1H from linescores (Q1+Q2)
+            // Extract 1H: NBA = Q1+Q2
             const h1A = lA.length >= 2 ? pvN(lA[0])+pvN(lA[1]) : 0;
             const h1B = lB.length >= 2 ? pvN(lB[0])+pvN(lB[1]) : 0;
             h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), h1A, h1B, date: ref.date, eventId: ref.id });
@@ -748,7 +774,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
           if (!cf0 || !cf1) continue;
           let sA2 = parseFloat(cf0.score), sB2 = parseFloat(cf1.score);
           if (!isNaN(sA2) && !isNaN(sB2) && sA2 > 0 && sB2 > 0) {
-            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA2), scoreB: Math.round(sB2), date: ref.date, eventId: ref.id });
+            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA2), scoreB: Math.round(sB2), date: ref.date, eventId: ref.id , h1A: 0, h1B: 0 });
             gameAdded = true;
           }
           break;
@@ -765,7 +791,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
             if(otA>0||otB>0){sA-=otA;sB-=otB;}
           }
         }
-        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id });
+        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id , h1A: 0, h1B: 0 });
         gameAdded = true;
         break;
       }
@@ -773,7 +799,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
 
     // Last resort: always include game using raw scores if nothing else worked
     if (!gameAdded && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
-      h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(ref.rawScoreA), scoreB: Math.round(ref.rawScoreB), date: ref.date, eventId: ref.id });
+      h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(ref.rawScoreA), scoreB: Math.round(ref.rawScoreB), date: ref.date, eventId: ref.id , h1A: 0, h1B: 0 });
     }
   }
 
