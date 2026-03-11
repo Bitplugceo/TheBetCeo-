@@ -511,19 +511,11 @@ async function fetchESPN() {
 
     let aStats, bStats, allGames = [];
 
-    if (leagueSlug === "mens-college-basketball") {
-      // NCAA: use team schedule endpoint directly (scoreboard date range is unreliable for NCAA)
-      [aStats, bStats] = await Promise.all([
-        fetchTeamSchedule(espnBase, teamAId, leagueSlug),
-        fetchTeamSchedule(espnBase, teamBId, leagueSlug)
-      ]);
-    } else {
-      // NBA: use scoreboard date range (reliable and fast)
-      allGames = await fetchRecentGamesFromScoreboard(espnBase, 60, leagueSlug);
-      if (allGames.length === 0) throw new Error("No recent game data available from ESPN scoreboard.");
-      aStats = extractLastFive(allGames, String(teamAId));
-      bStats = extractLastFive(allGames, String(teamBId));
-    }
+    // Both NBA and NCAA: use scoreboard date range
+    allGames = await fetchRecentGamesFromScoreboard(espnBase, 60, leagueSlug);
+    if (allGames.length === 0) throw new Error("No recent game data available from ESPN scoreboard.");
+    aStats = extractLastFive(allGames, String(teamAId));
+    bStats = extractLastFive(allGames, String(teamBId));
 
     let messages = [];
 
@@ -548,12 +540,8 @@ async function fetchESPN() {
     // --- H2H FETCH (2024 → today) ---
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
     let h2hGames;
-    if (leagueSlug === "mens-college-basketball") {
-      // For NCAA: cross-reference both team schedules to find common opponents
-      h2hGames = await fetchH2HFromSchedules(espnBase, teamAId, teamBId, leagueSlug);
-    } else {
-      h2hGames = await fetchH2HGames(espnBase, teamAId, teamBId, leagueSlug);
-    }
+    // Both NBA and NCAA: use scoreboard-based H2H
+    h2hGames = await fetchH2HGames(espnBase, teamAId, teamBId, leagueSlug);
 
     if (h2hGames.length >= 2) {
       const last5h2h = h2hGames.slice(0, 5);
@@ -660,7 +648,7 @@ async function fetchRecentGamesFromScoreboard(base, daysBack, leagueSlug) {
   const from  = getDateString(daysBack);
 
   // NCAA needs groups=50 to get Division I games
-  const extra = leagueSlug === "mens-college-basketball" ? "&groups=50&limit=500" : "&limit=500";
+  const extra = leagueSlug === "mens-college-basketball" ? "&groups=100&limit=365" : "&limit=500";
   const url = `${base}/scoreboard?dates=${from}-${today}${extra}`;
 
   try {
@@ -705,7 +693,7 @@ async function fetchH2HGames(base, teamAId, teamBId, leagueSlug) {
     cursor.setDate(cursor.getDate() + 90);
   }
 
-  const extra = leagueSlug === "mens-college-basketball" ? "&groups=50&limit=500" : "&limit=500";
+  const extra = leagueSlug === "mens-college-basketball" ? "&groups=100&limit=365" : "&limit=500";
 
   for (const chunk of chunks) {
     try {
