@@ -3,6 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+  <!-- v8 - EuroCup fix, correct date sort, no duplicates -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -429,13 +430,8 @@ async function proxyFetchRaw(url) {
 
 async function getEuroXML(seasonCode) {
   if (_euroXmlCache[seasonCode]) return _euroXmlCache[seasonCode];
-  // EuroLeague = E prefix -> euroleague.net
-  // EuroCup    = U prefix -> eurocupbasketball.com
-  const isEuroCup = seasonCode.startsWith("U");
-  const base = isEuroCup
-    ? "https://api-live.eurocupbasketball.com/v1/results"
-    : "https://api-live.euroleague.net/v1/results";
-  const xml = await proxyFetchRaw(`${base}?seasonCode=${seasonCode}`);
+  // Both EuroLeague (E2025) and EuroCup (U2025) are on the same euroleague.net API
+  const xml = await proxyFetchRaw(`https://api-live.euroleague.net/v1/results?seasonCode=${seasonCode}`);
   _euroXmlCache[seasonCode] = xml;
   return xml;
 }
@@ -554,10 +550,8 @@ async function fetchEuroGames(compCode, seasonCode) {
 
   // v2 — fetch 1H data and match to v1 games by team codes + score (not gameCode which differs)
   try {
-    const isEuroCup = compCode === "U";
-    const base = isEuroCup
-      ? 'https://api-live.eurocupbasketball.com/v2/competitions'
-      : 'https://api-live.euroleague.net/v2/competitions';
+    // Both comps on same domain
+    const base = 'https://api-live.euroleague.net/v2/competitions';
     const maxRound = compCode === "E" ? 34 : 28;
     const rsResults = await Promise.allSettled(
       Array.from({length: maxRound}, (_,i) =>
