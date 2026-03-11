@@ -830,7 +830,7 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
     const tA = String(teamAId);
     const tB = String(teamBId);
 
-    const getId = c => String(c.id || c.team?.id || c.uid || "");
+    const getId = c => String(c.id ?? c.team?.id ?? c.uid ?? "");
     const parseS = s => {
       if (!s && s !== 0) return NaN;
       if (typeof s === "object") return parseFloat(s.value ?? s.displayValue ?? 0);
@@ -843,11 +843,6 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
 
       const comp = ev?.competitions?.[0];
       if (!comp) continue;
-      const done = comp?.status?.type?.completed ||
-                   comp?.status?.type?.name === "STATUS_FINAL" ||
-                   comp?.status?.type?.state === "post";
-      if (!done) continue;
-
       const competitors = comp?.competitors || [];
       if (competitors.length < 2) continue;
 
