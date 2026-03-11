@@ -299,7 +299,8 @@ async function fetchESPN() {
     }
 
     const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
-    setStatus(messages.join(" | "), allGood ? "ok" : "err");
+    if (!allGood) setStatus(messages.filter(m => m.includes('❌')).join(' | '), 'err');
+    else setStatus('', '');
 
   } catch(e) {
     setStatus("❌ " + e.message, "err");
@@ -361,9 +362,9 @@ async function fetchNcaaSchedule(base, teamId) {
         // OT strip — 2 halves regulation
         const lm = mine?.linescores || [], lo = opp?.linescores || [];
         if (lm.length > 2 && lo.length > 2) {
-          const pv = p => parseFloat(p?.value ?? p?.displayValue ?? 0);
+          const pv = p => { const v = p?.value ?? p?.displayValue ?? p?.score ?? 0; return parseFloat(String(v)) || 0; };
           const sm = lm.reduce((s,p) => s+pv(p), 0), so = lo.reduce((s,p) => s+pv(p), 0);
-          if (Math.abs(sm-ms) <= 1 && Math.abs(so-os) <= 1) {
+          if (Math.abs(sm-ms) <= 3 && Math.abs(so-os) <= 3) {
             let otm = 0, oto = 0;
             for (let i=2; i<lm.length; i++) otm += pv(lm[i]);
             for (let i=2; i<lo.length; i++) oto += pv(lo[i]);
@@ -436,9 +437,9 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         // OT strip
         const lA = cA?.linescores || [], lB = cB?.linescores || [];
         if (lA.length > 2 && lB.length > 2) {
-          const pv = p => parseFloat(p?.value ?? p?.displayValue ?? 0);
+          const pv = p => { const v = p?.value ?? p?.displayValue ?? p?.score ?? 0; return parseFloat(String(v)) || 0; };
           const sumA = lA.reduce((s,p) => s+pv(p), 0), sumB = lB.reduce((s,p) => s+pv(p), 0);
-          if (Math.abs(sumA-sA) <= 1 && Math.abs(sumB-sB) <= 1) {
+          if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
             let otA=0, otB=0;
             for (let i=2; i<lA.length; i++) otA += pv(lA[i]);
             for (let i=2; i<lB.length; i++) otB += pv(lB[i]);
@@ -472,12 +473,13 @@ function parseNbaEvents(data) {
     if (sA <= 0 || sB <= 0) continue;
     const lA = c[0]?.linescores || [], lB = c[1]?.linescores || [];
     if (lA.length > 4 && lB.length > 4) {
-      const tA = lA.reduce((s,p) => s+Number(p?.value||0), 0);
-      const tB = lB.reduce((s,p) => s+Number(p?.value||0), 0);
-      if (Math.abs(tA-sA) <= 1 && Math.abs(tB-sB) <= 1) {
+      const pvN = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+      const tA = lA.reduce((s,p) => s+pvN(p), 0);
+      const tB = lB.reduce((s,p) => s+pvN(p), 0);
+      if (Math.abs(tA-sA) <= 3 && Math.abs(tB-sB) <= 3) {
         let otA=0, otB=0;
-        for (let i=4; i<lA.length; i++) otA += Number(lA[i]?.value||0);
-        for (let i=4; i<lB.length; i++) otB += Number(lB[i]?.value||0);
+        for (let i=4; i<lA.length; i++) otA += pvN(lA[i]);
+        for (let i=4; i<lB.length; i++) otB += pvN(lB[i]);
         if (otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
       }
     }
