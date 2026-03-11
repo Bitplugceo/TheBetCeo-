@@ -372,7 +372,7 @@ async function fetchESPN() {
     setStatus('<span class="spinner"></span>Scanning recent scoreboards...', "loading");
 
     // Collect all completed games from the last 45 days via scoreboard
-    const allGames = await fetchRecentGamesFromScoreboard(espnBase, 45, leagueSlug);
+    const allGames = await fetchRecentGamesFromScoreboard(espnBase, 60, leagueSlug);
 
     if (allGames.length === 0) {
       throw new Error("No recent game data available from ESPN scoreboard.");
@@ -459,6 +459,7 @@ function parseEventsFromData(data, leagueSlug) {
     const status = comp?.status?.type?.completed;
     if (!status) continue;
 
+    // Always start with ESPN's official final score — this is always correct
     let scoreA = Number(competitors[0]?.score);
     let scoreB = Number(competitors[1]?.score);
     if (scoreA <= 0 || scoreB <= 0) continue;
@@ -467,13 +468,26 @@ function parseEventsFromData(data, leagueSlug) {
     const linesB = competitors[1]?.linescores || [];
 
     let hasOT = false;
-    if (linesA.length > regulationPeriods) {
-      hasOT = true;
-      let otA = 0, otB = 0;
-      for (let p = regulationPeriods; p < linesA.length; p++) otA += Number(linesA[p]?.value || 0);
-      for (let p = regulationPeriods; p < linesB.length; p++) otB += Number(linesB[p]?.value || 0);
-      scoreA -= otA;
-      scoreB -= otB;
+
+    // Only strip OT if:
+    // 1. linescores exist and have more entries than regulation
+    // 2. The linescore total actually matches the final score (validates data integrity)
+    if (linesA.length > regulationPeriods && linesB.length > regulationPeriods) {
+      const totalA = linesA.reduce((s, p) => s + Number(p?.value || 0), 0);
+      const totalB = linesB.reduce((s, p) => s + Number(p?.value || 0), 0);
+
+      // Only trust linescores if their sum matches the final score (within 1 point rounding)
+      if (Math.abs(totalA - scoreA) <= 1 && Math.abs(totalB - scoreB) <= 1) {
+        let otA = 0, otB = 0;
+        for (let p = regulationPeriods; p < linesA.length; p++) otA += Number(linesA[p]?.value || 0);
+        for (let p = regulationPeriods; p < linesB.length; p++) otB += Number(linesB[p]?.value || 0);
+        if (otA > 0 || otB > 0) {
+          scoreA -= otA;
+          scoreB -= otB;
+          hasOT = true;
+        }
+      }
+      // If linescore sums don't match, just use the raw final score as-is
     }
 
     if (scoreA <= 0 || scoreB <= 0) continue;
