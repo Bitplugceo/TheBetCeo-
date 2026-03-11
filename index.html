@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <!-- v8 - EuroCup fix, correct date sort, no duplicates -->
+  <!-- v9 - debug logging -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -545,8 +545,14 @@ function parseEuroGameV2(g) {
 async function fetchEuroGames(compCode, seasonCode) {
   // v1 XML — single call, all played games, correct dates
   const xml = await getEuroXML(seasonCode);
+  console.log("XML length:", xml?.length, "has game tag:", xml?.includes('<game>'));
   if (!xml || !xml.includes('<game>')) return [];
-  const games = parseEuroXML(xml); // already deduped by gameCode
+  const games = parseEuroXML(xml);
+  console.log("Parsed games count:", games.length);
+  if (games.length > 0) {
+    console.log("First 3 games:", games.slice(0,3).map(g=>g.date+' '+g.localCode+' '+g.localScore+'-'+g.roadCode+' '+g.roadScore));
+    console.log("Last 3 games:", games.slice(-3).map(g=>g.date+' '+g.localCode+' '+g.localScore+'-'+g.roadCode+' '+g.roadScore));
+  } // already deduped by gameCode
 
   // v2 — fetch 1H data and match to v1 games by team codes + score (not gameCode which differs)
   try {
@@ -578,6 +584,7 @@ async function fetchEuroGames(compCode, seasonCode) {
 
   // Sort newest first — ISO "2026-03-07" string comparison is reliable
   games.sort((a,b) => b.date > a.date ? 1 : b.date < a.date ? -1 : 0);
+  console.log("After sort, first 5:", games.slice(0,5).map(g=>g.date+' '+g.localCode+'-'+g.roadCode));
   return games;
 }
 
