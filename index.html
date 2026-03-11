@@ -850,25 +850,27 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
       const cA = competitors.find(c => String(c.id) === tA || String(c.team?.id) === tA) || competitors[0];
       const cB = competitors.find(c => String(c.id) === tB || String(c.team?.id) === tB) || competitors[1];
 
-      const parseScore2 = s => {
+      // Score is an object {value, displayValue} in ESPN schedule API
+      const parseS = s => {
         if (!s && s !== 0) return NaN;
-        if (typeof s === "object") return parseFloat(s.value || s.displayValue || 0);
+        if (typeof s === "object") return parseFloat(s.value ?? s.displayValue ?? 0);
         return parseFloat(s);
       };
-      let scoreA = parseScore2(cA.score);
-      let scoreB = parseScore2(cB.score);
+      let scoreA = parseS(cA.score);
+      let scoreB = parseS(cB.score);
       if (isNaN(scoreA) || isNaN(scoreB) || scoreA <= 0 || scoreB <= 0) continue;
 
-      // OT strip
+      // OT strip — NCAA = 2 halves regulation
       const linesA = cA?.linescores || [];
       const linesB = cB?.linescores || [];
       if (linesA.length > 2 && linesB.length > 2) {
-        const sumA = linesA.reduce((s, p) => s + parseFloat(p?.value || 0), 0);
-        const sumB = linesB.reduce((s, p) => s + parseFloat(p?.value || 0), 0);
+        const pVal = p => parseFloat(p?.value ?? p?.displayValue ?? 0);
+        const sumA = linesA.reduce((s, p) => s + pVal(p), 0);
+        const sumB = linesB.reduce((s, p) => s + pVal(p), 0);
         if (Math.abs(sumA - scoreA) <= 1 && Math.abs(sumB - scoreB) <= 1) {
           let otA = 0, otB = 0;
-          for (let p = 2; p < linesA.length; p++) otA += parseFloat(linesA[p]?.value || 0);
-          for (let p = 2; p < linesB.length; p++) otB += parseFloat(linesB[p]?.value || 0);
+          for (let p = 2; p < linesA.length; p++) otA += pVal(linesA[p]);
+          for (let p = 2; p < linesB.length; p++) otB += pVal(linesB[p]);
           if (otA > 0 || otB > 0) { scoreA -= otA; scoreB -= otB; }
         }
       }
@@ -876,8 +878,9 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
       h2hGames.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(scoreA), scoreB: Math.round(scoreB), date: dateStr, hasOT: false });
     }
 
+    // Newest first, max 5
     h2hGames.sort((a, b) => (a.date > b.date ? -1 : 1));
-    return h2hGames;
+    return h2hGames.slice(0, 5);
   } catch(e) {
     return [];
   }
