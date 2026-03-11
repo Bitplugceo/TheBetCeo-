@@ -468,6 +468,7 @@ async function fetchTeamLastFive(base, teamId, teamName){
     return { scored: scored.reverse(), allowed: allowed.reverse() };
 
   } catch(e){
+    setStatus("❌ Fetch error: " + e.message, "err");
     return null;
   }
 }
