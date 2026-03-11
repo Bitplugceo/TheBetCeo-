@@ -825,6 +825,208 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
       ...(dataReg?.events  || dataReg?.team?.schedule?.events  || []),
       ...(dataPost?.events || dataPost?.team?.schedule?.events || [])
     ];
+
+    const h2hGames = [];
+    const tA = String(teamAId);
+    const tB = String(teamBId);
+
+    const getId = c => String(c.id || c.team?.id || c.uid || "");
+    const parseS = s => {
+      if (!s && s !== 0) return NaN;
+      if (typeof s === "object") return parseFloat(s.value ?? s.displayValue ?? 0);
+      return parseFloat(s);
+    };
+
+    for (const ev of events) {
+      const dateStr = ev?.date || "";
+      if (dateStr && dateStr < "2024-01-01") continue;
+
+      const comp = ev?.competitions?.[0];
+      if (!comp) continue;
+      const done = comp?.status?.type?.completed ||
+                   comp?.status?.type?.name === "STATUS_FINAL" ||
+                   comp?.status?.type?.state === "post";
+      if (!done) continue;
+
+      const competitors = comp?.competitors || [];
+      if (competitors.length < 2) continue;
+
+      // Check every possible ID field for Team B
+      const hasTeamB = competitors.some(c => getId(c) === tB);
+      if (!hasTeamB) continue;
+
+      const cA = competitors.find(c => getId(c) === tA) || competitors[0];
+      const cB = competitors.find(c => getId(c) === tB) || competitors[1];
+
+      let scoreA = parseS(cA.score);
+      let scoreB = parseS(cB.score);
+      if (isNaN(scoreA) || isNaN(scoreB) || scoreA <= 0 || scoreB <= 0) continue;
+
+      // OT strip — NCAA = 2 halves
+      const linesA = cA?.linescores || [];
+      const linesB = cB?.linescores || [];
+      if (linesA.length > 2 && linesB.length > 2) {
+        const pVal = p => parseFloat(p?.value ?? p?.displayValue ?? 0);
+        const sumA = linesA.reduce((s, p) => s + pVal(p), 0);
+        const sumB = linesB.reduce((s, p) => s + pVal(p), 0);
+        if (Math.abs(sumA - scoreA) <= 1 && Math.abs(sumB - scoreB) <= 1) {
+          let otA = 0, otB = 0;
+          for (let p = 2; p < linesA.length; p++) otA += pVal(linesA[p]);
+          for (let p = 2; p < linesB.length; p++) otB += pVal(linesB[p]);
+          if (otA > 0 || otB > 0) { scoreA -= otA; scoreB -= otB; }
+        }
+      }
+
+      h2hGames.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(scoreA), scoreB: Math.round(scoreB), date: dateStr });
+    }
+
+    h2hGames.sort((a, b) => (a.date > b.date ? -1 : 1));
+    return h2hGames.slice(0, 5);
+  } catch(e) {
+    return [];
+  }
+}
+
+async function fetchH2HGames(base, teamAId, teamBId, leagueSlug) {
+  const h2hGames = [];
+  const tA = String(teamAId);
+  const tB = String(teamBId);
+
+  const startDate = new Date("2024-01-01");
+  const endDate   = new Date();
+  const chunks = [];
+  let cursor = new Date(startDate);
+  while (cursor < endDate) {
+    const chunkEnd = new Date(cursor);
+    chunkEnd.setDate(chunkEnd.getDate() + 89);
+    if (chunkEnd > endDate) chunkEnd.setTime(endDate.getTime());
+    const from = cursor.toISOString().slice(0,10).replace(/-/g,"");
+    const to   = chunkEnd.toISOString().slice(0,10).replace(/-/g,"");
+    chunks.push({ from, to });
+    cursor.setDate(cursor.getDate() + 90);
+  }
+
+  const extra = leagueSlug === "mens-college-basketball" ? "&groups=100&limit=365" : "&limit=500";
+
+  for (const chunk of chunks) {
+    try {
+      const url = `${base}/scoreboard?dates=${chunk.from}-${chunk.to}${extra}`;
+      const data = await proxyFetch(url);
+      const games = parseEventsFromData(data, leagueSlug);
+      for (const g of games) {
+        const isH2H = (g.teamAId === tA && g.teamBId === tB) ||
+                      (g.teamAId === tB && g.teamBId === tA);
+        if (isH2H) h2hGames.push(g);
+      }
+    } catch(e) { /* skip failed chunk */ }
+  }
+
+  // Sort newest → oldest
+  h2hGames.sort((a, b) => (a.date > b.date ? -1 : 1));
+  return h2hGames;
+}
+
+/* =============================================
+   NCAA: FETCH TEAM SCHEDULE DIRECTLY
+   Returns last 5 completed games with OT stripped
+   ============================================= */
+async function fetchTeamSchedule(base, teamId, leagueSlug) {
+  try {
+    // seasontype=2 = regular season, seasontype=3 = postseason
+    // We fetch both and merge so we always get completed games
+    const urlReg  = `${base}/teams/${teamId}/schedule?season=2026&seasontype=2`;
+    const urlPost = `${base}/teams/${teamId}/schedule?season=2026&seasontype=3`;
+    const [dataReg, dataPost] = await Promise.all([
+      proxyFetch(urlReg).catch(() => ({})),
+      proxyFetch(urlPost).catch(() => ({}))
+    ]);
+    const events = [
+      ...(dataReg?.events  || dataReg?.team?.schedule?.events  || []),
+      ...(dataPost?.events || dataPost?.team?.schedule?.events || [])
+    ];
+
+    const scored = [], allowed = [];
+    const tId = String(teamId);
+
+    // Collect all completed games, newest first
+    const completed = [];
+    for (const ev of events) {
+      const comp = ev?.competitions?.[0];
+      if (!comp) continue;
+      const done = comp?.status?.type?.completed || 
+                   comp?.status?.type?.name === "STATUS_FINAL" ||
+                   comp?.status?.type?.state === "post";
+      if (!done) continue;
+      const competitors = comp?.competitors || [];
+      if (competitors.length < 2) continue;
+      completed.push({ ev, comp, competitors });
+    }
+    // Reverse so newest is first
+    completed.reverse();
+
+    for (const { comp, competitors } of completed) {
+      if (scored.length >= 5) break;
+
+      // ESPN schedule uses c.id directly (not c.team.id)
+      let mine = competitors.find(c => String(c.id) === tId || String(c.team?.id) === tId);
+      let opp  = competitors.find(c => String(c.id) !== tId && String(c.team?.id) !== tId);
+      if (!mine) { mine = competitors[0]; opp = competitors[1]; }
+      if (!mine || !opp) continue;
+
+      // ESPN schedule: score can be a number, string, or object {value, displayValue}
+      const parseScore = s => {
+        if (!s && s !== 0) return NaN;
+        if (typeof s === "object") return parseFloat(s.value || s.displayValue || 0);
+        return parseFloat(s);
+      };
+      let myScore  = parseScore(mine.score);
+      let oppScore = parseScore(opp.score);
+      if (isNaN(myScore) || isNaN(oppScore) || myScore <= 0 || oppScore <= 0) continue;
+
+      // OT strip — NCAA = 2 halves regulation
+      const linesMe  = mine?.linescores || [];
+      const linesOpp = opp?.linescores  || [];
+      if (linesMe.length > 2 && linesOpp.length > 2) {
+        const sumMe  = linesMe.reduce((s, p)  => s + parseFloat(p?.value ?? p?.displayValue ?? 0), 0);
+        const sumOpp = linesOpp.reduce((s, p) => s + parseFloat(p?.value ?? p?.displayValue ?? 0), 0);
+        if (Math.abs(sumMe - myScore) <= 1 && Math.abs(sumOpp - oppScore) <= 1) {
+          let otMe = 0, otOpp = 0;
+          for (let p = 2; p < linesMe.length; p++)  otMe  += parseFloat(linesMe[p]?.value  || 0);
+          for (let p = 2; p < linesOpp.length; p++) otOpp += parseFloat(linesOpp[p]?.value || 0);
+          if (otMe > 0 || otOpp > 0) { myScore -= otMe; oppScore -= otOpp; }
+        }
+      }
+
+      if (myScore > 0 && oppScore > 0) {
+        scored.push(Math.round(myScore));
+        allowed.push(Math.round(oppScore));
+      }
+    }
+
+    if (scored.length < 2) return null;
+    return { scored, allowed };
+  } catch(e) {
+    return null;
+  }
+}
+
+/* =============================================
+   NCAA H2H: cross-reference both team schedules
+   to find games they played against each other
+   since 2024
+   ============================================= */
+async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
+  try {
+    const urlReg  = `${base}/teams/${teamAId}/schedule?season=2026&seasontype=2`;
+    const urlPost = `${base}/teams/${teamAId}/schedule?season=2026&seasontype=3`;
+    const [dataReg, dataPost] = await Promise.all([
+      proxyFetch(urlReg).catch(() => ({})),
+      proxyFetch(urlPost).catch(() => ({}))
+    ]);
+    const events = [
+      ...(dataReg?.events  || dataReg?.team?.schedule?.events  || []),
+      ...(dataPost?.events || dataPost?.team?.schedule?.events || [])
+    ];
     const h2hGames = [];
     const tA = String(teamAId);
     const tB = String(teamBId);
