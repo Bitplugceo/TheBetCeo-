@@ -55,23 +55,25 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <label style="font-size:18px;margin-top:10px;">Select League</label>
     <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
       <option value="nba">USA - NBA</option>
-      <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
-      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
       <option value="ncaa">USA - NCAA</option>
+      <option value="euroleague">Europe - EuroLeague</option>
+      <option value="eurocup">Europe - EuroCup</option>
+      <option value="euro_elite">Europe - Spain ACB / Turkey BSL / Italy Serie A</option>
+      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
       <option value="africa">Africa - BAL / Nigeria League / Rwanda League</option>
       <option value="unknown">Other / Mixed League</option>
     </select>
   </div>
 
-  <!-- ESPN AUTO-FETCH -->
+  <!-- AUTO-FETCH -->
 
   <div class="section" id="espnSection">
-    <h3 style="font-size:15px;">⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
+    <h3 style="font-size:15px;" id="fetchSectionTitle">⚡ Auto-Fetch</h3>
     <label style="font-size:12px;">Team A Name</label>
-    <div class="team-name-row"><input id="teamAName" placeholder="e.g. Lakers" oninput="clearAutoFill()"></div>
+    <div class="team-name-row"><input id="teamAName" placeholder="e.g. Real Madrid" oninput="clearAutoFill()"></div>
     <label style="font-size:12px;">Team B Name</label>
-    <div class="team-name-row"><input id="teamBName" placeholder="e.g. Celtics" oninput="clearAutoFill()"></div>
-    <button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">📡 Fetch Stats</button>
+    <div class="team-name-row"><input id="teamBName" placeholder="e.g. Barcelona" oninput="clearAutoFill()"></div>
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchStats()">📡 Fetch Stats</button>
     <div id="fetchStatus"></div>
   </div>
 
@@ -212,10 +214,22 @@ function normalizeId(raw) {
 function onLeagueChange() {
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
-  document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
+  const isEuro = league === "euroleague" || league === "eurocup";
+  const hasAutoFetch = isNbaOrNcaa || isEuro;
+  document.getElementById("espnSection").style.display = hasAutoFetch ? "block" : "none";
   ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
     document.getElementById(id).style.display = isNbaOrNcaa ? "block" : "none";
   });
+  const title = document.getElementById("fetchSectionTitle");
+  if (isEuro) {
+    title.innerHTML = '⚡ EuroLeague Auto-Fetch <span style="font-size:11px;color:#aaa;">(EuroLeague &amp; EuroCup)</span>';
+    document.getElementById("teamAName").placeholder = "e.g. Real Madrid";
+    document.getElementById("teamBName").placeholder = "e.g. Barcelona";
+  } else {
+    title.innerHTML = '⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>';
+    document.getElementById("teamAName").placeholder = "e.g. Lakers";
+    document.getElementById("teamBName").placeholder = "e.g. Celtics";
+  }
 }
 
 function clearAutoFill() {
@@ -233,6 +247,15 @@ function getDateString(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
   return d.toISOString().slice(0,10).replace(/-/g,"");
+}
+
+async function fetchStats() {
+  const league = document.getElementById("leagueSelect").value;
+  if (league === "euroleague" || league === "eurocup") {
+    await fetchEuroLeague();
+  } else {
+    await fetchESPN();
+  }
 }
 
 async function fetchESPN() {
@@ -336,6 +359,221 @@ async function fetchESPN() {
   } finally {
     btn.disabled = false;
   }
+}
+
+
+/* =============================================
+   EUROLEAGUE / EUROCUP FETCH
+   API: api-live.euroleague.net/v2
+   Season codes: E2025 = EuroLeague, U2025 = EuroCup
+   Partials: p1+p2 = 1H, p3+p4 = 2H, extraPeriods = OT
+   ============================================= */
+
+const EURO_TEAM_MAP = {
+  // EuroLeague 2025-26 (20 teams)
+  "real madrid":          "MAD", "madrid":               "MAD",
+  "barcelona":            "BAR", "fc barcelona":         "BAR", "barca":      "BAR",
+  "olympiacos":           "OLY", "olympiakos":           "OLY",
+  "panathinaikos":        "PAN", "pana":                 "PAN",
+  "fenerbahce":           "ULK", "fenerbahçe":           "ULK", "fener":      "ULK",
+  "anadolu efes":         "IST", "efes":                 "IST",
+  "baskonia":             "BAS", "saski baskonia":       "BAS",
+  "olympia milan":        "MIL", "milan":                "MIL", "armani milan":"MIL", "olimpia milan":"MIL",
+  "monaco":               "ASM", "as monaco":            "ASM",
+  "maccabi":              "MTA", "maccabi tel aviv":     "MTA", "maccabi playtika":"MTA",
+  "zalgiris":             "ZAL", "zalgiris kaunas":      "ZAL",
+  "bayern":               "MUN", "fc bayern":            "MUN", "bay munich":  "MUN", "bayern munich":"MUN",
+  "asvel":                "ASV", "ldlc asvel":           "ASV", "villeurbanne":"ASV",
+  "paris":                "PRS", "paris basketball":     "PRS",
+  "red star":             "RED", "crvena zvezda":        "RED", "red star belgrade":"RED",
+  "partizan":             "PAR", "partizan belgrade":    "PAR",
+  "virtus bologna":       "VIR", "virtus":               "VIR", "virtus segafredo":"VIR",
+  "valencia":             "PAM", "valencia basket":      "PAM",
+  "hapoel tel aviv":      "HIT", "hapoel ibi":           "HIT",
+  "dubai":                "DUB", "dubai basketball":     "DUB",
+  // EuroCup 2025-26 teams
+  "lietkabelis":          "LKB", "7bet-lietkabelis":     "LKB",
+  "aris":                 "ARI", "aris thessaloniki":    "ARI",
+  "bahcesehir":           "BAH", "bahçeşehir":           "BAH",
+  "besiktas":             "BES", "beşiktaş":             "BES",
+  "buducnost":            "BUD", "budućnost":            "BUD",
+  "cedevita olimpija":    "CEL", "olimpija":             "CEL", "cedevita":    "CEL",
+  "trento":               "DET", "dolomiti energia":     "DET",
+  "gran canaria":         "GCZ", "dreamland gran canaria":"GCZ",
+  "hapoel jerusalem":     "HJE", "hapoel bank yahav":    "HJE",
+  "hapoel shlomo":        "HST", "hapoel shlomo tel aviv":"HST",
+  "bourg":                "JLB", "jl bourg":             "JLB",
+  "joventut":             "BAD", "joventut badalona":    "BAD",
+  "ulm":                  "RAT", "ratiopharm ulm":       "RAT",
+  "sopot":                "TRE", "trefl sopot":          "TRE",
+  "turk telekom":         "TKA", "türk telekom":         "TKA",
+  "cluj":                 "CLJ", "u-bt cluj":            "CLJ",
+  "venice":               "VEN", "reyer venice":         "VEN", "umana reyer": "VEN",
+  "hamburg":              "HBG", "veolia towers":        "HBG",
+  "vilnius":              "WOL", "wolves vilnius":       "WOL",
+  "neptūnas":             "NEP", "neptunas":             "NEP",
+  "panionios":            "PNI",
+  "london lions":         "LON", "london":               "LON",
+  "slask wroclaw":        "WRO", "śląsk":                "WRO",
+  "niners chemnitz":      "CHE", "chemnitz":             "CHE",
+  "baxi manresa":         "MAN", "manresa":              "MAN",
+};
+
+function lookupEuroCode(name) {
+  const n = name.toLowerCase().trim();
+  // exact match first
+  if (EURO_TEAM_MAP[n]) return EURO_TEAM_MAP[n];
+  // partial match
+  for (const key of Object.keys(EURO_TEAM_MAP)) {
+    if (n.includes(key) || key.includes(n)) return EURO_TEAM_MAP[key];
+  }
+  // try word-by-word (e.g. "Bayern" matches "fc bayern")
+  const words = n.split(/\s+/).filter(w => w.length >= 4);
+  for (const key of Object.keys(EURO_TEAM_MAP)) {
+    if (words.some(w => key.includes(w))) return EURO_TEAM_MAP[key];
+  }
+  return null;
+}
+
+function getCurrentEuroSeason(compCode) {
+  // EuroLeague/EuroCup season runs Oct-May
+  // Season "E2025" covers Oct 2025 - May 2026
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-12
+  // If we're Jan-Sep, the current season started last year
+  const seasonYear = month >= 9 ? year : year - 1;
+  return compCode + seasonYear;
+}
+
+async function fetchEuroLeague() {
+  const league = document.getElementById("leagueSelect").value;
+  const teamAName = document.getElementById("teamAName").value.trim();
+  const teamBName = document.getElementById("teamBName").value.trim();
+  if (!teamAName || !teamBName) { setStatus("❌ Enter both team names first.", "err"); return; }
+
+  const btn = document.getElementById("fetchBtn");
+  btn.disabled = true;
+  setStatus('<span class="spinner"></span>Fetching from EuroLeague API...', "loading");
+
+  try {
+    const compCode = league === "euroleague" ? "E" : "U";
+    const seasonCode = getCurrentEuroSeason(compCode);
+
+    const codeA = lookupEuroCode(teamAName);
+    const codeB = lookupEuroCode(teamBName);
+    if (!codeA) throw new Error(`Can't find "${teamAName}". Try the full club name.`);
+    if (!codeB) throw new Error(`Can't find "${teamBName}". Try the full club name.`);
+
+    setStatus('<span class="spinner"></span>Loading game results...', "loading");
+
+    // Fetch all played games from the season (regular season + playoffs)
+    const allGames = await fetchEuroGames(compCode, seasonCode);
+    if (!allGames.length) throw new Error("No game data found for this season.");
+
+    const aStats = extractEuroLastFive(allGames, codeA);
+    const bStats = extractEuroLastFive(allGames, codeB);
+
+    if (aStats?.scored?.length > 0) {
+      document.getElementById("aFTScored").value  = aStats.scored.join(",");
+      document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
+      document.getElementById("aAutoTag").style.display = "inline";
+    }
+    if (bStats?.scored?.length > 0) {
+      document.getElementById("bFTScored").value  = bStats.scored.join(",");
+      document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
+      document.getElementById("bAutoTag").style.display = "inline";
+    }
+
+    // H2H
+    setStatus('<span class="spinner"></span>Scanning H2H...', "loading");
+    const h2hGames = allGames.filter(g =>
+      (g.localCode === codeA && g.roadCode === codeB) ||
+      (g.localCode === codeB && g.roadCode === codeA)
+    ).sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5);
+
+    if (h2hGames.length >= 2) {
+      const h2hA = h2hGames.map(g => g.localCode===codeA ? g.localScore : g.roadScore);
+      const h2hB = h2hGames.map(g => g.localCode===codeA ? g.roadScore : g.localScore);
+      document.getElementById("aFTH2H").value = h2hA.join(",");
+      document.getElementById("bFTH2H").value = h2hB.join(",");
+      document.getElementById("useFTH2H").checked = true;
+      document.getElementById("h2hAutoTag").style.display = "inline";
+    } else {
+      document.getElementById("useFTH2H").checked = false;
+    }
+
+    setStatus("", "");
+  } catch(e) {
+    setStatus("❌ " + e.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function fetchEuroGames(compCode, seasonCode) {
+  const base = "https://api-live.euroleague.net/v2/competitions";
+  const games = [];
+  // Fetch regular season (RS) and playoffs (PO) in parallel
+  const [rsData, poData] = await Promise.allSettled([
+    proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&limit=500`),
+    proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=PO&limit=100`)
+  ]);
+  for (const result of [rsData, poData]) {
+    if (result.status !== "fulfilled") continue;
+    for (const g of (result.value?.data || [])) {
+      if (!g.played) continue;
+      const local = g.local, road = g.road;
+      if (!local || !road) continue;
+      // OT stripping: regulation = p1+p2+p3+p4; extraPeriods has OT points
+      const ep = local.partials?.extraPeriods || {};
+      let otLocal = 0, otRoad = 0;
+      // extraPeriods is an object like {1: {local: 5, road: 7}} or similar
+      if (typeof ep === "object") {
+        for (const k of Object.keys(ep)) {
+          const period = ep[k];
+          if (typeof period === "object") {
+            otLocal += Number(period.local || period.pointsLocal || 0);
+            otRoad  += Number(period.road  || period.pointsRoad  || 0);
+          } else {
+            otLocal += Number(ep[k] || 0);
+          }
+        }
+      }
+      const lScore = Math.round((local.score || 0) - otLocal);
+      const rScore = Math.round((road.score  || 0) - otRoad);
+      // 1H = partials1 + partials2
+      const lH1 = (local.partials?.partials1||0) + (local.partials?.partials2||0);
+      const rH1 = (road.partials?.partials1||0)  + (road.partials?.partials2||0);
+      if (lScore > 0 && rScore > 0) {
+        games.push({
+          localCode: local.club?.code || local.code,
+          roadCode:  road.club?.code  || road.code,
+          localScore: lScore, roadScore: rScore,
+          localH1: lH1, roadH1: rH1,
+          date: g.date || g.utcDate || "",
+          gameCode: g.gameCode
+        });
+      }
+    }
+  }
+  return games;
+}
+
+function extractEuroLastFive(games, teamCode) {
+  const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
+  const sorted = [...games].sort((a,b) => new Date(b.date) - new Date(a.date));
+  for (const g of sorted) {
+    if (scored.length >= 5) break;
+    if (g.localCode === teamCode) {
+      scored.push(g.localScore); allowed.push(g.roadScore);
+      if (g.localH1 > 0) { h1Scored.push(g.localH1); h1Allowed.push(g.roadH1); }
+    } else if (g.roadCode === teamCode) {
+      scored.push(g.roadScore); allowed.push(g.localScore);
+      if (g.roadH1 > 0) { h1Scored.push(g.roadH1); h1Allowed.push(g.localH1); }
+    }
+  }
+  return scored.length >= 2 ? { scored, allowed, h1Scored, h1Allowed } : null;
 }
 
 async function fetchNcaaSchedule(base, teamId) {
@@ -658,8 +896,8 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   const league=document.getElementById("leagueSelect").value;
-  const bases={"nba":230,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
-  const paceClamps={"nba":{min:0.90,max:1.15},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
+  const bases={"nba":230,"euroleague":175,"eurocup":170,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
+  const paceClamps={"nba":{min:0.90,max:1.15},"euroleague":{min:0.92,max:1.10},"eurocup":{min:0.92,max:1.10},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
   let eb=bases[league]||160;
   const cl=paceClamps[league]||{min:0.90,max:1.12};
   let ftLine=mid(document.getElementById("ftMarket").value);
@@ -691,7 +929,7 @@ function runEngine(){
   let aVol=(stdDev(aSA==="error"?[]:aSA)+stdDev(aAA==="error"?[]:aAA))/2;
   let bVol=(stdDev(bSA==="error"?[]:bSA)+stdDev(bAA==="error"?[]:bAA))/2;
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
-  let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
+  let vl={"nba":14,"euroleague":12,"eurocup":12,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
   let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
   bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
