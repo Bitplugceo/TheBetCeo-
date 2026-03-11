@@ -298,11 +298,125 @@ const NBA_TEAM_MAP = {
   "wizards":27, "washington":27
 };
 
+const NCAA_TEAM_MAP = {
+  // Big East
+  "marquette":269,"marquette golden eagles":269,
+  "xavier":2753,"xavier musketeers":2753,"musketeers":2753,
+  "connecticut":41,"uconn":41,"uconn huskies":41,
+  "creighton":156,"bluejays":156,
+  "villanova":222,"villanova wildcats":222,
+  "seton hall":221,"seton hall pirates":221,
+  "st johns":2599,"st. john's":2599,"red storm":2599,
+  "georgetown":46,"hoyas":46,
+  "providence":2507,"friars":2507,
+  "butler":2086,"butler bulldogs":2086,
+  "depaul":305,"blue demons":305,
+  // Big 12
+  "kansas":2305,"jayhawks":2305,
+  "baylor":239,"baylor bears":239,
+  "houston":248,"houston cougars":248,
+  "iowa state":66,"cyclones":66,
+  "texas tech":2641,"red raiders":2641,
+  "kansas state":2306,"kansas state wildcats":2306,
+  "tcu":2628,"horned frogs":2628,
+  "west virginia":277,"mountaineers":277,
+  "oklahoma state":197,"cowboys":197,
+  "cincinnati":2132,"bearcats":2132,
+  "byu":252,"byu cougars":252,
+  "ucf":2116,"knights":2116,
+  // ACC
+  "duke":150,"blue devils":150,
+  "north carolina":153,"tar heels":153,"unc":153,
+  "virginia":258,"cavaliers":258,
+  "florida state":52,"seminoles":52,
+  "louisville":97,"cardinals":97,
+  "nc state":152,"wolfpack":152,
+  "syracuse":183,"orange":183,
+  "pittsburgh":221,"pitt panthers":221,
+  "miami fl":2390,"hurricanes":2390,
+  "georgia tech":59,"yellow jackets":59,
+  "boston college":103,"bc eagles":103,
+  "notre dame":87,"fighting irish":87,
+  "wake forest":154,"demon deacons":154,
+  "clemson":228,"clemson tigers":228,
+  "virginia tech":259,"hokies":259,
+  "stanford":24,"cardinal":24,
+  "california":180,"cal bears":180,
+  // Big Ten
+  "michigan state":127,"spartans":127,
+  "michigan":130,"wolverines":130,
+  "purdue":2506,"boilermakers":2506,
+  "illinois":356,"fighting illini":356,
+  "indiana":84,"hoosiers":84,
+  "ohio state":194,"buckeyes":194,
+  "wisconsin":275,"badgers":275,
+  "iowa":2294,"hawkeyes":2294,
+  "minnesota":135,"gophers":135,
+  "penn state":213,"nittany lions":213,
+  "maryland":120,"terrapins":120,"terps":120,
+  "nebraska":158,"cornhuskers":158,
+  "rutgers":164,"scarlet knights":164,
+  "northwestern":77,"northwestern wildcats":77,
+  // SEC
+  "kentucky":96,"wildcats":96,"kentucky wildcats":96,
+  "alabama":333,"crimson tide":333,
+  "tennessee":2633,"volunteers":2633,"vols":2633,
+  "auburn":2,"auburn tigers":2,
+  "florida":57,"gators":57,
+  "arkansas":8,"razorbacks":8,
+  "mississippi state":344,"bulldogs":344,
+  "ole miss":145,"rebels":145,
+  "lsu":99,"lsu tigers":99,
+  "south carolina":2579,"gamecocks":2579,
+  "georgia":61,"georgia bulldogs":61,
+  "missouri":142,"missouri tigers":142,
+  "vanderbilt":238,"commodores":238,
+  "texas a&m":245,"aggies":245,
+  "oklahoma":201,"sooners":201,
+  "texas":251,"longhorns":251,
+  // Pac-12 / West
+  "arizona":12,"arizona wildcats":12,
+  "arizona state":9,"sun devils":9,
+  "ucla":26,"bruins":26,
+  "usc":30,"trojans":30,
+  "oregon":2483,"ducks":2483,
+  "oregon state":204,"beavers":204,
+  "washington":264,"washington huskies":264,
+  "washington state":265,"cougars":265,
+  "utah":254,"utes":254,
+  "colorado":38,"buffaloes":38,
+  // Other notable
+  "gonzaga":2250,"bulldogs":2250,"zags":2250,"gonzaga bulldogs":2250,
+  "san diego state":21,"aztecs":21,
+  "memphis":235,"memphis tigers":235,
+  "wichita state":2724,"shockers":2724,
+  "dayton":2168,"flyers":2168,
+  "richmond":257,"spiders":257,
+  "vcu":2670,"rams":2670,
+  "murray state":93,"racers":93,
+  "saint mary's":2608,"gaels":2608,
+  "loyola chicago":2350,"ramblers":2350,
+  "drake":2181,"drake bulldogs":2181,
+  "grand canyon":2253,"antelopes":2253,
+  "oral roberts":492,"oral roberts golden eagles":492,
+  "liberty":2335,"flames":2335,
+  "howard":47,"howard bison":47,
+  "princeton":163,"princeton tigers":163,
+  "vermont":261,"catamounts":261,
+};
+
 function lookupTeamId(name) {
   const n = name.toLowerCase().trim();
+  // Check NBA map
   for (let key of Object.keys(NBA_TEAM_MAP)) {
     if (n === key || n.includes(key) || key.includes(n)) {
       return NBA_TEAM_MAP[key];
+    }
+  }
+  // Check NCAA map
+  for (let key of Object.keys(NCAA_TEAM_MAP)) {
+    if (n === key || n.includes(key) || key.includes(n)) {
+      return NCAA_TEAM_MAP[key];
     }
   }
   return null;
