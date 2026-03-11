@@ -732,8 +732,8 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
   try {
     // seasontype=2 = regular season, seasontype=3 = postseason
     // We fetch both and merge so we always get completed games
-    const urlReg  = `${base}/teams/${teamId}/schedule?season=2025&seasontype=2`;
-    const urlPost = `${base}/teams/${teamId}/schedule?season=2025&seasontype=3`;
+    const urlReg  = `${base}/teams/${teamId}/schedule?season=2026&seasontype=2`;
+    const urlPost = `${base}/teams/${teamId}/schedule?season=2026&seasontype=3`;
     const [dataReg, dataPost] = await Promise.all([
       proxyFetch(urlReg).catch(() => ({})),
       proxyFetch(urlPost).catch(() => ({}))
@@ -812,8 +812,8 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
    ============================================= */
 async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
   try {
-    const urlReg  = `${base}/teams/${teamAId}/schedule?season=2025&seasontype=2`;
-    const urlPost = `${base}/teams/${teamAId}/schedule?season=2025&seasontype=3`;
+    const urlReg  = `${base}/teams/${teamAId}/schedule?season=2026&seasontype=2`;
+    const urlPost = `${base}/teams/${teamAId}/schedule?season=2026&seasontype=3`;
     const [dataReg, dataPost] = await Promise.all([
       proxyFetch(urlReg).catch(() => ({})),
       proxyFetch(urlPost).catch(() => ({}))
