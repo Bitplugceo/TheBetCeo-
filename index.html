@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <!-- v10 - onscreen debug -->
+  <!-- v11 - vir debug -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -616,10 +616,11 @@ async function fetchEuroLeague() {
     setStatus('<span class="spinner"></span>Fetching game stats...', "loading");
     const allGames = await fetchEuroGames(compCode, seasonCode);
     if (!allGames.length) throw new Error("No game data found.");
-    // DEBUG: show first 5 games after sort
-    const dbg = allGames.slice(0,5).map(g=>`${g.date} ${g.localCode}${g.localScore}-${g.roadCode}${g.roadScore}`).join(" | ");
-    setStatus("DEBUG top5: " + dbg, "loading");
-    await new Promise(r=>setTimeout(r,5000)); // pause 5s so you can read it
+    // DEBUG: show VIR's last 5 games
+    const virGames = allGames.filter(g=>g.localCode===codeA||g.roadCode===codeA).slice(0,5);
+    const dbg = virGames.map(g=>`${g.date} ${g.localCode}${g.localScore}-${g.roadCode}${g.roadScore}`).join(" | ");
+    setStatus("DEBUG VIR: " + dbg, "loading");
+    await new Promise(r=>setTimeout(r,8000));
 
     // Last 5 for each team
     const aStats = extractEuroLastFive(allGames, codeA);
