@@ -533,7 +533,7 @@ async function fetchESPN() {
       document.getElementById("aAutoTag").style.display = "inline";
       messages.push(`${teamAName}: ${aStats.scored.length} games ✅`);
     } else {
-      messages.push(`${teamAName}: not found ❌`);
+      messages.push(`${teamAName}: no data (ID:${teamAId}) ❌`);
     }
 
     if (bStats && bStats.scored.length > 0) {
@@ -542,7 +542,7 @@ async function fetchESPN() {
       document.getElementById("bAutoTag").style.display = "inline";
       messages.push(`${teamBName}: ${bStats.scored.length} games ✅`);
     } else {
-      messages.push(`${teamBName}: not found ❌`);
+      messages.push(`${teamBName}: no data (ID:${teamBId}) ❌`);
     }
 
     // --- H2H FETCH (2024 → today) ---
