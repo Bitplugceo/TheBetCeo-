@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <!-- v13 - gameCode 1H match -->
+  <!-- v15 - v2 primary source -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -521,51 +521,69 @@ function parseEuroXML(xml) {
 
 
 async function fetchEuroGames(compCode, seasonCode) {
-  // v1 XML — single call, all played games, correct dates
-  const xml = await getEuroXML(seasonCode);
-  console.log("XML length:", xml?.length, "has game tag:", xml?.includes('<game>'));
-  if (!xml || !xml.includes('<game>')) return [];
-  const games = parseEuroXML(xml);
-  console.log("Parsed games count:", games.length);
-  if (games.length > 0) {
-    console.log("First 3 games:", games.slice(0,3).map(g=>g.date+' '+g.localCode+' '+g.localScore+'-'+g.roadCode+' '+g.roadScore));
-    console.log("Last 3 games:", games.slice(-3).map(g=>g.date+' '+g.localCode+' '+g.localScore+'-'+g.roadCode+' '+g.roadScore));
-  } // already deduped by gameCode
+  const games = [], seen = new Set();
+  const addGame = g => {
+    if (!g) return;
+    const key = g.gameCode || (g.localCode+g.roadCode+g.date);
+    if (seen.has(key)) return;
+    seen.add(key); games.push(g);
+  };
 
-  // v2 — fetch 1H quarter data only, matched by gameCode
-  try {
-    const base = 'https://api-live.euroleague.net/v2/competitions';
-    const maxRound = compCode === "E" ? 34 : 28;
-    const rsResults = await Promise.allSettled(
-      Array.from({length: maxRound}, (_,i) =>
-        proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
-      )
-    );
-    const h1Map = {};
-    for (const r of rsResults) {
-      if (r.status !== "fulfilled") continue;
-      for (const g of (r.value?.data||[])) {
-        if (!g.played || !g.gameCode) continue;
-        const lp = g.local?.partials||{}, rp = g.road?.partials||{};
-        const lH1 = (Number(lp.partials1)||0)+(Number(lp.partials2)||0);
-        const rH1 = (Number(rp.partials1)||0)+(Number(rp.partials2)||0);
-        if (lH1 > 0) h1Map[g.gameCode] = {localH1: lH1, roadH1: rH1};
-      }
+  // PRIMARY: v2 per-round — has quarter data (1H) AND is more up to date than v1
+  // v2 regulation score = Q1+Q2+Q3+Q4 (OT automatically stripped)
+  const base = 'https://api-live.euroleague.net/v2/competitions';
+  const maxRound = compCode === "E" ? 34 : 28;
+  const rsResults = await Promise.allSettled(
+    Array.from({length: maxRound}, (_,i) =>
+      proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
+    )
+  );
+  for (const r of rsResults) {
+    if (r.status !== "fulfilled") continue;
+    for (const g of (r.value?.data||[])) {
+      if (!g.played) continue;
+      const local = g.local, road = g.road;
+      if (!local || !road) continue;
+      const lp = local.partials||{}, rp = road.partials||{};
+      const lQ1=Number(lp.partials1||0), lQ2=Number(lp.partials2||0);
+      const lQ3=Number(lp.partials3||0), lQ4=Number(lp.partials4||0);
+      const rQ1=Number(rp.partials1||0), rQ2=Number(rp.partials2||0);
+      const rQ3=Number(rp.partials3||0), rQ4=Number(rp.partials4||0);
+      const lReg = lQ1+lQ2+lQ3+lQ4, rReg = rQ1+rQ2+rQ3+rQ4;
+      const lFull = Number(local.score||0), rFull = Number(road.score||0);
+      // Use regulation (OT stripped). Fall back to full score if no partials
+      const lScore = lReg > 0 ? lReg : lFull;
+      const rScore = rReg > 0 ? rReg : rFull;
+      if (lScore <= 0 || rScore <= 0) continue;
+      const localCode = (local.club?.code||local.code||"").toUpperCase();
+      const roadCode  = (road.club?.code ||road.code ||"").toUpperCase();
+      if (!localCode || !roadCode) continue;
+      // Date from utcDate or date field
+      const dateRaw = g.utcDate||g.date||"";
+      const date = dateRaw.substring(0,10); // "2026-03-07"
+      addGame({
+        localCode, roadCode,
+        localScore: lReg > 0 ? lReg : lFull,
+        roadScore:  rReg > 0 ? rReg : rFull,
+        localH1: lQ1+lQ2, roadH1: rQ1+rQ2,
+        date, gameCode: g.gameCode||""
+      });
     }
-    for (const g of games) {
-      if (g.gameCode && h1Map[g.gameCode]) {
-        g.localH1 = h1Map[g.gameCode].localH1;
-        g.roadH1  = h1Map[g.gameCode].roadH1;
-      }
+  }
+
+  // FALLBACK: v1 XML for any games not found in v2
+  try {
+    const xml = await getEuroXML(seasonCode);
+    if (xml && xml.includes('<game>')) {
+      for (const g of parseEuroXML(xml)) addGame(g);
     }
   } catch(e) {}
 
-
-  // Sort newest first — ISO "2026-03-07" string comparison is reliable
+  // Sort newest first
   games.sort((a,b) => b.date > a.date ? 1 : b.date < a.date ? -1 : 0);
-  console.log("After sort, first 5:", games.slice(0,5).map(g=>g.date+' '+g.localCode+'-'+g.roadCode));
   return games;
 }
+
 
 async function fetchEuroLeague() {
   const league    = document.getElementById("leagueSelect").value;
@@ -646,12 +664,15 @@ async function fetchEuroLeague() {
       document.getElementById("bFTH2H").value   = h2hGames.map(toB).join(",");
       document.getElementById("useFTH2H").checked = true;
       document.getElementById("h2hAutoTag").style.display = "inline";
-      const h2hA1H = h2hGames.map(toA1).filter(v=>v>0);
-      const h2hB1H = h2hGames.map(toB1).filter(v=>v>0);
-      if (h2hA1H.length >= 2) {
-        document.getElementById("a1HH2H").value   = h2hA1H.join(",");
-        document.getElementById("b1HH2H").value   = h2hB1H.join(",");
+      // Only use 1H H2H from games that actually have 1H data
+      // Must match count with FT H2H — use same h2hGames, filter pairs together
+      const h2hWith1H = h2hGames.filter(g => toA1(g) > 0 && toB1(g) > 0);
+      if (h2hWith1H.length >= 2) {
+        document.getElementById("a1HH2H").value   = h2hWith1H.map(toA1).join(",");
+        document.getElementById("b1HH2H").value   = h2hWith1H.map(toB1).join(",");
         document.getElementById("use1HH2H").checked = true;
+      } else {
+        document.getElementById("use1HH2H").checked = false;
       }
     } else {
       document.getElementById("useFTH2H").checked = false;
