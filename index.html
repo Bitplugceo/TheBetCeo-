@@ -532,11 +532,9 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
   // Step 2: Fetch each game's full event data for linescores
   const h2h = [];
   for (const ref of uniqueRefs.slice(0, 5)) {
+    let added = false;
     try {
       const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
-      const comp = data?.boxscore?.teams || data?.header?.competitions?.[0];
-
-      // Try header path first (more reliable)
       const headerComp = data?.header?.competitions?.[0];
       if (headerComp) {
         const competitors = headerComp?.competitors || [];
@@ -545,9 +543,11 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
-            // Get linescores from header
-            const lA = cA?.linescores || cA?.record || [];
-            const lB = cB?.linescores || cB?.record || [];
+            const lA = cA?.linescores || [], lB = cB?.linescores || [];
+            // 1H = first half linescore
+            const h1A = lA.length >= 1 ? pv(lA[0]) : 0;
+            const h1B = lB.length >= 1 ? pv(lB[0]) : 0;
+            // OT strip — NCAA: 2 halves = regulation
             if (lA.length > 2 && lB.length > 2) {
               const sumA = lA.reduce((s,p) => s+pv(p), 0);
               const sumB = lB.reduce((s,p) => s+pv(p), 0);
@@ -558,60 +558,32 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
                 if (otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
               }
             }
-            // Extract 1H: NCAA = 1st half (lA[0] only)
-            const h1A = lA.length >= 1 ? pvN(lA[0]) : 0;
-            const h1B = lB.length >= 1 ? pvN(lB[0]) : 0;
             h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), h1A, h1B, date: ref.date, eventId: ref.id });
-            gameAdded = true;
+            added = true;
             continue;
           }
         }
       }
-
-      // Fallback: use scoreboard for that specific date
-      const dateKey = ref.date.slice(0,10).replace(/-/g,"");
-      const sbData = await proxyFetch(`${base}/scoreboard?dates=${dateKey}&groups=100&limit=200`);
-      for (const ev of (sbData?.events || [])) {
-        if (String(ev.id) !== String(ref.id)) continue;
-        const sbComp = ev?.competitions?.[0];
-        if (!sbComp?.status?.type?.completed) continue;
-        const c = sbComp?.competitors || [];
-        const cA = c.find(x => normalizeId(x.team?.id) === tA || normalizeId(x.id) === tA);
-        const cB = c.find(x => normalizeId(x.team?.id) === tB || normalizeId(x.id) === tB);
-        if (!cA || !cB) continue;
-        let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
-        if (isNaN(sA) || isNaN(sB) || sA <= 0 || sB <= 0) continue;
-        const lA = cA?.linescores || [], lB = cB?.linescores || [];
-        if (lA.length > 2 && lB.length > 2) {
-          const sumA = lA.reduce((s,p) => s+pv(p), 0), sumB = lB.reduce((s,p) => s+pv(p), 0);
-          if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
-            let otA=0, otB=0;
-            for (let i=2; i<lA.length; i++) otA += pv(lA[i]);
-            for (let i=2; i<lB.length; i++) otB += pv(lB[i]);
-            if (otA>0||otB>0){ sA-=otA; sB-=otB; }
-          }
-        }
-        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id , h1A: 0, h1B: 0 });
-        gameAdded = true;
-        break;
-      }
-    } catch(e) {
-      // If event fetch fails, fall back to schedule scores without OT stripping
+    } catch(e) {}
+    // Fallback: schedule scores (no linescores)
+    if (!added) {
       try {
-        const [r1] = await Promise.all([
-          proxyFetch(`${base}/teams/${teamAId}/schedule?season=2026&seasontype=2`).catch(() => ({}))
-        ]);
-        const events = r1?.events || r1?.team?.schedule?.events || [];
-        const ev = events.find(e => e.id === ref.id);
-        if (ev) {
-          const comp = ev?.competitions?.[0];
-          const c = comp?.competitors || [];
-          const cA = c.find(x => normalizeId(x.id)===tA||normalizeId(x.team?.id)===tA)||c[0];
-          const cB = c.find(x => normalizeId(x.id)===tB||normalizeId(x.team?.id)===tB)||c[1];
-          const ps = s => typeof s==="object" ? parseFloat(s.value??s.displayValue??0) : parseFloat(s);
-          const sA = ps(cA?.score), sB = ps(cB?.score);
-          if (!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0)
-            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date , h1A: 0, h1B: 0 });
+        for (const season of ["2026","2025","2024"]) {
+          const r = await proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(()=>({}));
+          const events = r?.events || r?.team?.schedule?.events || [];
+          const ev = events.find(e => String(e.id) === String(ref.id));
+          if (ev) {
+            const comp = ev?.competitions?.[0];
+            const c = comp?.competitors || [];
+            const cA = c.find(x => normalizeId(x.id)===tA||normalizeId(x.team?.id)===tA)||c[0];
+            const cB = c.find(x => normalizeId(x.id)===tB||normalizeId(x.team?.id)===tB)||c[1];
+            const ps = s => typeof s==="object" ? parseFloat(s.value??s.displayValue??0) : parseFloat(s);
+            const sA = ps(cA?.score), sB = ps(cB?.score);
+            if (!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0) {
+              h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), h1A: 0, h1B: 0, date: ref.date, eventId: ref.id });
+              added = true; break;
+            }
+          }
         }
       } catch(e2) {}
     }
