@@ -843,9 +843,10 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
       const competitors = comp?.competitors || [];
       if (competitors.length < 2) continue;
 
-      // ESPN schedule uses c.id directly (not c.team.id)
+      // Log all competitor IDs to debug
+      const compIds = competitors.map(c => String(c.id) + "/" + String(c.team?.id)).join("|");
       const hasTeamB = competitors.some(c => String(c.id) === tB || String(c.team?.id) === tB);
-      if (!hasTeamB) continue;
+      if (!hasTeamB) { console.log("No TeamB("+tB+") in:", compIds); continue; }
 
       const cA = competitors.find(c => String(c.id) === tA || String(c.team?.id) === tA) || competitors[0];
       const cB = competitors.find(c => String(c.id) === tB || String(c.team?.id) === tB) || competitors[1];
