@@ -289,7 +289,6 @@ async function fetchESPN() {
         fetchNcaaSchedule(espnBase, teamBId)
       ]);
     } else {
-      // BUG 3 FIX: fetch day by day instead of range format
       const allGames = await fetchNbaScoreboard(espnBase, 60);
       if (!allGames.length) throw new Error("No recent game data from ESPN.");
       aStats = extractLastFive(allGames, String(teamAId));
@@ -365,10 +364,7 @@ async function fetchESPN() {
 
 
 /* =============================================
-   EUROLEAGUE / EUROCUP FETCH
-   API: api-live.euroleague.net/v2
-   Season codes: E2025 = EuroLeague, U2025 = EuroCup
-   Partials: p1+p2 = 1H, p3+p4 = 2H, extraPeriods = OT
+   EUROLEAGUE / EUROCUP FETCH  — FIXED v2
    ============================================= */
 
 const EURO_TEAM_MAP = {
@@ -387,7 +383,7 @@ const EURO_TEAM_MAP = {
   "asvel":"ASV","ldlc asvel":"ASV","villeurbanne":"ASV",
   "paris":"PRS","paris basketball":"PRS",
   "red star":"RED","crvena zvezda":"RED",
-  "partizan":"PAR","partizan belgrade":"PAR","kk partizan":"PAR","partizan mozzart":"PAR",
+  "partizan":"PAR","partizan belgrade":"PAR","kk partizan":"PAR","partizan mozzart":"PAR","partizan mozzart bet":"PAR",
   "virtus":"VIR","virtus bologna":"VIR","bologna":"VIR",
   "valencia":"PAM","valencia basket":"PAM",
   "hapoel tel aviv":"HIT","hapoel ibi":"HIT",
@@ -419,7 +415,6 @@ const EURO_TEAM_MAP = {
   "manresa":"MAN","baxi":"MAN"
 };
 
-// Cache XML per season
 const _euroXmlCache = {};
 
 async function proxyFetchRaw(url) {
@@ -430,7 +425,6 @@ async function proxyFetchRaw(url) {
 
 async function getEuroXML(seasonCode) {
   if (_euroXmlCache[seasonCode]) return _euroXmlCache[seasonCode];
-  // Both EuroLeague (E2025) and EuroCup (U2025) are on the same euroleague.net API
   const xml = await proxyFetchRaw(`https://api-live.euroleague.net/v1/results?seasonCode=${seasonCode}`);
   _euroXmlCache[seasonCode] = xml;
   return xml;
@@ -440,7 +434,6 @@ const EURO_MONTHS = {"Jan":"01","Feb":"02","Mar":"03","Apr":"04","May":"05","Jun
   "Jul":"07","Aug":"08","Sep":"09","Oct":"10","Nov":"11","Dec":"12"};
 
 function euroDateToISO(raw) {
-  // "Mar 07, 2026" -> "2026-03-07"
   if (!raw) return "";
   const parts = raw.trim().split(/[\s,]+/).filter(Boolean);
   if (parts.length >= 3) {
@@ -519,59 +512,93 @@ function parseEuroXML(xml) {
   return games;
 }
 
-
 async function fetchEuroGames(compCode, seasonCode) {
   const games = [], seen = new Set();
   const addGame = g => {
     if (!g) return;
-    const key = g.gameCode || (g.localCode+g.roadCode+g.date);
-    if (seen.has(key)) return;
-    seen.add(key); games.push(g);
+    const key = g.gameCode || (g.localCode + g.roadCode + g.date);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    games.push(g);
   };
 
-  // PRIMARY: v2 per-round — has quarter data (1H) AND is more up to date than v1
-  // v2 regulation score = Q1+Q2+Q3+Q4 (OT automatically stripped)
+  // PRIMARY: v2 per-round — fetches quarter data for 1H
   const base = 'https://api-live.euroleague.net/v2/competitions';
   const maxRound = compCode === "E" ? 34 : 28;
+
   const rsResults = await Promise.allSettled(
     Array.from({length: maxRound}, (_,i) =>
       proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
     )
   );
+
   for (const r of rsResults) {
     if (r.status !== "fulfilled") continue;
-    for (const g of (r.value?.data||[])) {
+    // v2 API returns data under .data[] or .games[]
+    const roundData = r.value?.data || r.value?.games || [];
+    for (const g of roundData) {
       if (!g.played) continue;
       const local = g.local, road = g.road;
       if (!local || !road) continue;
-      const lp = local.partials||{}, rp = road.partials||{};
-      const lQ1=Number(lp.partials1||0), lQ2=Number(lp.partials2||0);
-      const lQ3=Number(lp.partials3||0), lQ4=Number(lp.partials4||0);
-      const rQ1=Number(rp.partials1||0), rQ2=Number(rp.partials2||0);
-      const rQ3=Number(rp.partials3||0), rQ4=Number(rp.partials4||0);
-      const lReg = lQ1+lQ2+lQ3+lQ4, rReg = rQ1+rQ2+rQ3+rQ4;
-      const lFull = Number(local.score||0), rFull = Number(road.score||0);
-      // Use regulation (OT stripped). Fall back to full score if no partials
+
+      // FIX: v2 API stores team code as clubCode at top level — not nested under .club
+      const localCode = (
+        local.clubCode ||
+        local.code ||
+        local.club?.code ||
+        local.teamCode ||
+        ""
+      ).toUpperCase();
+      const roadCode = (
+        road.clubCode ||
+        road.code ||
+        road.club?.code ||
+        road.teamCode ||
+        ""
+      ).toUpperCase();
+
+      if (!localCode || !roadCode) continue;
+
+      const lp = local.partials || {};
+      const rp = road.partials || {};
+
+      // FIX: also try q1/q2/q3/q4 as alternative field names
+      const lQ1 = Number(lp.partials1 || lp.q1 || 0);
+      const lQ2 = Number(lp.partials2 || lp.q2 || 0);
+      const lQ3 = Number(lp.partials3 || lp.q3 || 0);
+      const lQ4 = Number(lp.partials4 || lp.q4 || 0);
+      const rQ1 = Number(rp.partials1 || rp.q1 || 0);
+      const rQ2 = Number(rp.partials2 || rp.q2 || 0);
+      const rQ3 = Number(rp.partials3 || rp.q3 || 0);
+      const rQ4 = Number(rp.partials4 || rp.q4 || 0);
+
+      const lReg = lQ1 + lQ2 + lQ3 + lQ4;
+      const rReg = rQ1 + rQ2 + rQ3 + rQ4;
+      const lFull = Number(local.score || 0);
+      const rFull = Number(road.score || 0);
+
+      // Use regulation (OT stripped). Fall back to full score if no quarter data.
       const lScore = lReg > 0 ? lReg : lFull;
       const rScore = rReg > 0 ? rReg : rFull;
       if (lScore <= 0 || rScore <= 0) continue;
-      const localCode = (local.club?.code||local.code||"").toUpperCase();
-      const roadCode  = (road.club?.code ||road.code ||"").toUpperCase();
-      if (!localCode || !roadCode) continue;
-      // Date from utcDate or date field
-      const dateRaw = g.utcDate||g.date||"";
-      const date = dateRaw.substring(0,10); // "2026-03-07"
+
+      // FIX: try all possible game code field names
+      const gameCode = String(g.gameCode || g.code || g.game || "");
+      const dateRaw = g.utcDate || g.date || "";
+      const date = dateRaw.substring(0, 10);
+
       addGame({
         localCode, roadCode,
-        localScore: lReg > 0 ? lReg : lFull,
-        roadScore:  rReg > 0 ? rReg : rFull,
-        localH1: lQ1+lQ2, roadH1: rQ1+rQ2,
-        date, gameCode: g.gameCode||""
+        localScore: lScore,
+        roadScore: rScore,
+        localH1: lQ1 + lQ2,
+        roadH1: rQ1 + rQ2,
+        date, gameCode
       });
     }
   }
 
-  // FALLBACK: v1 XML for any games not found in v2
+  // FALLBACK: v1 XML for any games v2 missed (no 1H data from XML path)
   try {
     const xml = await getEuroXML(seasonCode);
     if (xml && xml.includes('<game>')) {
@@ -599,11 +626,10 @@ async function fetchEuroLeague() {
     const compCode   = league === "euroleague" ? "E" : "U";
     const seasonCode = getCurrentEuroSeason(compCode);
 
-    // Fetch XML first (needed for team name lookup AND scores)
+    // Get XML for team name -> code lookup
     const xml = await getEuroXML(seasonCode).catch(() => "");
     if (!xml || !xml.includes('<game>')) throw new Error("No season data found. API may be unavailable.");
 
-    // Build live team map from actual season data — works for every team
     const liveMap = buildEuroTeamMap(xml);
     const codeA   = lookupEuroCode(teamAName, liveMap);
     const codeB   = lookupEuroCode(teamBName, liveMap);
@@ -614,8 +640,6 @@ async function fetchEuroLeague() {
     const allGames = await fetchEuroGames(compCode, seasonCode);
     if (!allGames.length) throw new Error("No game data found.");
 
-
-    // Last 5 for each team
     const aStats = extractEuroLastFive(allGames, codeA);
     const bStats = extractEuroLastFive(allGames, codeB);
 
@@ -638,7 +662,7 @@ async function fetchEuroLeague() {
       document.getElementById("bAutoTag").style.display = "inline";
     }
 
-    // H2H — current season + previous season to fill up to 5
+    // H2H — current season + previous if needed
     setStatus('<span class="spinner"></span>Scanning H2H...', "loading");
     const filterH2H = gs => gs.filter(g =>
       (g.localCode===codeA && g.roadCode===codeB) ||
@@ -664,8 +688,6 @@ async function fetchEuroLeague() {
       document.getElementById("bFTH2H").value   = h2hGames.map(toB).join(",");
       document.getElementById("useFTH2H").checked = true;
       document.getElementById("h2hAutoTag").style.display = "inline";
-      // Only use 1H H2H from games that actually have 1H data
-      // Must match count with FT H2H — use same h2hGames, filter pairs together
       const h2hWith1H = h2hGames.filter(g => toA1(g) > 0 && toB1(g) > 0);
       if (h2hWith1H.length >= 2) {
         document.getElementById("a1HH2H").value   = h2hWith1H.map(toA1).join(",");
@@ -692,10 +714,10 @@ function extractEuroLastFive(games, teamCode) {
     if (scored.length >= 5) break;
     if (g.localCode === teamCode) {
       scored.push(g.localScore); allowed.push(g.roadScore);
-      if (g.localH1>0){ h1Scored.push(g.localH1); h1Allowed.push(g.roadH1); }
+      if (g.localH1 > 0) { h1Scored.push(g.localH1); h1Allowed.push(g.roadH1); }
     } else if (g.roadCode === teamCode) {
       scored.push(g.roadScore); allowed.push(g.localScore);
-      if (g.roadH1>0){ h1Scored.push(g.roadH1); h1Allowed.push(g.localH1); }
+      if (g.roadH1 > 0) { h1Scored.push(g.roadH1); h1Allowed.push(g.localH1); }
     }
   }
   return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed} : null;
@@ -866,7 +888,6 @@ function parseNbaEvents(data) {
   return games;
 }
 
-// BUG 3 FIX: fetch day by day only (no range format)
 async function fetchNbaScoreboard(base, daysBack) {
   const all=[];
   for(let i=1;i<=daysBack;i++){
@@ -1003,7 +1024,6 @@ function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).
 function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
 function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.07*Math.min(1,(std-limit)/limit));}
 
-// BUG 1 FIX: added "1h_total" as alias for "ft_total"
 function decision(edge,line,type,teamSc,aSc,bSc){
   if(isNaN(edge)||isNaN(line))return"NaN";
   if(Math.abs(edge/line)<0.045)return"NO PLAY";
@@ -1067,7 +1087,6 @@ function runEngine(){
     if(league==="nba"&&!isNaN(ftLine)&&Math.abs(ftP-ftLine)>18)ftP=ftLine+(ftP-ftLine)*0.65;
   }
 
-  // 1H ENGINE
   let h1P=NaN,h1Line=NaN;
   let aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
   const isNbaOrNcaa=league==="nba"||league==="ncaa"||league==="euroleague"||league==="eurocup";
@@ -1101,7 +1120,6 @@ function runEngine(){
       vl1={"nba":7,"ncaa":6}[league]||7;
       aVol1=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
       bVol1=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
-      // BUG 2 FIX: dfr1 now correctly calculated and stored for use in OVER filter
       dfr1=(!isNaN(aA1)&&aA1<eb1H*0.40)||(!isNaN(bA1)&&bA1<eb1H*0.40);
       bA1H=applyVolatility(bA1H,aVol1,vl1);
       bB1H=applyVolatility(bB1H,bVol1,vl1);
@@ -1119,7 +1137,6 @@ function runEngine(){
     }
   }
 
-  // OUTPUT ORDER: FT Total, 1H Total, Team A, Team B
   let picks=[
     {name:"FT Total",   proj:ftP,  line:ftLine, type:"ft_total", teamSc:null, aSc:aS,  bSc:bS},
     {name:"1H Total",   proj:h1P,  line:h1Line, type:"1h_total", teamSc:null, aSc:aS,  bSc:bS},
@@ -1127,7 +1144,6 @@ function runEngine(){
     {name:"Team B Total",proj:bBFT,line:bLine,  type:"team",     teamSc:bS,   aSc:aS,  bSc:bS}
   ];
 
-  // Filter out 1H if not NBA/NCAA or no projection
   if(!isNbaOrNcaa||isNaN(h1P))picks=picks.filter(p=>p.type!=="1h_total");
 
   let li=-1,ms=0;
@@ -1151,7 +1167,6 @@ function runEngine(){
         if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";
         if(aVol>vl&&bVol>vl)pt="NO PLAY";
       }
-      // BUG 2 FIX: dfr1 now applied to 1H OVER filter
       if(p.type==="1h_total"&&pt.startsWith("OVER")){
         if(pgr1)pt="NO PLAY";
         if(dfr1)pt="NO PLAY";
