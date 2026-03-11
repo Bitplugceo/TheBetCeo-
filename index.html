@@ -216,9 +216,10 @@ function onLeagueChange() {
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
   const isEuro = league === "euroleague" || league === "eurocup";
   const hasAutoFetch = isNbaOrNcaa || isEuro;
+  const show1H = isNbaOrNcaa || isEuro;
   document.getElementById("espnSection").style.display = hasAutoFetch ? "block" : "none";
   ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
-    document.getElementById(id).style.display = isNbaOrNcaa ? "block" : "none";
+    document.getElementById(id).style.display = show1H ? "block" : "none";
   });
   const title = document.getElementById("fetchSectionTitle");
   if (isEuro) {
@@ -477,11 +478,19 @@ async function fetchEuroLeague() {
     if (aStats?.scored?.length > 0) {
       document.getElementById("aFTScored").value  = aStats.scored.join(",");
       document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
+      if (aStats.h1Scored?.length > 0) {
+        document.getElementById("a1HScored").value  = aStats.h1Scored.join(",");
+        document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
+      }
       document.getElementById("aAutoTag").style.display = "inline";
     }
     if (bStats?.scored?.length > 0) {
       document.getElementById("bFTScored").value  = bStats.scored.join(",");
       document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
+      if (bStats.h1Scored?.length > 0) {
+        document.getElementById("b1HScored").value  = bStats.h1Scored.join(",");
+        document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
+      }
       document.getElementById("bAutoTag").style.display = "inline";
     }
 
@@ -493,12 +502,19 @@ async function fetchEuroLeague() {
     ).sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5);
 
     if (h2hGames.length >= 2) {
-      const h2hA = h2hGames.map(g => g.localCode===codeA ? g.localScore : g.roadScore);
-      const h2hB = h2hGames.map(g => g.localCode===codeA ? g.roadScore : g.localScore);
+      const h2hA   = h2hGames.map(g => g.localCode===codeA ? g.localScore : g.roadScore);
+      const h2hB   = h2hGames.map(g => g.localCode===codeA ? g.roadScore  : g.localScore);
+      const h2hA1H = h2hGames.map(g => g.localCode===codeA ? g.localH1    : g.roadH1).filter(v => v > 0);
+      const h2hB1H = h2hGames.map(g => g.localCode===codeA ? g.roadH1     : g.localH1).filter(v => v > 0);
       document.getElementById("aFTH2H").value = h2hA.join(",");
       document.getElementById("bFTH2H").value = h2hB.join(",");
       document.getElementById("useFTH2H").checked = true;
       document.getElementById("h2hAutoTag").style.display = "inline";
+      if (h2hA1H.length >= 2) {
+        document.getElementById("a1HH2H").value = h2hA1H.join(",");
+        document.getElementById("b1HH2H").value = h2hB1H.join(",");
+        document.getElementById("use1HH2H").checked = true;
+      }
     } else {
       document.getElementById("useFTH2H").checked = false;
     }
@@ -944,7 +960,7 @@ function runEngine(){
   // 1H ENGINE
   let h1P=NaN,h1Line=NaN;
   let aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
-  const isNbaOrNcaa=league==="nba"||league==="ncaa";
+  const isNbaOrNcaa=league==="nba"||league==="ncaa"||league==="euroleague"||league==="eurocup";
   if(isNbaOrNcaa){
     const eb1H=eb/2;
     h1Line=mid(document.getElementById("h1Market").value);
