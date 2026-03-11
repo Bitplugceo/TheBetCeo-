@@ -730,10 +730,18 @@ async function fetchH2HGames(base, teamAId, teamBId, leagueSlug) {
    ============================================= */
 async function fetchTeamSchedule(base, teamId, leagueSlug) {
   try {
-    const url = `${base}/teams/${teamId}/schedule`;
-    const data = await proxyFetch(url);
-    // ESPN returns either data.events or data.team.schedule.events
-    const events = data?.events || data?.team?.schedule?.events || [];
+    // seasontype=2 = regular season, seasontype=3 = postseason
+    // We fetch both and merge so we always get completed games
+    const urlReg  = `${base}/teams/${teamId}/schedule?season=2025&seasontype=2`;
+    const urlPost = `${base}/teams/${teamId}/schedule?season=2025&seasontype=3`;
+    const [dataReg, dataPost] = await Promise.all([
+      proxyFetch(urlReg).catch(() => ({})),
+      proxyFetch(urlPost).catch(() => ({}))
+    ]);
+    const events = [
+      ...(dataReg?.events  || dataReg?.team?.schedule?.events  || []),
+      ...(dataPost?.events || dataPost?.team?.schedule?.events || [])
+    ];
 
     const scored = [], allowed = [];
     const tId = String(teamId);
@@ -804,9 +812,16 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
    ============================================= */
 async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
   try {
-    const url = `${base}/teams/${teamAId}/schedule`;
-    const data = await proxyFetch(url);
-    const events = data?.events || data?.team?.schedule?.events || [];
+    const urlReg  = `${base}/teams/${teamAId}/schedule?season=2025&seasontype=2`;
+    const urlPost = `${base}/teams/${teamAId}/schedule?season=2025&seasontype=3`;
+    const [dataReg, dataPost] = await Promise.all([
+      proxyFetch(urlReg).catch(() => ({})),
+      proxyFetch(urlPost).catch(() => ({}))
+    ]);
+    const events = [
+      ...(dataReg?.events  || dataReg?.team?.schedule?.events  || []),
+      ...(dataPost?.events || dataPost?.team?.schedule?.events || [])
+    ];
     const h2hGames = [];
     const tA = String(teamAId);
     const tB = String(teamBId);
