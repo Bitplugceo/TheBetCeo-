@@ -494,12 +494,27 @@ async function fetchEuroLeague() {
       document.getElementById("bAutoTag").style.display = "inline";
     }
 
-    // H2H
+    // H2H — search current season + previous season
     setStatus('<span class="spinner"></span>Scanning H2H...', "loading");
-    const h2hGames = allGames.filter(g =>
+    let h2hGames = allGames.filter(g =>
       (g.localCode === codeA && g.roadCode === codeB) ||
       (g.localCode === codeB && g.roadCode === codeA)
     ).sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5);
+
+    // If fewer than 2 H2H found, also search previous season
+    if (h2hGames.length < 2) {
+      const prevSeasonYear = parseInt(seasonCode.replace(compCode,"")) - 1;
+      const prevSeasonCode = compCode + prevSeasonYear;
+      try {
+        const prevGames = await fetchEuroGames(compCode, prevSeasonCode);
+        const prevH2H = prevGames.filter(g =>
+          (g.localCode === codeA && g.roadCode === codeB) ||
+          (g.localCode === codeB && g.roadCode === codeA)
+        );
+        h2hGames = [...h2hGames, ...prevH2H]
+          .sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,5);
+      } catch(e) {}
+    }
 
     if (h2hGames.length >= 2) {
       const h2hA   = h2hGames.map(g => g.localCode===codeA ? g.localScore : g.roadScore);
@@ -527,54 +542,79 @@ async function fetchEuroLeague() {
   }
 }
 
+function parseEuroGame(g) {
+  // Only process completed games
+  if (!g.played) return null;
+  const local = g.local, road = g.road;
+  if (!local || !road) return null;
+
+  const lp = local.partials || {};
+  const rp = road.partials  || {};
+
+  const lQ1 = Number(lp.partials1||0), lQ2 = Number(lp.partials2||0);
+  const lQ3 = Number(lp.partials3||0), lQ4 = Number(lp.partials4||0);
+  const rQ1 = Number(rp.partials1||0), rQ2 = Number(rp.partials2||0);
+  const rQ3 = Number(rp.partials3||0), rQ4 = Number(rp.partials4||0);
+
+  // Regulation = Q1+Q2+Q3+Q4 (strips OT automatically)
+  const lReg = lQ1+lQ2+lQ3+lQ4;
+  const rReg = rQ1+rQ2+rQ3+rQ4;
+  const lFull = Number(local.score||0);
+  const rFull = Number(road.score||0);
+
+  // Use quarter sum if plausible, else fall back to reported score
+  const lScore = (lReg > 0 && lReg >= lFull * 0.85) ? lReg : lFull;
+  const rScore = (rReg > 0 && rReg >= rFull * 0.85) ? rReg : rFull;
+
+  if (lScore <= 0 || rScore <= 0) return null;
+
+  return {
+    localCode:  (local.club?.code || local.code  || "").toUpperCase(),
+    roadCode:   (road.club?.code  || road.code   || "").toUpperCase(),
+    localScore: Math.round(lScore),
+    roadScore:  Math.round(rScore),
+    localH1:    lQ1 + lQ2,
+    roadH1:     rQ1 + rQ2,
+    date:       g.date || g.utcDate || "",
+    gameCode:   g.gameCode
+  };
+}
+
 async function fetchEuroGames(compCode, seasonCode) {
   const base = "https://api-live.euroleague.net/v2/competitions";
   const games = [];
-  // %26 encodes & so the Cloudflare Worker doesn't truncate the URL at &limit=
-  const [rsData, poData] = await Promise.allSettled([
-    proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS%26limit=500`),
-    proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=PO%26limit=100`)
-  ]);
-  for (const result of [rsData, poData]) {
-    if (result.status !== "fulfilled") continue;
-    for (const g of (result.value?.data || [])) {
-      if (!g.played) continue;
-      const local = g.local, road = g.road;
-      if (!local || !road) continue;
 
-      const lp = local.partials  || {};
-      const rp = road.partials   || {};
+  // Fetch by round — EuroLeague RS has up to 34 rounds, EuroCup up to 28
+  // This avoids the &limit parameter issue with the Cloudflare Worker URL parsing
+  const maxRound = compCode === "E" ? 34 : 28;
 
-      // Quarter scores — direct fields on partials object
-      const lQ1 = Number(lp.partials1||0), lQ2 = Number(lp.partials2||0);
-      const lQ3 = Number(lp.partials3||0), lQ4 = Number(lp.partials4||0);
-      const rQ1 = Number(rp.partials1||0), rQ2 = Number(rp.partials2||0);
-      const rQ3 = Number(rp.partials3||0), rQ4 = Number(rp.partials4||0);
+  // Fetch all rounds in batches of 10 parallel requests
+  const roundNums = Array.from({length: maxRound}, (_, i) => i + 1);
+  const batchSize = 10;
 
-      // OT strip: use Q1+Q2+Q3+Q4 as regulation score (strips any OT automatically)
-      const lReg = lQ1+lQ2+lQ3+lQ4;
-      const rReg = rQ1+rQ2+rQ3+rQ4;
-      const lFull = Number(local.score||0), rFull = Number(road.score||0);
-      // Only use regulation sum if quarters are populated and plausible
-      const lScore = (lReg > 0 && Math.abs(lReg - lFull) <= 30) ? lReg : lFull;
-      const rScore = (rReg > 0 && Math.abs(rReg - rFull) <= 30) ? rReg : rFull;
-
-      // 1H = Q1 + Q2
-      const lH1 = lQ1 + lQ2;
-      const rH1 = rQ1 + rQ2;
-
-      if (lScore > 0 && rScore > 0) {
-        games.push({
-          localCode:  local.club?.code || local.code  || "",
-          roadCode:   road.club?.code  || road.code   || "",
-          localScore: Math.round(lScore), roadScore: Math.round(rScore),
-          localH1: lH1, roadH1: rH1,
-          date: g.date || g.utcDate || "",
-          gameCode: g.gameCode
-        });
+  for (let i = 0; i < roundNums.length; i += batchSize) {
+    const batch = roundNums.slice(i, i + batchSize);
+    const results = await Promise.allSettled(
+      batch.map(r => proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${r}`))
+    );
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue;
+      for (const g of (result.value?.data || [])) {
+        const parsed = parseEuroGame(g);
+        if (parsed) games.push(parsed);
       }
     }
   }
+
+  // Also try playoffs
+  try {
+    const poData = await proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=PO`);
+    for (const g of (poData?.data || [])) {
+      const parsed = parseEuroGame(g);
+      if (parsed) games.push(parsed);
+    }
+  } catch(e) {}
+
   return games;
 }
 
