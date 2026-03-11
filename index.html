@@ -771,16 +771,22 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
       if (!mine) { mine = competitors[0]; opp = competitors[1]; }
       if (!mine || !opp) continue;
 
-      let myScore  = parseFloat(mine.score);
-      let oppScore = parseFloat(opp.score);
+      // ESPN schedule: score can be a number, string, or object {value, displayValue}
+      const parseScore = s => {
+        if (!s && s !== 0) return NaN;
+        if (typeof s === "object") return parseFloat(s.value || s.displayValue || 0);
+        return parseFloat(s);
+      };
+      let myScore  = parseScore(mine.score);
+      let oppScore = parseScore(opp.score);
       if (isNaN(myScore) || isNaN(oppScore) || myScore <= 0 || oppScore <= 0) continue;
 
       // OT strip — NCAA = 2 halves regulation
       const linesMe  = mine?.linescores || [];
       const linesOpp = opp?.linescores  || [];
       if (linesMe.length > 2 && linesOpp.length > 2) {
-        const sumMe  = linesMe.reduce((s, p)  => s + parseFloat(p?.value || 0), 0);
-        const sumOpp = linesOpp.reduce((s, p) => s + parseFloat(p?.value || 0), 0);
+        const sumMe  = linesMe.reduce((s, p)  => s + parseFloat(p?.value ?? p?.displayValue ?? 0), 0);
+        const sumOpp = linesOpp.reduce((s, p) => s + parseFloat(p?.value ?? p?.displayValue ?? 0), 0);
         if (Math.abs(sumMe - myScore) <= 1 && Math.abs(sumOpp - oppScore) <= 1) {
           let otMe = 0, otOpp = 0;
           for (let p = 2; p < linesMe.length; p++)  otMe  += parseFloat(linesMe[p]?.value  || 0);
@@ -844,8 +850,13 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
       const cA = competitors.find(c => String(c.id) === tA || String(c.team?.id) === tA) || competitors[0];
       const cB = competitors.find(c => String(c.id) === tB || String(c.team?.id) === tB) || competitors[1];
 
-      let scoreA = parseFloat(cA.score);
-      let scoreB = parseFloat(cB.score);
+      const parseScore2 = s => {
+        if (!s && s !== 0) return NaN;
+        if (typeof s === "object") return parseFloat(s.value || s.displayValue || 0);
+        return parseFloat(s);
+      };
+      let scoreA = parseScore2(cA.score);
+      let scoreB = parseScore2(cB.score);
       if (isNaN(scoreA) || isNaN(scoreB) || scoreA <= 0 || scoreB <= 0) continue;
 
       // OT strip
