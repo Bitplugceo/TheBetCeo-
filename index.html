@@ -618,8 +618,8 @@ async function fetchTeamSchedule(base, teamId, leagueSlug) {
       const opp  = competitors.find(c => String(c.team?.id) !== String(teamId));
       if (!mine || !opp) continue;
 
-      let myScore  = Number(mine.score);
-      let oppScore = Number(opp.score);
+      let myScore  = Number(mine.score) || parseInt(mine.score) || 0;
+      let oppScore = Number(opp.score)  || parseInt(opp.score)  || 0;
       if (myScore <= 0 || oppScore <= 0) continue;
 
       // OT stripping with validation
@@ -683,8 +683,8 @@ async function fetchH2HFromSchedules(base, teamAId, teamBId, leagueSlug) {
       const cB = competitors.find(c => String(c.team?.id) === tB);
       if (!cA || !cB) continue;
 
-      let scoreA = Number(cA.score);
-      let scoreB = Number(cB.score);
+      let scoreA = Number(cA.score) || parseInt(cA.score) || 0;
+      let scoreB = Number(cB.score) || parseInt(cB.score) || 0;
       if (scoreA <= 0 || scoreB <= 0) continue;
 
       // OT stripping with validation
@@ -737,40 +737,54 @@ function extractLastFive(games, teamId) {
 }
 
 /* =============================================
-   TEAM SEARCH — ESPN search endpoint first,
-   then team list fallback. Works for NCAA full
-   names like "Xavier Musketeers".
+   TEAM SEARCH — multiple strategies for NCAA
    ============================================= */
 async function searchTeamFromAPI(base, name) {
-  // 1) Try ESPN's search suggest endpoint — best for NCAA full names
+  const n = name.toLowerCase().trim();
+
+  // 1) Try ESPN site search — works well for full NCAA names
   try {
-    const searchUrl = `https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=5&type=team&sport=basketball`;
+    const searchUrl = `https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=10&type=team&sport=basketball`;
     const data = await proxyFetch(searchUrl);
     const results = data?.items || data?.results || [];
     for (const r of results) {
+      // ESPN search returns uid like "s:40~l:41~t:2509" — extract the t: part
+      const uid = r?.uid || r?.team?.uid || "";
+      const uidMatch = uid.match(/t:(\d+)/);
+      if (uidMatch) return uidMatch[1];
+      // Sometimes id is returned directly
       const id = r?.id || r?.team?.id;
-      if (id) return String(id);
+      if (id && String(id).match(/^\d+$/)) return String(id);
     }
   } catch(e) { /* fall through */ }
 
-  // 2) Try team list with smarter matching
+  // 2) ESPN suggest/autocomplete endpoint
+  try {
+    const suggestUrl = `https://site.api.espn.com/apis/common/v3/typeahead?query=${encodeURIComponent(name)}&sport=basketball&limit=5`;
+    const data = await proxyFetch(suggestUrl);
+    const results = data?.items || [];
+    for (const r of results) {
+      const uid = r?.uid || "";
+      const uidMatch = uid.match(/t:(\d+)/);
+      if (uidMatch) return uidMatch[1];
+    }
+  } catch(e) { /* fall through */ }
+
+  // 3) Team list fuzzy match
   try {
     const url = `${base}/teams?limit=500`;
     const data = await proxyFetch(url);
     const leagues = data?.sports?.[0]?.leagues || data?.leagues || [];
     let teams = [];
     if (leagues.length > 0) {
-      for (const l of leagues) {
-        teams = teams.concat(l?.teams || []);
-      }
+      for (const l of leagues) teams = teams.concat(l?.teams || []);
     } else {
       teams = data?.teams || [];
     }
 
-    const n = name.toLowerCase().trim();
     const words = n.split(/\s+/).filter(w => w.length >= 3);
-
     let best = null, bestScore = 0;
+
     for (let t of teams) {
       const team = t.team || t;
       const fields = [
@@ -781,8 +795,8 @@ async function searchTeamFromAPI(base, name) {
       if (fields.includes(n)) return String(team.id);
 
       let score = words.filter(w => fields.includes(w)).length;
-      // Bonus: if the school name (location) matches
       if (team.location && n.includes(team.location.toLowerCase())) score += 2;
+      if (team.nickname && n.includes(team.nickname.toLowerCase())) score += 2;
       if (score > bestScore) { bestScore = score; best = String(team.id); }
     }
     return bestScore >= 2 ? best : null;
