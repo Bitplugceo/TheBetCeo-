@@ -406,9 +406,9 @@ async function fetchESPN() {
     const h2hGames = await fetchH2HGames(espnBase, teamAId, teamBId, leagueSlug);
 
     if (h2hGames.length >= 2) {
-      // For H2H fields: Team A perspective scored/allowed from each matchup
+      const last5h2h = h2hGames.slice(0, 5);
       const h2hA = [], h2hB = [];
-      for (const g of h2hGames) {
+      for (const g of last5h2h) {
         if (g.teamAId === String(teamAId)) {
           h2hA.push(g.scoreA);
           h2hB.push(g.scoreB);
@@ -420,24 +420,18 @@ async function fetchESPN() {
       document.getElementById("aFTH2H").value = h2hA.join(",");
       document.getElementById("bFTH2H").value = h2hB.join(",");
       document.getElementById("useFTH2H").checked = true;
-      const otNote = h2hGames.some(g => g.hasOT) ? " (OT stripped)" : "";
-      messages.push(`H2H: ${h2hGames.length} games ✅${otNote}`);
       document.getElementById("h2hAutoTag").style.display = "inline";
-    } else if (h2hGames.length === 1) {
-      messages.push(`H2H: only 1 game found (need 2+, skipped)`);
-      document.getElementById("useFTH2H").checked = false;
     } else {
-      messages.push(`H2H: no matchups found since 2024`);
       document.getElementById("useFTH2H").checked = false;
     }
 
     const allGood = aStats && bStats && aStats.scored.length > 0 && bStats.scored.length > 0;
-    const statusClass = allGood ? "ok" : (aStats || bStats) ? "loading" : "err";
-    const prefix = allGood ? "✅ " : "⚠️ ";
-    setStatus(
-      prefix + messages.join(" | ") + (allGood ? " — Add lines then hit Run!" : " — Fill missing fields manually"),
-      statusClass
-    );
+    if (!allGood) {
+      const missing = messages.filter(m => m.includes("❌")).join(" | ");
+      setStatus("⚠️ " + missing + " — Fill missing fields manually", "err");
+    } else {
+      setStatus("", "");
+    }
 
   } catch(e) {
     setStatus("❌ " + e.message, "err");
