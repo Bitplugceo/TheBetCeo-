@@ -494,7 +494,10 @@ async function fetchRecentGamesFromScoreboard(base, daysBack, leagueSlug) {
   const allGames = [];
   const today = getDateString(0);
   const from  = getDateString(daysBack);
-  const url = `${base}/scoreboard?dates=${from}-${today}&limit=500`;
+
+  // NCAA needs groups=50 to get Division I games
+  const extra = leagueSlug === "mens-college-basketball" ? "&groups=50&limit=500" : "&limit=500";
+  const url = `${base}/scoreboard?dates=${from}-${today}${extra}`;
 
   try {
     const data = await proxyFetch(url);
@@ -504,7 +507,7 @@ async function fetchRecentGamesFromScoreboard(base, daysBack, leagueSlug) {
     for (let i = 1; i <= 14; i++) {
       const dateStr = getDateString(i);
       try {
-        const data = await proxyFetch(`${base}/scoreboard?dates=${dateStr}`);
+        const data = await proxyFetch(`${base}/scoreboard?dates=${dateStr}${extra}`);
         allGames.push(...parseEventsFromData(data, leagueSlug));
       } catch(e2) { /* skip bad day */ }
     }
@@ -538,9 +541,11 @@ async function fetchH2HGames(base, teamAId, teamBId, leagueSlug) {
     cursor.setDate(cursor.getDate() + 90);
   }
 
+  const extra = leagueSlug === "mens-college-basketball" ? "&groups=50&limit=500" : "&limit=500";
+
   for (const chunk of chunks) {
     try {
-      const url = `${base}/scoreboard?dates=${chunk.from}-${chunk.to}&limit=500`;
+      const url = `${base}/scoreboard?dates=${chunk.from}-${chunk.to}${extra}`;
       const data = await proxyFetch(url);
       const games = parseEventsFromData(data, leagueSlug);
       for (const g of games) {
