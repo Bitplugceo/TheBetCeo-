@@ -598,7 +598,8 @@ async function fetchEuroGames(compCode, seasonCode) {
   // EuroLeague RS = up to 34 rounds, EuroCup = up to 28
   const maxRound = compCode === "E" ? 34 : 28;
 
-  // Fetch ALL rounds in parallel (no batching — let Promise.allSettled handle failures)
+  // IMPORTANT: encode & as %26 so Cloudflare Worker doesn't split the URL
+  // Worker reads: ?url=TARGET — any unencoded & in TARGET becomes a new worker param
   const rsResults = await Promise.allSettled(
     Array.from({length: maxRound}, (_, i) =>
       proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
@@ -608,7 +609,7 @@ async function fetchEuroGames(compCode, seasonCode) {
     if (r.status === "fulfilled") addGames(r.value);
   }
 
-  // Also fetch playoffs — no roundNumber needed, usually small
+  // Playoffs — single param, no & needed
   try {
     addGames(await proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=PO`));
   } catch(e) {}
