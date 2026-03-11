@@ -325,6 +325,7 @@ async function fetchESPN() {
       if (h2hA1H.length >= 2) {
         document.getElementById("a1HH2H").value = h2hA1H.join(",");
         document.getElementById("b1HH2H").value = h2hB1H.join(",");
+        document.getElementById("use1HH2H").checked = true;
       }
       messages.push(`H2H: ${Math.min(h2hGames.length,5)} games ✅`);
     } else {
