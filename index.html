@@ -472,6 +472,22 @@ function getCurrentEuroSeason(compCode) {
   return compCode + seasonYear;
 }
 
+const EURO_MONTHS = {"Jan":"01","Feb":"02","Mar":"03","Apr":"04","May":"05","Jun":"06",
+  "Jul":"07","Aug":"08","Sep":"09","Oct":"10","Nov":"11","Dec":"12"};
+
+function euroDateToISO(raw) {
+  // "Oct 17, 2025" -> "2025-10-17" (reliable ISO for JS Date sorting)
+  if (!raw) return "";
+  const parts = raw.trim().split(/[\s,]+/).filter(Boolean); // ["Oct","17","2025"]
+  if (parts.length === 3) {
+    const m = EURO_MONTHS[parts[0]] || "01";
+    const d = parts[1].padStart(2,"0");
+    const y = parts[2];
+    return `${y}-${m}-${d}`;
+  }
+  return raw; // already ISO or unknown format
+}
+
 function parseEuroXML(xml) {
   const games = [];
   const seen = new Set();
@@ -488,7 +504,7 @@ function parseEuroXML(xml) {
     if (!homeCode || !awayCode || homeScore <= 0 || awayScore <= 0) continue;
     if (seen.has(gameCode)) continue;
     seen.add(gameCode);
-    const dateISO = (() => { try { return new Date(dateRaw).toISOString(); } catch(e) { return dateRaw; } })();
+    const dateISO = euroDateToISO(dateRaw);
     games.push({
       localCode: homeCode, roadCode: awayCode,
       localScore: homeScore, roadScore: awayScore,
