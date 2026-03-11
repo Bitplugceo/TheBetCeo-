@@ -329,7 +329,7 @@ async function fetchESPN() {
     }
 
     const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
-    setStatus((allGood ? "✅ " : "⚠️ ") + messages.join(" | ") + (allGood ? " — Add lines then hit Run!" : " — Fill missing fields manually"), allGood ? "ok" : "err");
+    setStatus("", "");
 
   } catch(e) {
     setStatus("❌ " + e.message, "err");
