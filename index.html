@@ -492,7 +492,8 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
                 if (otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
               }
             }
-            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date });
+            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id });
+            gameAdded = true;
             continue;
           }
         }
@@ -521,7 +522,8 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             if (otA>0||otB>0){ sA-=otA; sB-=otB; }
           }
         }
-        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date });
+        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id });
+        gameAdded = true;
         break;
       }
     } catch(e) {
@@ -599,7 +601,10 @@ async function fetchNbaScoreboard(base, daysBack) {
 
 async function fetchNbaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
-  const h2h = [];
+  const pvN = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+
+  // Step 1: Find H2H game IDs via date-range scoreboard
+  const gameRefs = [];
   const start = new Date("2024-01-01"), end = new Date();
   let cursor = new Date(start);
   while (cursor < end) {
@@ -609,14 +614,104 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
     const from = cursor.toISOString().slice(0,10).replace(/-/g,"");
     const to   = ce.toISOString().slice(0,10).replace(/-/g,"");
     try {
-      const games = parseNbaEvents(await proxyFetch(`${base}/scoreboard?dates=${from}-${to}&limit=500`));
-      for (const g of games) {
-        if ((g.teamAId===tA&&g.teamBId===tB)||(g.teamAId===tB&&g.teamBId===tA)) h2h.push(g);
+      const data = await proxyFetch(`${base}/scoreboard?dates=${from}-${to}&limit=500`);
+      for (const ev of (data?.events || [])) {
+        const comp = ev?.competitions?.[0];
+        if (!comp?.status?.type?.completed) continue;
+        const c = comp.competitors || [];
+        if (c.length < 2) continue;
+        const ids = [String(c[0]?.team?.id), String(c[1]?.team?.id)];
+        if ((ids[0]===tA&&ids[1]===tB)||(ids[0]===tB&&ids[1]===tA)) {
+          if (!ev.id) continue; // skip games with no ID — can't dedup or fetch
+          const rawScoreA = ids[0]===tA ? parseFloat(c[0].score) : parseFloat(c[1].score);
+          const rawScoreB = ids[0]===tB ? parseFloat(c[0].score) : parseFloat(c[1].score);
+          gameRefs.push({ id: String(ev.id), date: ev.date || "", rawScoreA, rawScoreB });
+        }
       }
     } catch(e){}
     cursor.setDate(cursor.getDate()+90);
   }
-  h2h.sort((a,b) => (a.date > b.date ? -1 : 1));
+
+  if (gameRefs.length === 0) return [];
+
+  // Deduplicate by event ID before sorting
+  const seenIds = new Set();
+  const uniqueGameRefs = gameRefs.filter(g => { if (seenIds.has(g.id)) return false; seenIds.add(g.id); return true; });
+  uniqueGameRefs.sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da; // newest first
+  });
+
+  // Step 2: Fetch each game's summary for full linescores + OT stripping
+  const h2h = [];
+  for (const ref of uniqueGameRefs.slice(0, 5)) {
+    let gameAdded = false;
+    try {
+      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const headerComp = data?.header?.competitions?.[0];
+      if (headerComp) {
+        const competitors = headerComp?.competitors || [];
+        const cA = competitors.find(c => String(c.team?.id)===tA || String(c.id)===tA);
+        const cB = competitors.find(c => String(c.team?.id)===tB || String(c.id)===tB);
+        if (cA && cB) {
+          let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
+          if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
+            // OT strip — NBA = 4 quarters regulation
+            const lA = cA?.linescores || [], lB = cB?.linescores || [];
+            if (lA.length > 4 && lB.length > 4) {
+              const sumA = lA.reduce((s,p)=>s+pvN(p),0), sumB = lB.reduce((s,p)=>s+pvN(p),0);
+              if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
+                let otA=0, otB=0;
+                for (let i=4; i<lA.length; i++) otA += pvN(lA[i]);
+                for (let i=4; i<lB.length; i++) otB += pvN(lB[i]);
+                if (otA>0||otB>0){ sA-=otA; sB-=otB; }
+              }
+            }
+            h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id });
+            gameAdded = true;
+            continue;
+          }
+        }
+      }
+    } catch(e) {}
+    // Fallback: use scoreboard single day
+    try {
+      const dateKey = ref.date.slice(0,10).replace(/-/g,"");
+      const sbData = await proxyFetch(`${base}/scoreboard?dates=${dateKey}&limit=200`);
+      for (const ev of (sbData?.events || [])) {
+        if (String(ev.id) !== String(ref.id)) continue;
+        const comp = ev?.competitions?.[0];
+        if (!comp?.status?.type?.completed) continue;
+        const c = comp.competitors || [];
+        const cA = c.find(x => String(x.team?.id)===tA);
+        const cB = c.find(x => String(x.team?.id)===tB);
+        if (!cA || !cB) continue;
+        let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
+        if (isNaN(sA)||isNaN(sB)||sA<=0||sB<=0) continue;
+        const lA = cA?.linescores||[], lB = cB?.linescores||[];
+        if (lA.length > 4 && lB.length > 4) {
+          const sumA=lA.reduce((s,p)=>s+pvN(p),0), sumB=lB.reduce((s,p)=>s+pvN(p),0);
+          if (Math.abs(sumA-sA)<=3 && Math.abs(sumB-sB)<=3) {
+            let otA=0,otB=0;
+            for(let i=4;i<lA.length;i++) otA+=pvN(lA[i]);
+            for(let i=4;i<lB.length;i++) otB+=pvN(lB[i]);
+            if(otA>0||otB>0){sA-=otA;sB-=otB;}
+          }
+        }
+        h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), date: ref.date, eventId: ref.id });
+        gameAdded = true;
+        break;
+      }
+    } catch(e) {}
+
+    // Last resort: always include game using raw scores if nothing else worked
+    if (!gameAdded && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
+      h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(ref.rawScoreA), scoreB: Math.round(ref.rawScoreB), date: ref.date, eventId: ref.id });
+    }
+  }
+
+  h2h.sort((a,b) => { if(!a.date) return 1; if(!b.date) return -1; return a.date > b.date ? -1 : 1; });
   return h2h;
 }
 
