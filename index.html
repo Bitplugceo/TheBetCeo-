@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <!-- v11 - vir debug -->
+  <!-- v13 - gameCode 1H match -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -519,28 +519,6 @@ function parseEuroXML(xml) {
   return games;
 }
 
-function parseEuroGameV2(g) {
-  if (!g.played) return null;
-  const local = g.local, road = g.road;
-  if (!local || !road) return null;
-  const lp = local.partials||{}, rp = road.partials||{};
-  const lQ1=Number(lp.partials1||0), lQ2=Number(lp.partials2||0);
-  const lQ3=Number(lp.partials3||0), lQ4=Number(lp.partials4||0);
-  const rQ1=Number(rp.partials1||0), rQ2=Number(rp.partials2||0);
-  const rQ3=Number(rp.partials3||0), rQ4=Number(rp.partials4||0);
-  const lReg=lQ1+lQ2+lQ3+lQ4, rReg=rQ1+rQ2+rQ3+rQ4;
-  const lFull=Number(local.score||0), rFull=Number(road.score||0);
-  const lScore=(lReg>0&&lReg>=lFull*0.85)?lReg:lFull;
-  const rScore=(rReg>0&&rReg>=rFull*0.85)?rReg:rFull;
-  if (lScore<=0||rScore<=0) return null;
-  return {
-    localCode:(local.club?.code||local.code||"").toUpperCase(),
-    roadCode: (road.club?.code ||road.code ||"").toUpperCase(),
-    localScore:Math.round(lScore), roadScore:Math.round(rScore),
-    localH1:lQ1+lQ2, roadH1:rQ1+rQ2,
-    date:g.utcDate||g.date||"", gameCode:g.gameCode
-  };
-}
 
 async function fetchEuroGames(compCode, seasonCode) {
   // v1 XML — single call, all played games, correct dates
@@ -554,9 +532,8 @@ async function fetchEuroGames(compCode, seasonCode) {
     console.log("Last 3 games:", games.slice(-3).map(g=>g.date+' '+g.localCode+' '+g.localScore+'-'+g.roadCode+' '+g.roadScore));
   } // already deduped by gameCode
 
-  // v2 — fetch 1H data and match to v1 games by team codes + score (not gameCode which differs)
+  // v2 — fetch 1H quarter data only, matched by gameCode
   try {
-    // Both comps on same domain
     const base = 'https://api-live.euroleague.net/v2/competitions';
     const maxRound = compCode === "E" ? 34 : 28;
     const rsResults = await Promise.allSettled(
@@ -564,23 +541,25 @@ async function fetchEuroGames(compCode, seasonCode) {
         proxyFetch(`${base}/${compCode}/seasons/${seasonCode}/games?phaseTypeCode=RS&roundNumber=${i+1}`)
       )
     );
-    // Build 1H lookup: key = "LCODE-RCODE-LSCORE-RSCORE"
     const h1Map = {};
     for (const r of rsResults) {
       if (r.status !== "fulfilled") continue;
       for (const g of (r.value?.data||[])) {
-        const p = parseEuroGameV2(g);
-        if (!p || p.localH1 <= 0) continue;
-        const key = `${p.localCode}-${p.roadCode}-${p.localScore}-${p.roadScore}`;
-        h1Map[key] = {localH1: p.localH1, roadH1: p.roadH1};
+        if (!g.played || !g.gameCode) continue;
+        const lp = g.local?.partials||{}, rp = g.road?.partials||{};
+        const lH1 = (Number(lp.partials1)||0)+(Number(lp.partials2)||0);
+        const rH1 = (Number(rp.partials1)||0)+(Number(rp.partials2)||0);
+        if (lH1 > 0) h1Map[g.gameCode] = {localH1: lH1, roadH1: rH1};
       }
     }
-    // Enrich v1 games with 1H
     for (const g of games) {
-      const key = `${g.localCode}-${g.roadCode}-${g.localScore}-${g.roadScore}`;
-      if (h1Map[key]) { g.localH1 = h1Map[key].localH1; g.roadH1 = h1Map[key].roadH1; }
+      if (g.gameCode && h1Map[g.gameCode]) {
+        g.localH1 = h1Map[g.gameCode].localH1;
+        g.roadH1  = h1Map[g.gameCode].roadH1;
+      }
     }
   } catch(e) {}
+
 
   // Sort newest first — ISO "2026-03-07" string comparison is reliable
   games.sort((a,b) => b.date > a.date ? 1 : b.date < a.date ? -1 : 0);
@@ -616,11 +595,7 @@ async function fetchEuroLeague() {
     setStatus('<span class="spinner"></span>Fetching game stats...', "loading");
     const allGames = await fetchEuroGames(compCode, seasonCode);
     if (!allGames.length) throw new Error("No game data found.");
-    // DEBUG: show VIR's last 5 games
-    const virGames = allGames.filter(g=>g.localCode===codeA||g.roadCode===codeA).slice(0,5);
-    const dbg = virGames.map(g=>`${g.date} ${g.localCode}${g.localScore}-${g.roadCode}${g.roadScore}`).join(" | ");
-    setStatus("DEBUG VIR: " + dbg, "loading");
-    await new Promise(r=>setTimeout(r,8000));
+
 
     // Last 5 for each team
     const aStats = extractEuroLastFive(allGames, codeA);
