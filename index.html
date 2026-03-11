@@ -225,7 +225,7 @@ small.error-note {color:#ff6b6b; font-size:10px; display:block; margin-top:2px;}
   <!-- H2H -->
 
   <div class="section">
-    <h3>H2H</h3>
+    <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped)</span></h3>
     <label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
     <input id="aFTH2H" placeholder="82,78,84,76,82">
     <input id="bFTH2H" placeholder="79,81,77,80,78">
@@ -317,6 +317,7 @@ function onLeagueChange() {
 function clearAutoFill() {
   document.getElementById("aAutoTag").style.display = "none";
   document.getElementById("bAutoTag").style.display = "none";
+  document.getElementById("h2hAutoTag").style.display = "none";
   setStatus("", "");
 }
 
@@ -371,7 +372,7 @@ async function fetchESPN() {
     setStatus('<span class="spinner"></span>Scanning recent scoreboards...', "loading");
 
     // Collect all completed games from the last 45 days via scoreboard
-    const allGames = await fetchRecentGamesFromScoreboard(espnBase, 45);
+    const allGames = await fetchRecentGamesFromScoreboard(espnBase, 45, leagueSlug);
 
     if (allGames.length === 0) {
       throw new Error("No recent game data available from ESPN scoreboard.");
@@ -400,6 +401,36 @@ async function fetchESPN() {
       messages.push(`${teamBName}: not found ❌`);
     }
 
+    // --- H2H FETCH (2024-01-01 → today) ---
+    setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
+    const h2hGames = await fetchH2HGames(espnBase, teamAId, teamBId, leagueSlug);
+
+    if (h2hGames.length >= 2) {
+      // For H2H fields: Team A perspective scored/allowed from each matchup
+      const h2hA = [], h2hB = [];
+      for (const g of h2hGames) {
+        if (g.teamAId === String(teamAId)) {
+          h2hA.push(g.scoreA);
+          h2hB.push(g.scoreB);
+        } else {
+          h2hA.push(g.scoreB);
+          h2hB.push(g.scoreA);
+        }
+      }
+      document.getElementById("aFTH2H").value = h2hA.join(",");
+      document.getElementById("bFTH2H").value = h2hB.join(",");
+      document.getElementById("useFTH2H").checked = true;
+      const otNote = h2hGames.some(g => g.hasOT) ? " (OT stripped)" : "";
+      messages.push(`H2H: ${h2hGames.length} games ✅${otNote}`);
+      document.getElementById("h2hAutoTag").style.display = "inline";
+    } else if (h2hGames.length === 1) {
+      messages.push(`H2H: only 1 game found (need 2+, skipped)`);
+      document.getElementById("useFTH2H").checked = false;
+    } else {
+      messages.push(`H2H: no matchups found since 2024`);
+      document.getElementById("useFTH2H").checked = false;
+    }
+
     const allGood = aStats && bStats && aStats.scored.length > 0 && bStats.scored.length > 0;
     const statusClass = allGood ? "ok" : (aStats || bStats) ? "loading" : "err";
     const prefix = allGood ? "✅ " : "⚠️ ";
@@ -416,67 +447,71 @@ async function fetchESPN() {
 }
 
 /* =============================================
-   FETCH SCOREBOARD FOR DATE RANGE
-   Pulls day-by-day scoreboards and collects
-   all completed games with real scores.
+   DATE RANGE FETCHER
+   Fetches all completed games between two dates
+   using ESPN scoreboard endpoint.
+   Parses linescores to strip OT periods.
    ============================================= */
-async function fetchRecentGamesFromScoreboard(base, daysBack) {
+function parseEventsFromData(data, leagueSlug) {
+  const games = [];
+  const events = data?.events || [];
+  const regulationPeriods = (leagueSlug === "mens-college-basketball") ? 2 : 4;
+
+  for (const ev of events) {
+    const comp = ev?.competitions?.[0];
+    if (!comp) continue;
+    const competitors = comp?.competitors || [];
+    if (competitors.length < 2) continue;
+    const status = comp?.status?.type?.completed;
+    if (!status) continue;
+
+    let scoreA = Number(competitors[0]?.score);
+    let scoreB = Number(competitors[1]?.score);
+    if (scoreA <= 0 || scoreB <= 0) continue;
+
+    const linesA = competitors[0]?.linescores || [];
+    const linesB = competitors[1]?.linescores || [];
+
+    let hasOT = false;
+    if (linesA.length > regulationPeriods) {
+      hasOT = true;
+      let otA = 0, otB = 0;
+      for (let p = regulationPeriods; p < linesA.length; p++) otA += Number(linesA[p]?.value || 0);
+      for (let p = regulationPeriods; p < linesB.length; p++) otB += Number(linesB[p]?.value || 0);
+      scoreA -= otA;
+      scoreB -= otB;
+    }
+
+    if (scoreA <= 0 || scoreB <= 0) continue;
+
+    games.push({
+      teamAId: String(competitors[0]?.team?.id),
+      teamBId: String(competitors[1]?.team?.id),
+      scoreA,
+      scoreB,
+      date: ev?.date || "",
+      hasOT
+    });
+  }
+  return games;
+}
+
+async function fetchRecentGamesFromScoreboard(base, daysBack, leagueSlug) {
   const allGames = [];
   const today = getDateString(0);
   const from  = getDateString(daysBack);
-
-  // ESPN supports a date range param: ?dates=YYYYMMDD-YYYYMMDD
-  // Some versions support limit param too
   const url = `${base}/scoreboard?dates=${from}-${today}&limit=500`;
 
   try {
     const data = await proxyFetch(url);
-    const events = data?.events || [];
-    for (const ev of events) {
-      const comp = ev?.competitions?.[0];
-      if (!comp) continue;
-      const competitors = comp?.competitors || [];
-      if (competitors.length < 2) continue;
-
-      // Only include completed games with real scores
-      const status = comp?.status?.type?.completed;
-      if (!status) continue;
-
-      const scoreA = Number(competitors[0]?.score);
-      const scoreB = Number(competitors[1]?.score);
-      if (scoreA <= 0 || scoreB <= 0) continue;
-
-      allGames.push({
-        teamAId: String(competitors[0]?.team?.id),
-        teamBId: String(competitors[1]?.team?.id),
-        scoreA,
-        scoreB,
-        date: ev?.date || ""
-      });
-    }
+    allGames.push(...parseEventsFromData(data, leagueSlug));
   } catch(e) {
-    // Fallback: try fetching day by day for last 14 days if range fails
+    // Fallback: day-by-day for last 14 days
     for (let i = 1; i <= 14; i++) {
       const dateStr = getDateString(i);
       try {
         const data = await proxyFetch(`${base}/scoreboard?dates=${dateStr}`);
-        const events = data?.events || [];
-        for (const ev of events) {
-          const comp = ev?.competitions?.[0];
-          if (!comp) continue;
-          const competitors = comp?.competitors || [];
-          if (competitors.length < 2) continue;
-          const scoreA = Number(competitors[0]?.score);
-          const scoreB = Number(competitors[1]?.score);
-          if (scoreA <= 0 || scoreB <= 0) continue;
-          allGames.push({
-            teamAId: String(competitors[0]?.team?.id),
-            teamBId: String(competitors[1]?.team?.id),
-            scoreA,
-            scoreB,
-            date: ev?.date || ""
-          });
-        }
+        allGames.push(...parseEventsFromData(data, leagueSlug));
       } catch(e2) { /* skip bad day */ }
     }
   }
@@ -485,13 +520,53 @@ async function fetchRecentGamesFromScoreboard(base, daysBack) {
 }
 
 /* =============================================
+   FETCH H2H GAMES — 2024-01-01 TO TODAY
+   Scans in ~90-day chunks to avoid ESPN limits.
+   Strips OT via linescores.
+   Only keeps games where BOTH team IDs match.
+   ============================================= */
+async function fetchH2HGames(base, teamAId, teamBId, leagueSlug) {
+  const h2hGames = [];
+  const tA = String(teamAId);
+  const tB = String(teamBId);
+
+  const startDate = new Date("2024-01-01");
+  const endDate   = new Date();
+  const chunks = [];
+  let cursor = new Date(startDate);
+  while (cursor < endDate) {
+    const chunkEnd = new Date(cursor);
+    chunkEnd.setDate(chunkEnd.getDate() + 89);
+    if (chunkEnd > endDate) chunkEnd.setTime(endDate.getTime());
+    const from = cursor.toISOString().slice(0,10).replace(/-/g,"");
+    const to   = chunkEnd.toISOString().slice(0,10).replace(/-/g,"");
+    chunks.push({ from, to });
+    cursor.setDate(cursor.getDate() + 90);
+  }
+
+  for (const chunk of chunks) {
+    try {
+      const url = `${base}/scoreboard?dates=${chunk.from}-${chunk.to}&limit=500`;
+      const data = await proxyFetch(url);
+      const games = parseEventsFromData(data, leagueSlug);
+      for (const g of games) {
+        const isH2H = (g.teamAId === tA && g.teamBId === tB) ||
+                      (g.teamAId === tB && g.teamBId === tA);
+        if (isH2H) h2hGames.push(g);
+      }
+    } catch(e) { /* skip failed chunk */ }
+  }
+
+  // Sort newest → oldest
+  h2hGames.sort((a, b) => (a.date > b.date ? -1 : 1));
+  return h2hGames;
+}
+
+/* =============================================
    EXTRACT LAST 5 GAMES FOR A TEAM
-   Searches collected games for a given team ID
    ============================================= */
 function extractLastFive(games, teamId) {
   const scored = [], allowed = [];
-
-  // Sort newest first
   const sorted = [...games].sort((a, b) => (b.date > a.date ? 1 : -1));
 
   for (const g of sorted) {
@@ -506,12 +581,8 @@ function extractLastFive(games, teamId) {
   }
 
   if (scored.length < 2) return null;
-
-  // Return oldest-first so the engine sees chronological order
-  return {
-    scored:  scored.reverse(),
-    allowed: allowed.reverse()
-  };
+  // Already newest-first from the sort above — keep that order
+  return { scored, allowed };
 }
 
 /* =============================================
@@ -841,6 +912,7 @@ function clearAll() {
   });
   document.getElementById("aAutoTag").style.display = "none";
   document.getElementById("bAutoTag").style.display = "none";
+  document.getElementById("h2hAutoTag").style.display = "none";
   setStatus("", "");
   const table = document.getElementById("results");
   table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
