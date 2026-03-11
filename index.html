@@ -380,7 +380,7 @@ function parseNcaaScoreboard(data, tId) {
 
   const events = [...(data?.events || [])];
   // Sort newest first
-  events.sort((a, b) => (a.date > b.date ? -1 : 1));
+  events.sort((a,b) => { const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0; return db-da; });
 
   for (const ev of events) {
     if (scored.length >= 5) break;
@@ -461,7 +461,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
   // Deduplicate by event id
   const seen = new Set();
   const uniqueRefs = gameRefs.filter(g => { if (seen.has(g.id)) return false; seen.add(g.id); return true; });
-  uniqueRefs.sort((a,b) => (a.date > b.date ? -1 : 1));
+  uniqueRefs.sort((a,b) => { const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0; return db-da; });
 
   // Step 2: Fetch each game's full event data for linescores
   const h2h = [];
@@ -548,7 +548,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
     }
   }
 
-  h2h.sort((a,b) => (a.date > b.date ? -1 : 1));
+  h2h.sort((a,b) => { const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0; return db-da; });
   return h2h.slice(0,5);
 }
 
@@ -711,13 +711,13 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
     }
   }
 
-  h2h.sort((a,b) => { if(!a.date) return 1; if(!b.date) return -1; return a.date > b.date ? -1 : 1; });
+  h2h.sort((a,b) => { const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0; return db-da; });
   return h2h;
 }
 
 function extractLastFive(games, teamId) {
   const scored=[], allowed=[];
-  const sorted = [...games].sort((a,b) => (b.date > a.date ? 1 : -1));
+  const sorted = [...games].sort((a,b) => { const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0; return db-da; });
   for (const g of sorted) {
     if (scored.length >= 5) break;
     if (g.teamAId===teamId)      { scored.push(g.scoreA); allowed.push(g.scoreB); }
