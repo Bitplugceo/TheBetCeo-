@@ -479,13 +479,20 @@ function lookupTeamId(name) {
   // Exact match first
   if (NCAA_TEAM_MAP[n] !== undefined) return NCAA_TEAM_MAP[n];
   if (NBA_TEAM_MAP[n] !== undefined) return NBA_TEAM_MAP[n];
-  // Partial match
+  // Best partial match: prefer longer key matches (more specific wins)
+  let bestKey = null, bestLen = 0;
   for (let key of Object.keys(NCAA_TEAM_MAP)) {
-    if (n.includes(key) || key.includes(n)) return NCAA_TEAM_MAP[key];
+    if ((n.includes(key) || key.includes(n)) && key.length > bestLen) {
+      bestKey = key; bestLen = key.length;
+    }
   }
+  if (bestKey) return NCAA_TEAM_MAP[bestKey];
   for (let key of Object.keys(NBA_TEAM_MAP)) {
-    if (n.includes(key) || key.includes(n)) return NBA_TEAM_MAP[key];
+    if ((n.includes(key) || key.includes(n)) && key.length > bestLen) {
+      bestKey = key; bestLen = key.length;
+    }
   }
+  if (bestKey) return NBA_TEAM_MAP[bestKey];
   return null;
 }
 
@@ -580,6 +587,7 @@ async function fetchESPN() {
     if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname.`);
     if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname.`);
 
+    dbg('Resolved IDs: teamA='+teamAId+' teamB='+teamBId);
     setStatus('<span class="spinner"></span>Loading game stats...', "loading");
 
     let aStats, bStats;
@@ -767,7 +775,7 @@ async function fetchNcaaSchedule(base, teamId) {
 // ─── FIX 3: NCAA H2H – scan BOTH teams' schedules + normalizeId everywhere ───
 async function fetchNcaaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
-  dbg('--- H2H FETCH START tA='+tA+' tB='+tB);
+  dbg('--- H2H FETCH START tA='+tA+' tB='+tB+' (from ids: '+teamAId+','+teamBId+')');
   const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
@@ -779,6 +787,16 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
           const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
           const events = r?.events || r?.team?.schedule?.events || [];
           dbg(`  scan ${scanId} s${season}/t${stype}: ${events.length} events`);
+          // Log first completed game's competitor IDs to diagnose matching
+          if (events.length > 0 && season === '2026' && stype === '2') {
+            for (const _ev of events.slice(0,3)) {
+              const _comp = _ev?.competitions?.[0];
+              if (!_comp?.status?.type?.completed) continue;
+              const _cs = _comp?.competitors || [];
+              dbg(`  sample game ${_ev.id}: `+_cs.map(c=>'id='+c.id+' team.id='+(c.team?.id||'?')+' uid='+(c.uid||'?')).join(' | '));
+              break;
+            }
+          }
           for (const ev of events) {
             const dateStr = ev?.date || "";
             // Only 2024 onwards
@@ -795,7 +813,13 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             // FIX: use normalizeId to check both teams are present
             const hasA = competitors.some(c => matchesTeam(c, tA));
             const hasB = competitors.some(c => matchesTeam(c, tB));
-            if (!hasA || !hasB) continue;
+            if (!hasA || !hasB) {
+              // Log first few mismatches to see what IDs are present
+              if (gameRefs.length === 0 && competitors.length > 0) {
+                dbg(`  no match: looking for tA=${tA} tB=${tB}, got: `+competitors.map(c=>'team.id='+(c.team?.id||'?')).join(' | '));
+              }
+              continue;
+            }
             dbg(`  ✅ H2H game found! id=${ev.id} date=${dateStr}`);
 
             const cA = competitors.find(x => matchesTeam(x, tA)) || competitors[0];
