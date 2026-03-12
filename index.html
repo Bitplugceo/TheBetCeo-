@@ -55,9 +55,11 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <label style="font-size:18px;margin-top:10px;">Select League</label>
     <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
       <option value="nba">USA - NBA</option>
-      <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
-      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
       <option value="ncaa">USA - NCAA</option>
+      <option value="euroleague">Europe - EuroLeague</option>
+      <option value="eurocup">Europe - EuroCup</option>
+      <option value="euro_elite">Europe - Spain ACB / Turkey BSL / Italy Serie A</option>
+      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
       <option value="africa">Africa - BAL / Nigeria League / Rwanda League</option>
       <option value="unknown">Other / Mixed League</option>
     </select>
@@ -555,10 +557,11 @@ function matchesTeam(competitor, teamId) {
 
 function onLeagueChange() {
   const league = document.getElementById("leagueSelect").value;
-  const isNbaOrNcaa = league === "nba" || league === "ncaa";
-  document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
+  const hasEspn = league === "nba" || league === "ncaa" || league === "euroleague" || league === "eurocup";
+  const has1H   = hasEspn;
+  document.getElementById("espnSection").style.display = hasEspn ? "block" : "none";
   ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
-    document.getElementById(id).style.display = isNbaOrNcaa ? "block" : "none";
+    document.getElementById(id).style.display = has1H ? "block" : "none";
   });
 }
 
@@ -591,7 +594,9 @@ async function fetchESPN() {
 
   try {
     const isNcaa = league === "ncaa";
-    const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
+    const isEuro = league === "euroleague" || league === "eurocup";
+    const slugMap = {"nba":"nba","ncaa":"mens-college-basketball","euroleague":"euroleague","eurocup":"eurocup"};
+    const leagueSlug = slugMap[league] || "nba";
     const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
 
     let teamAId = lookupTeamId(teamAName, league) || await searchTeamFromAPI(espnBase, teamAName);
@@ -606,6 +611,12 @@ async function fetchESPN() {
       [aStats, bStats] = await Promise.all([
         fetchNcaaSchedule(espnBase, teamAId),
         fetchNcaaSchedule(espnBase, teamBId)
+      ]);
+    } else if (isEuro) {
+      // EuroLeague/EuroCup: schedule-based fetch across multiple seasons
+      [aStats, bStats] = await Promise.all([
+        fetchEuroSchedule(espnBase, teamAId),
+        fetchEuroSchedule(espnBase, teamBId)
       ]);
     } else {
       const allGames = await fetchNbaScoreboard(espnBase, 60);
@@ -648,7 +659,9 @@ async function fetchESPN() {
     try {
       h2hGames = isNcaa
         ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
-        : await fetchNbaH2H(espnBase, teamAId, teamBId);
+        : isEuro
+          ? await fetchEuroH2H(espnBase, teamAId, teamBId)
+          : await fetchNbaH2H(espnBase, teamAId, teamBId);
     } catch(h2hErr) {
       h2hGames = [];
     }
@@ -924,6 +937,120 @@ function parseNbaEvents(data) {
   return games;
 }
 
+
+// ─── Euro Schedule (EuroLeague / EuroCup) ────────────────────────────────────
+async function fetchEuroSchedule(base, teamId) {
+  const tId = String(teamId);
+  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+  const gameRefs = [];
+
+  for (const season of ["2025","2024","2023"]) {
+    for (const stype of ["2","3","1"]) {
+      try {
+        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+        const events = r?.events || r?.team?.schedule?.events || [];
+        for (const ev of events) {
+          if (!ev.id) continue;
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+          const status = comp?.status?.type?.completed;
+          if (!status) continue;
+          const competitors = comp?.competitors || [];
+          const mine = competitors.find(c => matchesTeam(c, tId));
+          const opp  = competitors.find(c => !matchesTeam(c, tId));
+          if (!mine || !opp) continue;
+          const scored  = parseFloat(mine.score) || 0;
+          const allowed = parseFloat(opp.score)  || 0;
+          if (!scored && !allowed) continue;
+          if (!gameRefs.find(g => g.id === ev.id)) {
+            gameRefs.push({ id: ev.id, scored, allowed, date: comp?.date || "" });
+          }
+        }
+      } catch(e) {}
+    }
+  }
+
+  gameRefs.sort((a,b) => new Date(b.date) - new Date(a.date));
+  const last5 = gameRefs.slice(0, 5);
+
+  // Try to get 1H data from summaries
+  const scored=[],allowed=[],h1Scored=[],h1Allowed=[];
+  for (const ref of last5) {
+    scored.push(ref.scored); allowed.push(ref.allowed);
+    try {
+      const sum = await proxyFetch(`${base}/summary?event=${ref.id}`).catch(() => ({}));
+      const hc  = sum?.header?.competitions?.[0];
+      const competitors = hc?.competitors || [];
+      const mine = competitors.find(c => matchesTeam(c, tId));
+      const opp  = competitors.find(c => !matchesTeam(c, tId));
+      if (mine && opp) {
+        const mLS = mine.linescores || [];
+        const oLS = opp.linescores  || [];
+        // EuroLeague has 4 quarters — 1H = Q1+Q2 (index 0,1)
+        const mH1 = (pv(mLS[0]) + pv(mLS[1]));
+        const oH1 = (pv(oLS[0]) + pv(oLS[1]));
+        if (mH1 > 0) { h1Scored.push(mH1); h1Allowed.push(oH1); }
+        else { h1Scored.push(0); h1Allowed.push(0); }
+      } else { h1Scored.push(0); h1Allowed.push(0); }
+    } catch(e) { h1Scored.push(0); h1Allowed.push(0); }
+  }
+
+  return { scored, allowed, h1Scored, h1Allowed };
+}
+
+// ─── Euro H2H ────────────────────────────────────────────────────────────────
+async function fetchEuroH2H(base, teamAId, teamBId) {
+  const tA = String(teamAId), tB = String(teamBId);
+  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+  const seen = new Set(); const h2h = [];
+
+  for (const scanId of [teamAId, teamBId]) {
+    for (const season of ["2025","2024","2023"]) {
+      for (const stype of ["2","3","1"]) {
+        try {
+          const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+          const events = r?.events || r?.team?.schedule?.events || [];
+          for (const ev of events) {
+            if (!ev.id || seen.has(ev.id)) continue;
+            const comp = ev?.competitions?.[0];
+            if (!comp?.status?.type?.completed) continue;
+            const competitors = comp?.competitors || [];
+            const hasA = competitors.some(c => matchesTeam(c, tA));
+            const hasB = competitors.some(c => matchesTeam(c, tB));
+            if (!hasA || !hasB) continue;
+            seen.add(ev.id);
+            const cA = competitors.find(c => matchesTeam(c, tA));
+            const cB = competitors.find(c => matchesTeam(c, tB));
+            const rawA = parseFloat(cA?.score) || 0;
+            const rawB = parseFloat(cB?.score) || 0;
+            if (!rawA && !rawB) continue;
+            // Try summary for 1H
+            let h1A=0, h1B=0;
+            try {
+              const sum = await proxyFetch(`${base}/summary?event=${ev.id}`).catch(() => ({}));
+              const hc  = sum?.header?.competitions?.[0];
+              const competitors2 = hc?.competitors || [];
+              const hA = competitors2.find(c => matchesTeam(c, tA));
+              const hB = competitors2.find(c => matchesTeam(c, tB));
+              if (hA && hB) {
+                const lsA = hA.linescores || []; const lsB = hB.linescores || [];
+                h1A = pv(lsA[0]) + pv(lsA[1]);
+                h1B = pv(lsB[0]) + pv(lsB[1]);
+              }
+            } catch(e) {}
+            if (new Date(comp.date) >= new Date("2023-01-01")) {
+              h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(rawA),scoreB:Math.round(rawB),h1A,h1B,date:comp.date,eventId:ev.id});
+            }
+          }
+        } catch(e) {}
+      }
+    }
+  }
+
+  h2h.sort((a,b) => new Date(b.date)-new Date(a.date));
+  return h2h.slice(0,5);
+}
+
 async function fetchNbaScoreboard(base, daysBack) {
   const all = [];
   for(let i=1; i<=daysBack; i++) {
@@ -1148,8 +1275,8 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   const league=document.getElementById("leagueSelect").value;
-  const bases={"nba":230,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
-  const paceClamps={"nba":{min:0.90,max:1.15},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
+  const bases={"nba":230,"euroleague":160,"eurocup":155,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
+  const paceClamps={"nba":{min:0.90,max:1.15},"euroleague":{min:0.92,max:1.10},"eurocup":{min:0.92,max:1.10},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
   let eb=bases[league]||160;
   const cl=paceClamps[league]||{min:0.90,max:1.12};
   let ftLine=mid(document.getElementById("ftMarket").value);
@@ -1191,7 +1318,7 @@ function runEngine(){
   let aVol=aVolRaw*0.6+bVolRaw*0.4;
   let bVol=bVolRaw*0.6+aVolRaw*0.4;
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
-  let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
+  let vl={"nba":14,"euroleague":12,"eurocup":11,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
   let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
   bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
@@ -1205,7 +1332,7 @@ function runEngine(){
 
   let h1P=NaN,h1Line=NaN;
   let aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
-  const isNbaOrNcaa=league==="nba"||league==="ncaa";
+  const isNbaOrNcaa=league==="nba"||league==="ncaa"||league==="euroleague"||league==="eurocup";
   if(isNbaOrNcaa){
     const eb1H=eb/2;
     h1Line=mid(document.getElementById("h1Market").value);
@@ -1241,7 +1368,7 @@ function runEngine(){
       // FIX: pace computed after H2H blending for accuracy
       let rawTotal1=bA1H+bB1H;
       let pace1=Math.max(cl.min,Math.min(cl.max,rawTotal1/eb1H));
-      vl1={"nba":7,"ncaa":6}[league]||7;
+      vl1={"nba":7,"ncaa":6,"euroleague":6,"eurocup":6}[league]||6;
       // FIX: blend own + opponent volatility
       let aVol1raw=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
       let bVol1raw=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
