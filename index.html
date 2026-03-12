@@ -33,7 +33,7 @@ th, td {border:1px solid #d4af37;padding:6px;text-align:center;}
 .pred-noplay {background:#444;color:#bbb;font-weight:bold;}
 .lock {font-size:4px;display:inline-block;vertical-align:middle;transform:translateY(-1px);margin-left:4px;}
 small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
-#fetchStatus {font-size:11px;margin-top:6px;min-height:16px;color:#aaa;}
+#fetchStatus {font-size:11px;margin-top:6px;min-height:16px;color:#aaa;line-height:1.8;}
 #fetchStatus.ok {color:#2ecc71;}
 #fetchStatus.err {color:#ff6b6b;}
 #fetchStatus.loading {color:#d4af37;}
@@ -125,7 +125,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     </div>
   </div>
 
-  </div>
   <div style="text-align:center;">
     <button onclick="runEngine()">Run</button>
     <button onclick="clearAll()">Clear</button>
@@ -134,7 +133,8 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <table id="results" style="display:none;">
     <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
   </table>
-  </div>
+
+</div>
 
 <script>
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
@@ -173,7 +173,6 @@ const NCAA_TEAM_MAP = {
   "providence":2507,"providence friars":2507,
   "butler":2086,"butler bulldogs":2086,
   "depaul":305,"depaul blue demons":305,
-  // FIX #1: Xavier = 2752 (correct), UNCW corrected to 2780 (was wrongly 2752)
   "xavier":2752,"xavier musketeers":2752,
   "unc wilmington":2780,"uncw seahawks":2780,
   "kansas":2305,"jayhawks":2305,"kansas jayhawks":2305,
@@ -270,7 +269,7 @@ const NCAA_TEAM_MAP = {
   "air force":323,"air force falcons":323,
   "akron":2005,"akron zips":2005,
   "alabama a&m":2626,"alabama a&m bulldogs":2626,
-  "alabama state":6,"alabama state hornets":6,
+  "alabama state":2009,"alabama state hornets":2009,
   "alcorn state":2010,"alcorn state braves":2010,
   "american":2011,"american eagles":2011,
   "appalachian state":2026,"appalachian state mountaineers":2026,
@@ -484,7 +483,6 @@ const NCAA_TEAM_MAP = {
   "wright state":2737,"wright state raiders":2737,
   "youngstown state":2741,"youngstown state penguins":2741,
   "western illinois":2710,"western illinois leathernecks":2710,
-  // Additional teams
   "north florida":2454,"unf ospreys":2454,
   "west georgia":2698,"west georgia wolves":2698,
   "binghamton":2066,"binghamton bearcats":2066,
@@ -629,9 +627,9 @@ async function fetchESPN() {
         document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
       }
       document.getElementById("aAutoTag").style.display = "inline";
-      messages.push(`${teamAName}: ${aStats.scored.length} games &#9989;`);
+      messages.push(`&#9989; ${teamAName} &mdash; ${aStats.scored.length} games loaded`);
     } else {
-      messages.push(`${teamAName}: no data &#10060;`);
+      messages.push(`&#10060; ${teamAName} &mdash; no data found`);
     }
 
     if (bStats?.scored?.length > 0) {
@@ -642,9 +640,9 @@ async function fetchESPN() {
         document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
       }
       document.getElementById("bAutoTag").style.display = "inline";
-      messages.push(`${teamBName}: ${bStats.scored.length} games &#9989;`);
+      messages.push(`&#9989; ${teamBName} &mdash; ${bStats.scored.length} games loaded`);
     } else {
-      messages.push(`${teamBName}: no data &#10060;`);
+      messages.push(`&#10060; ${teamBName} &mdash; no data found`);
     }
 
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
@@ -677,20 +675,20 @@ async function fetchESPN() {
         document.getElementById("b1HH2H").value = h2hB1H.join(",");
         document.getElementById("use1HH2H").checked = true;
       }
-      messages.push(`H2H: ${Math.min(h2hGames.length,5)} games &#9989;`);
+      messages.push(`&#9989; H2H &mdash; ${Math.min(h2hGames.length,5)} games found`);
     } else if (h2hGames?.length === 1) {
       const tA = String(teamAId);
       const g = h2hGames[0];
       document.getElementById("aFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreA : g.scoreB;
       document.getElementById("bFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreB : g.scoreA;
-      messages.push("H2H: 1 game found (min 2 to auto-enable)");
+      messages.push("&#9888;&#65039; H2H &mdash; 1 game found (min 2 to auto-enable)");
     } else {
       document.getElementById("useFTH2H").checked = false;
-      messages.push("H2H: none found");
+      messages.push("&#10060; H2H &mdash; none found");
     }
 
     const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
-    setStatus(messages.join(" | "), allGood ? "ok" : "err");
+    setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
 
   } catch(e) {
     setStatus("&#10060; " + e.message, "err");
@@ -834,7 +832,6 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        // FIX #2: clean single condition (was double-if)
         if (competitors.length > 0 && cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
@@ -958,7 +955,6 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        // FIX #2: clean single condition (was double-if)
         if (competitors.length > 0 && cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
@@ -1048,7 +1044,7 @@ async function searchTeamFromAPI(base, name) {
 }
 
 /* ============= ENGINE CORE ============= */
-function parseGames(id){let raw=document.getElementById(id).value.trim();if(!raw)return null;let arr=raw.split(",").map(x=>parseFloat(x.trim()));if(arr.some(x=>isNaN(x)||x<0||x>300))return"error";return arr;}
+function parseGames(id){let raw=document.getElementById(id).value.trim();if(!raw)return null;let arr=raw.split(",").map(x=>parseFloat(x.trim()));if(arr.some(x=>isNaN(x)||x<0||x>200))return"error";return arr;}
 function avg(arr){if(!arr||arr.length===0)return NaN;return arr.reduce((a,b)=>a+b,0)/arr.length;}
 function trimmedAvg(arr){if(!arr||arr.length===0)return NaN;if(arr.length<5)return avg(arr);let s=[...arr].sort((a,b)=>a-b);s.shift();s.pop();return avg(s);}
 function stdDev(arr){if(!arr||arr.length<2)return 0;let m=avg(arr);return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));}
@@ -1089,7 +1085,6 @@ function runEngine(){
   let bA=(bAA==="error"||bAA===null)?NaN:trimmedAvg(bAA);
   let fma=!isNaN(aS)&&!isNaN(aA)&&!isNaN(bS)&&!isNaN(bA);
 
-  // FIX #6: 60/40 offense/defense weighting (was 50/50)
   let bAFT=(!isNaN(aS)&&!isNaN(bA))?(aS*0.60+bA*0.40):(!isNaN(aS)?aS:NaN);
   let bBFT=(!isNaN(bS)&&!isNaN(aA))?(bS*0.60+aA*0.40):(!isNaN(bS)?bS:NaN);
 
@@ -1097,7 +1092,6 @@ function runEngine(){
   let tBP=(!isNaN(bS)&&!isNaN(bA))?(bS+bA)/2:NaN;
   let pgr=(!isNaN(tAP)&&!isNaN(tBP)&&Math.abs(tAP-tBP)>eb*0.10);
 
-  // FIX #5: pace = full per-team scoring load (scored+allowed), averaged across both teams
   let paceA=(!isNaN(aS)&&!isNaN(aA))?aS+aA:NaN;
   let paceB=(!isNaN(bS)&&!isNaN(bA))?bS+bA:NaN;
   let rp=(!isNaN(paceA)&&!isNaN(paceB))?(paceA+paceB)/2:(!isNaN(paceA)?paceA:(!isNaN(paceB)?paceB:NaN));
@@ -1150,7 +1144,6 @@ function runEngine(){
     let bA1=(b1HA==="error"||b1HA===null)?NaN:trimmedAvg(b1HA);
     let fma1=!isNaN(aS1)&&!isNaN(aA1)&&!isNaN(bS1)&&!isNaN(bA1);
     if(fma1){
-      // FIX #6: 60/40 for 1H too
       let bA1H=(aS1*0.60+bA1*0.40),bB1H=(bS1*0.60+aA1*0.40);
       let tAP1=(aS1+aA1)/2,tBP1=(bS1+bA1)/2;
       pgr1=Math.abs(tAP1-tBP1)>eb1H*0.10;
@@ -1171,7 +1164,6 @@ function runEngine(){
           }
         }
       }
-      // FIX #5: pace from full 1H load after H2H blending
       let rawTotal1=bA1H+bB1H;
       let pace1=Math.max(cl.min,Math.min(cl.max,rawTotal1/eb1H));
       vl1={"nba":7,"ncaa":6}[league]||7;
