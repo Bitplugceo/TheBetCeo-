@@ -485,36 +485,38 @@ const NCAA_TEAM_MAP = {
   "western illinois":2710,"western illinois leathernecks":2710,
 };
 
-function lookupTeamId(name) {
+function lookupTeamId(name, leagueHint) {
   const n = name.toLowerCase().trim();
-  // 1. Exact match
-  if (NCAA_TEAM_MAP[n] !== undefined) return NCAA_TEAM_MAP[n];
-  if (NBA_TEAM_MAP[n] !== undefined) return NBA_TEAM_MAP[n];
+  const isNba = leagueHint === "nba";
+  const PRIMARY   = isNba ? NBA_TEAM_MAP : NCAA_TEAM_MAP;
+  const SECONDARY = isNba ? NCAA_TEAM_MAP : NBA_TEAM_MAP;
 
-  // 2. Input contains key — user typed MORE than the key (e.g. "Florida Atlantic Owls" contains "florida atlantic")
-  //    Among these, longest key = most specific
+  // 1. Exact match — primary league first
+  if (PRIMARY[n]   !== undefined) return PRIMARY[n];
+  if (SECONDARY[n] !== undefined) return SECONDARY[n];
+
+  // 2. Input contains key (user typed MORE than the key) — longest key wins
   let bestKey = null, bestLen = 0;
-  for (let key of Object.keys(NCAA_TEAM_MAP)) {
+  for (let key of Object.keys(PRIMARY)) {
     if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
   }
-  if (bestKey) return NCAA_TEAM_MAP[bestKey];
-  for (let key of Object.keys(NBA_TEAM_MAP)) {
+  if (bestKey) return PRIMARY[bestKey];
+  for (let key of Object.keys(SECONDARY)) {
     if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
   }
-  if (bestKey) return NBA_TEAM_MAP[bestKey];
+  if (bestKey) return SECONDARY[bestKey];
 
-  // 3. Key contains input — user typed LESS than the key (e.g. "FAU" contained in "fau owls")
-  //    Only trigger if input is at least 4 chars to avoid false positives
+  // 3. Key contains input (user typed LESS than key, e.g. "FAU") — min 3 chars
   if (n.length >= 3) {
     bestKey = null; bestLen = 0;
-    for (let key of Object.keys(NCAA_TEAM_MAP)) {
+    for (let key of Object.keys(PRIMARY)) {
       if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
     }
-    if (bestKey) return NCAA_TEAM_MAP[bestKey];
-    for (let key of Object.keys(NBA_TEAM_MAP)) {
+    if (bestKey) return PRIMARY[bestKey];
+    for (let key of Object.keys(SECONDARY)) {
       if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
     }
-    if (bestKey) return NBA_TEAM_MAP[bestKey];
+    if (bestKey) return SECONDARY[bestKey];
   }
 
   return null;
@@ -1260,6 +1262,7 @@ function runEngine(){
     let cn=pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
     row.innerHTML=`<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
   });
+  setTimeout(()=>table.scrollIntoView({behavior:"smooth",block:"nearest"}),50);
 }
 
 function clearAll(){
