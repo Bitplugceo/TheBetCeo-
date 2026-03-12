@@ -44,7 +44,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 @keyframes spin {to{transform:rotate(360deg);}}
 </style>
 </head>
-<body>
+<body onload="onLeagueChange()">
 <h1>🏀 Basketball Prediction Engine</h1>
 <div class="wrapper">
 
@@ -68,12 +68,13 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <!-- ESPN AUTO-FETCH -->
 
   <div class="section" id="espnSection">
-    <h3 style="font-size:15px;">⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
+    <h3 style="font-size:15px;">⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA, NCAA &amp; Euro)</span></h3>
     <label style="font-size:12px;">Team A Name</label>
     <div class="team-name-row"><input id="teamAName" placeholder="e.g. Lakers" oninput="clearAutoFill()"></div>
     <label style="font-size:12px;">Team B Name</label>
     <div class="team-name-row"><input id="teamBName" placeholder="e.g. Celtics" oninput="clearAutoFill()"></div>
     <button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">📡 Fetch Stats</button>
+    <button id="debugBtn" onclick="debugEuroAPI()" style="padding:6px 12px;background:#555;color:#fff;border:none;cursor:pointer;margin-left:6px;">🔍 Debug API</button>
     <div id="fetchStatus"></div>
   </div>
 
@@ -487,8 +488,73 @@ const NCAA_TEAM_MAP = {
   "western illinois":2710,"western illinois leathernecks":2710,
 };
 
+
+const EUROLEAGUE_TEAM_MAP = {
+  // EuroLeague teams
+  "alba berlin":4062,"alba":4062,
+  "anadolu efes":4064,"efes":4064,"anadolu":4064,
+  "armani milan":4065,"olimpia milan":4065,"milan":4065,"armani":4065,"ea7":4065,
+  "baskonia":4066,"td systems baskonia":4066,"saski baskonia":4066,
+  "bay munich":4067,"fc barcelona":131,"barcelona":131,"barca":131,
+  "fenerbahce":4069,"fenerbahce beko":4069,"fener":4069,
+  "maccabi tel aviv":4072,"maccabi":4072,"tel aviv":4072,
+  "monaco":4074,"as monaco":4074,"as monaco basket":4074,
+  "olympiacos":4075,"olympiakos":4075,"bc olympiakos":4075,"olympiakos piraeus":4075,"bc olympiakos piraeus":4075,
+  "panathinaikos":4076,"pan":4076,"panathinaikos aktor":4076,
+  "partizan":4077,"partizan mozzart bet":4077,
+  "real madrid":4078,"madrid":4078,
+  "red star":4079,"crvena zvezda":4079,"red star belgrade":4079,
+  "virtus bologna":4080,"virtus":4080,"segafredo virtus":4080,
+  "zalgiris":4081,"zalgiris kaunas":4081,
+  "cska moscow":4068,"cska":4068,
+  "asvel":4063,"ldlc asvel":4063,"asvel villeurbanne":4063,
+  "valencia basket":4082,"valencia":4082,
+  "paris basketball":5010,"paris":5010,
+  // EuroCup teams
+  "joventut":4083,"joventut badalona":4083,
+  "ratiopharm ulm":4084,"ulm":4084,
+  "tofas":4085,"tofas bursa":4085,
+  "turk telekom":4086,
+  "gran canaria":4087,"clb gran canaria":4087,
+  "trento":4088,"dolomiti energia trento":4088,
+  "budivelnyk":4089,
+  "cedevita olimpija":4090,"olimpija":4090,
+  "bahcesehir":4091,"bahcesehir college":4091,
+  "bourg":4092,"jl bourg":4092,
+  "frutti extra bursaspor":4093,"bursaspor":4093,
+  "hapoel tel aviv":4094,"hapoel":4094,
+  "istanbul bb":4095,"istanbul buyuksehir":4095,
+  "mornar bar":4096,"mornar":4096,
+  "promitheas":4097,"promitheas patras":4097,
+  "slask wroclaw":4098,"slask":4098,
+  "trefl sopot":4099,"sopot":4099,
+  "unics kazan":4100,"unics":4100,
+  "unicaja":4101,"unicaja malaga":4101,
+  "bmo hamburg":4102,"hamburg":4102,
+  "enisey krasnoyarsk":4103,"enisey":4103,
+  "nanterre":4104,"nanterre 92":4104,
+  "rytas":4105,"lietuvos rytas":4105,
+};
+
+function lookupEuroTeamId(name) {
+  const n = name.toLowerCase().trim();
+  if (EUROLEAGUE_TEAM_MAP[n] !== undefined) return EUROLEAGUE_TEAM_MAP[n];
+  // longest key match
+  let best = null, bestLen = 0;
+  for (const [k, v] of Object.entries(EUROLEAGUE_TEAM_MAP)) {
+    if (n.includes(k) && k.length > bestLen) { best = v; bestLen = k.length; }
+  }
+  if (best !== null) return best;
+  for (const [k, v] of Object.entries(EUROLEAGUE_TEAM_MAP)) {
+    if (k.includes(n) && n.length >= 3) return v;
+  }
+  return null;
+}
+
 function lookupTeamId(name, leagueHint) {
   const n = name.toLowerCase().trim();
+  const isEuroLeague = leagueHint === "euroleague" || leagueHint === "eurocup";
+  if (isEuroLeague) return lookupEuroTeamId(n);
   const isNba = leagueHint === "nba";
   const PRIMARY   = isNba ? NBA_TEAM_MAP : NCAA_TEAM_MAP;
   const SECONDARY = isNba ? NCAA_TEAM_MAP : NBA_TEAM_MAP;
@@ -563,6 +629,8 @@ function onLeagueChange() {
   ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
     document.getElementById(id).style.display = has1H ? "block" : "none";
   });
+  const dbBtn = document.getElementById("debugBtn");
+  if (dbBtn) dbBtn.style.display = (league==="euroleague"||league==="eurocup") ? "inline-block" : "none";
 }
 
 function clearAutoFill() {
@@ -590,7 +658,7 @@ async function fetchESPN() {
 
   const btn = document.getElementById("fetchBtn");
   btn.disabled = true;
-  setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
+  setStatus('<span class="spinner"></span>Fetching from ESPN... (Euro may take 20-30s)', "loading");
 
   try {
     const isNcaa = league === "ncaa";
@@ -953,49 +1021,64 @@ async function fetchEuroSchedule(base, teamId) {
           if (!ev.id) continue;
           const comp = ev?.competitions?.[0];
           if (!comp) continue;
-          const status = comp?.status?.type?.completed;
-          if (!status) continue;
-          const competitors = comp?.competitors || [];
-          const mine = competitors.find(c => matchesTeam(c, tId));
-          const opp  = competitors.find(c => !matchesTeam(c, tId));
-          if (!mine || !opp) continue;
-          const scored  = parseFloat(mine.score) || 0;
-          const allowed = parseFloat(opp.score)  || 0;
-          if (!scored && !allowed) continue;
-          if (!gameRefs.find(g => g.id === ev.id)) {
-            gameRefs.push({ id: ev.id, scored, allowed, date: comp?.date || "" });
-          }
+          const done = comp?.status?.type?.completed ||
+                       comp?.status?.type?.name === "STATUS_FINAL" ||
+                       comp?.status?.type?.state === "post";
+          if (!done || (comp?.competitors || []).length < 2) continue;
+          const c = comp.competitors;
+          const mine = c.find(x => matchesTeam(x, tId)) || c[0];
+          const opp  = c.find(x => !matchesTeam(x, tId)) || c[1];
+          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+          gameRefs.push({id:String(ev.id), date:ev.date||"", rawS:ps(mine?.score), rawA:ps(opp?.score)});
         }
       } catch(e) {}
     }
+    if (gameRefs.length >= 10) break;
   }
 
-  gameRefs.sort((a,b) => new Date(b.date) - new Date(a.date));
-  const last5 = gameRefs.slice(0, 5);
+  if (!gameRefs.length) return null;
 
-  // Try to get 1H data from summaries
-  const scored=[],allowed=[],h1Scored=[],h1Allowed=[];
-  for (const ref of last5) {
-    scored.push(ref.scored); allowed.push(ref.allowed);
+  const seen = new Set();
+  const unique = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
+  unique.sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
+
+  const top5 = unique.slice(0,5);
+  const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
+
+  for (const ref of top5) {
+    let ms = ref.rawS, os = ref.rawA, h1m = 0, h1o = 0, gotLS = false;
     try {
-      const sum = await proxyFetch(`${base}/summary?event=${ref.id}`).catch(() => ({}));
-      const hc  = sum?.header?.competitions?.[0];
-      const competitors = hc?.competitors || [];
-      const mine = competitors.find(c => matchesTeam(c, tId));
-      const opp  = competitors.find(c => !matchesTeam(c, tId));
-      if (mine && opp) {
-        const mLS = mine.linescores || [];
-        const oLS = opp.linescores  || [];
-        // EuroLeague has 4 quarters — 1H = Q1+Q2 (index 0,1)
-        const mH1 = (pv(mLS[0]) + pv(mLS[1]));
-        const oH1 = (pv(oLS[0]) + pv(oLS[1]));
-        if (mH1 > 0) { h1Scored.push(mH1); h1Allowed.push(oH1); }
-        else { h1Scored.push(0); h1Allowed.push(0); }
-      } else { h1Scored.push(0); h1Allowed.push(0); }
-    } catch(e) { h1Scored.push(0); h1Allowed.push(0); }
+      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      // Try header path first, then competitions path
+      const hc = data?.header?.competitions?.[0] || data?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp  = competitors.find(c => !matchesTeam(c, tId));
+        if (mine && opp) {
+          const lm = mine?.linescores || [], lo = opp?.linescores || [];
+          if (lm.length >= 2) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score)  || os;
+            // EuroLeague/EuroCup: 4 quarters — 1H = Q1+Q2
+            h1m = pv(lm[0]) + pv(lm[1]);
+            h1o = pv(lo[0]) + pv(lo[1]);
+          }
+        }
+      }
+    } catch(e) {}
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+    scored.push(Math.round(ms));
+    allowed.push(Math.round(os));
+    if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
   }
 
-  return { scored, allowed, h1Scored, h1Allowed };
+  return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed} : null;
 }
 
 // ─── Euro H2H ────────────────────────────────────────────────────────────────
@@ -1011,36 +1094,40 @@ async function fetchEuroH2H(base, teamAId, teamBId) {
           const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
           const events = r?.events || r?.team?.schedule?.events || [];
           for (const ev of events) {
-            if (!ev.id || seen.has(ev.id)) continue;
+            if (!ev.id || seen.has(String(ev.id))) continue;
             const comp = ev?.competitions?.[0];
-            if (!comp?.status?.type?.completed) continue;
+            if (!comp) continue;
+            const done = comp?.status?.type?.completed ||
+                         comp?.status?.type?.name === "STATUS_FINAL" ||
+                         comp?.status?.type?.state === "post";
+            if (!done) continue;
             const competitors = comp?.competitors || [];
             const hasA = competitors.some(c => matchesTeam(c, tA));
             const hasB = competitors.some(c => matchesTeam(c, tB));
             if (!hasA || !hasB) continue;
-            seen.add(ev.id);
+            seen.add(String(ev.id));
             const cA = competitors.find(c => matchesTeam(c, tA));
             const cB = competitors.find(c => matchesTeam(c, tB));
-            const rawA = parseFloat(cA?.score) || 0;
-            const rawB = parseFloat(cB?.score) || 0;
+            const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+            const rawA = ps(cA?.score), rawB = ps(cB?.score);
             if (!rawA && !rawB) continue;
-            // Try summary for 1H
+            // Get 1H from summary
             let h1A=0, h1B=0;
             try {
               const sum = await proxyFetch(`${base}/summary?event=${ev.id}`).catch(() => ({}));
-              const hc  = sum?.header?.competitions?.[0];
-              const competitors2 = hc?.competitors || [];
-              const hA = competitors2.find(c => matchesTeam(c, tA));
-              const hB = competitors2.find(c => matchesTeam(c, tB));
+              const hc  = sum?.header?.competitions?.[0] || sum?.competitions?.[0];
+              const c2  = hc?.competitors || [];
+              const hA  = c2.find(c => matchesTeam(c, tA));
+              const hB  = c2.find(c => matchesTeam(c, tB));
               if (hA && hB) {
-                const lsA = hA.linescores || []; const lsB = hB.linescores || [];
-                h1A = pv(lsA[0]) + pv(lsA[1]);
-                h1B = pv(lsB[0]) + pv(lsB[1]);
+                const lsA = hA.linescores || [], lsB = hB.linescores || [];
+                if (lsA.length >= 2) {
+                  h1A = pv(lsA[0]) + pv(lsA[1]);
+                  h1B = pv(lsB[0]) + pv(lsB[1]);
+                }
               }
             } catch(e) {}
-            if (new Date(comp.date) >= new Date("2023-01-01")) {
-              h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(rawA),scoreB:Math.round(rawB),h1A,h1B,date:comp.date,eventId:ev.id});
-            }
+            h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(rawA),scoreB:Math.round(rawB),h1A,h1B,date:comp.date||"",eventId:String(ev.id)});
           }
         } catch(e) {}
       }
@@ -1268,6 +1355,43 @@ function decision(edge,line,type,teamSc,aSc,bSc){
     if(type==="team"&&!isNaN(teamSc)&&teamSc>=line*0.58)return"NO PLAY";
   }
   return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
+}
+
+
+async function debugEuroAPI() {
+  const league = document.getElementById("leagueSelect").value;
+  const teamName = document.getElementById("teamAName").value.trim() || "monaco";
+  const slug = league === "eurocup" ? "eurocup" : "euroleague";
+  const base = `https://site.api.espn.com/apis/site/v2/sports/basketball/${slug}`;
+  const teamId = lookupTeamId(teamName, league);
+  let out = `<b>slug=${slug} | mapId=${teamId}</b><br>`;
+
+  // Test 1: teams list — get real IDs
+  try {
+    const r = await proxyFetch(`${base}/teams?limit=100`);
+    const leagues = r?.sports?.[0]?.leagues || [];
+    let teams = [];
+    for (const l of leagues) teams = teams.concat(l?.teams?.map(t=>t.team||t) || []);
+    if (!teams.length) teams = (r?.teams || []).map(t=>t.team||t);
+    out += `✅ Teams endpoint: ${teams.length} teams<br>`;
+    const monaco = teams.find(t => JSON.stringify(t).toLowerCase().includes("monaco"));
+    const olym = teams.find(t => JSON.stringify(t).toLowerCase().includes("olympia"));
+    if (monaco) out += `Monaco → id=${monaco.id} name="${monaco.displayName}"<br>`;
+    else out += `Monaco → NOT FOUND in teams list<br>`;
+    if (olym) out += `Olympiacos → id=${olym.id} name="${olym.displayName}"<br>`;
+    else out += `Olympiacos → NOT FOUND<br>`;
+    if (teams.length > 0) out += `Sample: ${teams.slice(0,3).map(t=>t.displayName+"("+t.id+")").join(", ")}<br>`;
+  } catch(e) { out += `❌ Teams failed: ${e.message}<br>`; }
+
+  // Test 2: schedule with map ID
+  try {
+    const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=2025&seasontype=2`);
+    const evs = r?.events || r?.team?.schedule?.events || [];
+    out += `✅ Schedule (id=${teamId}): ${evs.length} events<br>`;
+    if (evs.length > 0) out += `First: ${evs[0]?.name || evs[0]?.id}<br>`;
+  } catch(e) { out += `❌ Schedule failed: ${e.message}<br>`; }
+
+  setStatus(out, "loading");
 }
 
 function runEngine(){
