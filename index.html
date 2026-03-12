@@ -127,6 +127,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 
   <div class="section" id="debugSection" style="display:none;">
     <h3 style="font-size:13px;">🔍 Debug Log</h3>
+    <p style="font-size:10px;color:#888;margin:2px 0 4px;">All logs also in browser Console (F12 → Console, filter "[BBEngine]")</p>
     <div id="debugLog" style="font-size:10px;color:#aaa;max-height:200px;overflow-y:auto;white-space:pre-wrap;"></div>
     <button onclick="document.getElementById('debugLog').textContent=''" style="font-size:10px;padding:3px 8px;margin-top:4px;">Clear</button>
   </div>
@@ -498,8 +499,9 @@ function toggleDebug() {
   document.getElementById('debugToggle').textContent = _debugOn ? '🔍 Hide Debug' : '🔍 Debug';
 }
 function dbg(...args) {
-  if (!_debugOn) return;
   const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  console.log('[BBEngine]', msg);
+  if (!_debugOn) return;
   const el = document.getElementById('debugLog');
   el.textContent += msg + '\n';
   el.scrollTop = el.scrollHeight;
@@ -622,10 +624,18 @@ async function fetchESPN() {
     }
 
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
+    dbg('Calling H2H fetch, isNcaa='+isNcaa+' tA='+teamAId+' tB='+teamBId);
 
-    const h2hGames = isNcaa
-      ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
-      : await fetchNbaH2H(espnBase, teamAId, teamBId);
+    let h2hGames = [];
+    try {
+      h2hGames = isNcaa
+        ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
+        : await fetchNbaH2H(espnBase, teamAId, teamBId);
+      dbg('H2H fetch returned '+h2hGames.length+' games');
+    } catch(h2hErr) {
+      dbg('H2H fetch threw: '+h2hErr.message);
+      h2hGames = [];
+    }
 
     if (h2hGames?.length >= 2) {
       const tA = String(teamAId);
@@ -793,11 +803,12 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
             gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
           }
-        } catch(e) {}
+        } catch(e) { dbg('  schedule loop error: '+e.message); }
       }
     }
   }
 
+  dbg('gameRefs collected: '+gameRefs.length);
   if (!gameRefs.length) return [];
 
   // Deduplicate
