@@ -482,20 +482,33 @@ function lookupTeamId(name) {
   return null;
 }
 
-// ─── FIX 1: Robust ID normalization ──────────────────────────────────────────
+// ─── Robust ID normalization ──────────────────────────────────────────────────
 // ESPN returns IDs in multiple formats: "41", "t:41", "s:40~l:41~t:41", etc.
-// This extracts the numeric team portion reliably.
 function normalizeId(raw) {
   if (raw === null || raw === undefined) return "";
   const s = String(raw);
-  // "s:40~l:41~t:269" → "269"
   const tMatch = s.match(/t:(\d+)/);
   if (tMatch) return tMatch[1];
-  // Pure numeric
   const numMatch = s.match(/^(\d+)$/);
   if (numMatch) return numMatch[1];
-  // Strip all non-digits as last resort
   return s.replace(/\D/g, "") || s;
+}
+
+// ─── CRITICAL FIX: matchesTeam ────────────────────────────────────────────────
+// In ESPN schedule API, competitor.id is often "1" or "2" (home/away slot),
+// NOT the team ID. Must check team.id, team.uid, and uid as well.
+function matchesTeam(competitor, teamId) {
+  const tid = String(teamId);
+  if (!competitor) return false;
+  // Most reliable: team.id
+  if (normalizeId(competitor.team?.id) === tid) return true;
+  // team.uid e.g. "s:40~l:41~t:269"
+  if (normalizeId(competitor.team?.uid) === tid) return true;
+  // competitor uid
+  if (normalizeId(competitor.uid) === tid) return true;
+  // competitor id (sometimes correct, sometimes "1"/"2")
+  if (normalizeId(competitor.id) === tid) return true;
+  return false;
 }
 
 function onLeagueChange() {
@@ -657,8 +670,8 @@ async function fetchNcaaSchedule(base, teamId) {
           if (!done || (comp?.competitors || []).length < 2) continue;
           const c = comp.competitors;
           // FIX: use normalizeId for competitor matching
-          const mine = c.find(x => normalizeId(x.id) === tId || normalizeId(x.team?.id) === tId) || c[0];
-          const opp  = c.find(x => normalizeId(x.id) !== tId && normalizeId(x.team?.id) !== tId) || c[1];
+          const mine = c.find(x => matchesTeam(x, tId)) || c[0];
+          const opp  = c.find(x => !matchesTeam(x, tId)) || c[1];
           const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
           gameRefs.push({id:String(ev.id), date:ev.date||"", rawS:ps(mine?.score), rawA:ps(opp?.score)});
         }
@@ -689,8 +702,8 @@ async function fetchNcaaSchedule(base, teamId) {
       if (hc) {
         const competitors = hc?.competitors || [];
         // FIX: normalizeId in summary lookup too
-        const mine = competitors.find(c => normalizeId(c.team?.id) === tId || normalizeId(c.id) === tId);
-        const opp  = competitors.find(c => normalizeId(c.team?.id) !== tId && normalizeId(c.id) !== tId);
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp  = competitors.find(c => !matchesTeam(c, tId));
         if (mine && opp) {
           const lm = mine?.linescores || [], lo = opp?.linescores || [];
           if (lm.length >= 1) {
@@ -747,12 +760,12 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             if (competitors.length < 2 || !ev.id) continue;
 
             // FIX: use normalizeId to check both teams are present
-            const hasA = competitors.some(c => normalizeId(c.id) === tA || normalizeId(c.team?.id) === tA);
-            const hasB = competitors.some(c => normalizeId(c.id) === tB || normalizeId(c.team?.id) === tB);
+            const hasA = competitors.some(c => matchesTeam(c, tA));
+            const hasB = competitors.some(c => matchesTeam(c, tB));
             if (!hasA || !hasB) continue;
 
-            const cA = competitors.find(x => normalizeId(x.id) === tA || normalizeId(x.team?.id) === tA) || competitors[0];
-            const cB = competitors.find(x => normalizeId(x.id) === tB || normalizeId(x.team?.id) === tB) || competitors[1];
+            const cA = competitors.find(x => matchesTeam(x, tA)) || competitors[0];
+            const cB = competitors.find(x => matchesTeam(x, tB)) || competitors[1];
             const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
             gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
           }
@@ -781,8 +794,8 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
       if (hc) {
         const competitors = hc?.competitors || [];
         // FIX: normalizeId in summary lookup
-        const cA = competitors.find(c => normalizeId(c.team?.id) === tA || normalizeId(c.id) === tA);
-        const cB = competitors.find(c => normalizeId(c.team?.id) === tB || normalizeId(c.id) === tB);
+        const cA = competitors.find(c => matchesTeam(c, tA));
+        const cB = competitors.find(c => matchesTeam(c, tB));
         if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
@@ -879,10 +892,10 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
         if (!done) continue;
         const c = comp?.competitors || [];
         if (c.length < 2 || !ev.id) continue;
-        const hasB = c.some(x => normalizeId(x.id) === tB || normalizeId(x.team?.id) === tB);
+        const hasB = c.some(x => matchesTeam(x, tB));
         if (!hasB) continue;
-        const cA = c.find(x => normalizeId(x.id) === tA || normalizeId(x.team?.id) === tA) || c[0];
-        const cB = c.find(x => normalizeId(x.id) === tB || normalizeId(x.team?.id) === tB) || c[1];
+        const cA = c.find(x => matchesTeam(x, tA)) || c[0];
+        const cB = c.find(x => matchesTeam(x, tB)) || c[1];
         const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
         gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
       }
@@ -906,8 +919,8 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors || [];
-        const cA = competitors.find(c => String(c.team?.id) === tA || String(c.id) === tA);
-        const cB = competitors.find(c => String(c.team?.id) === tB || String(c.id) === tB);
+        const cA = competitors.find(c => matchesTeam(c, tA));
+        const cB = competitors.find(c => matchesTeam(c, tB));
         if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
