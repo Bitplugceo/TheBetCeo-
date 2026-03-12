@@ -1262,7 +1262,12 @@ function runEngine(){
     let cn=pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
     row.innerHTML=`<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
   });
-  setTimeout(()=>table.scrollIntoView({behavior:"smooth",block:"nearest"}),50);
+  // Ensure table is visible then scroll to it
+  table.style.display="table";
+  setTimeout(()=>{
+    table.style.display="table";
+    table.scrollIntoView({behavior:"smooth",block:"start"});
+  },100);
 }
 
 function clearAll(){
