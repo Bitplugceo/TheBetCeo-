@@ -1124,7 +1124,7 @@ function runEngine(){
   if(document.getElementById("useFTH2H").checked){h2ha=parseGames("aFTH2H");h2hb=parseGames("bFTH2H");}
   if(fma&&h2ha&&h2hb&&h2ha!=="error"&&h2hb!=="error"&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(0.30,dynamicWeight(h2ha)+dynamicWeight(h2hb));
-    let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hB);
+    let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
     // FIX: blend each team individually to preserve matchup-specific patterns
     if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){
       let divA=Math.abs(h2hAvgA-bAFT)/bAFT;
