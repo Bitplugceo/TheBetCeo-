@@ -592,8 +592,8 @@ async function fetchESPN() {
     const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
     const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
 
-    let teamAId = lookupTeamId(teamAName) || await searchTeamFromAPI(espnBase, teamAName);
-    let teamBId = lookupTeamId(teamBName) || await searchTeamFromAPI(espnBase, teamBName);
+    let teamAId = lookupTeamId(teamAName, league) || await searchTeamFromAPI(espnBase, teamAName);
+    let teamBId = lookupTeamId(teamBName, league) || await searchTeamFromAPI(espnBase, teamBName);
     if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname.`);
     if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname.`);
 
@@ -1122,19 +1122,30 @@ function runEngine(){
   if(document.getElementById("useFTH2H").checked){h2ha=parseGames("aFTH2H");h2hb=parseGames("bFTH2H");}
   if(fma&&h2ha&&h2hb&&h2ha!=="error"&&h2hb!=="error"&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(0.30,dynamicWeight(h2ha)+dynamicWeight(h2hb));
-    let bt=bAFT+bBFT,ht=avg(h2ha)+avg(h2hb);
-    if(!isNaN(bt)&&!isNaN(ht)&&bt>0){
-      if(Math.abs(ht-bt)/bt>0.20)w*=0.5;
-      let r=(bt*(1-w)+ht*w)/bt;bAFT*=r;bBFT*=r;
+    let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hB);
+    // FIX: blend each team individually to preserve matchup-specific patterns
+    if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){
+      let divA=Math.abs(h2hAvgA-bAFT)/bAFT;
+      let wA=divA>0.20?w*0.5:w;
+      bAFT=bAFT*(1-wA)+h2hAvgA*wA;
+    }
+    if(!isNaN(bBFT)&&bBFT>0&&!isNaN(h2hAvgB)){
+      let divB=Math.abs(h2hAvgB-bBFT)/bBFT;
+      let wB=divB>0.20?w*0.5:w;
+      bBFT=bBFT*(1-wB)+h2hAvgB*wB;
     }
   }
-  let aVol=(stdDev(aSA==="error"?[]:aSA)+stdDev(aAA==="error"?[]:aAA))/2;
-  let bVol=(stdDev(bSA==="error"?[]:bSA)+stdDev(bAA==="error"?[]:bAA))/2;
+  // FIX: blend own team's vol with opponent's defensive vol — both affect the projection
+  let aVolRaw=(stdDev(aSA==="error"?[]:aSA)+stdDev(aAA==="error"?[]:aAA))/2;
+  let bVolRaw=(stdDev(bSA==="error"?[]:bSA)+stdDev(bAA==="error"?[]:bAA))/2;
+  let aVol=aVolRaw*0.6+bVolRaw*0.4;
+  let bVol=bVolRaw*0.6+aVolRaw*0.4;
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
   let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
+  // FIX: correct order — volatility → pace → regression (regression is final anchor)
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
-  let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
   bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
+  let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
   let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
   if(!isNaN(ftP)){
     if(Math.abs(bAFT-bBFT)>18)ftP*=0.98;
@@ -1166,23 +1177,33 @@ function runEngine(){
         let h2ha1=parseGames("a1HH2H"),h2hb1=parseGames("b1HH2H");
         if(h2ha1&&h2hb1&&h2ha1!=="error"&&h2hb1!=="error"&&h2ha1.length>=2&&h2hb1.length>=2){
           let w1=Math.min(0.30,dynamicWeight(h2ha1)+dynamicWeight(h2hb1));
-          let bt1=bA1H+bB1H,ht1=avg(h2ha1)+avg(h2hb1);
-          if(!isNaN(bt1)&&!isNaN(ht1)&&bt1>0){
-            if(Math.abs(ht1-bt1)/bt1>0.20)w1*=0.5;
-            let r1=(bt1*(1-w1)+ht1*w1)/bt1;bA1H*=r1;bB1H*=r1;
+          let h2hA1avg=avg(h2ha1),h2hB1avg=avg(h2hb1);
+          if(!isNaN(bA1H)&&bA1H>0&&!isNaN(h2hA1avg)){
+            let dA1=Math.abs(h2hA1avg-bA1H)/bA1H;
+            let wA1=dA1>0.20?w1*0.5:w1;
+            bA1H=bA1H*(1-wA1)+h2hA1avg*wA1;
+          }
+          if(!isNaN(bB1H)&&bB1H>0&&!isNaN(h2hB1avg)){
+            let dB1=Math.abs(h2hB1avg-bB1H)/bB1H;
+            let wB1=dB1>0.20?w1*0.5:w1;
+            bB1H=bB1H*(1-wB1)+h2hB1avg*wB1;
           }
         }
       }
       vl1={"nba":7,"ncaa":6}[league]||7;
-      aVol1=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
-      bVol1=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
+      // FIX: blend own + opponent volatility
+      let aVol1raw=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
+      let bVol1raw=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
+      aVol1=aVol1raw*0.6+bVol1raw*0.4;
+      bVol1=bVol1raw*0.6+aVol1raw*0.4;
       dfr1=(!isNaN(aA1)&&aA1<eb1H*0.40)||(!isNaN(bA1)&&bA1<eb1H*0.40);
+      // FIX: volatility → pace → regression
       bA1H=applyVolatility(bA1H,aVol1,vl1);
       bB1H=applyVolatility(bB1H,bVol1,vl1);
-      bA1H=(bA1H*0.85)+(eb1H*0.15);
-      bB1H=(bB1H*0.85)+(eb1H*0.15);
       bA1H=bA1H*(0.5+pace1/2);
       bB1H=bB1H*(0.5+pace1/2);
+      bA1H=(bA1H*0.85)+(eb1H*0.15);
+      bB1H=(bB1H*0.85)+(eb1H*0.15);
       h1P=bA1H+bB1H;
       if(!isNaN(h1P)){
         if(Math.abs(bA1H-bB1H)>9)h1P*=0.98;
@@ -1223,6 +1244,8 @@ function runEngine(){
         if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";
         if(aVol>vl&&bVol>vl)pt="NO PLAY";
       }
+      // FIX: dfr also protects team totals — defensive rate flag means low-scoring game likely
+      if(p.type==="team"&&pt.startsWith("OVER")&&dfr)pt="NO PLAY";
       if(p.type==="1h_total"&&pt.startsWith("OVER")){
         if(pgr1)pt="NO PLAY";
         if(dfr1)pt="NO PLAY";
