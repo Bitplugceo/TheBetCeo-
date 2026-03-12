@@ -125,8 +125,14 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     </div>
   </div>
 
+  <div class="section" id="debugSection" style="display:none;">
+    <h3 style="font-size:13px;">🔍 Debug Log</h3>
+    <div id="debugLog" style="font-size:10px;color:#aaa;max-height:200px;overflow-y:auto;white-space:pre-wrap;"></div>
+    <button onclick="document.getElementById('debugLog').textContent=''" style="font-size:10px;padding:3px 8px;margin-top:4px;">Clear</button>
+  </div>
   <div style="text-align:center;">
     <button onclick="runEngine()">Run</button>
+    <button onclick="toggleDebug()" id="debugToggle">🔍 Debug</button>
     <button onclick="clearAll()">Clear</button>
   </div>
 
@@ -484,6 +490,21 @@ function lookupTeamId(name) {
 
 // ─── Robust ID normalization ──────────────────────────────────────────────────
 // ESPN returns IDs in multiple formats: "41", "t:41", "s:40~l:41~t:41", etc.
+
+let _debugOn = false;
+function toggleDebug() {
+  _debugOn = !_debugOn;
+  document.getElementById('debugSection').style.display = _debugOn ? 'block' : 'none';
+  document.getElementById('debugToggle').textContent = _debugOn ? '🔍 Hide Debug' : '🔍 Debug';
+}
+function dbg(...args) {
+  if (!_debugOn) return;
+  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  const el = document.getElementById('debugLog');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
 function normalizeId(raw) {
   if (raw === null || raw === undefined) return "";
   const s = String(raw);
@@ -736,6 +757,7 @@ async function fetchNcaaSchedule(base, teamId) {
 // ─── FIX 3: NCAA H2H – scan BOTH teams' schedules + normalizeId everywhere ───
 async function fetchNcaaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
+  dbg('--- H2H FETCH START tA='+tA+' tB='+tB);
   const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
@@ -746,6 +768,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         try {
           const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
           const events = r?.events || r?.team?.schedule?.events || [];
+          dbg(`  scan ${scanId} s${season}/t${stype}: ${events.length} events`);
           for (const ev of events) {
             const dateStr = ev?.date || "";
             // Only 2024 onwards
@@ -763,6 +786,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             const hasA = competitors.some(c => matchesTeam(c, tA));
             const hasB = competitors.some(c => matchesTeam(c, tB));
             if (!hasA || !hasB) continue;
+            dbg(`  ✅ H2H game found! id=${ev.id} date=${dateStr}`);
 
             const cA = competitors.find(x => matchesTeam(x, tA)) || competitors[0];
             const cB = competitors.find(x => matchesTeam(x, tB)) || competitors[1];
@@ -796,6 +820,8 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         // FIX: normalizeId in summary lookup
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
+        dbg(`  summary event=${ref.id}: cA=${cA?'found':'MISSING'} cB=${cB?'found':'MISSING'} competitors=${competitors.length}`);
+        if (competitors.length > 0) dbg('  sample ids: '+competitors.slice(0,2).map(c=>'id='+c.id+' team.id='+(c.team?.id||'?')+' uid='+(c.uid||'?')).join(' | '));
         if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
@@ -817,7 +843,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
           }
         }
       }
-    } catch(e) {}
+    } catch(e) { dbg('  summary ERROR: '+e.message); }
     // Fallback to raw schedule scores if summary failed
     if (!added && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
       h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(ref.rawScoreA), scoreB:Math.round(ref.rawScoreB), h1A:0, h1B:0, date:ref.date, eventId:ref.id});
@@ -921,6 +947,8 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
+        dbg(`  summary event=${ref.id}: cA=${cA?'found':'MISSING'} cB=${cB?'found':'MISSING'} competitors=${competitors.length}`);
+        if (competitors.length > 0) dbg('  sample ids: '+competitors.slice(0,2).map(c=>'id='+c.id+' team.id='+(c.team?.id||'?')+' uid='+(c.uid||'?')).join(' | '));
         if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
