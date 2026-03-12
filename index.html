@@ -125,15 +125,9 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     </div>
   </div>
 
-  <div class="section" id="debugSection" style="display:none;">
-    <h3 style="font-size:13px;">🔍 Debug Log</h3>
-    <p style="font-size:10px;color:#888;margin:2px 0 4px;">All logs also in browser Console (F12 → Console, filter "[BBEngine]")</p>
-    <div id="debugLog" style="font-size:10px;color:#aaa;max-height:200px;overflow-y:auto;white-space:pre-wrap;"></div>
-    <button onclick="document.getElementById('debugLog').textContent=''" style="font-size:10px;padding:3px 8px;margin-top:4px;">Clear</button>
   </div>
   <div style="text-align:center;">
     <button onclick="runEngine()">Run</button>
-    <button onclick="toggleDebug()" id="debugToggle">🔍 Debug</button>
     <button onclick="clearAll()">Clear</button>
   </div>
 
@@ -248,7 +242,7 @@ const NCAA_TEAM_MAP = {
   "washington state":265,"washington state cougars":265,
   "utah":254,"utah utes":254,
   "colorado":38,"colorado buffaloes":38,
-  "gonzaga":2250,"bulldogs":2250,"zags":2250,"gonzaga bulldogs":2250,
+  "gonzaga":2250,"zags":2250,"gonzaga bulldogs":2250,
   "san diego state":21,"aztecs":21,"san diego state aztecs":21,
   "memphis":235,"memphis tigers":235,
   "wichita state":2724,"wichita state shockers":2724,
@@ -460,7 +454,7 @@ const NCAA_TEAM_MAP = {
   "maine":311,"maine black bears":311,
   "maryland eastern shore":2378,"umes hawks":2378,
   "massachusetts minutemen":113,
-  "umass lowell":2349,"umass lowell river hawks":2349,
+  "umass lowell":2732,"umass lowell river hawks":2732,
   "umkc":2406,"kansas city roos":2406,"missouri kansas city":2406,
   "montana":149,"montana grizzlies":149,
   "nebraska omaha":2437,"omaha mavericks":2437,
@@ -472,47 +466,63 @@ const NCAA_TEAM_MAP = {
   "unc charlotte":2429,"charlotte 49ers":2429,
   "unc greensboro":2734,"uncg spartans":2734,
   "unc wilmington":2752,"uncw seahawks":2752,
+  // Additional verified teams
+  "xavier":2752,"xavier musketeers":2752,
+  "utah state":328,"utah state aggies":328,
+  "wyoming":273,"wyoming cowboys":273,
+  "wofford":2562,"wofford terriers":2562,
+  "iona":314,"iona gaels":314,
+  "richmond":257,"richmond spiders":257,
+  "northern iowa":2271,"northern iowa panthers":2271,
+  "valparaiso":2674,"valparaiso beacons":2674,
+  "south dakota":2569,"south dakota coyotes":2569,
+  "north dakota":2455,"north dakota fighting hawks":2455,
+  "siu edwardsville":2576,"siue cougars":2576,
+  "green bay":2739,"green bay phoenix":2739,
+  "uw milwaukee":2587,"milwaukee panthers":2587,
+  "wright state":2737,"wright state raiders":2737,
+  "youngstown state":2741,"youngstown state penguins":2741,
+  "western illinois":2710,"western illinois leathernecks":2710,
 };
 
 function lookupTeamId(name) {
   const n = name.toLowerCase().trim();
-  // Exact match first
+  // 1. Exact match
   if (NCAA_TEAM_MAP[n] !== undefined) return NCAA_TEAM_MAP[n];
   if (NBA_TEAM_MAP[n] !== undefined) return NBA_TEAM_MAP[n];
-  // Best partial match: prefer longer key matches (more specific wins)
+
+  // 2. Input contains key — user typed MORE than the key (e.g. "Florida Atlantic Owls" contains "florida atlantic")
+  //    Among these, longest key = most specific
   let bestKey = null, bestLen = 0;
   for (let key of Object.keys(NCAA_TEAM_MAP)) {
-    if ((n.includes(key) || key.includes(n)) && key.length > bestLen) {
-      bestKey = key; bestLen = key.length;
-    }
+    if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
   }
   if (bestKey) return NCAA_TEAM_MAP[bestKey];
   for (let key of Object.keys(NBA_TEAM_MAP)) {
-    if ((n.includes(key) || key.includes(n)) && key.length > bestLen) {
-      bestKey = key; bestLen = key.length;
-    }
+    if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
   }
   if (bestKey) return NBA_TEAM_MAP[bestKey];
+
+  // 3. Key contains input — user typed LESS than the key (e.g. "FAU" contained in "fau owls")
+  //    Only trigger if input is at least 4 chars to avoid false positives
+  if (n.length >= 3) {
+    bestKey = null; bestLen = 0;
+    for (let key of Object.keys(NCAA_TEAM_MAP)) {
+      if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
+    }
+    if (bestKey) return NCAA_TEAM_MAP[bestKey];
+    for (let key of Object.keys(NBA_TEAM_MAP)) {
+      if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
+    }
+    if (bestKey) return NBA_TEAM_MAP[bestKey];
+  }
+
   return null;
 }
 
 // ─── Robust ID normalization ──────────────────────────────────────────────────
 // ESPN returns IDs in multiple formats: "41", "t:41", "s:40~l:41~t:41", etc.
 
-let _debugOn = false;
-function toggleDebug() {
-  _debugOn = !_debugOn;
-  document.getElementById('debugSection').style.display = _debugOn ? 'block' : 'none';
-  document.getElementById('debugToggle').textContent = _debugOn ? '🔍 Hide Debug' : '🔍 Debug';
-}
-function dbg(...args) {
-  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-  console.log('[BBEngine]', msg);
-  if (!_debugOn) return;
-  const el = document.getElementById('debugLog');
-  el.textContent += msg + '\n';
-  el.scrollTop = el.scrollHeight;
-}
 
 function normalizeId(raw) {
   if (raw === null || raw === undefined) return "";
@@ -587,7 +597,6 @@ async function fetchESPN() {
     if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname.`);
     if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname.`);
 
-    dbg('Resolved IDs: teamA='+teamAId+' teamB='+teamBId);
     setStatus('<span class="spinner"></span>Loading game stats...', "loading");
 
     let aStats, bStats;
@@ -632,16 +641,13 @@ async function fetchESPN() {
     }
 
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
-    dbg('Calling H2H fetch, isNcaa='+isNcaa+' tA='+teamAId+' tB='+teamBId);
 
     let h2hGames = [];
     try {
       h2hGames = isNcaa
         ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
         : await fetchNbaH2H(espnBase, teamAId, teamBId);
-      dbg('H2H fetch returned '+h2hGames.length+' games');
     } catch(h2hErr) {
-      dbg('H2H fetch threw: '+h2hErr.message);
       h2hGames = [];
     }
 
@@ -678,7 +684,7 @@ async function fetchESPN() {
     }
 
     const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
-    setStatus(messages.join(" | "), allGood ? "ok" : "err");
+    if (allGood) setStatus("", ""); else setStatus(messages.filter(m=>m.includes('❌')).join(' | '), 'err');
 
   } catch(e) {
     setStatus("❌ " + e.message, "err");
@@ -775,7 +781,6 @@ async function fetchNcaaSchedule(base, teamId) {
 // ─── FIX 3: NCAA H2H – scan BOTH teams' schedules + normalizeId everywhere ───
 async function fetchNcaaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
-  dbg('--- H2H FETCH START tA='+tA+' tB='+tB+' (from ids: '+teamAId+','+teamBId+')');
   const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
@@ -786,14 +791,12 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         try {
           const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
           const events = r?.events || r?.team?.schedule?.events || [];
-          dbg(`  scan ${scanId} s${season}/t${stype}: ${events.length} events`);
           // Log first completed game's competitor IDs to diagnose matching
           if (events.length > 0 && season === '2026' && stype === '2') {
             for (const _ev of events.slice(0,3)) {
               const _comp = _ev?.competitions?.[0];
               if (!_comp?.status?.type?.completed) continue;
               const _cs = _comp?.competitors || [];
-              dbg(`  sample game ${_ev.id}: `+_cs.map(c=>'id='+c.id+' team.id='+(c.team?.id||'?')+' uid='+(c.uid||'?')).join(' | '));
               break;
             }
           }
@@ -816,23 +819,20 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             if (!hasA || !hasB) {
               // Log first few mismatches to see what IDs are present
               if (gameRefs.length === 0 && competitors.length > 0) {
-                dbg(`  no match: looking for tA=${tA} tB=${tB}, got: `+competitors.map(c=>'team.id='+(c.team?.id||'?')).join(' | '));
               }
               continue;
             }
-            dbg(`  ✅ H2H game found! id=${ev.id} date=${dateStr}`);
 
             const cA = competitors.find(x => matchesTeam(x, tA)) || competitors[0];
             const cB = competitors.find(x => matchesTeam(x, tB)) || competitors[1];
             const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
             gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
           }
-        } catch(e) { dbg('  schedule loop error: '+e.message); }
+        } catch(e) {}
       }
     }
   }
 
-  dbg('gameRefs collected: '+gameRefs.length);
   if (!gameRefs.length) return [];
 
   // Deduplicate
@@ -855,9 +855,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         // FIX: normalizeId in summary lookup
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        dbg(`  summary event=${ref.id}: cA=${cA?'found':'MISSING'} cB=${cB?'found':'MISSING'} competitors=${competitors.length}`);
-        if (competitors.length > 0) dbg('  sample ids: '+competitors.slice(0,2).map(c=>'id='+c.id+' team.id='+(c.team?.id||'?')+' uid='+(c.uid||'?')).join(' | '));
-        if (cA && cB) {
+        if (competitors.length > 0)        if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
             const lA = cA?.linescores || [], lB = cB?.linescores || [];
@@ -878,7 +876,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
           }
         }
       }
-    } catch(e) { dbg('  summary ERROR: '+e.message); }
+    } catch(e) {}
     // Fallback to raw schedule scores if summary failed
     if (!added && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
       h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(ref.rawScoreA), scoreB:Math.round(ref.rawScoreB), h1A:0, h1B:0, date:ref.date, eventId:ref.id});
@@ -982,9 +980,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        dbg(`  summary event=${ref.id}: cA=${cA?'found':'MISSING'} cB=${cB?'found':'MISSING'} competitors=${competitors.length}`);
-        if (competitors.length > 0) dbg('  sample ids: '+competitors.slice(0,2).map(c=>'id='+c.id+' team.id='+(c.team?.id||'?')+' uid='+(c.uid||'?')).join(' | '));
-        if (cA && cB) {
+        if (competitors.length > 0)        if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
             const lA = cA?.linescores || [], lB = cB?.linescores || [];
