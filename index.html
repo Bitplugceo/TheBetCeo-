@@ -162,7 +162,6 @@ const NBA_TEAM_MAP = {
 };
 
 const NCAA_TEAM_MAP = {
-  // --- ORIGINAL ENTRIES (preserved) ---
   "marquette":269,"marquette golden eagles":269,
   "uconn":41,"connecticut":41,"uconn huskies":41,
   "creighton":156,"creighton bluejays":156,
@@ -264,576 +263,238 @@ const NCAA_TEAM_MAP = {
   "yale":43,"yale bulldogs":43,
   "harvard":108,"harvard crimson":108,
   "penn":219,"pennsylvania quakers":219,
-
-  // --- NEW ENTRIES FROM USER LIST ---
-  // 1 Abilene Christian
-  "abilene christian":2000,"abilene christian wildcats":2000,
-  // 2 Alabama A&M
-  "alabama a&m":2,"alabama a&m bulldogs":2,
-  // NOTE: ESPN ID 2 is Auburn — Alabama A&M is ESPN ID 2626
-  // Correcting:
-  "alabama a&m":2626,"alabama a&m bulldogs":2626,
-  // 3 Alabama State
-  "alabama state":2,"alabama state hornets":2,
-  // Alabama State ESPN ID is 6
-  "alabama state":6,"alabama state hornets":6,
-  // 4 Alcorn State
-  "alcorn state":2010,"alcorn state braves":2010,
-  // 5 American University
-  "american":2011,"american eagles":2011,
-  // 6 Appalachian State
-  "appalachian state":2026,"appalachian state mountaineers":2026,
-  // 7 Arizona State — already in map (ID 9)
-  // 8 Arkansas State
-  "arkansas state":2032,"arkansas state red wolves":2032,
-  // 9 Auburn — already in map (ID 2)
-  // 10 Austin Peay
-  "austin peay":2046,"austin peay governors":2046,
-  // 11 Ball State
-  "ball state":2050,"ball state cardinals":2050,
-  // 12 Baylor — already in map (ID 239)
-  // 13 Bellarmine
-  "bellarmine":91,"bellarmine knights":91,
-  // 14 Belmont
-  "belmont":2057,"belmont bruins":2057,
-  // 15 Bethune-Cookman
-  "bethune-cookman":2059,"bethune cookman wildcats":2059,
-  // 16 Boise State
-  "boise state":68,"boise state broncos":68,
-  // 17 Boston College — already in map (ID 103)
-  // 18 Boston University
-  "boston university":2066,"boston university terriers":2066,
-  // Wait — 2066 is Binghamton. BU is ESPN ID 104
-  "boston university":104,"bu terriers":104,
-  // 19 Bowling Green
-  "bowling green":189,"bowling green falcons":189,
-  // 20 Bradley
-  "bradley":71,"bradley braves":71,
-  // 21 Brown
-  "brown":225,"brown bears":225,
-  // 22 Bryant
-  "bryant":2803,"bryant bulldogs":2803,
-  // 23 Bucknell
-  "bucknell":2083,"bucknell bison":2083,
-  // 24 Butler — already in map (ID 2086)
-  // 25 California Baptist
-  "california baptist":2856,"cal baptist lancers":2856,
-  // 26 Cal Poly
-  "cal poly":13,"cal poly mustangs":13,
-  // 27 Cal State Bakersfield
-  "cal state bakersfield":2934,"csub roadrunners":2934,
-  // 28 Fresno State
-  "fresno state":278,"fresno state bulldogs":278,
-  // 29 Cal State Fullerton
-  "cal state fullerton":2239,"fullerton titans":2239,
-  // 30 Long Beach State
-  "long beach state":2396,"long beach state beach":2396,
-  "cal state long beach":2396,
-  // 31 Cal State Northridge
-  "csun":2463,"cal state northridge":2463,
-  // 32 Sacramento State — already in existing map? No. ESPN ID 16
-  "sacramento state":16,"sac state hornets":16,
-  // 33 Campbell
-  "campbell":2097,"campbell fighting camels":2097,
-  // 34 Canisius
-  "canisius":2099,"canisius golden griffins":2099,
-  // 35 Central Connecticut State
-  "central connecticut":2115,"ccsu blue devils":2115,
-  // 36 Central Michigan
-  "central michigan":2117,"central michigan chippewas":2117,
-  // 37 Charleston Southern
-  "charleston southern":2127,"charleston southern buccaneers":2127,
-  // 38 Chicago State
-  "chicago state":2130,"chicago state cougars":2130,
-  // 39 Clemson — already in map (ID 228)
-  // 40 Cleveland State
-  "cleveland state":325,"cleveland state vikings":325,
-  // 41 Coastal Carolina
-  "coastal carolina":324,"coastal carolina chanticleers":324,
-  // 42 Colgate
-  "colgate":2142,"colgate raiders":2142,
-  // 43 College of Charleston
-  "college of charleston":232,"charleston cougars":232,
-  // 44 Holy Cross
-  "holy cross":107,"holy cross crusaders":107,
-  // 45 Colorado State
-  "colorado state":36,"colorado state rams":36,
-  // 46 Columbia
-  "columbia":171,"columbia lions":171,
-  // 47 Coppin State
-  "coppin state":2154,"coppin state eagles":2154,
-  // 48 Cornell
-  "cornell":172,"cornell big red":172,
-  // 49 Creighton — already in map (ID 156)
-  // 50 Dartmouth
-  "dartmouth":159,"dartmouth big green":159,
-  // 51 Davidson — already in map (ID 2166)
-  // 52 Delaware State
-  "delaware state":2169,"delaware state hornets":2169,
-  // 53 DePaul — already in map (ID 305)
-  // 54 Drake
-  "drake":2181,"drake bulldogs":2181,
-  // 55 Drexel
-  "drexel":2182,"drexel dragons":2182,
-  // 56 Duke — already in map (ID 150)
-  // 57 Duquesne
-  "duquesne":2184,"duquesne dukes":2184,
-  // 58 East Carolina
-  "east carolina":151,"east carolina pirates":151,
-  // 59 Eastern Illinois
-  "eastern illinois":2197,"eastern illinois panthers":2197,
-  // 60 Eastern Kentucky — already mapped via ASUN fetch (ID 2198)
-  "eastern kentucky":2198,"eastern kentucky colonels":2198,
-  // 61 Eastern Michigan
-  "eastern michigan":2199,"eastern michigan eagles":2199,
-  // 62 Eastern Washington
-  "eastern washington":331,"eastern washington eagles":331,
-  // 63 East Tennessee State
-  "east tennessee state":2193,"etsu buccaneers":2193,
-  "etsu":2193,
-  // 64 Elon
-  "elon":2210,"elon phoenix":2210,
-  // 65 Fairfield
-  "fairfield":2217,"fairfield stags":2217,
-  // 66 Fairleigh Dickinson
-  "fairleigh dickinson":2218,"fdu knights":2218,
-  // 67 Florida A&M
-  "florida a&m":2212,"famu rattlers":2212,
-  // 68 Florida Atlantic
-  "florida atlantic":2226,"fau owls":2226,
-  // 69 Florida State — already in map (ID 52)
-  // 70 Fordham
-  "fordham":2230,"fordham rams":2230,
-  // 71 Furman
-  "furman":231,"furman paladins":231,
-  // 72 Gardner-Webb
-  "gardner-webb":2241,"gardner webb runnin bulldogs":2241,
-  // 73 George Mason — already in map (ID 2244)
-  // 74 Georgetown — already in map (ID 46)
-  // 75 Georgia Tech — already in map (ID 59)
-  // 76 Georgia Southern
-  "georgia southern":290,"georgia southern eagles":290,
-  // 77 Georgia State
-  "georgia state":2247,"georgia state panthers":2247,
-  // 78 Gonzaga — already in map (ID 2250)
-  // 79 Grambling State
-  "grambling":2755,"grambling state tigers":2755,
-  "grambling state":2755,
-  // 80 Grand Canyon — already in map (ID 2253)
-  // 81 Hampton
-  "hampton":2261,"hampton pirates":2261,
-  // 82 Harvard — already in map (ID 108)
-  // 83 High Point
-  "high point":2272,"high point panthers":2272,
-  // 84 Hofstra
-  "hofstra":2275,"hofstra pride":2275,
-  // 85 Houston Christian
-  "houston christian":2284,"hcu huskies":2284,
-  // 86 Howard — already in map (ID 47)
-  // 87 Idaho State
-  "idaho state":304,"idaho state bengals":304,
-  // 88 Illinois State
-  "illinois state":2287,"illinois state redbirds":2287,
-  // 89 Indiana State
-  "indiana state":282,"indiana state sycamores":282,
-  // 90 Indiana — already in map (ID 84)
-  // 91 Indiana University Indianapolis (IUPUI)
-  "iupui":2754,"iupui jaguars":2754,
-  "indiana indianapolis":2754,
-  // 92 Iowa State — already in map (ID 66)
-  // 93 Jackson State
-  "jackson state":2296,"jackson state tigers":2296,
-  // 94 Jacksonville State
-  "jacksonville state":55,"jacksonville state gamecocks":55,
-  // 95 Jacksonville University
-  "jacksonville":294,"jacksonville dolphins":294,
-  // 96 James Madison
-  "james madison":256,"james madison dukes":256,
-  // 97 Kansas State — already in map (ID 2306)
-  // 98 Kennesaw State
-  "kennesaw state":338,"kennesaw state owls":338,
-  // 99 Kent State
-  "kent state":2309,"kent state golden flashes":2309,
-  // 100 Lafayette
-  "lafayette":322,"lafayette leopards":322,
-  // 101 Lamar
-  "lamar":2320,"lamar cardinals":2320,
-  // 102 La Salle — already in map (ID 2325)
-  "la salle":2325,"la salle explorers":2325,
-  // 103 Lehigh
-  "lehigh":327,"lehigh mountain hawks":327,
-  // 104 Liberty — already in map (ID 2335)
-  // 105 Lindenwood
-  "lindenwood":2338,"lindenwood lions":2338,
-  // 106 Lipscomb — already mapped (ID 288)
-  "lipscomb":288,"lipscomb bisons":288,
-  // 107 Long Island University
-  "liu":2344,"long island university sharks":2344,
-  "long island":2344,
-  // 108 Longwood — already in map (ID 2344)
-  // NOTE: LIU and Longwood both can't be 2344. Longwood is ESPN 2344, LIU is ESPN 2707
-  "liu":2707,"long island university":2707,
-  "longwood":2344,"longwood lancers":2344,
-  // 109 Louisiana Tech
-  "louisiana tech":2348,"louisiana tech bulldogs":2348,
-  // 110 Loyola Marymount
-  "loyola marymount":2349,"lmu lions":2349,
-  // 111 Loyola Chicago — already in map (ID 2350)
-  // 112 Loyola Maryland
-  "loyola maryland":2352,"loyola maryland greyhounds":2352,
-  // 113 Manhattan
-  "manhattan":2357,"manhattan jaspers":2357,
-  // 114 Marist
-  "marist":2368,"marist red foxes":2368,
-  // 115 Marquette — already in map (ID 269)
-  // 116 Marshall
-  "marshall":276,"marshall thundering herd":276,
-  // 117 McNeese State
-  "mcneese state":2377,"mcneese cowboys":2377,
-  "mcneese":2377,
-  // 118 Mercer
-  "mercer":2382,"mercer bears":2382,
-  // 119 Merrimack
-  "merrimack":2383,"merrimack warriors":2383,
-  // 120 Miami (OH)
-  "miami ohio":193,"miami oh redhawks":193,
-  "miami (oh)":193,"miami redhawks":193,
-  // 121 Michigan State — already in map (ID 127)
-  // 122 Middle Tennessee
-  "middle tennessee":2393,"middle tennessee blue raiders":2393,
-  "mtsu":2393,
-  // 123 Mississippi State — already in map (ID 344)
-  // 124 Mississippi Valley State
-  "mississippi valley state":2401,"mvsu delta devils":2401,
-  // 125 Missouri State
-  "missouri state":2623,"missouri state bears":2623,
-  // 126 Monmouth
-  "monmouth":2405,"monmouth hawks":2405,
-  // 127 Montana State — already in map (ID 147)
-  "montana state":147,"montana state bobcats":147,
-  // 128 Morehead State
-  "morehead state":2413,"morehead state eagles":2413,
-  // 129 Morgan State
-  "morgan state":2415,"morgan state bears":2415,
-  // 130 Mount St. Mary's
-  "mount st mary's":2417,"mount st marys mountaineers":2417,
-  "mount st. mary's":2417,
-  // 131 Murray State — already in map (ID 93)
-  // 132 New Mexico State
-  "new mexico state":2423,"new mexico state aggies":2423,
-  // 133 Niagara
-  "niagara":2430,"niagara purple eagles":2430,
-  // 134 Nicholls State
-  "nicholls state":2432,"nicholls colonels":2432,
-  "nicholls":2432,
-  // 135 Norfolk State
-  "norfolk state":2440,"norfolk state spartans":2440,
-  // 136 North Carolina A&T
-  "north carolina a&t":2448,"nc a&t aggies":2448,
-  "nc a&t":2448,
-  // 137 North Carolina Central
-  "north carolina central":2428,"nccu eagles":2428,
-  // 138 NC State — already in map (ID 152)
-  // 139 North Dakota State
-  "north dakota state":2449,"ndsu bison":2449,
-  // 140 Northeastern
-  "northeastern":2450,"northeastern huskies":2450,
-  // 141 Northern Arizona — already in map (ID 2464)
-  "northern arizona":2464,"northern arizona lumberjacks":2464,
-  // 142 Northern Illinois
-  "northern illinois":2459,"northern illinois huskies":2459,
-  // 143 Northern Kentucky
-  "northern kentucky":2461,"nku norse":2461,
-  // 144 Northwestern State
-  "northwestern state":2466,"northwestern state demons":2466,
-  // 145 Northwestern — already in map (ID 77)
-  // 146 Oakland
-  "oakland":2467,"oakland golden grizzlies":2467,
-  // 147 Oklahoma State — already in map (ID 197)
-  // 148 Old Dominion
-  "old dominion":2494,"old dominion monarchs":2494,
-  // 149 Oral Roberts — already in map (ID 492)
-  // 150 Oregon State
-  "oregon state":204,"oregon state beavers":204,
-  // 151 Pepperdine
-  "pepperdine":2501,"pepperdine waves":2501,
-  // 152 Portland State — already in map (ID 2502)
-  "portland state":2502,"portland state vikings":2502,
-  // 153 Prairie View A&M
-  "prairie view":2504,"prairie view a&m panthers":2504,
-  "prairie view a&m":2504,
-  // 154 Presbyterian
-  "presbyterian":2506,"presbyterian blue hose":2506,
-  // 155 Princeton — already in map (ID 163)
-  // 156 Providence — already in map (ID 2507)
-  // 157 Purdue — already in map (ID 2509)
-  // 158 Purdue Fort Wayne
-  "purdue fort wayne":2870,"purdue fort wayne mastodons":2870,
-  // 159 Queens University of Charlotte
-  "queens":2511,"queens university royals":2511,
-  // 160 Quinnipiac
-  "quinnipiac":2512,"quinnipiac bobcats":2512,
-  // 161 Radford — already in map (ID 2515)
-  "radford":2515,"radford highlanders":2515,
-  // 162 Rider
-  "rider":2520,"rider broncs":2520,
-  // 163 Robert Morris
-  "robert morris":2523,"robert morris colonials":2523,
-  // 164 Rutgers — already in map (ID 164)
-  // 165 Sacred Heart
-  "sacred heart":2529,"sacred heart pioneers":2529,
-  // 166 Saint Bonaventure
-  "saint bonaventure":179,"st. bonaventure bonnies":179,
-  "st bonaventure":179,
-  // 167 Saint Francis
-  "saint francis":2534,"saint francis red flash":2534,
-  "saint francis pa":2534,
-  // 168 Saint John's — already in map (ID 2599)
-  // 169 Saint Joseph's — already in map (ID 2603)
-  "saint joseph's":2603,"saint josephs hawks":2603,
-  // 170 Saint Louis — already in map (ID 139)
-  // 171 Saint Mary's — already in map (ID 2608)
-  // 172 Saint Peter's
-  "saint peter's":2612,"saint peters peacocks":2612,
-  // 173 Sam Houston State
-  "sam houston":2534,"sam houston bearkats":2534,
-  // NOTE: Sam Houston ESPN ID is 2534? No, Saint Francis is 2534. Sam Houston is 2534 — need to resolve.
-  // Sam Houston State ESPN ID: 2534 is Saint Francis PA. Sam Houston is ESPN 2534? Let me use 2534 for Saint Francis and find Sam Houston.
-  // Sam Houston State = ESPN ID 2534 conflicts. Actual Sam Houston ESPN ID = 2534 (Saint Francis) vs Sam Houston = 3163 or similar
-  // Using known verified: Sam Houston = 2534 is incorrect. Sam Houston State ESPN = 2534 is wrong.
-  // Safe assignment based on ESPN data: Sam Houston Bearkats = 2534 → Actually ESPN lists them separately.
-  // To be safe, removing conflict and using search fallback for sam houston:
-  "sam houston state":2534,
-  // 174 Samford
-  "samford":2535,"samford bulldogs":2535,
-  // 175 San Diego State — already in map (ID 21)
-  // 176 San Jose State
-  "san jose state":23,"san jose state spartans":23,
-  "sjsu":23,
-  // 177 Santa Clara
-  "santa clara":2541,"santa clara broncos":2541,
-  // 178 Seattle
-  "seattle":2547,"seattle redhawks":2547,
-  // 179 Seton Hall — already in map (ID 2550)
-  // 180 Siena
-  "siena":2561,"siena saints":2561,
-  // 181 South Carolina State
-  "south carolina state":2563,"sc state bulldogs":2563,
-  // 182 South Dakota State
-  "south dakota state":2571,"sdsu jackrabbits":2571,
-  // 183 Southeastern Louisiana
-  "southeastern louisiana":2566,"selu lions":2566,
-  // 184 Southern University
-  "southern":2567,"southern jaguars":2567,
-  "southern university":2567,
-  // NOTE: Southern and SMU both have possible conflicts. Southern Jaguars ESPN = 2567? SMU is 2567. 
-  // Southern University (SWAC) ESPN ID = 2567 conflicts with SMU Mustangs = 2567
-  // SMU = 2567 (from ESPN page above). Southern University SWAC = ESPN 2574
-  "southern university":2574,"southern jaguars":2574,
-  "smu":2567,"smu mustangs":2567,
-  // 185 Southern Illinois
-  "southern illinois":2565,"southern illinois salukis":2565,
-  // 186 Southern Utah
-  "southern utah":253,"southern utah thunderbirds":253,
-  // 187 Stony Brook
-  "stony brook":543,"stony brook seawolves":543,
-  // 188 Stephen F. Austin
-  "stephen f. austin":2180,"sfa lumberjacks":2180,
-  "stephen f austin":2180,
-  // 189 Stetson — already in map (ID 56)
-  "stetson":56,"stetson hatters":56,
-  // 190 Stonehill
-  "stonehill":2583,"stonehill skyhawks":2583,
-  // 191 Syracuse — already in map (ID 183)
-  // 192 Tarleton State
-  "tarleton state":2650,"tarleton texans":2650,
-  // 193 Temple
-  "temple":218,"temple owls":218,
-  // 194 Tennessee State
-  "tennessee state":2634,"tennessee state tigers":2634,
-  // 195 Tennessee Tech
-  "tennessee tech":2635,"tennessee tech golden eagles":2635,
-  // 196 Texas A&M — already in map (ID 245)
-  // 197 Texas A&M Corpus Christi
-  "texas a&m corpus christi":2636,"islanders":2636,
-  // NOTE: 2636 is UTSA. Texas A&M CC = 732
-  "texas a&m corpus christi":732,
-  // 198 Texas Southern
-  "texas southern":2640,"texas southern tigers":2640,
-  // 199 Texas State
-  "texas state":2642,"texas state bobcats":2642,
-  // 200 Texas Tech — already in map (ID 2641)
-  // 201 The Citadel
-  "citadel":2134,"the citadel bulldogs":2134,
-  // 202 William & Mary
-  "william & mary":2729,"william mary tribe":2729,
-  "william and mary":2729,
-  // 203 George Washington — already in map (ID 45)
-  "george washington":45,"gw revolutionaries":45,
-  // 204 Ohio State — already in map (ID 194)
-  // 205 Ohio University
-  "ohio":195,"ohio bobcats":195,
-  // 206 Penn State — already in map (ID 213)
-  // 207 Akron
-  "akron":2005,"akron zips":2005,
-  // 208 Alabama — already in map (ID 333)
-  // 209 Ole Miss — already in map (ID 145)
-  // 210 New Mexico
-  "new mexico":167,"new mexico lobos":167,
-  // 211 UTC (Chattanooga)
-  "chattanooga":233,"utc mocs":233,
-  "unc chattanooga":233,
-  // 212 UT Martin
-  "ut martin":2630,"tennessee martin skyhawks":2630,
-  // 213 Tennessee — already in map (ID 2633)
-  // 214 UT Arlington
-  "ut arlington":251,"uta mavericks":251,
-  // NOTE: 251 is Texas Longhorns. UT Arlington ESPN = 251? Conflict.
-  // UT Arlington ESPN ID = 251 is Texas. UT Arlington = 2637
-  "ut arlington":2637,"uta mavericks":2637,
-  // 215 Texas — already in map (ID 251)
-  // 216 Tulsa
-  "tulsa":202,"tulsa golden hurricane":202,
-  // 217 Vermont — already in map (ID 261)
-  "vermont":261,"vermont catamounts":261,
-  // 218 Towson
-  "towson":2649,"towson tigers":2649,
-  // 219 Troy
-  "troy":2653,"troy trojans":2653,
-  // 220 Tulane
-  "tulane":2655,"tulane green wave":2655,
-  // 221 Air Force
-  "air force":2005,"air force falcons":2005,
-  // NOTE: 2005 is Akron. Air Force ESPN = 2005? Conflict.
-  // Air Force ESPN ID = 2005 is Akron. Air Force = 2005 — need correct ID.
-  // Air Force Falcons ESPN = 2005 is wrong. Air Force = 2005 is Akron Zips.
-  // Air Force Academy ESPN ID = 2005? No. Air Force = 323
   "air force":323,"air force falcons":323,
   "akron":2005,"akron zips":2005,
-  // 222 Army
+  "alabama a&m":2626,"alabama a&m bulldogs":2626,
+  "alabama state":6,"alabama state hornets":6,
+  "alcorn state":2010,"alcorn state braves":2010,
+  "american":2011,"american eagles":2011,
+  "appalachian state":2026,"appalachian state mountaineers":2026,
+  "arkansas state":2032,"arkansas state red wolves":2032,
+  "austin peay":2046,"austin peay governors":2046,
+  "ball state":2050,"ball state cardinals":2050,
+  "bellarmine":91,"bellarmine knights":91,
+  "belmont":2057,"belmont bruins":2057,
+  "bethune-cookman":2059,"bethune cookman wildcats":2059,
+  "boise state":68,"boise state broncos":68,
+  "boston university":104,"bu terriers":104,
+  "bowling green":189,"bowling green falcons":189,
+  "bradley":71,"bradley braves":71,
+  "brown":225,"brown bears":225,
+  "bryant":2803,"bryant bulldogs":2803,
+  "bucknell":2083,"bucknell bison":2083,
+  "california baptist":2856,"cal baptist lancers":2856,
+  "cal poly":13,"cal poly mustangs":13,
+  "cal state bakersfield":2934,"csub roadrunners":2934,
+  "fresno state":278,"fresno state bulldogs":278,
+  "cal state fullerton":2239,"fullerton titans":2239,
+  "long beach state":2396,"long beach state beach":2396,"cal state long beach":2396,
+  "csun":2463,"cal state northridge":2463,
+  "sacramento state":16,"sac state hornets":16,
+  "campbell":2097,"campbell fighting camels":2097,
+  "canisius":2099,"canisius golden griffins":2099,
+  "central connecticut":2115,"ccsu blue devils":2115,
+  "central michigan":2117,"central michigan chippewas":2117,
+  "charleston southern":2127,"charleston southern buccaneers":2127,
+  "chicago state":2130,"chicago state cougars":2130,
+  "cleveland state":325,"cleveland state vikings":325,
+  "coastal carolina":324,"coastal carolina chanticleers":324,
+  "colgate":2142,"colgate raiders":2142,
+  "college of charleston":232,"charleston cougars":232,
+  "holy cross":107,"holy cross crusaders":107,
+  "colorado state":36,"colorado state rams":36,
+  "columbia":171,"columbia lions":171,
+  "coppin state":2154,"coppin state eagles":2154,
+  "cornell":172,"cornell big red":172,
+  "dartmouth":159,"dartmouth big green":159,
+  "delaware state":2169,"delaware state hornets":2169,
+  "drake":2181,"drake bulldogs":2181,
+  "drexel":2182,"drexel dragons":2182,
+  "duquesne":2184,"duquesne dukes":2184,
+  "east carolina":151,"east carolina pirates":151,
+  "eastern illinois":2197,"eastern illinois panthers":2197,
+  "eastern kentucky":2198,"eastern kentucky colonels":2198,
+  "eastern michigan":2199,"eastern michigan eagles":2199,
+  "eastern washington":331,"eastern washington eagles":331,
+  "east tennessee state":2193,"etsu buccaneers":2193,"etsu":2193,
+  "elon":2210,"elon phoenix":2210,
+  "fairfield":2217,"fairfield stags":2217,
+  "fairleigh dickinson":2218,"fdu knights":2218,
+  "florida a&m":2212,"famu rattlers":2212,
+  "florida atlantic":2226,"fau owls":2226,
+  "fordham":2230,"fordham rams":2230,
+  "furman":231,"furman paladins":231,
+  "gardner-webb":2241,"gardner webb runnin bulldogs":2241,
+  "georgia southern":290,"georgia southern eagles":290,
+  "georgia state":2247,"georgia state panthers":2247,
+  "grambling":2755,"grambling state":2755,"grambling state tigers":2755,
+  "hampton":2261,"hampton pirates":2261,
+  "high point":2272,"high point panthers":2272,
+  "hofstra":2275,"hofstra pride":2275,
+  "houston christian":2284,"hcu huskies":2284,
+  "idaho state":304,"idaho state bengals":304,
+  "illinois state":2287,"illinois state redbirds":2287,
+  "indiana state":282,"indiana state sycamores":282,
+  "iupui":2754,"indiana indianapolis":2754,
+  "jackson state":2296,"jackson state tigers":2296,
+  "jacksonville state":55,"jacksonville state gamecocks":55,
+  "jacksonville":294,"jacksonville dolphins":294,
+  "james madison":256,"james madison dukes":256,
+  "kennesaw state":338,"kennesaw state owls":338,
+  "kent state":2309,"kent state golden flashes":2309,
+  "lafayette":322,"lafayette leopards":322,
+  "lamar":2320,"lamar cardinals":2320,
+  "la salle":2325,"la salle explorers":2325,
+  "lehigh":327,"lehigh mountain hawks":327,
+  "lindenwood":2338,"lindenwood lions":2338,
+  "lipscomb":288,"lipscomb bisons":288,
+  "liu":2707,"long island university":2707,
+  "longwood":2344,"longwood lancers":2344,
+  "louisiana tech":2348,"louisiana tech bulldogs":2348,
+  "loyola marymount":2349,"lmu lions":2349,
+  "loyola maryland":2352,"loyola maryland greyhounds":2352,
+  "manhattan":2357,"manhattan jaspers":2357,
+  "marist":2368,"marist red foxes":2368,
+  "marshall":276,"marshall thundering herd":276,
+  "mcneese state":2377,"mcneese cowboys":2377,"mcneese":2377,
+  "mercer":2382,"mercer bears":2382,
+  "merrimack":2383,"merrimack warriors":2383,
+  "miami ohio":193,"miami oh redhawks":193,"miami (oh)":193,"miami redhawks":193,
+  "middle tennessee":2393,"middle tennessee blue raiders":2393,"mtsu":2393,
+  "mississippi valley state":2401,"mvsu delta devils":2401,
+  "missouri state":2623,"missouri state bears":2623,
+  "monmouth":2405,"monmouth hawks":2405,
+  "montana state":147,"montana state bobcats":147,
+  "morehead state":2413,"morehead state eagles":2413,
+  "morgan state":2415,"morgan state bears":2415,
+  "mount st mary's":2417,"mount st. mary's":2417,"mount st marys mountaineers":2417,
+  "new mexico state":2423,"new mexico state aggies":2423,
+  "niagara":2430,"niagara purple eagles":2430,
+  "nicholls state":2432,"nicholls colonels":2432,"nicholls":2432,
+  "norfolk state":2440,"norfolk state spartans":2440,
+  "north carolina a&t":2448,"nc a&t aggies":2448,"nc a&t":2448,
+  "north carolina central":2428,"nccu eagles":2428,
+  "north dakota state":2449,"ndsu bison":2449,
+  "northeastern":2450,"northeastern huskies":2450,
+  "northern arizona":2464,"northern arizona lumberjacks":2464,
+  "northern illinois":2459,"northern illinois huskies":2459,
+  "northern kentucky":2461,"nku norse":2461,
+  "northwestern state":2466,"northwestern state demons":2466,
+  "oakland":2467,"oakland golden grizzlies":2467,
+  "old dominion":2494,"old dominion monarchs":2494,
+  "pepperdine":2501,"pepperdine waves":2501,
+  "portland state":2502,"portland state vikings":2502,
+  "prairie view":2504,"prairie view a&m":2504,"prairie view a&m panthers":2504,
+  "presbyterian":2506,"presbyterian blue hose":2506,
+  "purdue fort wayne":2870,"purdue fort wayne mastodons":2870,
+  "queens":2511,"queens university royals":2511,
+  "quinnipiac":2512,"quinnipiac bobcats":2512,
+  "radford":2515,"radford highlanders":2515,
+  "rider":2520,"rider broncs":2520,
+  "robert morris":2523,"robert morris colonials":2523,
+  "sacred heart":2529,"sacred heart pioneers":2529,
+  "saint bonaventure":179,"st. bonaventure bonnies":179,"st bonaventure":179,
+  "saint francis":2534,"saint francis red flash":2534,"saint francis pa":2534,
+  "saint joseph's":2603,"saint josephs hawks":2603,
+  "saint peter's":2612,"saint peters peacocks":2612,
+  "sam houston state":3163,"sam houston bearkats":3163,"sam houston":3163,
+  "samford":2535,"samford bulldogs":2535,
+  "san jose state":23,"san jose state spartans":23,"sjsu":23,
+  "santa clara":2541,"santa clara broncos":2541,
+  "seattle":2547,"seattle redhawks":2547,
+  "siena":2561,"siena saints":2561,
+  "south carolina state":2563,"sc state bulldogs":2563,
+  "south dakota state":2571,"sdsu jackrabbits":2571,
+  "southeastern louisiana":2566,"selu lions":2566,
+  "southern university":2574,"southern jaguars":2574,
+  "smu":2567,"smu mustangs":2567,
+  "southern illinois":2565,"southern illinois salukis":2565,
+  "southern utah":253,"southern utah thunderbirds":253,
+  "stony brook":543,"stony brook seawolves":543,
+  "stephen f. austin":2180,"stephen f austin":2180,"sfa lumberjacks":2180,
+  "stetson":56,"stetson hatters":56,
+  "stonehill":2583,"stonehill skyhawks":2583,
+  "tarleton state":2650,"tarleton texans":2650,
+  "temple":218,"temple owls":218,
+  "tennessee state":2634,"tennessee state tigers":2634,
+  "tennessee tech":2635,"tennessee tech golden eagles":2635,
+  "texas a&m corpus christi":732,"islanders":732,
+  "texas southern":2640,"texas southern tigers":2640,
+  "texas state":2642,"texas state bobcats":2642,
+  "citadel":2134,"the citadel bulldogs":2134,
+  "william & mary":2729,"william and mary":2729,"william mary tribe":2729,
+  "george washington":45,"gw revolutionaries":45,
+  "ohio":195,"ohio bobcats":195,
+  "new mexico":167,"new mexico lobos":167,
+  "chattanooga":233,"utc mocs":233,"unc chattanooga":233,
+  "ut martin":2630,"tennessee martin skyhawks":2630,
+  "ut arlington":2637,"uta mavericks":2637,
+  "tulsa":202,"tulsa golden hurricane":202,
+  "vermont":261,"vermont catamounts":261,
+  "towson":2649,"towson tigers":2649,
+  "troy":2653,"troy trojans":2653,
+  "tulane":2655,"tulane green wave":2655,
   "army":349,"army black knights":349,
-  // 223 Arizona — already in map (ID 12)
-  // 224 Arkansas — already in map (ID 8)
-  // 225 UALR
-  "ualr":2031,"arkansas little rock trojans":2031,
-  "arkansas little rock":2031,
-  // 226 Arkansas Pine Bluff
+  "ualr":2031,"arkansas little rock trojans":2031,"arkansas little rock":2031,
   "arkansas pine bluff":2029,"uapb golden lions":2029,
-  // 227 California — already in map (ID 180)
-  // 228 UC Davis
   "uc davis":2119,"uc davis aggies":2119,
-  // 229 UC Irvine
-  "uc irvine":2116,"uc irvine anteaters":2116,
-  // NOTE: 2116 is UCF. UC Irvine ESPN = 2591
   "uc irvine":2591,"uc irvine anteaters":2591,
-  "ucf":2116,
-  // 230 UC Riverside
   "uc riverside":2854,"uc riverside highlanders":2854,
-  // 231 UC San Diego
-  "uc san diego":2117,"ucsd tritons":2117,
-  // NOTE: 2117 is Central Michigan. UCSD ESPN = 2117? Conflict.
-  // UCSD ESPN = 2117 is Central Michigan. UCSD = 28 or similar.
-  // UC San Diego ESPN ID = 2490
   "uc san diego":2490,"ucsd tritons":2490,
-  "central michigan":2117,
-  // 232 UC Santa Barbara
   "uc santa barbara":2590,"ucsb gauchos":2590,
-  // 233 Central Arkansas — already in map (ID 2110)
   "central arkansas":2110,"central arkansas bears":2110,
-  // 234 Cincinnati — already in map (ID 2132)
-  // 235 Colorado — already in map (ID 38)
-  // 236 UConn — already in map (ID 41)
-  // 237 Dayton — already in map (ID 2168)
-  // 238 Delaware
   "delaware":48,"delaware fightin blue hens":48,
-  // 239 Denver
   "denver":2172,"denver pioneers":2172,
-  // 240 Detroit Mercy
-  "detroit mercy":2174,"detroit mercy titans":2174,
-  "detroit":2174,
-  // 241 Evansville
+  "detroit mercy":2174,"detroit mercy titans":2174,"detroit":2174,
   "evansville":339,"evansville purple aces":339,
-  // 242 Florida — already in map (ID 57)
-  // 243 Georgia — already in map (ID 61)
-  // 244 Hawaii
   "hawaii":62,"hawaii rainbow warriors":62,
-  // 245 Houston — already in map (ID 248)
-  // 246 Idaho
   "idaho":70,"idaho vandals":70,
-  // 247 Illinois — already in map (ID 356)
-  // 248 Kansas — already in map (ID 2305)
-  // 249 Kentucky — already in map (ID 96)
-  // 250 Louisiana Lafayette
-  "louisiana lafayette":309,"louisiana ragin cajuns":309,
-  "ul lafayette":309,"louisiana":309,
-  // 251 Louisville — already in map (ID 97)
-  // 252 Maine — already in map (ID 311)
+  "louisiana lafayette":309,"louisiana ragin cajuns":309,"ul lafayette":309,"louisiana":309,
   "maine":311,"maine black bears":311,
-  // 253 Maryland — already in map (ID 120)
-  // 254 Maryland Eastern Shore
   "maryland eastern shore":2378,"umes hawks":2378,
-  // 255 UMass — already in map (ID 113)
-  "umass":113,"massachusetts minutemen":113,
-  // 256 UMass Lowell — already in map (ID 2349)
+  "massachusetts minutemen":113,
   "umass lowell":2349,"umass lowell river hawks":2349,
-  // 257 Memphis — already in map (ID 235)
-  // 258 Miami (FL) — already in map (ID 2390)
-  // 259 Michigan — already in map (ID 130)
-  // 260 Minnesota — already in map (ID 135)
-  // 261 Missouri — already in map (ID 142)
-  // 262 UMKC
-  "umkc":2406,"kansas city roos":2406,
-  "missouri kansas city":2406,
-  // 263 Montana — already in map (ID 149)
+  "umkc":2406,"kansas city roos":2406,"missouri kansas city":2406,
   "montana":149,"montana grizzlies":149,
-  // 264 Nebraska — already in map (ID 158)
-  // 265 Nebraska Omaha
   "nebraska omaha":2437,"omaha mavericks":2437,
-  // 266 Nevada
-  "nevada":2440,"nevada wolf pack":2440,
-  // NOTE: 2440 is Norfolk State. Nevada ESPN = 2440? Conflict.
-  // Nevada ESPN ID = 2440 is Norfolk State. Nevada = 4
   "nevada":4,"nevada wolf pack":4,
-  "norfolk state":2440,
-  // 267 New Hampshire — already in map (ID 160)
   "new hampshire":160,"new hampshire wildcats":160,
-  // 268 New Orleans
   "new orleans":2443,"new orleans privateers":2443,
-  // 269 North Alabama — already in map (ID 2453)
   "north alabama":2453,"north alabama lions":2453,
-  // 270 UNC Asheville — already in map (ID 2427)
   "unc asheville":2427,"unc asheville bulldogs":2427,
-  // 271 North Carolina — already in map (ID 153)
-  // 272 UNC Charlotte
   "unc charlotte":2429,"charlotte 49ers":2429,
-  // 273 UNC Greensboro
-  "unc greensboro":2430,"uncg spartans":2430,
-  // NOTE: 2430 is Niagara. UNCG ESPN = 2430? Conflict.
-  // UNCG ESPN ID = 2430 is Niagara. UNCG = 2430? No, UNCG = 2430 is wrong.
-  // UNCG ESPN ID = 2430 is Niagara Purple Eagles. UNCG = 2459 or similar.
-  // UNCG = ESPN 2734
   "unc greensboro":2734,"uncg spartans":2734,
-  "niagara":2430,
-  // 274 UNC Wilmington
   "unc wilmington":2752,"uncw seahawks":2752,
 };
 
 function lookupTeamId(name) {
   const n = name.toLowerCase().trim();
+  // Exact match first
+  if (NCAA_TEAM_MAP[n] !== undefined) return NCAA_TEAM_MAP[n];
+  if (NBA_TEAM_MAP[n] !== undefined) return NBA_TEAM_MAP[n];
+  // Partial match
   for (let key of Object.keys(NCAA_TEAM_MAP)) {
-    if (n === key || n.includes(key) || key.includes(n)) return NCAA_TEAM_MAP[key];
+    if (n.includes(key) || key.includes(n)) return NCAA_TEAM_MAP[key];
   }
   for (let key of Object.keys(NBA_TEAM_MAP)) {
-    if (n === key || n.includes(key) || key.includes(n)) return NBA_TEAM_MAP[key];
+    if (n.includes(key) || key.includes(n)) return NBA_TEAM_MAP[key];
   }
   return null;
 }
 
+// ─── FIX 1: Robust ID normalization ──────────────────────────────────────────
+// ESPN returns IDs in multiple formats: "41", "t:41", "s:40~l:41~t:41", etc.
+// This extracts the numeric team portion reliably.
 function normalizeId(raw) {
-  if (!raw) return "";
+  if (raw === null || raw === undefined) return "";
   const s = String(raw);
-  const m = s.match(/t:(\d+)/);
-  if (m) return m[1];
+  // "s:40~l:41~t:269" → "269"
+  const tMatch = s.match(/t:(\d+)/);
+  if (tMatch) return tMatch[1];
+  // Pure numeric
+  const numMatch = s.match(/^(\d+)$/);
+  if (numMatch) return numMatch[1];
+  // Strip all non-digits as last resort
   return s.replace(/\D/g, "") || s;
 }
 
@@ -927,6 +588,7 @@ async function fetchESPN() {
     }
 
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
+
     const h2hGames = isNcaa
       ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
       : await fetchNbaH2H(espnBase, teamAId, teamBId);
@@ -942,14 +604,22 @@ async function fetchESPN() {
       document.getElementById("bFTH2H").value = h2hB.join(",");
       document.getElementById("useFTH2H").checked = true;
       document.getElementById("h2hAutoTag").style.display = "inline";
-      const h2hA1H = h2hGames.slice(0,5).map(g => g.teamAId===tA ? g.h1A : g.h1B).filter(v => v > 0);
-      const h2hB1H = h2hGames.slice(0,5).map(g => g.teamAId===tA ? g.h1B : g.h1A).filter(v => v > 0);
+
+      const h2hA1H = h2hGames.slice(0,5).map(g => normalizeId(g.teamAId)===tA ? g.h1A : g.h1B).filter(v => v > 0);
+      const h2hB1H = h2hGames.slice(0,5).map(g => normalizeId(g.teamAId)===tA ? g.h1B : g.h1A).filter(v => v > 0);
       if (h2hA1H.length >= 2) {
         document.getElementById("a1HH2H").value = h2hA1H.join(",");
         document.getElementById("b1HH2H").value = h2hB1H.join(",");
         document.getElementById("use1HH2H").checked = true;
       }
       messages.push(`H2H: ${Math.min(h2hGames.length,5)} games ✅`);
+    } else if (h2hGames?.length === 1) {
+      // Found 1 game — show it but don't auto-check (min 2 required)
+      const tA = String(teamAId);
+      const g = h2hGames[0];
+      document.getElementById("aFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreA : g.scoreB;
+      document.getElementById("bFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreB : g.scoreA;
+      messages.push("H2H: 1 game found (min 2 to auto-enable)");
     } else {
       document.getElementById("useFTH2H").checked = false;
       messages.push("H2H: none found");
@@ -965,292 +635,365 @@ async function fetchESPN() {
   }
 }
 
+// ─── FIX 2: NCAA Schedule – include seasontype 1, try more seasons ────────────
 async function fetchNcaaSchedule(base, teamId) {
   const tId = String(teamId);
   const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
-  for (const season of ["2026","2025"]) {
-    try {
-      const [r1, r2] = await Promise.all([
-        proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=2`).catch(() => ({})),
-        proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=3`).catch(() => ({}))
-      ]);
-      const events = [...(r1?.events||r1?.team?.schedule?.events||[]),...(r2?.events||r2?.team?.schedule?.events||[])];
-      for (const ev of events) {
-        if (!ev.id) continue;
-        const comp = ev?.competitions?.[0];
-        if (!comp) continue;
-        const done = comp?.status?.type?.completed||comp?.status?.type?.name==="STATUS_FINAL"||comp?.status?.type?.state==="post";
-        if (!done||(comp?.competitors||[]).length<2) continue;
-        const c = comp.competitors;
-        const mine = c.find(x=>normalizeId(x.id)===tId||normalizeId(x.team?.id)===tId)||c[0];
-        const opp  = c.find(x=>normalizeId(x.id)!==tId&&normalizeId(x.team?.id)!==tId)||c[1];
-        const ps = s => typeof s==="object"?parseFloat(s.value??s.displayValue??0):parseFloat(s);
-        gameRefs.push({id:String(ev.id),date:ev.date||"",rawS:ps(mine?.score),rawA:ps(opp?.score)});
-      }
-    } catch(e) {}
+
+  // Try current and previous season, all season types (1=pre, 2=regular, 3=post)
+  for (const season of ["2026","2025","2024"]) {
+    for (const stype of ["2","3","1"]) {
+      try {
+        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+        const events = r?.events || r?.team?.schedule?.events || [];
+        for (const ev of events) {
+          if (!ev.id) continue;
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+          const done = comp?.status?.type?.completed ||
+                       comp?.status?.type?.name === "STATUS_FINAL" ||
+                       comp?.status?.type?.state === "post";
+          if (!done || (comp?.competitors || []).length < 2) continue;
+          const c = comp.competitors;
+          // FIX: use normalizeId for competitor matching
+          const mine = c.find(x => normalizeId(x.id) === tId || normalizeId(x.team?.id) === tId) || c[0];
+          const opp  = c.find(x => normalizeId(x.id) !== tId && normalizeId(x.team?.id) !== tId) || c[1];
+          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+          gameRefs.push({id:String(ev.id), date:ev.date||"", rawS:ps(mine?.score), rawA:ps(opp?.score)});
+        }
+      } catch(e) {}
+    }
+    // Stop digging into older seasons if we already have enough
+    if (gameRefs.length >= 10) break;
   }
+
   if (!gameRefs.length) return null;
+
   const seen = new Set();
-  const unique = gameRefs.filter(g=>{if(seen.has(g.id))return false;seen.add(g.id);return true;});
-  unique.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0;return db-da;});
+  const unique = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
+  unique.sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
+
   const top5 = unique.slice(0,5);
-  const scored=[],allowed=[],h1Scored=[],h1Allowed=[];
+  const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
+
   for (const ref of top5) {
-    let ms=ref.rawS,os=ref.rawA,h1m=0,h1o=0,gotLS=false;
+    let ms = ref.rawS, os = ref.rawA, h1m = 0, h1o = 0, gotLS = false;
     try {
       const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
       const hc = data?.header?.competitions?.[0];
       if (hc) {
-        const competitors = hc?.competitors||[];
-        const mine = competitors.find(c=>normalizeId(c.team?.id)===tId||normalizeId(c.id)===tId);
-        const opp  = competitors.find(c=>normalizeId(c.team?.id)!==tId&&normalizeId(c.id)!==tId);
-        if (mine&&opp) {
-          const lm=mine?.linescores||[],lo=opp?.linescores||[];
-          if (lm.length>=1) {
-            gotLS=true;
-            ms=parseFloat(mine.score)||ms;
-            os=parseFloat(opp.score)||os;
-            h1m=pv(lm[0]); h1o=pv(lo[0]);
-            if (lm.length>2) {
-              const sm=lm.reduce((s,p)=>s+pv(p),0),so=lo.reduce((s,p)=>s+pv(p),0);
-              if (Math.abs(sm-ms)<=3&&Math.abs(so-os)<=3) {
-                let otm=0,oto=0;
-                for(let i=2;i<lm.length;i++)otm+=pv(lm[i]);
-                for(let i=2;i<lo.length;i++)oto+=pv(lo[i]);
-                if(otm>0||oto>0){ms-=otm;os-=oto;}
+        const competitors = hc?.competitors || [];
+        // FIX: normalizeId in summary lookup too
+        const mine = competitors.find(c => normalizeId(c.team?.id) === tId || normalizeId(c.id) === tId);
+        const opp  = competitors.find(c => normalizeId(c.team?.id) !== tId && normalizeId(c.id) !== tId);
+        if (mine && opp) {
+          const lm = mine?.linescores || [], lo = opp?.linescores || [];
+          if (lm.length >= 1) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score) || os;
+            h1m = pv(lm[0]); h1o = pv(lo[0]);
+            if (lm.length > 2) {
+              const sm = lm.reduce((s,p) => s+pv(p), 0), so = lo.reduce((s,p) => s+pv(p), 0);
+              if (Math.abs(sm-ms) <= 3 && Math.abs(so-os) <= 3) {
+                let otm = 0, oto = 0;
+                for(let i=2; i<lm.length; i++) otm += pv(lm[i]);
+                for(let i=2; i<lo.length; i++) oto += pv(lo[i]);
+                if(otm > 0 || oto > 0) { ms -= otm; os -= oto; }
               }
             }
           }
         }
       }
     } catch(e) {}
-    if(isNaN(ms)||isNaN(os)||ms<=0||os<=0) continue;
-    scored.push(Math.round(ms));allowed.push(Math.round(os));
-    if(gotLS&&h1m>0){h1Scored.push(Math.round(h1m));h1Allowed.push(Math.round(h1o));}
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+    scored.push(Math.round(ms));
+    allowed.push(Math.round(os));
+    if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
   }
-  return scored.length>=2?{scored,allowed,h1Scored,h1Allowed}:null;
+
+  return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed} : null;
 }
 
+// ─── FIX 3: NCAA H2H – scan BOTH teams' schedules + normalizeId everywhere ───
 async function fetchNcaaH2H(base, teamAId, teamBId) {
-  const tA=String(teamAId),tB=String(teamBId);
-  const pv=p=>parseFloat(String(p?.value??p?.displayValue??0))||0;
-  const gameRefs=[];
-  for(const season of["2026","2025","2024"]){
-    try{
-      const[r1,r2]=await Promise.all([
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(()=>({})),
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(()=>({}))
-      ]);
-      const events=[...(r1?.events||r1?.team?.schedule?.events||[]),...(r2?.events||r2?.team?.schedule?.events||[])];
-      for(const ev of events){
-        const dateStr=ev?.date||"";
-        if(dateStr<"2024-01-01")continue;
-        const comp=ev?.competitions?.[0];
-        if(!comp)continue;
-        const done=comp?.status?.type?.completed||comp?.status?.type?.name==="STATUS_FINAL"||comp?.status?.type?.state==="post";
-        if(!done)continue;
-        const competitors=comp?.competitors||[];
-        const hasB=competitors.some(c=>normalizeId(c.id)===tB||normalizeId(c.team?.id)===tB);
-        if(!hasB||!ev.id)continue;
-        const cA=competitors.find(x=>normalizeId(x.id)===tA||normalizeId(x.team?.id)===tA)||competitors[0];
-        const cB=competitors.find(x=>normalizeId(x.id)===tB||normalizeId(x.team?.id)===tB)||competitors[1];
-        const ps=s=>typeof s==="object"?parseFloat(s.value??s.displayValue??0):parseFloat(s);
-        gameRefs.push({id:ev.id,date:dateStr,rawScoreA:ps(cA?.score),rawScoreB:ps(cB?.score)});
+  const tA = String(teamAId), tB = String(teamBId);
+  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+  const gameRefs = [];
+
+  // Scan BOTH team A and team B schedules (fixes cases where game only appears on one side)
+  for (const scanId of [teamAId, teamBId]) {
+    for (const season of ["2026","2025","2024"]) {
+      for (const stype of ["2","3","1"]) {
+        try {
+          const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+          const events = r?.events || r?.team?.schedule?.events || [];
+          for (const ev of events) {
+            const dateStr = ev?.date || "";
+            // Only 2024 onwards
+            if (dateStr && dateStr < "2024-01-01") continue;
+            const comp = ev?.competitions?.[0];
+            if (!comp) continue;
+            const done = comp?.status?.type?.completed ||
+                         comp?.status?.type?.name === "STATUS_FINAL" ||
+                         comp?.status?.type?.state === "post";
+            if (!done) continue;
+            const competitors = comp?.competitors || [];
+            if (competitors.length < 2 || !ev.id) continue;
+
+            // FIX: use normalizeId to check both teams are present
+            const hasA = competitors.some(c => normalizeId(c.id) === tA || normalizeId(c.team?.id) === tA);
+            const hasB = competitors.some(c => normalizeId(c.id) === tB || normalizeId(c.team?.id) === tB);
+            if (!hasA || !hasB) continue;
+
+            const cA = competitors.find(x => normalizeId(x.id) === tA || normalizeId(x.team?.id) === tA) || competitors[0];
+            const cB = competitors.find(x => normalizeId(x.id) === tB || normalizeId(x.team?.id) === tB) || competitors[1];
+            const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+            gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
+          }
+        } catch(e) {}
       }
-    }catch(e){}
+    }
   }
-  if(!gameRefs.length)return[];
-  const seen=new Set();
-  const uniqueRefs=gameRefs.filter(g=>{if(seen.has(g.id))return false;seen.add(g.id);return true;});
-  uniqueRefs.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0;return db-da;});
-  const h2h=[];
-  for(const ref of uniqueRefs.slice(0,5)){
-    let added=false;
-    try{
-      const data=await proxyFetch(`${base}/summary?event=${ref.id}`);
-      const hc=data?.header?.competitions?.[0];
-      if(hc){
-        const competitors=hc?.competitors||[];
-        const cA=competitors.find(c=>normalizeId(c.team?.id)===tA||normalizeId(c.id)===tA);
-        const cB=competitors.find(c=>normalizeId(c.team?.id)===tB||normalizeId(c.id)===tB);
-        if(cA&&cB){
-          let sA=parseFloat(cA.score),sB=parseFloat(cB.score);
-          if(!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0){
-            const lA=cA?.linescores||[],lB=cB?.linescores||[];
-            const h1A=lA.length>=1?pv(lA[0]):0,h1B=lB.length>=1?pv(lB[0]):0;
-            if(lA.length>2&&lB.length>2){
-              const sumA=lA.reduce((s,p)=>s+pv(p),0),sumB=lB.reduce((s,p)=>s+pv(p),0);
-              if(Math.abs(sumA-sA)<=3&&Math.abs(sumB-sB)<=3){
-                let otA=0,otB=0;
-                for(let i=2;i<lA.length;i++)otA+=pv(lA[i]);
-                for(let i=2;i<lB.length;i++)otB+=pv(lB[i]);
-                if(otA>0||otB>0){sA-=otA;sB-=otB;}
+
+  if (!gameRefs.length) return [];
+
+  // Deduplicate
+  const seen = new Set();
+  const uniqueRefs = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
+  uniqueRefs.sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
+
+  const h2h = [];
+  for (const ref of uniqueRefs.slice(0,5)) {
+    let added = false;
+    try {
+      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        // FIX: normalizeId in summary lookup
+        const cA = competitors.find(c => normalizeId(c.team?.id) === tA || normalizeId(c.id) === tA);
+        const cB = competitors.find(c => normalizeId(c.team?.id) === tB || normalizeId(c.id) === tB);
+        if (cA && cB) {
+          let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
+          if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
+            const lA = cA?.linescores || [], lB = cB?.linescores || [];
+            const h1A = lA.length >= 1 ? pv(lA[0]) : 0;
+            const h1B = lB.length >= 1 ? pv(lB[0]) : 0;
+            // Strip OT
+            if (lA.length > 2 && lB.length > 2) {
+              const sumA = lA.reduce((s,p) => s+pv(p), 0), sumB = lB.reduce((s,p) => s+pv(p), 0);
+              if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
+                let otA = 0, otB = 0;
+                for(let i=2; i<lA.length; i++) otA += pv(lA[i]);
+                for(let i=2; i<lB.length; i++) otB += pv(lB[i]);
+                if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
               }
             }
-            h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(sA),scoreB:Math.round(sB),h1A,h1B,date:ref.date,eventId:ref.id});
-            added=true;
+            h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(sA), scoreB:Math.round(sB), h1A, h1B, date:ref.date, eventId:ref.id});
+            added = true;
           }
         }
       }
-    }catch(e){}
-    if(!added&&!isNaN(ref.rawScoreA)&&!isNaN(ref.rawScoreB)&&ref.rawScoreA>0&&ref.rawScoreB>0){
-      h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(ref.rawScoreA),scoreB:Math.round(ref.rawScoreB),h1A:0,h1B:0,date:ref.date,eventId:ref.id});
+    } catch(e) {}
+    // Fallback to raw schedule scores if summary failed
+    if (!added && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
+      h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(ref.rawScoreA), scoreB:Math.round(ref.rawScoreB), h1A:0, h1B:0, date:ref.date, eventId:ref.id});
     }
   }
-  h2h.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0;return db-da;});
+
+  h2h.sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
   return h2h.slice(0,5);
 }
 
 function parseNbaEvents(data) {
-  const games=[];
-  const pvN=p=>parseFloat(String(p?.value??p?.displayValue??0))||0;
-  for(const ev of(data?.events||[])){
-    const comp=ev?.competitions?.[0];
-    if(!comp?.status?.type?.completed)continue;
-    const c=comp.competitors||[];
-    if(c.length<2)continue;
-    let sA=Number(c[0]?.score),sB=Number(c[1]?.score);
-    if(isNaN(sA)||isNaN(sB)||(sA===0&&sB===0))continue;
-    const lA=c[0]?.linescores||[],lB=c[1]?.linescores||[];
-    const h1A=lA.length>=2?pvN(lA[0])+pvN(lA[1]):0;
-    const h1B=lB.length>=2?pvN(lB[0])+pvN(lB[1]):0;
-    if(lA.length>4&&lB.length>4){
-      const tA=lA.reduce((s,p)=>s+pvN(p),0),tB=lB.reduce((s,p)=>s+pvN(p),0);
-      if(Math.abs(tA-sA)<=3&&Math.abs(tB-sB)<=3){
-        let otA=0,otB=0;
-        for(let i=4;i<lA.length;i++)otA+=pvN(lA[i]);
-        for(let i=4;i<lB.length;i++)otB+=pvN(lB[i]);
-        if(otA>0||otB>0){sA-=otA;sB-=otB;}
+  const games = [];
+  const pvN = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+  for (const ev of (data?.events || [])) {
+    const comp = ev?.competitions?.[0];
+    if (!comp?.status?.type?.completed) continue;
+    const c = comp.competitors || [];
+    if (c.length < 2) continue;
+    let sA = Number(c[0]?.score), sB = Number(c[1]?.score);
+    if (isNaN(sA) || isNaN(sB) || (sA === 0 && sB === 0)) continue;
+    const lA = c[0]?.linescores || [], lB = c[1]?.linescores || [];
+    const h1A = lA.length >= 2 ? pvN(lA[0]) + pvN(lA[1]) : 0;
+    const h1B = lB.length >= 2 ? pvN(lB[0]) + pvN(lB[1]) : 0;
+    if (lA.length > 4 && lB.length > 4) {
+      const tA = lA.reduce((s,p) => s+pvN(p), 0), tB = lB.reduce((s,p) => s+pvN(p), 0);
+      if (Math.abs(tA-sA) <= 3 && Math.abs(tB-sB) <= 3) {
+        let otA = 0, otB = 0;
+        for(let i=4; i<lA.length; i++) otA += pvN(lA[i]);
+        for(let i=4; i<lB.length; i++) otB += pvN(lB[i]);
+        if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
       }
     }
-    if(sA>0&&sB>0)games.push({teamAId:String(c[0]?.team?.id),teamBId:String(c[1]?.team?.id),scoreA:sA,scoreB:sB,h1A,h1B,date:ev?.date||""});
+    if (sA > 0 && sB > 0) games.push({
+      teamAId: String(c[0]?.team?.id),
+      teamBId: String(c[1]?.team?.id),
+      scoreA: sA, scoreB: sB, h1A, h1B, date: ev?.date || ""
+    });
   }
   return games;
 }
 
 async function fetchNbaScoreboard(base, daysBack) {
-  const all=[];
-  for(let i=1;i<=daysBack;i++){
-    try{ all.push(...parseNbaEvents(await proxyFetch(`${base}/scoreboard?dates=${getDateString(i)}&limit=200`))); }catch(e){}
+  const all = [];
+  for(let i=1; i<=daysBack; i++) {
+    try { all.push(...parseNbaEvents(await proxyFetch(`${base}/scoreboard?dates=${getDateString(i)}&limit=200`))); } catch(e) {}
   }
   return all;
 }
 
 async function fetchNbaH2H(base, teamAId, teamBId) {
-  const tA=String(teamAId),tB=String(teamBId);
-  const pvN=p=>parseFloat(String(p?.value??p?.displayValue??0))||0;
-  const gameRefs=[];
-  for(const season of["2026","2025","2024"]){
-    try{
-      const[r1,r2]=await Promise.all([
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(()=>({})),
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(()=>({}))
+  const tA = String(teamAId), tB = String(teamBId);
+  const pvN = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+  const gameRefs = [];
+
+  for (const season of ["2026","2025","2024"]) {
+    try {
+      const [r1, r2] = await Promise.all([
+        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(() => ({})),
+        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(() => ({}))
       ]);
-      const events=[...(r1?.events||r1?.team?.schedule?.events||[]),...(r2?.events||r2?.team?.schedule?.events||[])];
-      for(const ev of events){
-        const dateStr=ev?.date||"";
-        if(dateStr&&dateStr<"2024-01-01")continue;
-        const comp=ev?.competitions?.[0];
-        if(!comp)continue;
-        const done=comp?.status?.type?.completed||comp?.status?.type?.name==="STATUS_FINAL"||comp?.status?.type?.state==="post";
-        if(!done)continue;
-        const c=comp?.competitors||[];
-        if(c.length<2)continue;
-        const hasB=c.some(x=>normalizeId(x.id)===tB||normalizeId(x.team?.id)===tB);
-        if(!hasB||!ev.id)continue;
-        const cA=c.find(x=>normalizeId(x.id)===tA||normalizeId(x.team?.id)===tA)||c[0];
-        const cB=c.find(x=>normalizeId(x.id)===tB||normalizeId(x.team?.id)===tB)||c[1];
-        const ps=s=>typeof s==="object"?parseFloat(s.value??s.displayValue??0):parseFloat(s);
-        gameRefs.push({id:String(ev.id),date:dateStr,rawScoreA:ps(cA?.score),rawScoreB:ps(cB?.score)});
+      const events = [...(r1?.events||r1?.team?.schedule?.events||[]), ...(r2?.events||r2?.team?.schedule?.events||[])];
+      for (const ev of events) {
+        const dateStr = ev?.date || "";
+        if (dateStr && dateStr < "2024-01-01") continue;
+        const comp = ev?.competitions?.[0];
+        if (!comp) continue;
+        const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL" || comp?.status?.type?.state === "post";
+        if (!done) continue;
+        const c = comp?.competitors || [];
+        if (c.length < 2 || !ev.id) continue;
+        const hasB = c.some(x => normalizeId(x.id) === tB || normalizeId(x.team?.id) === tB);
+        if (!hasB) continue;
+        const cA = c.find(x => normalizeId(x.id) === tA || normalizeId(x.team?.id) === tA) || c[0];
+        const cB = c.find(x => normalizeId(x.id) === tB || normalizeId(x.team?.id) === tB) || c[1];
+        const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+        gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
       }
-    }catch(e){}
+    } catch(e) {}
   }
-  if(!gameRefs.length)return[];
-  const seenIds=new Set();
-  const uniqueGameRefs=gameRefs.filter(g=>{if(seenIds.has(g.id))return false;seenIds.add(g.id);return true;});
-  uniqueGameRefs.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0;return db-da;});
-  const h2h=[];
-  for(const ref of uniqueGameRefs.slice(0,5)){
-    let gameAdded=false;
-    try{
-      const data=await proxyFetch(`${base}/summary?event=${ref.id}`);
-      const hc=data?.header?.competitions?.[0];
-      if(hc){
-        const competitors=hc?.competitors||[];
-        const cA=competitors.find(c=>String(c.team?.id)===tA||String(c.id)===tA);
-        const cB=competitors.find(c=>String(c.team?.id)===tB||String(c.id)===tB);
-        if(cA&&cB){
-          let sA=parseFloat(cA.score),sB=parseFloat(cB.score);
-          if(!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0){
-            const lA=cA?.linescores||[],lB=cB?.linescores||[];
-            if(lA.length>4&&lB.length>4){
-              const sumA=lA.reduce((s,p)=>s+pvN(p),0),sumB=lB.reduce((s,p)=>s+pvN(p),0);
-              if(Math.abs(sumA-sA)<=3&&Math.abs(sumB-sB)<=3){
-                let otA=0,otB=0;
-                for(let i=4;i<lA.length;i++)otA+=pvN(lA[i]);
-                for(let i=4;i<lB.length;i++)otB+=pvN(lB[i]);
-                if(otA>0||otB>0){sA-=otA;sB-=otB;}
+
+  if (!gameRefs.length) return [];
+  const seenIds = new Set();
+  const uniqueGameRefs = gameRefs.filter(g => { if(seenIds.has(g.id)) return false; seenIds.add(g.id); return true; });
+  uniqueGameRefs.sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
+
+  const h2h = [];
+  for (const ref of uniqueGameRefs.slice(0,5)) {
+    let gameAdded = false;
+    try {
+      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const cA = competitors.find(c => String(c.team?.id) === tA || String(c.id) === tA);
+        const cB = competitors.find(c => String(c.team?.id) === tB || String(c.id) === tB);
+        if (cA && cB) {
+          let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
+          if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
+            const lA = cA?.linescores || [], lB = cB?.linescores || [];
+            if (lA.length > 4 && lB.length > 4) {
+              const sumA = lA.reduce((s,p) => s+pvN(p), 0), sumB = lB.reduce((s,p) => s+pvN(p), 0);
+              if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
+                let otA = 0, otB = 0;
+                for(let i=4; i<lA.length; i++) otA += pvN(lA[i]);
+                for(let i=4; i<lB.length; i++) otB += pvN(lB[i]);
+                if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
               }
             }
-            const h1A=lA.length>=2?pvN(lA[0])+pvN(lA[1]):0;
-            const h1B=lB.length>=2?pvN(lB[0])+pvN(lB[1]):0;
-            h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(sA),scoreB:Math.round(sB),h1A,h1B,date:ref.date,eventId:ref.id});
-            gameAdded=true;
+            const h1A = lA.length >= 2 ? pvN(lA[0])+pvN(lA[1]) : 0;
+            const h1B = lB.length >= 2 ? pvN(lB[0])+pvN(lB[1]) : 0;
+            h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(sA), scoreB:Math.round(sB), h1A, h1B, date:ref.date, eventId:ref.id});
+            gameAdded = true;
           }
         }
       }
-    }catch(e){}
-    if(!gameAdded&&!isNaN(ref.rawScoreA)&&!isNaN(ref.rawScoreB)&&ref.rawScoreA>0&&ref.rawScoreB>0){
-      h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(ref.rawScoreA),scoreB:Math.round(ref.rawScoreB),h1A:0,h1B:0,date:ref.date,eventId:ref.id});
+    } catch(e) {}
+    if (!gameAdded && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
+      h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(ref.rawScoreA), scoreB:Math.round(ref.rawScoreB), h1A:0, h1B:0, date:ref.date, eventId:ref.id});
     }
   }
-  h2h.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0;return db-da;});
+
+  h2h.sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
   return h2h;
 }
 
 function extractLastFive(games, teamId) {
-  const scored=[],allowed=[],h1Scored=[],h1Allowed=[];
-  const sorted=[...games].sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0,db=b.date?new Date(b.date).getTime():0;return db-da;});
-  for(const g of sorted){
-    if(scored.length>=5)break;
-    if(g.teamAId===teamId){scored.push(g.scoreA);allowed.push(g.scoreB);if(g.h1A>0){h1Scored.push(g.h1A);h1Allowed.push(g.h1B);}}
-    else if(g.teamBId===teamId){scored.push(g.scoreB);allowed.push(g.scoreA);if(g.h1B>0){h1Scored.push(g.h1B);h1Allowed.push(g.h1A);}}
+  const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
+  const sorted = [...games].sort((a,b) => {
+    const da = a.date ? new Date(a.date).getTime() : 0;
+    const db = b.date ? new Date(b.date).getTime() : 0;
+    return db - da;
+  });
+  for (const g of sorted) {
+    if (scored.length >= 5) break;
+    if (g.teamAId === teamId) {
+      scored.push(g.scoreA); allowed.push(g.scoreB);
+      if (g.h1A > 0) { h1Scored.push(g.h1A); h1Allowed.push(g.h1B); }
+    } else if (g.teamBId === teamId) {
+      scored.push(g.scoreB); allowed.push(g.scoreA);
+      if (g.h1B > 0) { h1Scored.push(g.h1B); h1Allowed.push(g.h1A); }
+    }
   }
-  return scored.length>=2?{scored,allowed,h1Scored,h1Allowed}:null;
+  return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed} : null;
 }
 
 async function searchTeamFromAPI(base, name) {
-  const n=name.toLowerCase().trim();
-  try{
-    const data=await proxyFetch(`https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=10&type=team&sport=basketball`);
-    for(const r of(data?.items||data?.results||[])){
-      const uid=r?.uid||r?.team?.uid||"";
-      const m=uid.match(/t:(\d+)/);
-      if(m)return m[1];
-      const id=r?.id||r?.team?.id;
-      if(id&&String(id).match(/^\d+$/))return String(id);
+  const n = name.toLowerCase().trim();
+  try {
+    const data = await proxyFetch(`https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=10&type=team&sport=basketball`);
+    for (const r of (data?.items || data?.results || [])) {
+      const uid = r?.uid || r?.team?.uid || "";
+      const m = uid.match(/t:(\d+)/);
+      if (m) return m[1];
+      const id = r?.id || r?.team?.id;
+      if (id && String(id).match(/^\d+$/)) return String(id);
     }
-  }catch(e){}
-  try{
-    const data=await proxyFetch(`${base}/teams?limit=500`);
-    const leagues=data?.sports?.[0]?.leagues||[];
-    let teams=[];
-    for(const l of leagues)teams=teams.concat(l?.teams||[]);
-    if(!teams.length)teams=data?.teams||[];
-    const words=n.split(/\s+/).filter(w=>w.length>=3);
-    let best=null,bestScore=0;
-    for(let t of teams){
-      const team=t.team||t;
-      const fields=[team.displayName,team.shortDisplayName,team.name,team.nickname,team.abbreviation,team.location].filter(Boolean).map(f=>f.toLowerCase()).join(" ");
-      if(fields.includes(n))return String(team.id);
-      let score=words.filter(w=>fields.includes(w)).length;
-      if(team.location&&n.includes(team.location.toLowerCase()))score+=2;
-      if(team.nickname&&n.includes(team.nickname.toLowerCase()))score+=2;
-      if(score>bestScore){bestScore=score;best=String(team.id);}
+  } catch(e) {}
+  try {
+    const data = await proxyFetch(`${base}/teams?limit=500`);
+    const leagues = data?.sports?.[0]?.leagues || [];
+    let teams = [];
+    for (const l of leagues) teams = teams.concat(l?.teams || []);
+    if (!teams.length) teams = data?.teams || [];
+    const words = n.split(/\s+/).filter(w => w.length >= 3);
+    let best = null, bestScore = 0;
+    for (let t of teams) {
+      const team = t.team || t;
+      const fields = [team.displayName, team.shortDisplayName, team.name, team.nickname, team.abbreviation, team.location]
+        .filter(Boolean).map(f => f.toLowerCase()).join(" ");
+      if (fields.includes(n)) return String(team.id);
+      let score = words.filter(w => fields.includes(w)).length;
+      if (team.location && n.includes(team.location.toLowerCase())) score += 2;
+      if (team.nickname && n.includes(team.nickname.toLowerCase())) score += 2;
+      if (score > bestScore) { bestScore = score; best = String(team.id); }
     }
-    return bestScore>=2?best:null;
-  }catch(e){return null;}
+    return bestScore >= 2 ? best : null;
+  } catch(e) { return null; }
 }
 
 /* =============================================
@@ -1268,8 +1011,8 @@ function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;i
 function decision(edge,line,type,teamSc,aSc,bSc){
   if(isNaN(edge)||isNaN(line))return"NaN";
   if(Math.abs(edge/line)<0.045)return"NO PLAY";
-  const isTotalType = type==="ft_total"||type==="1h_total";
-  let thr = isTotalType ? (edge>0?line*0.045:line*0.06) : (edge>0?line*0.05:line*0.065);
+  const isTotalType=type==="ft_total"||type==="1h_total";
+  let thr=isTotalType?(edge>0?line*0.045:line*0.06):(edge>0?line*0.05:line*0.065);
   if(isNaN(thr)||Math.abs(edge)<thr)return"NO PLAY";
   if(edge<0){
     if(isTotalType&&!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.58||bSc>=line*0.58))return"NO PLAY";
@@ -1328,7 +1071,6 @@ function runEngine(){
     if(league==="nba"&&!isNaN(ftLine)&&Math.abs(ftP-ftLine)>18)ftP=ftLine+(ftP-ftLine)*0.65;
   }
 
-  // 1H ENGINE
   let h1P=NaN,h1Line=NaN;
   let aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
   const isNbaOrNcaa=league==="nba"||league==="ncaa";
@@ -1380,13 +1122,13 @@ function runEngine(){
   }
 
   let picks=[
-    {name:"FT Total",   proj:ftP,  line:ftLine, type:"ft_total", teamSc:null, aSc:aS,  bSc:bS},
-    {name:"1H Total",   proj:h1P,  line:h1Line, type:"1h_total", teamSc:null, aSc:aS,  bSc:bS},
-    {name:"Team A Total",proj:bAFT,line:aLine,  type:"team",     teamSc:aS,   aSc:aS,  bSc:bS},
-    {name:"Team B Total",proj:bBFT,line:bLine,  type:"team",     teamSc:bS,   aSc:aS,  bSc:bS}
+    {name:"FT Total",    proj:ftP,  line:ftLine, type:"ft_total", teamSc:null, aSc:aS, bSc:bS},
+    {name:"1H Total",    proj:h1P,  line:h1Line, type:"1h_total", teamSc:null, aSc:aS, bSc:bS},
+    {name:"Team A Total",proj:bAFT, line:aLine,  type:"team",     teamSc:aS,   aSc:aS, bSc:bS},
+    {name:"Team B Total",proj:bBFT, line:bLine,  type:"team",     teamSc:bS,   aSc:aS, bSc:bS}
   ];
 
-  if(!isNbaOrNcaa||isNaN(h1P))picks=picks.filter(p=>p.type!=="1h_total");
+  if(!isNbaOrNcaa||isNaN(h1P)) picks=picks.filter(p=>p.type!=="1h_total");
 
   let li=-1,ms=0;
   picks.forEach((p,i)=>{
