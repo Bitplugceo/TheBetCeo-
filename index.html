@@ -1073,6 +1073,54 @@ async function searchTeamFromAPI(base, name) {
 /* =============================================
    ENGINE CORE
    ============================================= */
+  /* =========================================================
+BASKETBALL PREDICTION ENGINE — MODEL DESIGN NOTES
+Version: 1.0 (Stable Core)
+
+This engine is designed for quick statistical projections
+using last-5-game inputs and market lines.
+
+Key Design Principles:
+
+1. Pace Approximation
+Game pace is estimated using scoring totals since possession
+data is not available from manual user input.
+
+2. Offense vs Defense Interaction
+Team projections combine a team's offensive scoring with the
+opponent's defensive allowance.
+
+3. Trimmed Mean Stability
+Highest and lowest values from the last 5 games are removed
+to reduce outlier influence.
+
+4. Regression to League Mean
+Projections partially regress toward league averages to avoid
+overfitting to small sample sizes.
+
+5. Volatility Dampening
+Teams with high scoring variance have projections reduced
+to prevent unstable projections.
+
+6. Pace Clamp by League
+Each league has realistic pace boundaries.
+
+7. Defensive Floor Filter
+Very strong defensive teams suppress OVER predictions.
+
+8. Pace Gap Filter
+Large tempo mismatches reduce totals reliability.
+
+9. Market Trap Protection
+Small statistical edges are ignored to avoid bookmaker traps.
+
+10. Lock Indicator
+The lock icon highlights the strongest statistical edge among
+available picks when edge >= 4.5%. It does NOT influence the
+prediction model itself.
+
+========================================================= */
+
 function parseGames(id){let raw=document.getElementById(id).value.trim();if(!raw)return null;let arr=raw.split(",").map(x=>parseFloat(x.trim()));if(arr.some(x=>isNaN(x)||x<0||x>300))return"error";return arr;}
 function avg(arr){if(!arr||arr.length===0)return NaN;return arr.reduce((a,b)=>a+b,0)/arr.length;}
 function trimmedAvg(arr){if(!arr||arr.length===0)return NaN;if(arr.length<5)return avg(arr);let s=[...arr].sort((a,b)=>a-b);s.shift();s.pop();return avg(s);}
@@ -1144,10 +1192,9 @@ function runEngine(){
   let bVol=bVolRaw*0.6+aVolRaw*0.4;
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
   let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
-  // FIX: correct order — volatility → pace → regression (regression is final anchor)
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
-  bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
   let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
+  bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
   let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
   if(!isNaN(ftP)){
     if(Math.abs(bAFT-bBFT)>18)ftP*=0.98;
@@ -1174,7 +1221,6 @@ function runEngine(){
       let tAP1=(aS1+aA1)/2,tBP1=(bS1+bA1)/2;
       pgr1=Math.abs(tAP1-tBP1)>eb1H*0.10;
       let rp1=(tAP1+tBP1)/2;
-      let pace1=Math.max(cl.min,Math.min(cl.max,rp1/eb1H));
       if(document.getElementById("use1HH2H").checked){
         let h2ha1=parseGames("a1HH2H"),h2hb1=parseGames("b1HH2H");
         if(h2ha1&&h2hb1&&h2ha1!=="error"&&h2hb1!=="error"&&h2ha1.length>=2&&h2hb1.length>=2){
@@ -1192,6 +1238,9 @@ function runEngine(){
           }
         }
       }
+      // FIX: pace computed after H2H blending for accuracy
+      let rawTotal1=bA1H+bB1H;
+      let pace1=Math.max(cl.min,Math.min(cl.max,rawTotal1/eb1H));
       vl1={"nba":7,"ncaa":6}[league]||7;
       // FIX: blend own + opponent volatility
       let aVol1raw=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
@@ -1199,13 +1248,13 @@ function runEngine(){
       aVol1=aVol1raw*0.6+bVol1raw*0.4;
       bVol1=bVol1raw*0.6+aVol1raw*0.4;
       dfr1=(!isNaN(aA1)&&aA1<eb1H*0.40)||(!isNaN(bA1)&&bA1<eb1H*0.40);
-      // FIX: volatility → pace → regression
       bA1H=applyVolatility(bA1H,aVol1,vl1);
       bB1H=applyVolatility(bB1H,bVol1,vl1);
+      // regression mean is eb1H/2 per team (eb1H is total baseline)
+      bA1H=(bA1H*0.85)+((eb1H/2)*0.15);
+      bB1H=(bB1H*0.85)+((eb1H/2)*0.15);
       bA1H=bA1H*(0.5+pace1/2);
       bB1H=bB1H*(0.5+pace1/2);
-      bA1H=(bA1H*0.85)+(eb1H*0.15);
-      bB1H=(bB1H*0.85)+(eb1H*0.15);
       h1P=bA1H+bB1H;
       if(!isNaN(h1P)){
         if(Math.abs(bA1H-bB1H)>9)h1P*=0.98;
@@ -1225,28 +1274,19 @@ function runEngine(){
 
   if(!isNbaOrNcaa||isNaN(h1P)) picks=picks.filter(p=>p.type!=="1h_total");
 
-  let li=-1,ms=0;
-  picks.forEach((p,i)=>{
-    if(isNaN(p.line)||isNaN(p.proj))return;
-    let e=p.proj-p.line,st=p.line?Math.abs(e/p.line):0;
-    let pt=decision(e,p.line,p.type,p.teamSc,p.aSc,p.bSc);
-    if(fma&&pt!=="NO PLAY"&&pt!=="NaN"&&st>=0.045&&st>ms){ms=st;li=i;}
-  });
-
-  picks.forEach((p,i)=>{
+  // Compute final predictions with ALL filters applied first
+  const finalPicks = picks.map((p,i)=>{
     let edge=NaN,pt="NaN",dn="";
     if(isNaN(p.line)){dn="Missing / Invalid Line";pt="—";}
     else if(isNaN(p.proj)){dn="Missing / Invalid Last-5 Data";pt="—";}
     else{
       edge=p.proj-p.line;
       pt=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
-      if(Math.abs(edge)<p.line*0.025)pt="NO PLAY";
       if(p.type==="ft_total"&&pt.startsWith("OVER")){
         if(pgr||dfr)pt="NO PLAY";
         if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";
         if(aVol>vl&&bVol>vl)pt="NO PLAY";
       }
-      // FIX: dfr also protects team totals — defensive rate flag means low-scoring game likely
       if(p.type==="team"&&pt.startsWith("OVER")&&dfr)pt="NO PLAY";
       if(p.type==="1h_total"&&pt.startsWith("OVER")){
         if(pgr1)pt="NO PLAY";
@@ -1254,9 +1294,22 @@ function runEngine(){
         if(aVol1>vl1&&bVol1>vl1)pt="NO PLAY";
       }
     }
+    return {edge,pt,dn};
+  });
+
+  // Select lock AFTER all filters — pick highest edge that isn't NO PLAY
+  let li=-1,ms=0;
+  finalPicks.forEach(({edge,pt},i)=>{
+    if(isNaN(edge)||!picks[i].line)return;
+    let st=Math.abs(edge/picks[i].line);
+    if(fma&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="—"&&st>=0.045&&st>ms){ms=st;li=i;}
+  });
+
+  finalPicks.forEach(({edge,pt,dn},i)=>{
+    const p=picks[i];
     let row=table.insertRow();
     let pred=pt;
-    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN")pred+=` <span class="lock">🔒</span>`;
+    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="—")pred+=` <span class="lock">🔒</span>`;
     let pd=isNaN(p.proj)?"NaN":p.proj.toFixed(2);
     let ed=isNaN(edge)?"NaN":edge.toFixed(2);
     let cn=pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
