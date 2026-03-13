@@ -55,9 +55,11 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <label style="font-size:18px;margin-top:10px;">Select League</label>
     <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
       <option value="nba">USA - NBA</option>
-      <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
-      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
       <option value="ncaa">USA - NCAA</option>
+      <option value="euroleague">Europe - EuroLeague ⚡ Auto-fetch</option>
+      <option value="eurocup">Europe - EuroCup ⚡ Auto-fetch</option>
+      <option value="euro_elite">Europe - ACB / BSL / Serie A (Manual)</option>
+      <option value="secondary">Europe - ABA / Pro B / PLK / A2 (Manual)</option>
       <option value="africa">Africa - BAL / Nigeria League / Rwanda League</option>
       <option value="unknown">Other / Mixed League</option>
     </select>
@@ -66,7 +68,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <!-- ESPN AUTO-FETCH -->
 
   <div class="section" id="espnSection">
-    <h3 style="font-size:15px;">&#9889; ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
+    <h3 style="font-size:15px;">&#9889; Auto-Fetch Stats <span style="font-size:11px;color:#aaa;" id="fetchSubtitle"></span></h3>
     <label style="font-size:12px;">Team A Name</label>
     <div class="team-name-row"><input id="teamAName" placeholder="e.g. Lakers" oninput="clearAutoFill()"></div>
     <label style="font-size:12px;">Team B Name</label>
@@ -559,10 +561,17 @@ function matchesTeam(competitor, teamId) {
 function onLeagueChange() {
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
-  document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
+  const isEuro = league === "euroleague" || league === "eurocup";
+  const showFetch = isNbaOrNcaa || isEuro;
+  document.getElementById("espnSection").style.display = showFetch ? "block" : "none";
   ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
     document.getElementById(id).style.display = isNbaOrNcaa ? "block" : "none";
   });
+  const subtitle = document.getElementById("fetchSubtitle");
+  if (subtitle) {
+    if (isEuro) subtitle.textContent = "(EuroLeague & EuroCup)";
+    else subtitle.textContent = "(NBA & NCAA only)";
+  }
 }
 
 function clearAutoFill() {
@@ -593,6 +602,10 @@ async function fetchESPN() {
   setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
 
   try {
+    if (league === "euroleague" || league === "eurocup") {
+      await fetchEuro(league, teamAName, teamBName);
+      return;
+    }
     const isNcaa = league === "ncaa";
     const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
     const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
@@ -695,6 +708,344 @@ async function fetchESPN() {
   } finally {
     btn.disabled = false;
   }
+}
+
+/* ============= EURO LEAGUE / EURO CUP FETCH ============= */
+
+/* ---- Official EuroLeague team codes (used by api-live.euroleague.net) ---- */
+const EUROLEAGUE_CODES = {
+  "real madrid":"MAD","madrid":"MAD",
+  "barcelona":"BAR","fc barcelona":"BAR","barca":"BAR","barça":"BAR",
+  "fenerbahce":"FEN","fenerbahce beko":"FEN","fener":"FEN",
+  "panathinaikos":"PAN","panathinaikos aktor":"PAN","pao":"PAN",
+  "olympiacos":"OLY","olympiakos":"OLY","olympiacos piraeus":"OLY",
+  "anadolu efes":"ULK","efes":"ULK","anadolu":"ULK",
+  "bayern munich":"MUN","bayern":"MUN","fc bayern":"MUN","munich":"MUN",
+  "baskonia":"BKN","saski baskonia":"BKN","vitoria":"BKN","td systems baskonia":"BKN",
+  "asvel":"ASV","ldlc asvel":"ASV","villeurbanne":"ASV",
+  "alba berlin":"BER","alba":"BER",
+  "maccabi tel aviv":"MTA","maccabi":"MTA","maccabi playtika":"MTA",
+  "partizan":"PAR","partizan belgrade":"PAR","partizan mozzart":"PAR",
+  "virtus bologna":"VIR","virtus":"VIR","segafredo virtus":"VIR","bologna":"VIR",
+  "monaco":"ASM","as monaco":"ASM","monaco basket":"ASM",
+  "zalgiris":"ZAL","zalgiris kaunas":"ZAL",
+  "red star":"CSZ","crvena zvezda":"CSZ","red star belgrade":"CSZ",
+  "paris basketball":"PAB","paris":"PAB",
+  "olimpia milano":"MIL","ea7 olimpia milano":"MIL","olimpia":"MIL","milano":"MIL","milan":"MIL","ea7":"MIL",
+};
+const EUROCUP_CODES = {
+  "valencia basket":"VAL","valencia":"VAL",
+  "joventut":"JOV","joventut badalona":"JOV","joventut penya":"JOV",
+  "ulm":"ULM","ratiopharm ulm":"ULM",
+  "trento":"TRE","dolomiti energia trento":"TRE","dolomiti energia":"TRE",
+  "hapoel tel aviv":"HTA","hapoel":"HTA",
+  "hamburg":"HAM","hamburg towers":"HAM",
+  "cedevita olimpija":"OLI","olimpija":"OLI","cedevita":"OLI",
+  "derthona":"DER","derthona basket":"DER","tortona":"DER",
+  "venezia":"VEN","reyer venezia":"VEN","umana reyer":"VEN","venice":"VEN",
+  "unicaja":"UNI","unicaja malaga":"UNI","malaga":"UNI",
+  "tenerife":"TEN","lenovo tenerife":"TEN","iberostar tenerife":"TEN",
+  "gran canaria":"GRX","gran canaria claret":"GRX",
+  "buducnost":"BUD","buducnost voli":"BUD","podgorica":"BUD",
+  "bahcesehir":"BCK","bahcesehir college":"BCK",
+  "besiktas":"BJK","besiktas icrypex":"BJK",
+  "slask wroclaw":"SLK","slask":"SLK",
+  "prometey":"PRO","prometey slobozhanske":"PRO",
+  "lietkabelis":"LKB","lietkabelis panevezys":"LKB",
+};
+
+function lookupEuroCode(name, league) {
+  const n = name.toLowerCase().trim();
+  const map = league === "euroleague" ? EUROLEAGUE_CODES : EUROCUP_CODES;
+  if (map[n]) return map[n];
+  let best = null, bestLen = 0;
+  for (const k of Object.keys(map)) {
+    if ((n.includes(k) || k.includes(n)) && k.length > bestLen) { best = map[k]; bestLen = k.length; }
+  }
+  return best;
+}
+
+function lookupEuroTeamESPN(name, league) { return null; } // kept for compat
+
+const EUROLEAGUE_TEAM_MAP = {
+  "real madrid":"MAD","madrid":"MAD","real madrid basketball":"MAD",
+  "barcelona":"BAR","fc barcelona":"BAR","barca":"BAR","barça":"BAR",
+  "fenerbahce":"FEN","fenerbahce beko":"FEN","fener":"FEN",
+  "panathinaikos":"PAN","panathinaikos ator":"PAN","pao":"PAN",
+  "olympiacos":"OLY","olympiacos piraeus":"OLY","olympiakos":"OLY",
+  "anadolu efes":"ULK","efes":"ULK","istanbul efes":"ULK",
+  "bayern munich":"MUN","bayern":"MUN","fc bayern":"MUN","munich":"MUN",
+  "baskonia":"BKN","td systems baskonia":"BKN","saski baskonia":"BKN","vitoria":"BKN",
+  "asvel":"ASV","ldlc asvel":"ASV","villeurbanne":"ASV","lyon villeurbanne":"ASV",
+  "alba berlin":"BER","alba":"BER",
+  "maccabi tel aviv":"MTA","maccabi":"MTA","maccabi playtika":"MTA",
+  "partizan":"PAR","partizan mozzart":"PAR","partizan belgrade":"PAR",
+  "virtus bologna":"VIR","virtus":"VIR","segafredo virtus":"VIR","bologna":"VIR",
+  "monaco":"ASM","as monaco":"ASM","monaco basket":"ASM",
+  "zalgiris":"ZAL","zalgiris kaunas":"ZAL",
+  "red star":"CSZ","crvena zvezda":"CSZ","red star belgrade":"CSZ","cz belgrade":"CSZ",
+  "paris basketball":"PAB","paris":"PAB","paris basket":"PAB",
+  "olimpia milano":"MIL","ea7 olimpia milano":"MIL","olimpia":"MIL","milano":"MIL","milan":"MIL","ea7":"MIL",
+  "cska moscow":"CSK","cska":"CSK",
+  "žalgiris":"ZAL","zalgiris kaunas":"ZAL",
+};
+
+const EUROCUP_TEAM_MAP = {
+  "valencia basket":"VAL","valencia":"VAL",
+  "joventut":"JOV","joventut badalona":"JOV","joventut penya":"JOV",
+  "ulm":"ULM","ratiopharm ulm":"ULM",
+  "trento":"TRE","dolomiti energia trento":"TRE","dolomiti energia":"TRE",
+  "hapoel tel aviv":"HTA","hapoel":"HTA",
+  "hamburg":"HAM","hamburg towers":"HAM",
+  "cedevita olimpija":"OLI","olimpija":"OLI","cedevita":"OLI",
+  "derthona":"DER","derthona basket":"DER","tortona":"DER",
+  "buducnost":"BUD","buducnost voli":"BUD","podgorica":"BUD",
+  "bahcesehir":"BAH","bahcesehir college":"BAH",
+  "bursaspor":"BUR","frutti extra bursaspor":"BUR",
+  "venice":"VEN","reyer venezia":"VEN","umana reyer":"VEN","venezia":"VEN",
+  "gran canaria":"GRX","gran canaria claret":"GRX",
+  "lietkabelis":"LKB","lietkabelis panevezys":"LKB",
+  "prometey":"PRO","prometey slobozhanske":"PRO",
+  "unicaja":"UNI","unicaja malaga":"UNI","malaga":"UNI",
+  "rivas ecobisa":"RIV","rivas":"RIV",
+  "slask wroclaw":"SLK","slask":"SLK",
+  "besiktas":"BJK","besiktas icrypex":"BJK",
+  "tenerife":"CBT","iberostar tenerife":"CBT","lenovo tenerife":"CBT",
+  "budivelnyk":"BUD2","budivelnyk kyiv":"BUD2",
+};
+
+function lookupEuroTeam(name, league) {
+  const n = name.toLowerCase().trim();
+  const map = league === "euroleague" ? EUROLEAGUE_TEAM_MAP : EUROCUP_TEAM_MAP;
+  if (map[n]) return map[n];
+  let best = null, bestLen = 0;
+  for (const key of Object.keys(map)) {
+    if (n.includes(key) && key.length > bestLen) { best = map[key]; bestLen = key.length; }
+  }
+  if (best) return best;
+  for (const key of Object.keys(map)) {
+    if (key.includes(n) && key.length > bestLen) { best = map[key]; bestLen = key.length; }
+  }
+  return best;
+}
+
+async function fetchEuro(league, teamAName, teamBName) {
+  const btn = document.getElementById("fetchBtn");
+  btn.disabled = true;
+  setStatus('<span class="spinner"></span>Connecting to EuroLeague API...', "loading");
+
+  try {
+    const compCode = league === "euroleague" ? "E" : "U";
+    // Current season codes: EuroLeague 2024-25 = E2024, EuroCup 2024-25 = U2024
+    const seasonCodes = ["E2024","E2025","E2023"].map(s => compCode + s.slice(1));
+    const apiBase = "https://api-live.euroleague.net/v1/competitions";
+
+    const codeA = lookupEuroCode(teamAName, league);
+    const codeB = lookupEuroCode(teamBName, league);
+    if (!codeA) throw new Error(`Unknown team "${teamAName}". Try e.g. "Olimpia", "Maccabi", "Real Madrid".`);
+    if (!codeB) throw new Error(`Unknown team "${teamBName}". Try e.g. "Olimpia", "Maccabi", "Real Madrid".`);
+
+    setStatus('<span class="spinner"></span>Loading season games...', "loading");
+
+    // Fetch all games for current season
+    let allGames = [];
+    for (const season of seasonCodes) {
+      try {
+        const r = await proxyFetch(`${apiBase}/${compCode}/seasons/${season}/games?limit=300`);
+        let games = Array.isArray(r) ? r : (r?.data || r?.games || r?.results || []);
+        const played = games.filter(g => {
+          const s = g.gameStatus || g.status || g.played;
+          return s === "result" || s === "played" || s === "Played" || s === true || s === "STATUS_FINAL";
+        });
+        if (played.length >= 5) { allGames = played; break; }
+        if (games.length > allGames.length) allGames = games;
+      } catch(e) {}
+    }
+
+    if (!allGames.length) throw new Error("EuroLeague API unreachable through proxy. Enter stats manually.");
+
+    const messages = [];
+
+    // Helper: get team code from game side
+    const getCode = side => side?.clubCode || side?.club?.code || side?.teamCode || null;
+    const getScore = side => {
+      const v = side?.score ?? side?.points ?? side?.clubScore ?? side?.clubLocalScore ?? side?.clubRoadScore;
+      return v !== undefined ? Number(v) : NaN;
+    };
+    const isPlayed = g => {
+      const s = g.gameStatus || g.status;
+      return s === "result" || s === "played" || s === "Played" || s === "STATUS_FINAL" || g.played === true || g.isPlayed === true;
+    };
+
+    // Extract last 5 for each team
+    function getTeamStats(code) {
+      const games = allGames
+        .filter(g => isPlayed(g) && (getCode(g.home) === code || getCode(g.away) === code))
+        .sort((a,b) => new Date(b.startsAt||b.date||b.gameDate||0) - new Date(a.startsAt||a.date||a.gameDate||0))
+        .slice(0, 5);
+      const scored = [], allowed = [];
+      for (const g of games) {
+        const isHome = getCode(g.home) === code;
+        const s = getScore(isHome ? g.home : g.away);
+        const a = getScore(isHome ? g.away : g.home);
+        if (!isNaN(s) && !isNaN(a) && s > 0 && a > 0) { scored.push(s); allowed.push(a); }
+      }
+      return scored.length >= 2 ? {scored, allowed} : null;
+    }
+
+    const aStats = getTeamStats(codeA);
+    const bStats = getTeamStats(codeB);
+
+    if (aStats) {
+      document.getElementById("aFTScored").value  = aStats.scored.join(",");
+      document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
+      document.getElementById("aAutoTag").style.display = "inline";
+      messages.push(`&#9989; ${teamAName} &mdash; ${aStats.scored.length} games loaded`);
+    } else {
+      messages.push(`&#10060; ${teamAName} &mdash; no data found`);
+    }
+
+    if (bStats) {
+      document.getElementById("bFTScored").value  = bStats.scored.join(",");
+      document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
+      document.getElementById("bAutoTag").style.display = "inline";
+      messages.push(`&#9989; ${teamBName} &mdash; ${bStats.scored.length} games loaded`);
+    } else {
+      messages.push(`&#10060; ${teamBName} &mdash; no data found`);
+    }
+
+    // H2H
+    const h2hRaw = allGames.filter(g => {
+      if (!isPlayed(g)) return false;
+      const hc = getCode(g.home), ac = getCode(g.away);
+      return (hc===codeA&&ac===codeB)||(hc===codeB&&ac===codeA);
+    }).sort((a,b) => new Date(b.startsAt||b.date||0) - new Date(a.startsAt||a.date||0)).slice(0,5);
+
+    if (h2hRaw.length >= 2) {
+      const h2hA=[], h2hB=[];
+      for (const g of h2hRaw) {
+        const isHomeA = getCode(g.home) === codeA;
+        h2hA.push(getScore(isHomeA ? g.home : g.away));
+        h2hB.push(getScore(isHomeA ? g.away : g.home));
+      }
+      document.getElementById("aFTH2H").value = h2hA.join(",");
+      document.getElementById("bFTH2H").value = h2hB.join(",");
+      document.getElementById("useFTH2H").checked = true;
+      document.getElementById("h2hAutoTag").style.display = "inline";
+      messages.push(`&#9989; H2H &mdash; ${h2hRaw.length} games found`);
+    } else if (h2hRaw.length === 1) {
+      const g = h2hRaw[0];
+      const isHomeA = getCode(g.home) === codeA;
+      document.getElementById("aFTH2H").value = getScore(isHomeA ? g.home : g.away);
+      document.getElementById("bFTH2H").value = getScore(isHomeA ? g.away : g.home);
+      messages.push("&#9888;&#65039; H2H &mdash; 1 game found (min 2 to auto-enable)");
+    } else {
+      document.getElementById("useFTH2H").checked = false;
+      messages.push("&#10060; H2H &mdash; none found");
+    }
+
+    const allGood = !!aStats && !!bStats;
+    setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
+
+  } catch(e) {
+    setStatus("&#10060; " + e.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function fetchEuroSchedule(base, teamId) {
+  const tId = String(teamId);
+  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
+  const gameRefs = [];
+  for (const season of ["2025","2024","2026"]) {
+    for (const stype of ["2","3","1"]) {
+      try {
+        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+        const events = r?.events || r?.team?.schedule?.events || [];
+        for (const ev of events) {
+          if (!ev.id) continue;
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+          const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL" || comp?.status?.type?.state === "post";
+          if (!done || (comp?.competitors||[]).length < 2) continue;
+          const c = comp.competitors;
+          const mine = c.find(x => matchesTeam(x, tId)) || c[0];
+          const opp  = c.find(x => !matchesTeam(x, tId)) || c[1];
+          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+          gameRefs.push({id:String(ev.id), date:ev.date||"", rawS:ps(mine?.score), rawA:ps(opp?.score)});
+        }
+      } catch(e) {}
+    }
+    if (gameRefs.length >= 8) break;
+  }
+  if (!gameRefs.length) return null;
+  const seen = new Set();
+  const unique = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
+  unique.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
+  const top5 = unique.slice(0,5);
+  const scored=[], allowed=[];
+  for (const ref of top5) {
+    let ms = ref.rawS, os = ref.rawA;
+    try {
+      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp  = competitors.find(c => !matchesTeam(c, tId));
+        if (mine && opp) { ms = parseFloat(mine.score)||ms; os = parseFloat(opp.score)||os; }
+      }
+    } catch(e) {}
+    if (!isNaN(ms) && !isNaN(os) && ms > 0 && os > 0) { scored.push(Math.round(ms)); allowed.push(Math.round(os)); }
+  }
+  return scored.length >= 2 ? {scored, allowed, h1Scored:[], h1Allowed:[]} : null;
+}
+
+function searchEuroTeamCode(games, name) {
+  const n = name.toLowerCase().trim();
+  for (const g of games) {
+    for (const side of [g.home, g.away]) {
+      if (!side) continue;
+      const clubName = (side.clubName || side.club?.name || side.teamName || "").toLowerCase();
+      const code = getEuroTeamCode(side);
+      if (!clubName || !code) continue;
+      if (clubName.includes(n) || n.includes(clubName.split(" ")[0])) return code;
+    }
+  }
+  return null;
+}
+
+function getEuroTeamCode(side) {
+  return side?.clubCode || side?.club?.code || side?.teamCode || side?.code || null;
+}
+function getEuroScore(side) {
+  const s = side?.score ?? side?.points ?? side?.finalScore ?? side?.teamScore;
+  return s !== undefined && s !== null ? Number(s) : NaN;
+}
+function isEuroPlayed(g) {
+  return g.played || g.isPlayed || g.status === "played" || g.gameStatus === "played"
+    || g.status === "result" || g.gameStatus === "result" || g.status === "Played";
+}
+
+function extractEuroLastFive(games, teamCode) {
+  const played = games
+    .filter(g => isEuroPlayed(g) && (getEuroTeamCode(g.home) === teamCode || getEuroTeamCode(g.away) === teamCode))
+    .sort((a,b) => new Date(b.date||b.startDate||b.gameDate||0) - new Date(a.date||a.startDate||a.gameDate||0))
+    .slice(0,5);
+
+  const scored = [], allowed = [];
+  for (const g of played) {
+    const isHome = getEuroTeamCode(g.home) === teamCode;
+    const mine = isHome ? g.home : g.away;
+    const opp  = isHome ? g.away : g.home;
+    const s = getEuroScore(mine), a = getEuroScore(opp);
+    if (!isNaN(s) && !isNaN(a) && s > 0 && a > 0) {
+      scored.push(s);
+      allowed.push(a);
+    }
+  }
+  return scored.length >= 2 ? {scored, allowed, h1Scored:[], h1Allowed:[]} : null;
 }
 
 async function fetchNcaaSchedule(base, teamId) {
@@ -1071,8 +1422,8 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   const league=document.getElementById("leagueSelect").value;
-  const bases={"nba":230,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
-  const paceClamps={"nba":{min:0.90,max:1.15},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
+  const bases={"nba":230,"euroleague":160,"eurocup":155,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
+  const paceClamps={"nba":{min:0.90,max:1.15},"euroleague":{min:0.92,max:1.10},"eurocup":{min:0.92,max:1.10},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
   let eb=bases[league]||160;
   const cl=paceClamps[league]||{min:0.90,max:1.12};
   let ftLine=mid(document.getElementById("ftMarket").value);
@@ -1118,7 +1469,7 @@ function runEngine(){
   let aVol=aVolRaw*0.6+bVolRaw*0.4;
   let bVol=bVolRaw*0.6+aVolRaw*0.4;
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
-  let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
+  let vl={"nba":14,"euroleague":12,"eurocup":12,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
   let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
   bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
