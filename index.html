@@ -31,7 +31,7 @@ th, td {border:1px solid #d4af37;padding:6px;text-align:center;}
 .pred-over {background:#1e7d3a;color:#fff;font-weight:bold;}
 .pred-under {background:#8b1e1e;color:#fff;font-weight:bold;}
 .pred-noplay {background:#444;color:#bbb;font-weight:bold;}
-.lock {font-size:4px;display:inline-block;vertical-align:middle;transform:translateY(-1px);margin-left:4px;}
+.lock {font-size:14px;display:inline-block;vertical-align:middle;transform:translateY(-1px);margin-left:4px;}
 small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 .injury-box {background:#1a1a2a;border:1px solid #446;padding:6px;margin-top:6px;font-size:11px;line-height:1.8;display:none;}
 .injury-box .inj-title {color:#aac;font-weight:bold;margin-bottom:2px;}
@@ -177,49 +177,108 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     </div>
   </div>
 
-  </div>
+</div>
 
-  <div style="text-align:center;">
-    <button onclick="runEngine()">Run</button>
-    <button onclick="clearAll()">Clear</button>
-  </div>
+<div style="text-align:center;">
+  <button onclick="runEngine()">Run</button>
+  <button onclick="clearAll()">Clear</button>
+</div>
 
-  <div class="table-wrap">
-  <table id="results" style="display:none;">
-    <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
-  </table>
-  </div>
+<div class="table-wrap">
+<table id="results" style="display:none;">
+  <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
+</table>
+</div>
 
 </div><!-- end wrapper -->
 
 <script>
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 
+// FIX 6 — Scoreboard response cache so repeat fetches don't re-hit the same dates
+const _sbCache = new Map();
+
 // Global injury/rest state — set during fetch, read by runEngine
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
 let g_injB = {restMult:1, scoringMult:1, notes:[]};
 
-// Rest day multiplier — research-based curve
-// 0 rest (B2B) = -3.5%, 1 day = -1%, 2 days = optimal, 3 days = -0.8%, 4+ = -1.5%
-function restMultiplier(days) {
-  if(days===0)return 0.965;
-  if(days===1)return 0.990;
-  if(days===2)return 1.000;
-  if(days===3)return 0.992;
-  return 0.985;
+// ─────────────────────────────────────────────────────────────
+// FIX 1 — Single canonical helper: readVal
+// Replaces all pv / pvN scattered across functions.
+// Reads ESPN stat objects that may be {value:...}, {displayValue:...},
+// a plain number, or a string. Always returns a finite float or 0.
+// ─────────────────────────────────────────────────────────────
+function readVal(p) {
+  if (p === null || p === undefined) return 0;
+  if (typeof p === "object") {
+    const v = parseFloat(p.value ?? p.displayValue ?? 0);
+    return isFinite(v) ? v : 0;
+  }
+  const v = parseFloat(p);
+  return isFinite(v) ? v : 0;
 }
 
-// ── FIX 1: Fetch the actual next scheduled game date for a team from ESPN.
-// Works for both NBA and NCAA. Returns ISO date string or null.
-// This replaces the old hardcoded +1 day assumption so rest days are always
-// calculated against the real upcoming match date — today, tomorrow, or any future date.
+// ─────────────────────────────────────────────────────────────
+// FIX 4 — Per-league rest multiplier curves
+// NBA / NCAA: well-researched B2B fatigue data (high game-density)
+// Euro top tier: moderate fatigue (2-3 games/week possible)
+// Euro second tier / FIBA / others: lighter schedule, smaller penalty
+// ─────────────────────────────────────────────────────────────
+const REST_CURVES = {
+  // [0=B2B, 1=1day, 2=2days(optimal), 3=3days, 4+=stale]
+  nba:     [0.965, 0.990, 1.000, 0.992, 0.985],
+  ncaa:    [0.968, 0.991, 1.000, 0.993, 0.986],
+  // Euro top tier — less B2B, but players still feel it
+  euroleague:[0.972, 0.992, 1.000, 0.994, 0.988],
+  eurocup:   [0.972, 0.992, 1.000, 0.994, 0.988],
+  acb:       [0.970, 0.991, 1.000, 0.993, 0.987],
+  bsl:       [0.970, 0.991, 1.000, 0.993, 0.987],
+  lba:       [0.972, 0.992, 1.000, 0.994, 0.988],
+  bcl:       [0.972, 0.992, 1.000, 0.994, 0.988],
+  bbl:       [0.972, 0.992, 1.000, 0.994, 0.988],
+  proa:      [0.972, 0.992, 1.000, 0.994, 0.988],
+  // Euro second tier / lighter schedules
+  aba:    [0.975, 0.993, 1.000, 0.995, 0.990],
+  prob:   [0.975, 0.993, 1.000, 0.995, 0.990],
+  plk:    [0.975, 0.993, 1.000, 0.995, 0.990],
+  a2:     [0.975, 0.993, 1.000, 0.995, 0.990],
+  nbl_cz: [0.975, 0.993, 1.000, 0.995, 0.990],
+  lkl:    [0.975, 0.993, 1.000, 0.995, 0.990],
+  isl:    [0.972, 0.992, 1.000, 0.994, 0.988],
+  // Africa
+  bal:    [0.975, 0.993, 1.000, 0.995, 0.990],
+  nigeria:[0.977, 0.994, 1.000, 0.995, 0.991],
+  rwanda: [0.977, 0.994, 1.000, 0.995, 0.991],
+  // Americas
+  nbb:    [0.972, 0.992, 1.000, 0.994, 0.988],
+  lnb:    [0.974, 0.993, 1.000, 0.994, 0.989],
+  cebl:   [0.974, 0.993, 1.000, 0.994, 0.989],
+  // Asia / Oceania
+  pba:    [0.968, 0.990, 1.000, 0.992, 0.986],
+  bleague:[0.972, 0.992, 1.000, 0.994, 0.988],
+  cba:    [0.970, 0.991, 1.000, 0.993, 0.987],
+  ausnbl: [0.972, 0.992, 1.000, 0.994, 0.988],
+  nznbl:  [0.974, 0.993, 1.000, 0.994, 0.989],
+  // FIBA
+  fiba_wc:[0.975, 0.993, 1.000, 0.995, 0.990],
+  fiba_eb:[0.975, 0.993, 1.000, 0.995, 0.990],
+  fiba_ac:[0.975, 0.993, 1.000, 0.995, 0.990],
+  unknown:[0.973, 0.992, 1.000, 0.994, 0.988],
+};
+
+function restMultiplier(days, league) {
+  const curve = REST_CURVES[league] || REST_CURVES.unknown;
+  const idx = Math.min(Math.max(days, 0), 4); // clamp 0-4
+  return curve[idx];
+}
+
+// Fetch the actual next scheduled game date for a team from ESPN.
 async function fetchNextGameDate(base, teamId) {
   for (const season of ["2026","2025"]) {
     for (const stype of ["2","3"]) {
       try {
         const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
         const events = r?.events || r?.team?.schedule?.events || [];
-        // Sort ascending by date so the earliest upcoming game is always first
         events.sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
         for (const ev of events) {
           const comp = ev?.competitions?.[0];
@@ -227,7 +286,6 @@ async function fetchNextGameDate(base, teamId) {
           const completed = comp?.status?.type?.completed ||
                             comp?.status?.type?.name === "STATUS_FINAL" ||
                             comp?.status?.type?.state === "post";
-          // First event that is NOT completed = next scheduled game
           if (!completed && ev.date) return ev.date;
         }
       } catch(e) {}
@@ -236,78 +294,70 @@ async function fetchNextGameDate(base, teamId) {
   return null;
 }
 
-// Fetch injuries + calculate rest days for one team
-// FIX 1: nextGameDate is now the real scheduled match date fetched from ESPN,
-// not a hardcoded +1 day. Falls back to tomorrow only if ESPN returns nothing.
-// Manual leagues (euro, africa, etc.) never call this — they keep restMult=1 by default.
-async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nextGameDate) {
+// Fetch injuries + calculate rest days for one team.
+// FIX 4: passes league through to restMultiplier so per-league curve is used.
+async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nextGameDate, league) {
   const result = {restMult:1, scoringMult:1, notes:[]};
 
   // ── REST DAYS ──
-  if(lastGameDate) {
+  if (lastGameDate) {
     const last = new Date(lastGameDate);
-    // Use the actual next game date fetched from ESPN schedule.
-    // Falls back to tomorrow only if ESPN has no upcoming game listed yet.
     const gameDate = nextGameDate ? new Date(nextGameDate) : (() => {
       const d = new Date(); d.setDate(d.getDate()+1); return d;
     })();
     gameDate.setHours(0,0,0,0); last.setHours(0,0,0,0);
-    const daysSince = Math.round((gameDate-last)/86400000);
-    const restDays = Math.max(0, daysSince-1); // 0 = B2B (played yesterday), 1 = one day rest, etc.
-    result.restMult = restMultiplier(restDays);
-    const label = restDays===0?"Back-to-back ⚠️":restDays===1?"1 day rest":restDays===2?"2 days rest ✓":`${restDays} days rest`;
-    const adj = result.restMult!==1?` (${((result.restMult-1)*100).toFixed(1)}% scoring adj)`:"";
-    result.notes.push({type:"rest", text:label+adj});
+    const daysSince = Math.round((gameDate - last) / 86400000);
+    const restDays = Math.max(0, daysSince - 1);
+    // FIX 4: use per-league curve
+    result.restMult = restMultiplier(restDays, league);
+    const label = restDays===0 ? "Back-to-back ⚠️"
+                : restDays===1 ? "1 day rest"
+                : restDays===2 ? "2 days rest ✓"
+                : `${restDays} days rest`;
+    const adj = result.restMult !== 1 ? ` (${((result.restMult-1)*100).toFixed(1)}% scoring adj)` : "";
+    result.notes.push({type:"rest", text: label + adj});
   }
 
   // ── INJURIES ──
   try {
     const data = await proxyFetch(`${base}/teams/${teamId}/injuries`).catch(()=>null);
-    const items = data?.injuries||data?.items||[];
-    if(!items.length) return result;
-    const avgPPG = teamAvgScored||75;
+    const items = data?.injuries || data?.items || [];
+    if (!items.length) return result;
+    const avgPPG = teamAvgScored || 75;
     let totalReduction = 0;
-    for(const inj of items) {
-      const status = (inj?.status||inj?.type?.description||"").toLowerCase();
-      const isOut = status.includes("out")||status.includes("injured reserve")||status.includes("suspended");
-      const isDTD = status.includes("questionable")||status.includes("doubtful")||status.includes("day-to-day");
-      if(!isOut&&!isDTD) continue;
-      const athlete = inj?.athlete||inj?.person||{};
-      const playerName = athlete?.displayName||athlete?.fullName||"Unknown";
-      // Get PPG from athlete stats if available
+    for (const inj of items) {
+      const status = (inj?.status || inj?.type?.description || "").toLowerCase();
+      const isOut = status.includes("out") || status.includes("injured reserve") || status.includes("suspended");
+      const isDTD = status.includes("questionable") || status.includes("doubtful") || status.includes("day-to-day");
+      if (!isOut && !isDTD) continue;
+      const athlete = inj?.athlete || inj?.person || {};
+      const playerName = athlete?.displayName || athlete?.fullName || "Unknown";
       let ppg = 0;
-      for(const cat of (athlete?.statistics?.splits?.categories||[])) {
-        for(const stat of (cat.stats||[])) {
-          if(stat.name==="avgPoints"||stat.abbreviation==="PPG") ppg=parseFloat(stat.value)||0;
+      for (const cat of (athlete?.statistics?.splits?.categories || [])) {
+        for (const stat of (cat.stats || [])) {
+          if (stat.name === "avgPoints" || stat.abbreviation === "PPG") ppg = parseFloat(stat.value) || 0;
         }
       }
-      // UPGRADE 3: Position-based PPG fallback when ESPN has no stats.
-      // Instead of silently skipping players with no PPG data,
-      // assign a conservative default based on their listed position.
-      if(ppg===0) {
-        const pos = (athlete?.position?.abbreviation||athlete?.position?.name||"").toUpperCase();
-        if(isOut) {
-          // Only apply fallback for OUT players — DTD bench players still skipped
-          if(pos==="PG"||pos==="SG"||pos==="G") ppg=10;
-          else if(pos==="SF"||pos==="PF"||pos==="F") ppg=9;
-          else if(pos==="C") ppg=8;
-          // Unknown position with OUT status — use conservative fallback
-          else ppg=7;
+      if (ppg === 0) {
+        const pos = (athlete?.position?.abbreviation || athlete?.position?.name || "").toUpperCase();
+        if (isOut) {
+          if (pos==="PG"||pos==="SG"||pos==="G") ppg = 10;
+          else if (pos==="SF"||pos==="PF"||pos==="F") ppg = 9;
+          else if (pos==="C") ppg = 8;
+          else ppg = 7;
         }
       }
-      // If ppg is still 0 (DTD with no stats and no position fallback), skip — no useful data
-      if(ppg===0) continue;
-      // Replacement effect: team recovers ~35% of lost production from other players
-      const share = ppg/avgPPG;
-      const impact = Math.min(isOut?share*0.65:share*0.30, 0.22); // cap single player at 22%
+      if (ppg === 0) continue;
+      const share = ppg / avgPPG;
+      const impact = Math.min(isOut ? share*0.65 : share*0.30, 0.22);
       totalReduction += impact;
-      const tag = isOut?"OUT":"DTD";
-      const ppgStr = ppg>0?` (${ppg.toFixed(1)} ppg)`:"";
-      const adjStr = impact>0.005?` → -${(impact*100).toFixed(1)}% offense`:"";
-      result.notes.push({type:isOut?"out":"dtd", text:`${playerName}${ppgStr} — ${tag}${adjStr}`});
+      const tag = isOut ? "OUT" : "DTD";
+      const ppgStr = ppg > 0 ? ` (${ppg.toFixed(1)} ppg)` : "";
+      const adjStr = impact > 0.005 ? ` → -${(impact*100).toFixed(1)}% offense` : "";
+      result.notes.push({type: isOut ? "out" : "dtd", text: `${playerName}${ppgStr} — ${tag}${adjStr}`});
     }
-    result.scoringMult = 1 - Math.min(totalReduction, 0.35); // total cap 35%
-  } catch(e) { /* injuries optional */ }
+    result.scoringMult = 1 - Math.min(totalReduction, 0.35);
+  } catch(e) {}
 
   return result;
 }
@@ -316,7 +366,7 @@ async function proxyFetch(url, timeoutMs=12000) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const res = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url), {signal:ctrl.signal});
+    const res = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url), {signal: ctrl.signal});
     if (!res.ok) throw new Error("Worker HTTP " + res.status);
     const text = await res.text();
     try { return JSON.parse(text); }
@@ -350,7 +400,6 @@ const NCAA_TEAM_MAP = {
   "providence":2507,"providence friars":2507,
   "butler":2086,"butler bulldogs":2086,
   "depaul":305,"depaul blue demons":305,
-  // FIX #1: Xavier = 2752 (correct), UNCW corrected to 2780 (was wrongly 2752)
   "xavier":2752,"xavier musketeers":2752,
   "unc wilmington":2780,"uncw seahawks":2780,
   "kansas":2305,"jayhawks":2305,"kansas jayhawks":2305,
@@ -661,7 +710,6 @@ const NCAA_TEAM_MAP = {
   "wright state":2737,"wright state raiders":2737,
   "youngstown state":2741,"youngstown state penguins":2741,
   "western illinois":2710,"western illinois leathernecks":2710,
-  // Additional teams
   "north florida":2454,"unf ospreys":2454,
   "west georgia":2698,"west georgia wolves":2698,
   "binghamton":2066,"binghamton bearcats":2066,
@@ -735,6 +783,7 @@ function matchesTeam(competitor, teamId) {
   return false;
 }
 
+// FIX 5 — onLeagueChange wrapped in DOMContentLoaded (called at bottom)
 function onLeagueChange() {
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
@@ -771,8 +820,8 @@ async function fetchESPN() {
   btn.disabled = true;
   g_injA = {restMult:1, scoringMult:1, notes:[]};
   g_injB = {restMult:1, scoringMult:1, notes:[]};
-  document.getElementById("injuryBoxA").style.display="none";
-  document.getElementById("injuryBoxB").style.display="none";
+  document.getElementById("injuryBoxA").style.display = "none";
+  document.getElementById("injuryBoxB").style.display = "none";
   setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
 
   try {
@@ -835,9 +884,7 @@ async function fetchESPN() {
       h2hGames = isNcaa
         ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
         : await fetchNbaH2H(espnBase, teamAId, teamBId);
-    } catch(h2hErr) {
-      h2hGames = [];
-    }
+    } catch(h2hErr) { h2hGames = []; }
 
     if (h2hGames?.length >= 2) {
       const tA = String(teamAId);
@@ -871,9 +918,6 @@ async function fetchESPN() {
     }
 
     // ── INJURY + REST ──────────────────────────────────────────────────────────
-    // FIX 1: Fetch actual next game date from ESPN for each team in parallel.
-    // Works for both NBA and NCAA. Rest days calculated against the real match date.
-    // Manual leagues skip this entirely — restMult stays at 1 by default.
     setStatus('<span class="spinner"></span>Checking injuries &amp; rest days...', "loading");
     const aAvg = aStats?.scored?.length ? aStats.scored.reduce((a,b)=>a+b,0)/aStats.scored.length : 75;
     const bAvg = bStats?.scored?.length ? bStats.scored.reduce((a,b)=>a+b,0)/bStats.scored.length : 75;
@@ -883,22 +927,22 @@ async function fetchESPN() {
       fetchNextGameDate(espnBase, teamBId)
     ]);
 
+    // FIX 4: pass league into fetchInjuryAndRest
     [g_injA, g_injB] = await Promise.all([
-      fetchInjuryAndRest(espnBase, teamAId, aAvg, aStats?.lastGameDate||null, nextGameDateA),
-      fetchInjuryAndRest(espnBase, teamBId, bAvg, bStats?.lastGameDate||null, nextGameDateB)
+      fetchInjuryAndRest(espnBase, teamAId, aAvg, aStats?.lastGameDate||null, nextGameDateA, league),
+      fetchInjuryAndRest(espnBase, teamBId, bAvg, bStats?.lastGameDate||null, nextGameDateB, league)
     ]);
 
     function renderInjBox(boxId, contentId, inj) {
-      if(!inj.notes.length) return;
-      document.getElementById(contentId).innerHTML = inj.notes.map(n=>{
-        const cls = n.type==="out"?"inj-out":n.type==="dtd"?"inj-dtd":"inj-rest";
+      if (!inj.notes.length) return;
+      document.getElementById(contentId).innerHTML = inj.notes.map(n => {
+        const cls = n.type==="out" ? "inj-out" : n.type==="dtd" ? "inj-dtd" : "inj-rest";
         return `<div class="${cls}">${n.text}</div>`;
       }).join("");
       document.getElementById(boxId).style.display = "block";
     }
     renderInjBox("injuryBoxA","injuryContentA",g_injA);
     renderInjBox("injuryBoxB","injuryContentB",g_injB);
-
 
     const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
     setStatus(messages.map(m=>`<div>${m}</div>`).join(""), allGood ? "ok" : "err");
@@ -912,11 +956,10 @@ async function fetchESPN() {
 
 async function fetchNcaaSchedule(base, teamId) {
   const tId = String(teamId);
-  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
   for (const season of ["2026","2025","2024"]) {
-    for (const stype of ["2","3"]) { // stype 2=regular, 3=postseason/tournament. Exclude 1=preseason.
+    for (const stype of ["2","3"]) {
       try {
         const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
         const events = r?.events || r?.team?.schedule?.events || [];
@@ -963,18 +1006,19 @@ async function fetchNcaaSchedule(base, teamId) {
         const mine = competitors.find(c => matchesTeam(c, tId));
         const opp  = competitors.find(c => !matchesTeam(c, tId));
         if (mine && opp) {
+          // FIX 1: use readVal everywhere instead of local pv
           const lm = mine?.linescores || [], lo = opp?.linescores || [];
           if (lm.length >= 1) {
             gotLS = true;
             ms = parseFloat(mine.score) || ms;
             os = parseFloat(opp.score) || os;
-            h1m = pv(lm[0]); h1o = pv(lo[0]);
+            h1m = readVal(lm[0]); h1o = readVal(lo[0]);
             if (lm.length > 2) {
-              const sm = lm.reduce((s,p) => s+pv(p), 0), so = lo.reduce((s,p) => s+pv(p), 0);
+              const sm = lm.reduce((s,p) => s+readVal(p), 0), so = lo.reduce((s,p) => s+readVal(p), 0);
               if (Math.abs(sm-ms) <= 3 && Math.abs(so-os) <= 3) {
                 let otm = 0, oto = 0;
-                for(let i=2; i<lm.length; i++) otm += pv(lm[i]);
-                for(let i=2; i<lo.length; i++) oto += pv(lo[i]);
+                for(let i=2; i<lm.length; i++) otm += readVal(lm[i]);
+                for(let i=2; i<lo.length; i++) oto += readVal(lo[i]);
                 if(otm > 0 || oto > 0) { ms -= otm; os -= oto; }
               }
             }
@@ -993,12 +1037,11 @@ async function fetchNcaaSchedule(base, teamId) {
 
 async function fetchNcaaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
-  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
   for (const scanId of [teamAId, teamBId]) {
     for (const season of ["2026","2025","2024"]) {
-      for (const stype of ["2","3"]) { // stype 2=regular, 3=postseason/tournament. Exclude 1=preseason.
+      for (const stype of ["2","3"]) {
         try {
           const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
           const events = r?.events || r?.team?.schedule?.events || [];
@@ -1046,19 +1089,19 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        // FIX #2: clean single condition (was double-if)
         if (competitors.length > 0 && cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
             const lA = cA?.linescores || [], lB = cB?.linescores || [];
-            const h1A = lA.length >= 1 ? pv(lA[0]) : 0;
-            const h1B = lB.length >= 1 ? pv(lB[0]) : 0;
+            // FIX 1: readVal in linescore reduction
+            const h1A = lA.length >= 1 ? readVal(lA[0]) : 0;
+            const h1B = lB.length >= 1 ? readVal(lB[0]) : 0;
             if (lA.length > 2 && lB.length > 2) {
-              const sumA = lA.reduce((s,p) => s+pv(p), 0), sumB = lB.reduce((s,p) => s+pv(p), 0);
+              const sumA = lA.reduce((s,p) => s+readVal(p), 0), sumB = lB.reduce((s,p) => s+readVal(p), 0);
               if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
                 let otA = 0, otB = 0;
-                for(let i=2; i<lA.length; i++) otA += pv(lA[i]);
-                for(let i=2; i<lB.length; i++) otB += pv(lB[i]);
+                for(let i=2; i<lA.length; i++) otA += readVal(lA[i]);
+                for(let i=2; i<lB.length; i++) otB += readVal(lB[i]);
                 if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
               }
             }
@@ -1083,7 +1126,6 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
 
 function parseNbaEvents(data) {
   const games = [];
-  const pvN = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   for (const ev of (data?.events || [])) {
     const comp = ev?.competitions?.[0];
     if (!comp?.status?.type?.completed) continue;
@@ -1092,14 +1134,15 @@ function parseNbaEvents(data) {
     let sA = Number(c[0]?.score), sB = Number(c[1]?.score);
     if (isNaN(sA) || isNaN(sB) || (sA === 0 && sB === 0)) continue;
     const lA = c[0]?.linescores || [], lB = c[1]?.linescores || [];
-    const h1A = lA.length >= 2 ? pvN(lA[0]) + pvN(lA[1]) : 0;
-    const h1B = lB.length >= 2 ? pvN(lB[0]) + pvN(lB[1]) : 0;
+    // FIX 1: readVal replaces pvN
+    const h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
+    const h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
     if (lA.length > 4 && lB.length > 4) {
-      const tA = lA.reduce((s,p) => s+pvN(p), 0), tB = lB.reduce((s,p) => s+pvN(p), 0);
+      const tA = lA.reduce((s,p) => s+readVal(p), 0), tB = lB.reduce((s,p) => s+readVal(p), 0);
       if (Math.abs(tA-sA) <= 3 && Math.abs(tB-sB) <= 3) {
         let otA = 0, otB = 0;
-        for(let i=4; i<lA.length; i++) otA += pvN(lA[i]);
-        for(let i=4; i<lB.length; i++) otB += pvN(lB[i]);
+        for(let i=4; i<lA.length; i++) otA += readVal(lA[i]);
+        for(let i=4; i<lB.length; i++) otB += readVal(lB[i]);
         if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
       }
     }
@@ -1112,17 +1155,23 @@ function parseNbaEvents(data) {
   return games;
 }
 
+// FIX 6 — Cached scoreboard fetch
 async function fetchNbaScoreboard(base, daysBack) {
-  // UPGRADE 1: Parallel batched fetching — replaces slow serial loop.
-  // Splits all days into batches of 8, runs each batch in parallel with Promise.all.
-  // Cuts fetch time from ~15s down to ~3-4s.
   const BATCH = 8;
   const all = [];
   const days = Array.from({length: daysBack}, (_,i) => i+1);
   for (let i = 0; i < days.length; i += BATCH) {
     const batch = days.slice(i, i + BATCH);
     const results = await Promise.allSettled(
-      batch.map(d => proxyFetch(`${base}/scoreboard?dates=${getDateString(d)}&limit=200`).catch(() => ({})))
+      batch.map(d => {
+        const dateStr = getDateString(d);
+        const cacheKey = `sb:${dateStr}`;
+        // Return cached promise if we already fetched this date
+        if (_sbCache.has(cacheKey)) return _sbCache.get(cacheKey);
+        const p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`).catch(() => ({}));
+        _sbCache.set(cacheKey, p);
+        return p;
+      })
     );
     for (const r of results) {
       try { if(r.status==="fulfilled") all.push(...parseNbaEvents(r.value)); } catch(e) {}
@@ -1133,7 +1182,6 @@ async function fetchNbaScoreboard(base, daysBack) {
 
 async function fetchNbaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
-  const pvN = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
   for (const season of ["2026","2025","2024"]) {
@@ -1181,22 +1229,22 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        // FIX #2: clean single condition (was double-if)
         if (competitors.length > 0 && cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
             const lA = cA?.linescores || [], lB = cB?.linescores || [];
+            // FIX 1: readVal replaces pvN
             if (lA.length > 4 && lB.length > 4) {
-              const sumA = lA.reduce((s,p) => s+pvN(p), 0), sumB = lB.reduce((s,p) => s+pvN(p), 0);
+              const sumA = lA.reduce((s,p) => s+readVal(p), 0), sumB = lB.reduce((s,p) => s+readVal(p), 0);
               if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
                 let otA = 0, otB = 0;
-                for(let i=4; i<lA.length; i++) otA += pvN(lA[i]);
-                for(let i=4; i<lB.length; i++) otB += pvN(lB[i]);
+                for(let i=4; i<lA.length; i++) otA += readVal(lA[i]);
+                for(let i=4; i<lB.length; i++) otB += readVal(lB[i]);
                 if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
               }
             }
-            const h1A = lA.length >= 2 ? pvN(lA[0])+pvN(lA[1]) : 0;
-            const h1B = lB.length >= 2 ? pvN(lB[0])+pvN(lB[1]) : 0;
+            const h1A = lA.length >= 2 ? readVal(lA[0])+readVal(lA[1]) : 0;
+            const h1B = lB.length >= 2 ? readVal(lB[0])+readVal(lB[1]) : 0;
             h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(sA), scoreB:Math.round(sB), h1A, h1B, date:ref.date, eventId:ref.id});
             gameAdded = true;
           }
@@ -1274,64 +1322,90 @@ async function searchTeamFromAPI(base, name) {
 }
 
 /* ============= ENGINE CORE ============= */
-function parseGames(id){
-  const el=document.getElementById(id);const raw=el.value.trim();
-  el.style.borderColor="";
-  if(!raw)return null;
-  const parts=raw.split(",").map(x=>x.trim()).filter(x=>x!=="");
-  if(!parts.length)return null;
-  for(let i=0;i<parts.length;i++){
-    const v=parseFloat(parts[i]);
-    if(isNaN(v))return{err:'"'+parts[i]+'" at position '+(i+1)+' is not a number'};
-    if(v<0)return{err:'value at position '+(i+1)+' is negative ('+v+')'};
-    if(v>200)return{err:'value at position '+(i+1)+' is too high ('+v+')'};
+function parseGames(id) {
+  const el = document.getElementById(id);
+  const raw = el.value.trim();
+  el.style.borderColor = "";
+  if (!raw) return null;
+  const parts = raw.split(",").map(x=>x.trim()).filter(x=>x!=="");
+  if (!parts.length) return null;
+  for (let i=0; i<parts.length; i++) {
+    const v = parseFloat(parts[i]);
+    if (isNaN(v)) return {err:'"'+parts[i]+'" at position '+(i+1)+' is not a number'};
+    if (v < 0)    return {err:'value at position '+(i+1)+' is negative ('+v+')'};
+    if (v > 250)  return {err:'value at position '+(i+1)+' is too high ('+v+')'};
   }
   return parts.map(x=>parseFloat(x));
 }
-function avg(arr){if(!arr||arr.length===0)return NaN;return arr.reduce((a,b)=>a+b,0)/arr.length;}
-function trimmedAvg(arr){if(!arr||arr.length===0)return NaN;if(arr.length<5)return avg(arr);let s=[...arr].sort((a,b)=>a-b);s.shift();s.pop();return avg(s);}
-// UPGRADE 5: Recency-weighted average for NBA/NCAA — most recent games count more.
-// Weights from newest to oldest: 0.30, 0.25, 0.20, 0.15, 0.10 (sum=1.0).
-// For <5 games falls back to equal weights. Input array is oldest→newest order from ESPN.
-function weightedAvg(arr){
-  if(!arr||arr.length===0)return NaN;
-  if(arr.length<2)return arr[0];
-  const w5=[0.10,0.15,0.20,0.25,0.30]; // oldest to newest
-  if(arr.length>=5){
-    const a=arr.slice(-5);
-    return a.reduce((s,v,i)=>s+v*w5[i],0);
+
+function avg(arr) { if(!arr||arr.length===0) return NaN; return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function trimmedAvg(arr) {
+  if(!arr||arr.length===0) return NaN;
+  if(arr.length<5) return avg(arr);
+  let s=[...arr].sort((a,b)=>a-b); s.shift(); s.pop();
+  return avg(s);
+}
+
+// FIX 3 — Weights corrected: newest game = 0.30, oldest = 0.10 (oldest→newest order).
+// ESPN returns games in date-descending order (newest first), so the
+// array passed in is reversed before applying weights to ensure [0]=oldest, [4]=newest.
+function weightedAvg(arr) {
+  if (!arr || arr.length === 0) return NaN;
+  if (arr.length < 2) return arr[0];
+  // Weights from oldest[0] → newest[4]: 0.10, 0.15, 0.20, 0.25, 0.30  (sum = 1.0)
+  const W = [0.10, 0.15, 0.20, 0.25, 0.30];
+  if (arr.length >= 5) {
+    // Take the 5 entries; arr[0] = most recent (ESPN order), arr[4] = oldest
+    // Reverse so index 0 = oldest, index 4 = newest, then apply weights.
+    const a = arr.slice(0,5).reverse();
+    return a.reduce((s,v,i) => s + v * W[i], 0);
   }
-  // Fewer than 5: use equal weights
+  // Fewer than 5: equal weights
   return avg(arr);
 }
-function stdDev(arr){if(!arr||arr.length<2)return 0;let m=avg(arr);return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));}
-function mid(val){if(!val)return NaN;val=val.trim();if(!val.includes("-"))return NaN;let p=val.split("-").map(x=>x.trim());let a=parseFloat(p[0]),b=parseFloat(p[1]);if(isNaN(a)||isNaN(b))return NaN;return(a+b)/2;}
-function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).toFixed(1);}
-function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
-function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.07*Math.min(1,(std-limit)/limit));}
 
-function decision(edge,line,type,teamSc,aSc,bSc){
+function stdDev(arr) {
+  if (!arr||arr.length<2) return 0;
+  let m = avg(arr);
+  return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));
+}
+function mid(val) {
+  if (!val) return NaN;
+  val = val.trim();
+  if (!val.includes("-")) return NaN;
+  let p = val.split("-").map(x=>x.trim());
+  let a = parseFloat(p[0]), b = parseFloat(p[1]);
+  if (isNaN(a)||isNaN(b)) return NaN;
+  return (a+b)/2;
+}
+function displayLine(val) { if(isNaN(val))return"NaN"; return(Math.round(val*2)/2).toFixed(1); }
+function dynamicWeight(s) { if(!s||s.length<2)return 0; return s.length<=3?0.20:0.30; }
+function applyVolatility(proj,std,limit) {
+  if(isNaN(proj)||isNaN(std))return NaN;
+  if(std<=limit)return proj;
+  return proj*(1-0.07*Math.min(1,(std-limit)/limit));
+}
+
+function decision(edge,line,type,teamSc,aSc,bSc) {
   if(isNaN(edge)||isNaN(line))return"NaN";
-  // Market trap: edge must be ≥4.5% of line to be actionable
   if(Math.abs(edge/line)<0.045)return"NO PLAY";
-  const isTotalType=type==="ft_total"||type==="1h_total";
-  // UNDER requires a higher bar (6% for totals, 6.5% for team totals) — harder to fade
+  const isTotalType = type==="ft_total"||type==="1h_total";
   if(edge<0){
-    let underThr=isTotalType?line*0.060:line*0.065;
+    let underThr = isTotalType ? line*0.060 : line*0.065;
     if(Math.abs(edge)<underThr)return"NO PLAY";
-    // Suppress UNDER if a team is individually covering 48%+ of the total line (team is too hot)
     if(isTotalType&&!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.48||bSc>=line*0.48))return"NO PLAY";
     if(type==="team"&&!isNaN(teamSc)&&teamSc>=line*0.58)return"NO PLAY";
   }
-  return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
+  return edge>0 ? "OVER "+displayLine(line) : "UNDER "+displayLine(line);
 }
 
-function runEngine(){
-  const table=document.getElementById("results");
-  table.style.display="table";
-  table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
-  const league=document.getElementById("leagueSelect").value;
-  const bases={
+function runEngine() {
+  const table = document.getElementById("results");
+  table.style.display = "table";
+  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+  const league = document.getElementById("leagueSelect").value;
+
+  const bases = {
     "nba":228,"ncaa":150,
     "euroleague":160,"eurocup":158,"acb":166,"bsl":170,"lba":164,"bcl":162,"bbl":172,"proa":162,
     "aba":158,"prob":154,"plk":154,"a2":153,"nbl_cz":152,"lkl":157,"isl":164,
@@ -1343,7 +1417,7 @@ function runEngine(){
     "fiba_wc":154,"fiba_eb":156,"fiba_ac":154,
     "unknown":160
   };
-  const paceClamps={
+  const paceClamps = {
     "nba":{min:0.85,max:1.15},"ncaa":{min:0.85,max:1.12},
     "euroleague":{min:0.87,max:1.10},"eurocup":{min:0.87,max:1.10},"acb":{min:0.87,max:1.10},"bsl":{min:0.87,max:1.10},"lba":{min:0.87,max:1.10},"bcl":{min:0.87,max:1.10},"bbl":{min:0.87,max:1.10},"proa":{min:0.87,max:1.10},
     "aba":{min:0.87,max:1.10},"prob":{min:0.87,max:1.10},"plk":{min:0.87,max:1.10},"a2":{min:0.87,max:1.10},"nbl_cz":{min:0.87,max:1.10},"lkl":{min:0.87,max:1.10},"isl":{min:0.87,max:1.10},
@@ -1355,49 +1429,58 @@ function runEngine(){
     "fiba_wc":{min:0.87,max:1.10},"fiba_eb":{min:0.87,max:1.10},"fiba_ac":{min:0.87,max:1.10},
     "unknown":{min:0.85,max:1.12}
   };
-  let eb=bases[league]||160;
-  const cl=paceClamps[league]||{min:0.90,max:1.12};
-  let ftLine=mid(document.getElementById("ftMarket").value);
-  let aLine=mid(document.getElementById("teamAMarket").value);
-  let bLine=mid(document.getElementById("teamBMarket").value);
-  let aSA=parseGames("aFTScored"),aAA=parseGames("aFTAllowed"),bSA=parseGames("bFTScored"),bAA=parseGames("bFTAllowed");
-  // Collect exact input errors
-  let inputErrors=[];
+
+  let eb = bases[league] || 160;
+  const cl = paceClamps[league] || {min:0.90,max:1.12};
+
+  let ftLine = mid(document.getElementById("ftMarket").value);
+  let aLine  = mid(document.getElementById("teamAMarket").value);
+  let bLine  = mid(document.getElementById("teamBMarket").value);
+
+  let aSA = parseGames("aFTScored"), aAA = parseGames("aFTAllowed");
+  let bSA = parseGames("bFTScored"), bAA = parseGames("bFTAllowed");
+
+  // Collect input errors
+  let inputErrors = [];
   if(aSA?.err){document.getElementById("aFTScored").style.borderColor="#ff6b6b";inputErrors.push("Team A FT Scored: "+aSA.err);aSA=null;}
   if(aAA?.err){document.getElementById("aFTAllowed").style.borderColor="#ff6b6b";inputErrors.push("Team A FT Allowed: "+aAA.err);aAA=null;}
   if(bSA?.err){document.getElementById("bFTScored").style.borderColor="#ff6b6b";inputErrors.push("Team B FT Scored: "+bSA.err);bSA=null;}
   if(bAA?.err){document.getElementById("bFTAllowed").style.borderColor="#ff6b6b";inputErrors.push("Team B FT Allowed: "+bAA.err);bAA=null;}
-  if(inputErrors.length){
-    let row=table.insertRow();
-    row.innerHTML=`<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">&#9888; Fix these inputs before running:<br>${inputErrors.map(e=>"&nbsp;&nbsp;• "+e).join("<br>")}</td>`;
-    table.style.display="table";return;
+  if(inputErrors.length) {
+    let row = table.insertRow();
+    row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">&#9888; Fix these inputs before running:<br>${inputErrors.map(e=>"&nbsp;&nbsp;• "+e).join("<br>")}</td>`;
+    table.style.display="table"; return;
   }
-  // FT gate: both teams need scored+allowed to run FT predictions
-  const aFTReady=aSA!==null&&aAA!==null;
-  const bFTReady=bSA!==null&&bAA!==null;
-  // UPGRADE 5: Use recency-weighted average for NBA/NCAA, trimmed avg for all other leagues
+
+  const aFTReady = aSA !== null && aAA !== null;
+  const bFTReady = bSA !== null && bAA !== null;
+
   const calcAvg = (league==="nba"||league==="ncaa") ? weightedAvg : trimmedAvg;
-  let aS=aSA?calcAvg(aSA):NaN;
-  let aA=aAA?calcAvg(aAA):NaN;
-  let bS=bSA?calcAvg(bSA):NaN;
-  let bA=bAA?calcAvg(bAA):NaN;
-  let fma=!isNaN(aS)&&!isNaN(aA)&&!isNaN(bS)&&!isNaN(bA);
 
-  // FIX #6: 60/40 offense/defense weighting (was 50/50)
-  let bAFT=(!isNaN(aS)&&!isNaN(bA))?(aS*0.60+bA*0.40):(!isNaN(aS)?aS:NaN);
-  let bBFT=(!isNaN(bS)&&!isNaN(aA))?(bS*0.60+aA*0.40):(!isNaN(bS)?bS:NaN);
+  // FIX 2 — Guard parseGames results before passing to calcAvg
+  // If the result is null or an error object, calcAvg receives null → returns NaN safely.
+  const safeArr = a => (a && !a.err) ? a : null;
+  let aS = safeArr(aSA) ? calcAvg(aSA) : NaN;
+  let aA = safeArr(aAA) ? calcAvg(aAA) : NaN;
+  let bS = safeArr(bSA) ? calcAvg(bSA) : NaN;
+  let bA = safeArr(bAA) ? calcAvg(bAA) : NaN;
 
-  let pgr=(!isNaN(aS)&&!isNaN(bS)&&Math.abs(aS-bS)>eb*0.10);
+  let fma = !isNaN(aS) && !isNaN(aA) && !isNaN(bS) && !isNaN(bA);
 
-  let h2ha=null,h2hb=null;
+  let bAFT = (!isNaN(aS)&&!isNaN(bA)) ? (aS*0.60+bA*0.40) : (!isNaN(aS)?aS:NaN);
+  let bBFT = (!isNaN(bS)&&!isNaN(aA)) ? (bS*0.60+aA*0.40) : (!isNaN(bS)?bS:NaN);
+
+  let pgr = (!isNaN(aS)&&!isNaN(bS)&&Math.abs(aS-bS)>eb*0.10);
+
+  let h2ha=null, h2hb=null;
   if(document.getElementById("useFTH2H").checked){
-    const _ha=parseGames("aFTH2H"),_hb=parseGames("bFTH2H");
-    h2ha=(_ha&&!_ha.err)?_ha:null;
-    h2hb=(_hb&&!_hb.err)?_hb:null;
+    const _ha=parseGames("aFTH2H"), _hb=parseGames("bFTH2H");
+    h2ha = (_ha&&!_ha.err)?_ha:null;
+    h2hb = (_hb&&!_hb.err)?_hb:null;
   }
   if(fma&&h2ha&&h2hb&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(0.30,dynamicWeight(h2ha)+dynamicWeight(h2hb));
-    let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
+    let h2hAvgA=avg(h2ha), h2hAvgB=avg(h2hb);
     if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){
       let divA=Math.abs(h2hAvgA-bAFT)/bAFT;
       let wA=divA>0.20?w*0.5:w;
@@ -1409,13 +1492,15 @@ function runEngine(){
       bBFT=bBFT*(1-wB)+h2hAvgB*wB;
     }
   }
-  // Volatility and regression to mean first
-  let aVolRaw=(stdDev(aSA===null||aSA==="error"||aSA?.err?[]:aSA)+stdDev(aAA===null||aAA==="error"||aAA?.err?[]:aAA))/2;
-  let bVolRaw=(stdDev(bSA===null||bSA==="error"||bSA?.err?[]:bSA)+stdDev(bAA===null||bAA==="error"||bAA?.err?[]:bAA))/2;
-  let aVol=aVolRaw*0.6+bVolRaw*0.4;
-  let bVol=bVolRaw*0.6+aVolRaw*0.4;
-  let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
-  const vlMap={
+
+  // FIX 2 — safeArr guards before passing to stdDev
+  let aVolRaw = (stdDev(safeArr(aSA)||[]) + stdDev(safeArr(aAA)||[])) / 2;
+  let bVolRaw = (stdDev(safeArr(bSA)||[]) + stdDev(safeArr(bAA)||[])) / 2;
+  let aVol = aVolRaw*0.6 + bVolRaw*0.4;
+  let bVol = bVolRaw*0.6 + aVolRaw*0.4;
+
+  let dfr = (!isNaN(aA)&&aA<eb*0.40) || (!isNaN(bA)&&bA<eb*0.40);
+  const vlMap = {
     "nba":14,"ncaa":11,
     "euroleague":12,"eurocup":12,"acb":12,"bsl":12,"lba":12,"bcl":12,"bbl":12,"proa":12,
     "aba":11,"prob":11,"plk":11,"a2":11,"nbl_cz":11,"lkl":11,"isl":12,
@@ -1426,31 +1511,25 @@ function runEngine(){
     "fiba_wc":11,"fiba_eb":11,"fiba_ac":11,
     "unknown":12
   };
-  let vl=vlMap[league]||12;
-  bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
-  bAFT=(bAFT*0.85)+((eb/2)*0.15);bBFT=(bBFT*0.85)+((eb/2)*0.15);
+  let vl = vlMap[league] || 12;
+  bAFT = applyVolatility(bAFT,aVol,vl);
+  bBFT = applyVolatility(bBFT,bVol,vl);
+  bAFT = (bAFT*0.85)+((eb/2)*0.15);
+  bBFT = (bBFT*0.85)+((eb/2)*0.15);
 
-  // ── FIX 2: Pace derived from raw historical averages (trimmed last-5) BEFORE any blending.
-  // Old code used bAFT+bBFT which had already been blended/adjusted — causing fast teams
-  // to inflate their own projection in a feedback loop.
-  // Now uses actual aS/aA/bS/bA (trimmed avg of last 5 scored+allowed).
-  // Falls back gracefully: if only partial data, uses what's available; if none, pace=1.0.
-  // Safe for manual leagues — fma is false when data is missing so pace defaults to 1.0.
   let rawFTPace;
-  if(fma){
+  if(fma) {
     rawFTPace = (aS + aA + bS + bA) / (2 * eb);
-  } else if(!isNaN(bAFT)&&!isNaN(bBFT)){
-    rawFTPace = (bAFT + bBFT) / eb; // partial data fallback
+  } else if(!isNaN(bAFT)&&!isNaN(bBFT)) {
+    rawFTPace = (bAFT + bBFT) / eb;
   } else {
-    rawFTPace = 1.0; // no data — neutral pace, no distortion
+    rawFTPace = 1.0;
   }
-  let pace=Math.max(cl.min,Math.min(cl.max,rawFTPace));
-  bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
+  let pace = Math.max(cl.min, Math.min(cl.max, rawFTPace));
+  bAFT = bAFT*(0.5+pace/2);
+  bBFT = bBFT*(0.5+pace/2);
 
-  // UPGRADE 2: Home court advantage — Team A is always the home team.
-  // Research-based boosts per league. Applied after pace, before injury.
-  // Home team gets a scoring boost, away team gets a slight dampener.
-  const homeEdge={
+  const homeEdge = {
     "nba":1.5,"ncaa":2.0,
     "euroleague":1.5,"eurocup":1.5,"acb":1.8,"bsl":2.0,"lba":1.6,"bcl":1.6,"bbl":1.6,"proa":1.6,
     "aba":1.5,"prob":1.4,"plk":1.4,"a2":1.4,"nbl_cz":1.3,"lkl":1.5,"isl":1.6,
@@ -1461,20 +1540,19 @@ function runEngine(){
     "fiba_wc":1.2,"fiba_eb":1.3,"fiba_ac":1.3,
     "unknown":1.5
   };
-  const hAdj = homeEdge[league]||1.5;
-  if(!isNaN(bAFT)) bAFT += hAdj;   // home team scoring boost
-  if(!isNaN(bBFT)) bBFT -= hAdj*0.5; // away team slight dampener
+  const hAdj = homeEdge[league] || 1.5;
+  if(!isNaN(bAFT)) bAFT += hAdj;
+  if(!isNaN(bBFT)) bBFT -= hAdj*0.5;
 
-  // Apply injury + rest to scoring projections only
   const injMultA = g_injA.restMult * g_injA.scoringMult;
   const injMultB = g_injB.restMult * g_injB.scoringMult;
-  if(!isNaN(bAFT)&&injMultA!==1) bAFT*=injMultA;
-  if(!isNaN(bBFT)&&injMultB!==1) bBFT*=injMultB;
-  let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
-  if(!isNaN(ftP)){
-    if(Math.abs(bAFT-bBFT)>18)ftP*=0.98;
-    if(pgr)ftP*=0.97;
-    // Pull extreme projections toward the line — only one pull fires (largest diff wins)
+  if(!isNaN(bAFT)&&injMultA!==1) bAFT *= injMultA;
+  if(!isNaN(bBFT)&&injMultB!==1) bBFT *= injMultB;
+
+  let ftP = (!isNaN(bAFT)&&!isNaN(bBFT)) ? bAFT+bBFT : NaN;
+  if(!isNaN(ftP)) {
+    if(Math.abs(bAFT-bBFT)>18) ftP*=0.98;
+    if(pgr) ftP*=0.97;
     if(!isNaN(ftLine)){
       const ftDiff=ftP-ftLine;
       if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*0.55;
@@ -1482,30 +1560,35 @@ function runEngine(){
     }
   }
 
-  let h1P=NaN,h1Line=NaN;
-  let aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
-  const isNbaOrNcaa=league==="nba"||league==="ncaa";
+  let h1P=NaN, h1Line=NaN;
+  let aVol1=0, bVol1=0, vl1=7, pgr1=false, dfr1=false;
+  const isNbaOrNcaa = league==="nba" || league==="ncaa";
+
   if(isNbaOrNcaa){
-    const eb1H=eb/2;
-    h1Line=mid(document.getElementById("h1Market").value);
-    let a1HS=parseGames("a1HScored"),a1HA=parseGames("a1HAllowed");
-    let b1HS=parseGames("b1HScored"),b1HA=parseGames("b1HAllowed");
-    if(a1HS?.err)a1HS=null;if(a1HA?.err)a1HA=null;
-    if(b1HS?.err)b1HS=null;if(b1HA?.err)b1HA=null;
-    let aS1=(a1HS===null)?NaN:weightedAvg(a1HS);
-    let aA1=(a1HA===null)?NaN:weightedAvg(a1HA);
-    let bS1=(b1HS===null)?NaN:weightedAvg(b1HS);
-    let bA1=(b1HA===null)?NaN:weightedAvg(b1HA);
-    let fma1=!isNaN(aS1)&&!isNaN(aA1)&&!isNaN(bS1)&&!isNaN(bA1);
+    const eb1H = eb/2;
+    h1Line = mid(document.getElementById("h1Market").value);
+    let a1HS=parseGames("a1HScored"), a1HA=parseGames("a1HAllowed");
+    let b1HS=parseGames("b1HScored"), b1HA=parseGames("b1HAllowed");
+    if(a1HS?.err) a1HS=null; if(a1HA?.err) a1HA=null;
+    if(b1HS?.err) b1HS=null; if(b1HA?.err) b1HA=null;
+
+    // FIX 2 — guard 1H arrays before calcAvg
+    let aS1 = safeArr(a1HS) ? weightedAvg(a1HS) : NaN;
+    let aA1 = safeArr(a1HA) ? weightedAvg(a1HA) : NaN;
+    let bS1 = safeArr(b1HS) ? weightedAvg(b1HS) : NaN;
+    let bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
+    let fma1 = !isNaN(aS1)&&!isNaN(aA1)&&!isNaN(bS1)&&!isNaN(bA1);
+
     if(fma1){
-      let bA1H=(aS1*0.60+bA1*0.40),bB1H=(bS1*0.60+aA1*0.40);
-      pgr1=(!isNaN(aS1)&&!isNaN(bS1)&&Math.abs(aS1-bS1)>eb1H*0.10);
+      let bA1H = (aS1*0.60+bA1*0.40), bB1H = (bS1*0.60+aA1*0.40);
+      pgr1 = (!isNaN(aS1)&&!isNaN(bS1)&&Math.abs(aS1-bS1)>eb1H*0.10);
+
       if(document.getElementById("use1HH2H").checked){
-        let h2ha1=parseGames("a1HH2H"),h2hb1=parseGames("b1HH2H");
-        if(h2ha1?.err)h2ha1=null;if(h2hb1?.err)h2hb1=null;
+        let h2ha1=parseGames("a1HH2H"), h2hb1=parseGames("b1HH2H");
+        if(h2ha1?.err) h2ha1=null; if(h2hb1?.err) h2hb1=null;
         if(h2ha1&&h2hb1&&h2ha1.length>=2&&h2hb1.length>=2){
           let w1=Math.min(0.30,dynamicWeight(h2ha1)+dynamicWeight(h2hb1));
-          let h2hA1avg=avg(h2ha1),h2hB1avg=avg(h2hb1);
+          let h2hA1avg=avg(h2ha1), h2hB1avg=avg(h2hb1);
           if(!isNaN(bA1H)&&bA1H>0&&!isNaN(h2hA1avg)){
             let dA1=Math.abs(h2hA1avg-bA1H)/bA1H;
             let wA1=dA1>0.20?w1*0.5:w1;
@@ -1518,28 +1601,33 @@ function runEngine(){
           }
         }
       }
-      // FIX 2 (1H): Pace from raw 1H historical averages — not projected values.
-      // Same principle as FT pace fix: use actual aS1/aA1/bS1/bA1 trimmed averages.
+
       let rawPace1H = (aS1 + aA1 + bS1 + bA1) / (2 * eb1H);
-      let pace1=Math.max(cl.min,Math.min(cl.max,rawPace1H));
-      vl1={"nba":7,"ncaa":6}[league]||7;
-      let aVol1raw=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
-      let bVol1raw=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
-      aVol1=aVol1raw*0.6+bVol1raw*0.4;
-      bVol1=bVol1raw*0.6+aVol1raw*0.4;
-      dfr1=(!isNaN(aA1)&&aA1<eb1H*0.40)||(!isNaN(bA1)&&bA1<eb1H*0.40);
-      bA1H=applyVolatility(bA1H,aVol1,vl1);
-      bB1H=applyVolatility(bB1H,bVol1,vl1);
-      bA1H=(bA1H*0.85)+((eb1H/2)*0.15);
-      bB1H=(bB1H*0.85)+((eb1H/2)*0.15);
-      bA1H=bA1H*(0.5+pace1/2);
-      bB1H=bB1H*(0.5+pace1/2);
-      if(!isNaN(bA1H)&&injMultA!==1) bA1H*=injMultA;
-      if(!isNaN(bB1H)&&injMultB!==1) bB1H*=injMultB;
-      h1P=bA1H+bB1H;
+      let pace1 = Math.max(cl.min, Math.min(cl.max, rawPace1H));
+      vl1 = {"nba":7,"ncaa":6}[league] || 7;
+      let aVol1raw = (stdDev(safeArr(a1HS)||[]) + stdDev(safeArr(a1HA)||[])) / 2;
+      let bVol1raw = (stdDev(safeArr(b1HS)||[]) + stdDev(safeArr(b1HA)||[])) / 2;
+      aVol1 = aVol1raw*0.6 + bVol1raw*0.4;
+      bVol1 = bVol1raw*0.6 + aVol1raw*0.4;
+      dfr1 = (!isNaN(aA1)&&aA1<eb1H*0.40) || (!isNaN(bA1)&&bA1<eb1H*0.40);
+      bA1H = applyVolatility(bA1H,aVol1,vl1);
+      bB1H = applyVolatility(bB1H,bVol1,vl1);
+      bA1H = (bA1H*0.85)+((eb1H/2)*0.15);
+      bB1H = (bB1H*0.85)+((eb1H/2)*0.15);
+      bA1H = bA1H*(0.5+pace1/2);
+      bB1H = bB1H*(0.5+pace1/2);
+
+      // FIX 7 — Apply home court adjustment to 1H projections (was missing)
+      if(!isNaN(bA1H)) bA1H += hAdj * 0.5;   // home team gets half the full hAdj in 1H
+      if(!isNaN(bB1H)) bB1H -= hAdj * 0.25;  // away team gets quarter dampener in 1H
+
+      if(!isNaN(bA1H)&&injMultA!==1) bA1H *= injMultA;
+      if(!isNaN(bB1H)&&injMultB!==1) bB1H *= injMultB;
+
+      h1P = bA1H + bB1H;
       if(!isNaN(h1P)){
-        if(Math.abs(bA1H-bB1H)>9)h1P*=0.98;
-        if(pgr1)h1P*=0.97;
+        if(Math.abs(bA1H-bB1H)>9) h1P*=0.98;
+        if(pgr1) h1P*=0.97;
         if(!isNaN(h1Line)){
           const h1Diff=h1P-h1Line;
           if(league==="nba"&&Math.abs(h1Diff)>9) h1P=h1Line+h1Diff*0.55;
@@ -1549,84 +1637,88 @@ function runEngine(){
     }
   }
 
-  let picks=[
+  let picks = [
     {name:"FT Total",    proj:(aFTReady&&bFTReady)?ftP:NaN, line:ftLine, type:"ft_total", teamSc:null, aSc:aS, bSc:bS,
      note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null},
-    {name:"1H Total",    proj:h1P,  line:h1Line, type:"1h_total", teamSc:null, aSc:aS, bSc:bS},
-    {name:"Team A Total",proj:aFTReady?bAFT:NaN, line:aLine,  type:"team", teamSc:aS, aSc:aS, bSc:bS,
+    {name:"1H Total",    proj:h1P, line:h1Line, type:"1h_total", teamSc:null, aSc:aS, bSc:bS},
+    {name:"Team A Total",proj:aFTReady?bAFT:NaN, line:aLine, type:"team", teamSc:aS, aSc:aS, bSc:bS,
      note:!aFTReady?"Team A FT Scored + Allowed required":null},
-    {name:"Team B Total",proj:bFTReady?bBFT:NaN, line:bLine,  type:"team", teamSc:bS, aSc:aS, bSc:bS,
+    {name:"Team B Total",proj:bFTReady?bBFT:NaN, line:bLine, type:"team", teamSc:bS, aSc:aS, bSc:bS,
      note:!bFTReady?"Team B FT Scored + Allowed required":null}
   ];
 
-  if(!isNbaOrNcaa||isNaN(h1P)) picks=picks.filter(p=>p.type!=="1h_total");
+  if(!isNbaOrNcaa||isNaN(h1P)) picks = picks.filter(p=>p.type!=="1h_total");
 
-  const finalPicks = picks.map((p,i)=>{
-    let edge=NaN,pt="NaN",dn="";
-    if(p.note){dn=p.note;pt="&#8212;";}
-    else if(isNaN(p.line)){dn="Missing / Invalid Line";pt="&#8212;";}
-    else if(isNaN(p.proj)){dn="Missing / Invalid Last-5 Data";pt="&#8212;";}
-    else{
-      edge=p.proj-p.line;
-      pt=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
+  const finalPicks = picks.map((p,i) => {
+    let edge=NaN, pt="NaN", dn="";
+    if(p.note)    {dn=p.note; pt="&#8212;";}
+    else if(isNaN(p.line)) {dn="Missing / Invalid Line"; pt="&#8212;";}
+    else if(isNaN(p.proj)) {dn="Missing / Invalid Last-5 Data"; pt="&#8212;";}
+    else {
+      edge = p.proj - p.line;
+      pt = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
       if(p.type==="ft_total"&&pt.startsWith("OVER")){
-        if(pgr||dfr)pt="NO PLAY";
-        if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";
-        if(aVol>vl&&bVol>vl)pt="NO PLAY";
+        if(pgr||dfr) pt="NO PLAY";
+        if(Math.abs(bAFT-bBFT)>20) pt="NO PLAY";
+        if(aVol>vl&&bVol>vl) pt="NO PLAY";
       }
-      if(p.type==="team"&&pt.startsWith("OVER")&&dfr)pt="NO PLAY";
+      if(p.type==="team"&&pt.startsWith("OVER")&&dfr) pt="NO PLAY";
       if(p.type==="1h_total"&&pt.startsWith("OVER")){
-        if(pgr1)pt="NO PLAY";
-        if(dfr1)pt="NO PLAY";
-        if(aVol1>vl1&&bVol1>vl1)pt="NO PLAY";
+        if(pgr1) pt="NO PLAY";
+        if(dfr1) pt="NO PLAY";
+        if(aVol1>vl1&&bVol1>vl1) pt="NO PLAY";
       }
     }
     return {edge,pt,dn};
   });
 
   // Lock: highest edge pick that passes 5.5% threshold
-  // Uses pick-level data readiness so team total can be locked even without FT total data
-  let li=-1,ms=0;
-  finalPicks.forEach(({edge,pt},i)=>{
-    if(isNaN(edge)||!picks[i].line)return;
-    const pickReady=picks[i].type==="ft_total"?fma:
-                    picks[i].type==="1h_total"?true:
-                    picks[i].type==="team"?(picks[i].name==="Team A Total"?aFTReady:bFTReady):false;
-    let st=Math.abs(edge/picks[i].line);
+  let li=-1, ms=0;
+  finalPicks.forEach(({edge,pt},i) => {
+    if(isNaN(edge)||!picks[i].line) return;
+    const pickReady = picks[i].type==="ft_total"   ? fma :
+                      picks[i].type==="1h_total"   ? true :
+                      picks[i].type==="team"        ? (picks[i].name==="Team A Total" ? aFTReady : bFTReady) : false;
+    let st = Math.abs(edge/picks[i].line);
     if(pickReady&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.055&&st>ms){ms=st;li=i;}
   });
 
-  finalPicks.forEach(({edge,pt,dn},i)=>{
-    const p=picks[i];
-    let row=table.insertRow();
-    let pred=pt;
-    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;")pred+=` <span class="lock">&#128274;</span>`;
-    let pd=isNaN(p.proj)?"NaN":p.proj.toFixed(2);
-    let ed=isNaN(edge)?"NaN":edge.toFixed(2);
-    let cn=pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
-    row.innerHTML=`<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
+  finalPicks.forEach(({edge,pt,dn},i) => {
+    const p = picks[i];
+    let row = table.insertRow();
+    let pred = pt;
+    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;") pred += ` <span class="lock">&#128274;</span>`;
+    let pd = isNaN(p.proj)?"NaN":p.proj.toFixed(2);
+    let ed = isNaN(edge)?"NaN":edge.toFixed(2);
+    let cn = pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
+    row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
   });
-  table.style.display="table";
-  setTimeout(()=>{
-    table.style.display="table";
+
+  table.style.display = "table";
+  setTimeout(() => {
+    table.style.display = "table";
     table.scrollIntoView({behavior:"smooth",block:"start"});
-  },100);
+  }, 100);
 }
 
-function clearAll(){
-  document.querySelectorAll("input").forEach(i=>{if(i.type!=="checkbox")i.value="";else i.checked=false;});
-  document.querySelectorAll("input").forEach(i=>i.style.borderColor="");
-  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id=>document.getElementById(id).style.display="none");
-  ["injuryBoxA","injuryBoxB"].forEach(id=>document.getElementById(id).style.display="none");
+function clearAll() {
+  document.querySelectorAll("input").forEach(i => { if(i.type!=="checkbox") i.value=""; else i.checked=false; });
+  document.querySelectorAll("input").forEach(i => i.style.borderColor="");
+  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id => document.getElementById(id).style.display="none");
+  ["injuryBoxA","injuryBoxB"].forEach(id => document.getElementById(id).style.display="none");
   g_injA={restMult:1,scoringMult:1,notes:[]};
   g_injB={restMult:1,scoringMult:1,notes:[]};
+  _sbCache.clear(); // FIX 6: clear scoreboard cache on reset
   setStatus("","");
-  const t=document.getElementById("results");
-  t.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
-  t.style.display="none";
+  const t = document.getElementById("results");
+  t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+  t.style.display = "none";
 }
 
-onLeagueChange();
+// FIX 5 — Ensure DOM is ready before calling onLeagueChange
+document.addEventListener("DOMContentLoaded", () => {
+  onLeagueChange();
+});
 </script>
 
 </body>
