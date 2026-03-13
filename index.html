@@ -58,12 +58,58 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <h3 style="font-size:22px;">League Tier</h3>
     <label style="font-size:18px;margin-top:10px;">Select League</label>
     <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
-      <option value="nba">USA - NBA</option>
-      <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
-      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
-      <option value="ncaa">USA - NCAA</option>
-      <option value="africa">Africa - BAL / Nigeria League / Rwanda League</option>
-      <option value="unknown">Other / Mixed League</option>
+      <optgroup label="── USA ──────────────────">
+        <option value="nba">USA - NBA</option>
+        <option value="ncaa">USA - NCAA</option>
+      </optgroup>
+      <optgroup label="── Europe Top Tier ──────">
+        <option value="euroleague">Europe - EuroLeague</option>
+        <option value="eurocup">Europe - EuroCup</option>
+        <option value="acb">Europe - Spain ACB</option>
+        <option value="bsl">Europe - Turkey BSL</option>
+        <option value="lba">Europe - Italy Lega Basket Serie A</option>
+        <option value="bcl">Europe - Greece BCL</option>
+        <option value="bbl">Europe - Germany BBL</option>
+        <option value="proa">Europe - France Pro A</option>
+      </optgroup>
+      <optgroup label="── Europe Second Tier ───">
+        <option value="aba">Europe - ABA League</option>
+        <option value="prob">Europe - France Pro B</option>
+        <option value="plk">Europe - Poland PLK</option>
+        <option value="a2">Europe - Greece A2</option>
+        <option value="nbl_cz">Europe - Czech NBL</option>
+        <option value="lkl">Europe - Lithuania LKL</option>
+        <option value="isl">Europe - Israel BSL</option>
+      </optgroup>
+      <optgroup label="── Africa ───────────────">
+        <option value="bal">Africa - BAL (Basketball Africa League)</option>
+        <option value="nigeria">Africa - Nigeria Premier League</option>
+        <option value="rwanda">Africa - Rwanda Basketball League</option>
+      </optgroup>
+      <optgroup label="── South America ────────">
+        <option value="nbb">South America - Brazil NBB</option>
+        <option value="lnb">South America - Argentina LNB</option>
+      </optgroup>
+      <optgroup label="── North America ────────">
+        <option value="cebl">North America - Canada CEBL</option>
+      </optgroup>
+      <optgroup label="── Asia ─────────────────">
+        <option value="pba">Asia - Philippines PBA</option>
+        <option value="bleague">Asia - Japan B.League</option>
+        <option value="cba">Asia - China CBA</option>
+      </optgroup>
+      <optgroup label="── Oceania ──────────────">
+        <option value="ausnbl">Oceania - Australia NBL</option>
+        <option value="nznbl">Oceania - New Zealand NBL</option>
+      </optgroup>
+      <optgroup label="── International ────────">
+        <option value="fiba_wc">International - FIBA World Cup</option>
+        <option value="fiba_eb">International - FIBA EuroBasket</option>
+        <option value="fiba_ac">International - FIBA AmeriCup</option>
+      </optgroup>
+      <optgroup label="── Other ────────────────">
+        <option value="unknown">Other / Mixed League</option>
+      </optgroup>
     </select>
   </div>
 
@@ -173,6 +219,8 @@ async function fetchNextGameDate(base, teamId) {
       try {
         const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
         const events = r?.events || r?.team?.schedule?.events || [];
+        // Sort ascending by date so the earliest upcoming game is always first
+        events.sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
         for (const ev of events) {
           const comp = ev?.competitions?.[0];
           if (!comp) continue;
@@ -837,7 +885,7 @@ async function fetchESPN() {
     }
     renderInjBox("injuryBoxA","injuryContentA",g_injA);
     renderInjBox("injuryBoxB","injuryContentB",g_injB);
-    if(g_injA.notes.length||g_injB.notes.length) messages.push("&#129658; Injury/rest adjustments applied");
+
 
     const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
     setStatus(messages.map(m=>`<div>${m}</div>`).join(""), allGood ? "ok" : "err");
@@ -1245,8 +1293,30 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   const league=document.getElementById("leagueSelect").value;
-  const bases={"nba":230,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
-  const paceClamps={"nba":{min:0.85,max:1.15},"euro_elite":{min:0.87,max:1.10},"secondary":{min:0.87,max:1.10},"ncaa":{min:0.85,max:1.12},"africa":{min:0.85,max:1.12},"unknown":{min:0.85,max:1.12}};
+  const bases={
+    "nba":228,"ncaa":150,
+    "euroleague":160,"eurocup":158,"acb":166,"bsl":170,"lba":164,"bcl":162,"bbl":172,"proa":162,
+    "aba":158,"prob":154,"plk":154,"a2":153,"nbl_cz":152,"lkl":157,"isl":164,
+    "bal":154,"nigeria":148,"rwanda":144,
+    "nbb":160,"lnb":157,
+    "cebl":154,
+    "pba":188,"bleague":158,"cba":192,
+    "ausnbl":164,"nznbl":157,
+    "fiba_wc":154,"fiba_eb":156,"fiba_ac":154,
+    "unknown":160
+  };
+  const paceClamps={
+    "nba":{min:0.85,max:1.15},"ncaa":{min:0.85,max:1.12},
+    "euroleague":{min:0.87,max:1.10},"eurocup":{min:0.87,max:1.10},"acb":{min:0.87,max:1.10},"bsl":{min:0.87,max:1.10},"lba":{min:0.87,max:1.10},"bcl":{min:0.87,max:1.10},"bbl":{min:0.87,max:1.10},"proa":{min:0.87,max:1.10},
+    "aba":{min:0.87,max:1.10},"prob":{min:0.87,max:1.10},"plk":{min:0.87,max:1.10},"a2":{min:0.87,max:1.10},"nbl_cz":{min:0.87,max:1.10},"lkl":{min:0.87,max:1.10},"isl":{min:0.87,max:1.10},
+    "bal":{min:0.85,max:1.12},"nigeria":{min:0.85,max:1.12},"rwanda":{min:0.85,max:1.12},
+    "nbb":{min:0.87,max:1.10},"lnb":{min:0.87,max:1.10},
+    "cebl":{min:0.87,max:1.10},
+    "pba":{min:0.85,max:1.15},"bleague":{min:0.87,max:1.10},"cba":{min:0.85,max:1.15},
+    "ausnbl":{min:0.87,max:1.10},"nznbl":{min:0.87,max:1.10},
+    "fiba_wc":{min:0.87,max:1.10},"fiba_eb":{min:0.87,max:1.10},"fiba_ac":{min:0.87,max:1.10},
+    "unknown":{min:0.85,max:1.12}
+  };
   let eb=bases[league]||160;
   const cl=paceClamps[league]||{min:0.90,max:1.12};
   let ftLine=mid(document.getElementById("ftMarket").value);
@@ -1305,7 +1375,18 @@ function runEngine(){
   let aVol=aVolRaw*0.6+bVolRaw*0.4;
   let bVol=bVolRaw*0.6+aVolRaw*0.4;
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
-  let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
+  const vlMap={
+    "nba":14,"ncaa":11,
+    "euroleague":12,"eurocup":12,"acb":12,"bsl":12,"lba":12,"bcl":12,"bbl":12,"proa":12,
+    "aba":11,"prob":11,"plk":11,"a2":11,"nbl_cz":11,"lkl":11,"isl":12,
+    "bal":11,"nigeria":10,"rwanda":10,
+    "nbb":12,"lnb":11,"cebl":11,
+    "pba":13,"bleague":12,"cba":13,
+    "ausnbl":12,"nznbl":11,
+    "fiba_wc":11,"fiba_eb":11,"fiba_ac":11,
+    "unknown":12
+  };
+  let vl=vlMap[league]||12;
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
   bAFT=(bAFT*0.85)+((eb/2)*0.15);bBFT=(bBFT*0.85)+((eb/2)*0.15);
 
