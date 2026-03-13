@@ -33,7 +33,7 @@ th, td {border:1px solid #d4af37;padding:6px;text-align:center;}
 .pred-noplay {background:#444;color:#bbb;font-weight:bold;}
 .lock {font-size:4px;display:inline-block;vertical-align:middle;transform:translateY(-1px);margin-left:4px;}
 small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
-#fetchStatus {font-size:11px;margin-top:6px;min-height:16px;color:#aaa;line-height:1.8;}
+#fetchStatus {font-size:11px;margin-top:6px;min-height:16px;color:#aaa;}
 #fetchStatus.ok {color:#2ecc71;}
 #fetchStatus.err {color:#ff6b6b;}
 #fetchStatus.loading {color:#d4af37;}
@@ -45,7 +45,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 </style>
 </head>
 <body>
-<h1>&#127936; Basketball Prediction Engine</h1>
+<h1>🏀 Basketball Prediction Engine</h1>
 <div class="wrapper">
 
   <!-- LEAGUE -->
@@ -55,11 +55,9 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <label style="font-size:18px;margin-top:10px;">Select League</label>
     <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
       <option value="nba">USA - NBA</option>
+      <option value="euro_elite">Europe - EuroLeague / Spain ACB / Turkey BSL / Italy Serie A</option>
+      <option value="secondary">Europe - ABA League / France Pro B / Poland PLK / Greece A2</option>
       <option value="ncaa">USA - NCAA</option>
-      <option value="euroleague">Europe - EuroLeague ⚡ Auto-fetch</option>
-      <option value="eurocup">Europe - EuroCup ⚡ Auto-fetch</option>
-      <option value="euro_elite">Europe - ACB / BSL / Serie A (Manual)</option>
-      <option value="secondary">Europe - ABA / Pro B / PLK / A2 (Manual)</option>
       <option value="africa">Africa - BAL / Nigeria League / Rwanda League</option>
       <option value="unknown">Other / Mixed League</option>
     </select>
@@ -68,12 +66,12 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <!-- ESPN AUTO-FETCH -->
 
   <div class="section" id="espnSection">
-    <h3 style="font-size:15px;">&#9889; Auto-Fetch Stats <span style="font-size:11px;color:#aaa;" id="fetchSubtitle"></span></h3>
+    <h3 style="font-size:15px;">⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
     <label style="font-size:12px;">Team A Name</label>
     <div class="team-name-row"><input id="teamAName" placeholder="e.g. Lakers" oninput="clearAutoFill()"></div>
     <label style="font-size:12px;">Team B Name</label>
     <div class="team-name-row"><input id="teamBName" placeholder="e.g. Celtics" oninput="clearAutoFill()"></div>
-    <button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">&#128225; Fetch Stats</button>
+    <button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">📡 Fetch Stats</button>
     <div id="fetchStatus"></div>
   </div>
 
@@ -92,7 +90,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <!-- TEAM A -->
 
   <div class="section">
-    <h3>Team A (Last 5) <span class="autofill-indicator" id="aAutoTag">&#9989; Auto-filled</span></h3>
+    <h3>Team A (Last 5) <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
     <label>FT Scored</label><input id="aFTScored" placeholder="85,79,88,74,82">
     <label>FT Allowed</label><input id="aFTAllowed" placeholder="76,80,72,79,77">
     <div id="a1HSection" style="display:none;">
@@ -104,7 +102,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <!-- TEAM B -->
 
   <div class="section">
-    <h3>Team B (Last 5) <span class="autofill-indicator" id="bAutoTag">&#9989; Auto-filled</span></h3>
+    <h3>Team B (Last 5) <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
     <label>FT Scored</label><input id="bFTScored" placeholder="83,77,81,79,80">
     <label>FT Allowed</label><input id="bFTAllowed" placeholder="78,82,74,77,80">
     <div id="b1HSection" style="display:none;">
@@ -116,7 +114,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <!-- H2H -->
 
   <div class="section">
-    <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">&#9989; Auto-filled (2024+, OT stripped)</span></h3>
+    <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped)</span></h3>
     <label><input type="checkbox" id="useFTH2H"> Use FT H2H (min 2 games)</label>
     <input id="aFTH2H" placeholder="82,78,84,76,82">
     <input id="bFTH2H" placeholder="79,81,77,80,78">
@@ -127,6 +125,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     </div>
   </div>
 
+  </div>
   <div style="text-align:center;">
     <button onclick="runEngine()">Run</button>
     <button onclick="clearAll()">Clear</button>
@@ -135,8 +134,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   <table id="results" style="display:none;">
     <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
   </table>
-
-</div>
+  </div>
 
 <script>
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
@@ -175,8 +173,6 @@ const NCAA_TEAM_MAP = {
   "providence":2507,"providence friars":2507,
   "butler":2086,"butler bulldogs":2086,
   "depaul":305,"depaul blue demons":305,
-  "xavier":2752,"xavier musketeers":2752,
-  "unc wilmington":2780,"uncw seahawks":2780,
   "kansas":2305,"jayhawks":2305,"kansas jayhawks":2305,
   "baylor":239,"baylor bears":239,
   "houston":248,"houston cougars":248,
@@ -251,7 +247,7 @@ const NCAA_TEAM_MAP = {
   "memphis":235,"memphis tigers":235,
   "wichita state":2724,"wichita state shockers":2724,
   "murray state":93,"murray state racers":93,
-  "saint mary's":2608,"gaels":2608,
+  "saint mary's":2608,"gaels":2608,"saint mary's gaels":2608,
   "dayton":2168,"flyers":2168,"dayton flyers":2168,
   "vcu":2670,"vcu rams":2670,
   "davidson":2166,"davidson wildcats":2166,
@@ -271,7 +267,7 @@ const NCAA_TEAM_MAP = {
   "air force":323,"air force falcons":323,
   "akron":2005,"akron zips":2005,
   "alabama a&m":2626,"alabama a&m bulldogs":2626,
-  "alabama state":2009,"alabama state hornets":2009,
+  "alabama state":6,"alabama state hornets":6,
   "alcorn state":2010,"alcorn state braves":2010,
   "american":2011,"american eagles":2011,
   "appalachian state":2026,"appalachian state mountaineers":2026,
@@ -327,7 +323,6 @@ const NCAA_TEAM_MAP = {
   "fairleigh dickinson":2218,"fdu knights":2218,
   "florida a&m":2212,"famu rattlers":2212,
   "florida atlantic":2226,"fau owls":2226,
-  "florida gulf coast":526,"fgcu eagles":526,
   "fordham":2230,"fordham rams":2230,
   "furman":231,"furman paladins":231,
   "gardner-webb":2241,"gardner webb runnin bulldogs":2241,
@@ -470,6 +465,9 @@ const NCAA_TEAM_MAP = {
   "unc asheville":2427,"unc asheville bulldogs":2427,
   "unc charlotte":2429,"charlotte 49ers":2429,
   "unc greensboro":2734,"uncg spartans":2734,
+  "unc wilmington":2752,"uncw seahawks":2752,
+  // Additional verified teams
+  "xavier":2752,"xavier musketeers":2752,
   "utah state":328,"utah state aggies":328,
   "wyoming":273,"wyoming cowboys":273,
   "wofford":2562,"wofford terriers":2562,
@@ -485,23 +483,6 @@ const NCAA_TEAM_MAP = {
   "wright state":2737,"wright state raiders":2737,
   "youngstown state":2741,"youngstown state penguins":2741,
   "western illinois":2710,"western illinois leathernecks":2710,
-  "north florida":2454,"unf ospreys":2454,
-  "west georgia":2698,"west georgia wolves":2698,
-  "binghamton":2066,"binghamton bearcats":2066,
-  "albany":399,"ualbany great danes":399,
-  "njit":2885,"njit highlanders":2885,
-  "south alabama":6,"south alabama jaguars":6,
-  "florida international":2229,"fiu panthers":2229,
-  "rice":242,"rice owls":242,
-  "north texas":249,"north texas mean green":249,
-  "uab":5,"uab blazers":5,
-  "utsa":2636,"utsa roadrunners":2636,
-  "navy":2426,"navy midshipmen":2426,
-  "weber state":2692,"weber state wildcats":2692,
-  "northern colorado":2458,"northern colorado bears":2458,
-  "incarnate word":2439,"incarnate word cardinals":2439,
-  "abilene christian":2000,"abilene christian wildcats":2000,
-  "western kentucky":98,"western kentucky hilltoppers":98,
 };
 
 function lookupTeamId(name, leagueHint) {
@@ -510,9 +491,11 @@ function lookupTeamId(name, leagueHint) {
   const PRIMARY   = isNba ? NBA_TEAM_MAP : NCAA_TEAM_MAP;
   const SECONDARY = isNba ? NCAA_TEAM_MAP : NBA_TEAM_MAP;
 
+  // 1. Exact match — primary league first
   if (PRIMARY[n]   !== undefined) return PRIMARY[n];
   if (SECONDARY[n] !== undefined) return SECONDARY[n];
 
+  // 2. Input contains key (user typed MORE than the key) — longest key wins
   let bestKey = null, bestLen = 0;
   for (let key of Object.keys(PRIMARY)) {
     if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
@@ -523,6 +506,7 @@ function lookupTeamId(name, leagueHint) {
   }
   if (bestKey) return SECONDARY[bestKey];
 
+  // 3. Key contains input (user typed LESS than key, e.g. "FAU") — min 3 chars
   if (n.length >= 3) {
     bestKey = null; bestLen = 0;
     for (let key of Object.keys(PRIMARY)) {
@@ -538,6 +522,10 @@ function lookupTeamId(name, leagueHint) {
   return null;
 }
 
+// ─── Robust ID normalization ──────────────────────────────────────────────────
+// ESPN returns IDs in multiple formats: "41", "t:41", "s:40~l:41~t:41", etc.
+
+
 function normalizeId(raw) {
   if (raw === null || raw === undefined) return "";
   const s = String(raw);
@@ -548,12 +536,19 @@ function normalizeId(raw) {
   return s.replace(/\D/g, "") || s;
 }
 
+// ─── CRITICAL FIX: matchesTeam ────────────────────────────────────────────────
+// In ESPN schedule API, competitor.id is often "1" or "2" (home/away slot),
+// NOT the team ID. Must check team.id, team.uid, and uid as well.
 function matchesTeam(competitor, teamId) {
   const tid = String(teamId);
   if (!competitor) return false;
+  // Most reliable: team.id
   if (normalizeId(competitor.team?.id) === tid) return true;
+  // team.uid e.g. "s:40~l:41~t:269"
   if (normalizeId(competitor.team?.uid) === tid) return true;
+  // competitor uid
   if (normalizeId(competitor.uid) === tid) return true;
+  // competitor id (sometimes correct, sometimes "1"/"2")
   if (normalizeId(competitor.id) === tid) return true;
   return false;
 }
@@ -561,17 +556,10 @@ function matchesTeam(competitor, teamId) {
 function onLeagueChange() {
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
-  const isEuro = league === "euroleague" || league === "eurocup";
-  const showFetch = isNbaOrNcaa || isEuro;
-  document.getElementById("espnSection").style.display = showFetch ? "block" : "none";
+  document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
   ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
     document.getElementById(id).style.display = isNbaOrNcaa ? "block" : "none";
   });
-  const subtitle = document.getElementById("fetchSubtitle");
-  if (subtitle) {
-    if (isEuro) subtitle.textContent = "(EuroLeague & EuroCup)";
-    else subtitle.textContent = "(NBA & NCAA only)";
-  }
 }
 
 function clearAutoFill() {
@@ -595,17 +583,13 @@ async function fetchESPN() {
   const league = document.getElementById("leagueSelect").value;
   const teamAName = document.getElementById("teamAName").value.trim();
   const teamBName = document.getElementById("teamBName").value.trim();
-  if (!teamAName || !teamBName) { setStatus("&#10060; Enter both team names first.","err"); return; }
+  if (!teamAName || !teamBName) { setStatus("❌ Enter both team names first.","err"); return; }
 
   const btn = document.getElementById("fetchBtn");
   btn.disabled = true;
   setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
 
   try {
-    if (league === "euroleague" || league === "eurocup") {
-      await fetchEuro(league, teamAName, teamBName);
-      return;
-    }
     const isNcaa = league === "ncaa";
     const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
     const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
@@ -640,9 +624,9 @@ async function fetchESPN() {
         document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
       }
       document.getElementById("aAutoTag").style.display = "inline";
-      messages.push(`&#9989; ${teamAName} &mdash; ${aStats.scored.length} games loaded`);
+      messages.push(`${teamAName}: ${aStats.scored.length} games ✅`);
     } else {
-      messages.push(`&#10060; ${teamAName} &mdash; no data found`);
+      messages.push(`${teamAName}: no data ❌`);
     }
 
     if (bStats?.scored?.length > 0) {
@@ -653,9 +637,9 @@ async function fetchESPN() {
         document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
       }
       document.getElementById("bAutoTag").style.display = "inline";
-      messages.push(`&#9989; ${teamBName} &mdash; ${bStats.scored.length} games loaded`);
+      messages.push(`${teamBName}: ${bStats.scored.length} games ✅`);
     } else {
-      messages.push(`&#10060; ${teamBName} &mdash; no data found`);
+      messages.push(`${teamBName}: no data ❌`);
     }
 
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
@@ -688,371 +672,36 @@ async function fetchESPN() {
         document.getElementById("b1HH2H").value = h2hB1H.join(",");
         document.getElementById("use1HH2H").checked = true;
       }
-      messages.push(`&#9989; H2H &mdash; ${Math.min(h2hGames.length,5)} games found`);
+      messages.push(`H2H: ${Math.min(h2hGames.length,5)} games ✅`);
     } else if (h2hGames?.length === 1) {
+      // Found 1 game — show it but don't auto-check (min 2 required)
       const tA = String(teamAId);
       const g = h2hGames[0];
       document.getElementById("aFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreA : g.scoreB;
       document.getElementById("bFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreB : g.scoreA;
-      messages.push("&#9888;&#65039; H2H &mdash; 1 game found (min 2 to auto-enable)");
+      messages.push("H2H: 1 game found (min 2 to auto-enable)");
     } else {
       document.getElementById("useFTH2H").checked = false;
-      messages.push("&#10060; H2H &mdash; none found");
+      messages.push("H2H: none found");
     }
 
     const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
-    setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
+    if (allGood) setStatus("", ""); else setStatus(messages.filter(m=>m.includes('❌')).join(' | '), 'err');
 
   } catch(e) {
-    setStatus("&#10060; " + e.message, "err");
+    setStatus("❌ " + e.message, "err");
   } finally {
     btn.disabled = false;
   }
 }
 
-/* ============= EURO LEAGUE / EURO CUP FETCH ============= */
-
-/* ---- Official EuroLeague team codes (used by api-live.euroleague.net) ---- */
-const EUROLEAGUE_CODES = {
-  "real madrid":"MAD","madrid":"MAD",
-  "barcelona":"BAR","fc barcelona":"BAR","barca":"BAR","barça":"BAR",
-  "fenerbahce":"FEN","fenerbahce beko":"FEN","fener":"FEN",
-  "panathinaikos":"PAN","panathinaikos aktor":"PAN","pao":"PAN",
-  "olympiacos":"OLY","olympiakos":"OLY","olympiacos piraeus":"OLY",
-  "anadolu efes":"ULK","efes":"ULK","anadolu":"ULK",
-  "bayern munich":"MUN","bayern":"MUN","fc bayern":"MUN","munich":"MUN",
-  "baskonia":"BKN","saski baskonia":"BKN","vitoria":"BKN","td systems baskonia":"BKN",
-  "asvel":"ASV","ldlc asvel":"ASV","villeurbanne":"ASV",
-  "alba berlin":"BER","alba":"BER",
-  "maccabi tel aviv":"MTA","maccabi":"MTA","maccabi playtika":"MTA",
-  "partizan":"PAR","partizan belgrade":"PAR","partizan mozzart":"PAR",
-  "virtus bologna":"VIR","virtus":"VIR","segafredo virtus":"VIR","bologna":"VIR",
-  "monaco":"ASM","as monaco":"ASM","monaco basket":"ASM",
-  "zalgiris":"ZAL","zalgiris kaunas":"ZAL",
-  "red star":"CSZ","crvena zvezda":"CSZ","red star belgrade":"CSZ",
-  "paris basketball":"PAB","paris":"PAB",
-  "olimpia milano":"MIL","ea7 olimpia milano":"MIL","olimpia":"MIL","milano":"MIL","milan":"MIL","ea7":"MIL",
-};
-const EUROCUP_CODES = {
-  "valencia basket":"VAL","valencia":"VAL",
-  "joventut":"JOV","joventut badalona":"JOV","joventut penya":"JOV",
-  "ulm":"ULM","ratiopharm ulm":"ULM",
-  "trento":"TRE","dolomiti energia trento":"TRE","dolomiti energia":"TRE",
-  "hapoel tel aviv":"HTA","hapoel":"HTA",
-  "hamburg":"HAM","hamburg towers":"HAM",
-  "cedevita olimpija":"OLI","olimpija":"OLI","cedevita":"OLI",
-  "derthona":"DER","derthona basket":"DER","tortona":"DER",
-  "venezia":"VEN","reyer venezia":"VEN","umana reyer":"VEN","venice":"VEN",
-  "unicaja":"UNI","unicaja malaga":"UNI","malaga":"UNI",
-  "tenerife":"TEN","lenovo tenerife":"TEN","iberostar tenerife":"TEN",
-  "gran canaria":"GRX","gran canaria claret":"GRX",
-  "buducnost":"BUD","buducnost voli":"BUD","podgorica":"BUD",
-  "bahcesehir":"BCK","bahcesehir college":"BCK",
-  "besiktas":"BJK","besiktas icrypex":"BJK",
-  "slask wroclaw":"SLK","slask":"SLK",
-  "prometey":"PRO","prometey slobozhanske":"PRO",
-  "lietkabelis":"LKB","lietkabelis panevezys":"LKB",
-};
-
-function lookupEuroCode(name, league) {
-  const n = name.toLowerCase().trim();
-  const map = league === "euroleague" ? EUROLEAGUE_CODES : EUROCUP_CODES;
-  if (map[n]) return map[n];
-  let best = null, bestLen = 0;
-  for (const k of Object.keys(map)) {
-    if ((n.includes(k) || k.includes(n)) && k.length > bestLen) { best = map[k]; bestLen = k.length; }
-  }
-  return best;
-}
-
-function lookupEuroTeamESPN(name, league) { return null; } // kept for compat
-
-const EUROLEAGUE_TEAM_MAP = {
-  "real madrid":"MAD","madrid":"MAD","real madrid basketball":"MAD",
-  "barcelona":"BAR","fc barcelona":"BAR","barca":"BAR","barça":"BAR",
-  "fenerbahce":"FEN","fenerbahce beko":"FEN","fener":"FEN",
-  "panathinaikos":"PAN","panathinaikos ator":"PAN","pao":"PAN",
-  "olympiacos":"OLY","olympiacos piraeus":"OLY","olympiakos":"OLY",
-  "anadolu efes":"ULK","efes":"ULK","istanbul efes":"ULK",
-  "bayern munich":"MUN","bayern":"MUN","fc bayern":"MUN","munich":"MUN",
-  "baskonia":"BKN","td systems baskonia":"BKN","saski baskonia":"BKN","vitoria":"BKN",
-  "asvel":"ASV","ldlc asvel":"ASV","villeurbanne":"ASV","lyon villeurbanne":"ASV",
-  "alba berlin":"BER","alba":"BER",
-  "maccabi tel aviv":"MTA","maccabi":"MTA","maccabi playtika":"MTA",
-  "partizan":"PAR","partizan mozzart":"PAR","partizan belgrade":"PAR",
-  "virtus bologna":"VIR","virtus":"VIR","segafredo virtus":"VIR","bologna":"VIR",
-  "monaco":"ASM","as monaco":"ASM","monaco basket":"ASM",
-  "zalgiris":"ZAL","zalgiris kaunas":"ZAL",
-  "red star":"CSZ","crvena zvezda":"CSZ","red star belgrade":"CSZ","cz belgrade":"CSZ",
-  "paris basketball":"PAB","paris":"PAB","paris basket":"PAB",
-  "olimpia milano":"MIL","ea7 olimpia milano":"MIL","olimpia":"MIL","milano":"MIL","milan":"MIL","ea7":"MIL",
-  "cska moscow":"CSK","cska":"CSK",
-  "žalgiris":"ZAL","zalgiris kaunas":"ZAL",
-};
-
-const EUROCUP_TEAM_MAP = {
-  "valencia basket":"VAL","valencia":"VAL",
-  "joventut":"JOV","joventut badalona":"JOV","joventut penya":"JOV",
-  "ulm":"ULM","ratiopharm ulm":"ULM",
-  "trento":"TRE","dolomiti energia trento":"TRE","dolomiti energia":"TRE",
-  "hapoel tel aviv":"HTA","hapoel":"HTA",
-  "hamburg":"HAM","hamburg towers":"HAM",
-  "cedevita olimpija":"OLI","olimpija":"OLI","cedevita":"OLI",
-  "derthona":"DER","derthona basket":"DER","tortona":"DER",
-  "buducnost":"BUD","buducnost voli":"BUD","podgorica":"BUD",
-  "bahcesehir":"BAH","bahcesehir college":"BAH",
-  "bursaspor":"BUR","frutti extra bursaspor":"BUR",
-  "venice":"VEN","reyer venezia":"VEN","umana reyer":"VEN","venezia":"VEN",
-  "gran canaria":"GRX","gran canaria claret":"GRX",
-  "lietkabelis":"LKB","lietkabelis panevezys":"LKB",
-  "prometey":"PRO","prometey slobozhanske":"PRO",
-  "unicaja":"UNI","unicaja malaga":"UNI","malaga":"UNI",
-  "rivas ecobisa":"RIV","rivas":"RIV",
-  "slask wroclaw":"SLK","slask":"SLK",
-  "besiktas":"BJK","besiktas icrypex":"BJK",
-  "tenerife":"CBT","iberostar tenerife":"CBT","lenovo tenerife":"CBT",
-  "budivelnyk":"BUD2","budivelnyk kyiv":"BUD2",
-};
-
-function lookupEuroTeam(name, league) {
-  const n = name.toLowerCase().trim();
-  const map = league === "euroleague" ? EUROLEAGUE_TEAM_MAP : EUROCUP_TEAM_MAP;
-  if (map[n]) return map[n];
-  let best = null, bestLen = 0;
-  for (const key of Object.keys(map)) {
-    if (n.includes(key) && key.length > bestLen) { best = map[key]; bestLen = key.length; }
-  }
-  if (best) return best;
-  for (const key of Object.keys(map)) {
-    if (key.includes(n) && key.length > bestLen) { best = map[key]; bestLen = key.length; }
-  }
-  return best;
-}
-
-async function fetchEuro(league, teamAName, teamBName) {
-  const btn = document.getElementById("fetchBtn");
-  btn.disabled = true;
-  setStatus('<span class="spinner"></span>Connecting to EuroLeague API...', "loading");
-
-  try {
-    const compCode = league === "euroleague" ? "E" : "U";
-    // Current season codes: EuroLeague 2024-25 = E2024, EuroCup 2024-25 = U2024
-    const seasonCodes = ["E2024","E2025","E2023"].map(s => compCode + s.slice(1));
-    const apiBase = "https://api-live.euroleague.net/v1/competitions";
-
-    const codeA = lookupEuroCode(teamAName, league);
-    const codeB = lookupEuroCode(teamBName, league);
-    if (!codeA) throw new Error(`Unknown team "${teamAName}". Try e.g. "Olimpia", "Maccabi", "Real Madrid".`);
-    if (!codeB) throw new Error(`Unknown team "${teamBName}". Try e.g. "Olimpia", "Maccabi", "Real Madrid".`);
-
-    setStatus('<span class="spinner"></span>Loading season games...', "loading");
-
-    // Fetch all games for current season
-    let allGames = [];
-    for (const season of seasonCodes) {
-      try {
-        const r = await proxyFetch(`${apiBase}/${compCode}/seasons/${season}/games?limit=300`);
-        let games = Array.isArray(r) ? r : (r?.data || r?.games || r?.results || []);
-        const played = games.filter(g => {
-          const s = g.gameStatus || g.status || g.played;
-          return s === "result" || s === "played" || s === "Played" || s === true || s === "STATUS_FINAL";
-        });
-        if (played.length >= 5) { allGames = played; break; }
-        if (games.length > allGames.length) allGames = games;
-      } catch(e) {}
-    }
-
-    if (!allGames.length) throw new Error("EuroLeague API unreachable through proxy. Enter stats manually.");
-
-    const messages = [];
-
-    // Helper: get team code from game side
-    const getCode = side => side?.clubCode || side?.club?.code || side?.teamCode || null;
-    const getScore = side => {
-      const v = side?.score ?? side?.points ?? side?.clubScore ?? side?.clubLocalScore ?? side?.clubRoadScore;
-      return v !== undefined ? Number(v) : NaN;
-    };
-    const isPlayed = g => {
-      const s = g.gameStatus || g.status;
-      return s === "result" || s === "played" || s === "Played" || s === "STATUS_FINAL" || g.played === true || g.isPlayed === true;
-    };
-
-    // Extract last 5 for each team
-    function getTeamStats(code) {
-      const games = allGames
-        .filter(g => isPlayed(g) && (getCode(g.home) === code || getCode(g.away) === code))
-        .sort((a,b) => new Date(b.startsAt||b.date||b.gameDate||0) - new Date(a.startsAt||a.date||a.gameDate||0))
-        .slice(0, 5);
-      const scored = [], allowed = [];
-      for (const g of games) {
-        const isHome = getCode(g.home) === code;
-        const s = getScore(isHome ? g.home : g.away);
-        const a = getScore(isHome ? g.away : g.home);
-        if (!isNaN(s) && !isNaN(a) && s > 0 && a > 0) { scored.push(s); allowed.push(a); }
-      }
-      return scored.length >= 2 ? {scored, allowed} : null;
-    }
-
-    const aStats = getTeamStats(codeA);
-    const bStats = getTeamStats(codeB);
-
-    if (aStats) {
-      document.getElementById("aFTScored").value  = aStats.scored.join(",");
-      document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
-      document.getElementById("aAutoTag").style.display = "inline";
-      messages.push(`&#9989; ${teamAName} &mdash; ${aStats.scored.length} games loaded`);
-    } else {
-      messages.push(`&#10060; ${teamAName} &mdash; no data found`);
-    }
-
-    if (bStats) {
-      document.getElementById("bFTScored").value  = bStats.scored.join(",");
-      document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
-      document.getElementById("bAutoTag").style.display = "inline";
-      messages.push(`&#9989; ${teamBName} &mdash; ${bStats.scored.length} games loaded`);
-    } else {
-      messages.push(`&#10060; ${teamBName} &mdash; no data found`);
-    }
-
-    // H2H
-    const h2hRaw = allGames.filter(g => {
-      if (!isPlayed(g)) return false;
-      const hc = getCode(g.home), ac = getCode(g.away);
-      return (hc===codeA&&ac===codeB)||(hc===codeB&&ac===codeA);
-    }).sort((a,b) => new Date(b.startsAt||b.date||0) - new Date(a.startsAt||a.date||0)).slice(0,5);
-
-    if (h2hRaw.length >= 2) {
-      const h2hA=[], h2hB=[];
-      for (const g of h2hRaw) {
-        const isHomeA = getCode(g.home) === codeA;
-        h2hA.push(getScore(isHomeA ? g.home : g.away));
-        h2hB.push(getScore(isHomeA ? g.away : g.home));
-      }
-      document.getElementById("aFTH2H").value = h2hA.join(",");
-      document.getElementById("bFTH2H").value = h2hB.join(",");
-      document.getElementById("useFTH2H").checked = true;
-      document.getElementById("h2hAutoTag").style.display = "inline";
-      messages.push(`&#9989; H2H &mdash; ${h2hRaw.length} games found`);
-    } else if (h2hRaw.length === 1) {
-      const g = h2hRaw[0];
-      const isHomeA = getCode(g.home) === codeA;
-      document.getElementById("aFTH2H").value = getScore(isHomeA ? g.home : g.away);
-      document.getElementById("bFTH2H").value = getScore(isHomeA ? g.away : g.home);
-      messages.push("&#9888;&#65039; H2H &mdash; 1 game found (min 2 to auto-enable)");
-    } else {
-      document.getElementById("useFTH2H").checked = false;
-      messages.push("&#10060; H2H &mdash; none found");
-    }
-
-    const allGood = !!aStats && !!bStats;
-    setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
-
-  } catch(e) {
-    setStatus("&#10060; " + e.message, "err");
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function fetchEuroSchedule(base, teamId) {
-  const tId = String(teamId);
-  const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
-  const gameRefs = [];
-  for (const season of ["2025","2024","2026"]) {
-    for (const stype of ["2","3","1"]) {
-      try {
-        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
-        const events = r?.events || r?.team?.schedule?.events || [];
-        for (const ev of events) {
-          if (!ev.id) continue;
-          const comp = ev?.competitions?.[0];
-          if (!comp) continue;
-          const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL" || comp?.status?.type?.state === "post";
-          if (!done || (comp?.competitors||[]).length < 2) continue;
-          const c = comp.competitors;
-          const mine = c.find(x => matchesTeam(x, tId)) || c[0];
-          const opp  = c.find(x => !matchesTeam(x, tId)) || c[1];
-          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-          gameRefs.push({id:String(ev.id), date:ev.date||"", rawS:ps(mine?.score), rawA:ps(opp?.score)});
-        }
-      } catch(e) {}
-    }
-    if (gameRefs.length >= 8) break;
-  }
-  if (!gameRefs.length) return null;
-  const seen = new Set();
-  const unique = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
-  unique.sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
-  const top5 = unique.slice(0,5);
-  const scored=[], allowed=[];
-  for (const ref of top5) {
-    let ms = ref.rawS, os = ref.rawA;
-    try {
-      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
-      const hc = data?.header?.competitions?.[0];
-      if (hc) {
-        const competitors = hc?.competitors || [];
-        const mine = competitors.find(c => matchesTeam(c, tId));
-        const opp  = competitors.find(c => !matchesTeam(c, tId));
-        if (mine && opp) { ms = parseFloat(mine.score)||ms; os = parseFloat(opp.score)||os; }
-      }
-    } catch(e) {}
-    if (!isNaN(ms) && !isNaN(os) && ms > 0 && os > 0) { scored.push(Math.round(ms)); allowed.push(Math.round(os)); }
-  }
-  return scored.length >= 2 ? {scored, allowed, h1Scored:[], h1Allowed:[]} : null;
-}
-
-function searchEuroTeamCode(games, name) {
-  const n = name.toLowerCase().trim();
-  for (const g of games) {
-    for (const side of [g.home, g.away]) {
-      if (!side) continue;
-      const clubName = (side.clubName || side.club?.name || side.teamName || "").toLowerCase();
-      const code = getEuroTeamCode(side);
-      if (!clubName || !code) continue;
-      if (clubName.includes(n) || n.includes(clubName.split(" ")[0])) return code;
-    }
-  }
-  return null;
-}
-
-function getEuroTeamCode(side) {
-  return side?.clubCode || side?.club?.code || side?.teamCode || side?.code || null;
-}
-function getEuroScore(side) {
-  const s = side?.score ?? side?.points ?? side?.finalScore ?? side?.teamScore;
-  return s !== undefined && s !== null ? Number(s) : NaN;
-}
-function isEuroPlayed(g) {
-  return g.played || g.isPlayed || g.status === "played" || g.gameStatus === "played"
-    || g.status === "result" || g.gameStatus === "result" || g.status === "Played";
-}
-
-function extractEuroLastFive(games, teamCode) {
-  const played = games
-    .filter(g => isEuroPlayed(g) && (getEuroTeamCode(g.home) === teamCode || getEuroTeamCode(g.away) === teamCode))
-    .sort((a,b) => new Date(b.date||b.startDate||b.gameDate||0) - new Date(a.date||a.startDate||a.gameDate||0))
-    .slice(0,5);
-
-  const scored = [], allowed = [];
-  for (const g of played) {
-    const isHome = getEuroTeamCode(g.home) === teamCode;
-    const mine = isHome ? g.home : g.away;
-    const opp  = isHome ? g.away : g.home;
-    const s = getEuroScore(mine), a = getEuroScore(opp);
-    if (!isNaN(s) && !isNaN(a) && s > 0 && a > 0) {
-      scored.push(s);
-      allowed.push(a);
-    }
-  }
-  return scored.length >= 2 ? {scored, allowed, h1Scored:[], h1Allowed:[]} : null;
-}
-
+// ─── FIX 2: NCAA Schedule – include seasontype 1, try more seasons ────────────
 async function fetchNcaaSchedule(base, teamId) {
   const tId = String(teamId);
   const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
+  // Try current and previous season, all season types (1=pre, 2=regular, 3=post)
   for (const season of ["2026","2025","2024"]) {
     for (const stype of ["2","3","1"]) {
       try {
@@ -1067,6 +716,7 @@ async function fetchNcaaSchedule(base, teamId) {
                        comp?.status?.type?.state === "post";
           if (!done || (comp?.competitors || []).length < 2) continue;
           const c = comp.competitors;
+          // FIX: use normalizeId for competitor matching
           const mine = c.find(x => matchesTeam(x, tId)) || c[0];
           const opp  = c.find(x => !matchesTeam(x, tId)) || c[1];
           const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
@@ -1074,6 +724,7 @@ async function fetchNcaaSchedule(base, teamId) {
         }
       } catch(e) {}
     }
+    // Stop digging into older seasons if we already have enough
     if (gameRefs.length >= 10) break;
   }
 
@@ -1097,6 +748,7 @@ async function fetchNcaaSchedule(base, teamId) {
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors || [];
+        // FIX: normalizeId in summary lookup too
         const mine = competitors.find(c => matchesTeam(c, tId));
         const opp  = competitors.find(c => !matchesTeam(c, tId));
         if (mine && opp) {
@@ -1128,19 +780,31 @@ async function fetchNcaaSchedule(base, teamId) {
   return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed} : null;
 }
 
+// ─── FIX 3: NCAA H2H – scan BOTH teams' schedules + normalizeId everywhere ───
 async function fetchNcaaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
   const pv = p => parseFloat(String(p?.value ?? p?.displayValue ?? 0)) || 0;
   const gameRefs = [];
 
+  // Scan BOTH team A and team B schedules (fixes cases where game only appears on one side)
   for (const scanId of [teamAId, teamBId]) {
     for (const season of ["2026","2025","2024"]) {
       for (const stype of ["2","3","1"]) {
         try {
           const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
           const events = r?.events || r?.team?.schedule?.events || [];
+          // Log first completed game's competitor IDs to diagnose matching
+          if (events.length > 0 && season === '2026' && stype === '2') {
+            for (const _ev of events.slice(0,3)) {
+              const _comp = _ev?.competitions?.[0];
+              if (!_comp?.status?.type?.completed) continue;
+              const _cs = _comp?.competitors || [];
+              break;
+            }
+          }
           for (const ev of events) {
             const dateStr = ev?.date || "";
+            // Only 2024 onwards
             if (dateStr && dateStr < "2024-01-01") continue;
             const comp = ev?.competitions?.[0];
             if (!comp) continue;
@@ -1150,9 +814,17 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
             if (!done) continue;
             const competitors = comp?.competitors || [];
             if (competitors.length < 2 || !ev.id) continue;
+
+            // FIX: use normalizeId to check both teams are present
             const hasA = competitors.some(c => matchesTeam(c, tA));
             const hasB = competitors.some(c => matchesTeam(c, tB));
-            if (!hasA || !hasB) continue;
+            if (!hasA || !hasB) {
+              // Log first few mismatches to see what IDs are present
+              if (gameRefs.length === 0 && competitors.length > 0) {
+              }
+              continue;
+            }
+
             const cA = competitors.find(x => matchesTeam(x, tA)) || competitors[0];
             const cB = competitors.find(x => matchesTeam(x, tB)) || competitors[1];
             const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
@@ -1165,6 +837,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
 
   if (!gameRefs.length) return [];
 
+  // Deduplicate
   const seen = new Set();
   const uniqueRefs = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
   uniqueRefs.sort((a,b) => {
@@ -1181,14 +854,16 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors || [];
+        // FIX: normalizeId in summary lookup
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        if (competitors.length > 0 && cA && cB) {
+        if (competitors.length > 0)        if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
             const lA = cA?.linescores || [], lB = cB?.linescores || [];
             const h1A = lA.length >= 1 ? pv(lA[0]) : 0;
             const h1B = lB.length >= 1 ? pv(lB[0]) : 0;
+            // Strip OT
             if (lA.length > 2 && lB.length > 2) {
               const sumA = lA.reduce((s,p) => s+pv(p), 0), sumB = lB.reduce((s,p) => s+pv(p), 0);
               if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
@@ -1204,6 +879,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
         }
       }
     } catch(e) {}
+    // Fallback to raw schedule scores if summary failed
     if (!added && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
       h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(ref.rawScoreA), scoreB:Math.round(ref.rawScoreB), h1A:0, h1B:0, date:ref.date, eventId:ref.id});
     }
@@ -1306,7 +982,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
-        if (competitors.length > 0 && cA && cB) {
+        if (competitors.length > 0)        if (cA && cB) {
           let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
           if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
             const lA = cA?.linescores || [], lB = cB?.linescores || [];
@@ -1394,8 +1070,58 @@ async function searchTeamFromAPI(base, name) {
   } catch(e) { return null; }
 }
 
-/* ============= ENGINE CORE ============= */
-function parseGames(id){let raw=document.getElementById(id).value.trim();if(!raw)return null;let arr=raw.split(",").map(x=>parseFloat(x.trim()));if(arr.some(x=>isNaN(x)||x<0||x>200))return"error";return arr;}
+/* =============================================
+   ENGINE CORE
+   ============================================= */
+  /* =========================================================
+BASKETBALL PREDICTION ENGINE — MODEL DESIGN NOTES
+Version: 1.0 (Stable Core)
+
+This engine is designed for quick statistical projections
+using last-5-game inputs and market lines.
+
+Key Design Principles:
+
+1. Pace Approximation
+Game pace is estimated using scoring totals since possession
+data is not available from manual user input.
+
+2. Offense vs Defense Interaction
+Team projections combine a team's offensive scoring with the
+opponent's defensive allowance.
+
+3. Trimmed Mean Stability
+Highest and lowest values from the last 5 games are removed
+to reduce outlier influence.
+
+4. Regression to League Mean
+Projections partially regress toward league averages to avoid
+overfitting to small sample sizes.
+
+5. Volatility Dampening
+Teams with high scoring variance have projections reduced
+to prevent unstable projections.
+
+6. Pace Clamp by League
+Each league has realistic pace boundaries.
+
+7. Defensive Floor Filter
+Very strong defensive teams suppress OVER predictions.
+
+8. Pace Gap Filter
+Large tempo mismatches reduce totals reliability.
+
+9. Market Trap Protection
+Small statistical edges are ignored to avoid bookmaker traps.
+
+10. Lock Indicator
+The lock icon highlights the strongest statistical edge among
+available picks when edge >= 4.5%. It does NOT influence the
+prediction model itself.
+
+========================================================= */
+
+function parseGames(id){let raw=document.getElementById(id).value.trim();if(!raw)return null;let arr=raw.split(",").map(x=>parseFloat(x.trim()));if(arr.some(x=>isNaN(x)||x<0||x>300))return"error";return arr;}
 function avg(arr){if(!arr||arr.length===0)return NaN;return arr.reduce((a,b)=>a+b,0)/arr.length;}
 function trimmedAvg(arr){if(!arr||arr.length===0)return NaN;if(arr.length<5)return avg(arr);let s=[...arr].sort((a,b)=>a-b);s.shift();s.pop();return avg(s);}
 function stdDev(arr){if(!arr||arr.length<2)return 0;let m=avg(arr);return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));}
@@ -1422,8 +1148,8 @@ function runEngine(){
   table.style.display="table";
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   const league=document.getElementById("leagueSelect").value;
-  const bases={"nba":230,"euroleague":160,"eurocup":155,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
-  const paceClamps={"nba":{min:0.90,max:1.15},"euroleague":{min:0.92,max:1.10},"eurocup":{min:0.92,max:1.10},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
+  const bases={"nba":230,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
+  const paceClamps={"nba":{min:0.90,max:1.15},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
   let eb=bases[league]||160;
   const cl=paceClamps[league]||{min:0.90,max:1.12};
   let ftLine=mid(document.getElementById("ftMarket").value);
@@ -1435,24 +1161,19 @@ function runEngine(){
   let bS=(bSA==="error"||bSA===null)?NaN:trimmedAvg(bSA);
   let bA=(bAA==="error"||bAA===null)?NaN:trimmedAvg(bAA);
   let fma=!isNaN(aS)&&!isNaN(aA)&&!isNaN(bS)&&!isNaN(bA);
-
-  let bAFT=(!isNaN(aS)&&!isNaN(bA))?(aS*0.60+bA*0.40):(!isNaN(aS)?aS:NaN);
-  let bBFT=(!isNaN(bS)&&!isNaN(aA))?(bS*0.60+aA*0.40):(!isNaN(bS)?bS:NaN);
-
+  let bAFT=(!isNaN(aS)&&!isNaN(bA))?(aS+bA)/2:(!isNaN(aS)?aS:NaN);
+  let bBFT=(!isNaN(bS)&&!isNaN(aA))?(bS+aA)/2:(!isNaN(bS)?bS:NaN);
   let tAP=(!isNaN(aS)&&!isNaN(aA))?(aS+aA)/2:NaN;
   let tBP=(!isNaN(bS)&&!isNaN(bA))?(bS+bA)/2:NaN;
   let pgr=(!isNaN(tAP)&&!isNaN(tBP)&&Math.abs(tAP-tBP)>eb*0.10);
-
-  let paceA=(!isNaN(aS)&&!isNaN(aA))?aS+aA:NaN;
-  let paceB=(!isNaN(bS)&&!isNaN(bA))?bS+bA:NaN;
-  let rp=(!isNaN(paceA)&&!isNaN(paceB))?(paceA+paceB)/2:(!isNaN(paceA)?paceA:(!isNaN(paceB)?paceB:NaN));
+  let rp=(!isNaN(tAP)&&!isNaN(tBP))?(tAP+tBP)/2:(!isNaN(tAP)?tAP:(!isNaN(tBP)?tBP:NaN));
   let pace=!isNaN(rp)&&eb?Math.max(cl.min,Math.min(cl.max,rp/eb)):1;
-
   let h2ha=null,h2hb=null;
   if(document.getElementById("useFTH2H").checked){h2ha=parseGames("aFTH2H");h2hb=parseGames("bFTH2H");}
   if(fma&&h2ha&&h2hb&&h2ha!=="error"&&h2hb!=="error"&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(0.30,dynamicWeight(h2ha)+dynamicWeight(h2hb));
     let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
+    // FIX: blend each team individually to preserve matchup-specific patterns
     if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){
       let divA=Math.abs(h2hAvgA-bAFT)/bAFT;
       let wA=divA>0.20?w*0.5:w;
@@ -1464,12 +1185,13 @@ function runEngine(){
       bBFT=bBFT*(1-wB)+h2hAvgB*wB;
     }
   }
+  // FIX: blend own team's vol with opponent's defensive vol — both affect the projection
   let aVolRaw=(stdDev(aSA==="error"?[]:aSA)+stdDev(aAA==="error"?[]:aAA))/2;
   let bVolRaw=(stdDev(bSA==="error"?[]:bSA)+stdDev(bAA==="error"?[]:bAA))/2;
   let aVol=aVolRaw*0.6+bVolRaw*0.4;
   let bVol=bVolRaw*0.6+aVolRaw*0.4;
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
-  let vl={"nba":14,"euroleague":12,"eurocup":12,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
+  let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
   let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
   bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
@@ -1495,9 +1217,10 @@ function runEngine(){
     let bA1=(b1HA==="error"||b1HA===null)?NaN:trimmedAvg(b1HA);
     let fma1=!isNaN(aS1)&&!isNaN(aA1)&&!isNaN(bS1)&&!isNaN(bA1);
     if(fma1){
-      let bA1H=(aS1*0.60+bA1*0.40),bB1H=(bS1*0.60+aA1*0.40);
+      let bA1H=(aS1+bA1)/2,bB1H=(bS1+aA1)/2;
       let tAP1=(aS1+aA1)/2,tBP1=(bS1+bA1)/2;
       pgr1=Math.abs(tAP1-tBP1)>eb1H*0.10;
+      let rp1=(tAP1+tBP1)/2;
       if(document.getElementById("use1HH2H").checked){
         let h2ha1=parseGames("a1HH2H"),h2hb1=parseGames("b1HH2H");
         if(h2ha1&&h2hb1&&h2ha1!=="error"&&h2hb1!=="error"&&h2ha1.length>=2&&h2hb1.length>=2){
@@ -1515,9 +1238,11 @@ function runEngine(){
           }
         }
       }
+      // FIX: pace computed after H2H blending for accuracy
       let rawTotal1=bA1H+bB1H;
       let pace1=Math.max(cl.min,Math.min(cl.max,rawTotal1/eb1H));
       vl1={"nba":7,"ncaa":6}[league]||7;
+      // FIX: blend own + opponent volatility
       let aVol1raw=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
       let bVol1raw=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
       aVol1=aVol1raw*0.6+bVol1raw*0.4;
@@ -1525,6 +1250,7 @@ function runEngine(){
       dfr1=(!isNaN(aA1)&&aA1<eb1H*0.40)||(!isNaN(bA1)&&bA1<eb1H*0.40);
       bA1H=applyVolatility(bA1H,aVol1,vl1);
       bB1H=applyVolatility(bB1H,bVol1,vl1);
+      // regression mean is eb1H/2 per team (eb1H is total baseline)
       bA1H=(bA1H*0.85)+((eb1H/2)*0.15);
       bB1H=(bB1H*0.85)+((eb1H/2)*0.15);
       bA1H=bA1H*(0.5+pace1/2);
@@ -1548,10 +1274,11 @@ function runEngine(){
 
   if(!isNbaOrNcaa||isNaN(h1P)) picks=picks.filter(p=>p.type!=="1h_total");
 
+  // Compute final predictions with ALL filters applied first
   const finalPicks = picks.map((p,i)=>{
     let edge=NaN,pt="NaN",dn="";
-    if(isNaN(p.line)){dn="Missing / Invalid Line";pt="&#8212;";}
-    else if(isNaN(p.proj)){dn="Missing / Invalid Last-5 Data";pt="&#8212;";}
+    if(isNaN(p.line)){dn="Missing / Invalid Line";pt="—";}
+    else if(isNaN(p.proj)){dn="Missing / Invalid Last-5 Data";pt="—";}
     else{
       edge=p.proj-p.line;
       pt=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
@@ -1570,23 +1297,25 @@ function runEngine(){
     return {edge,pt,dn};
   });
 
+  // Select lock AFTER all filters — pick highest edge that isn't NO PLAY
   let li=-1,ms=0;
   finalPicks.forEach(({edge,pt},i)=>{
     if(isNaN(edge)||!picks[i].line)return;
     let st=Math.abs(edge/picks[i].line);
-    if(fma&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.045&&st>ms){ms=st;li=i;}
+    if(fma&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="—"&&st>=0.045&&st>ms){ms=st;li=i;}
   });
 
   finalPicks.forEach(({edge,pt,dn},i)=>{
     const p=picks[i];
     let row=table.insertRow();
     let pred=pt;
-    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;")pred+=` <span class="lock">&#128274;</span>`;
+    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="—")pred+=` <span class="lock">🔒</span>`;
     let pd=isNaN(p.proj)?"NaN":p.proj.toFixed(2);
     let ed=isNaN(edge)?"NaN":edge.toFixed(2);
     let cn=pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
     row.innerHTML=`<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
   });
+  // Ensure table is visible then scroll to it
   table.style.display="table";
   setTimeout(()=>{
     table.style.display="table";
