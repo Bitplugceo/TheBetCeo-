@@ -132,6 +132,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   </div>
 
   </div>
+
   <div style="text-align:center;">
     <button onclick="runEngine()">Run</button>
     <button onclick="clearAll()">Clear</button>
@@ -142,7 +143,8 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
   </table>
   </div>
-  </div>
+
+</div><!-- end wrapper -->
 
 <script>
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
@@ -1170,7 +1172,6 @@ function parseGames(id){
   }
   return parts.map(x=>parseFloat(x));
 }
-function pgVal(id){const r=parseGames(id);if(r===null)return[null,null];if(r&&r.err)return[null,r.err];return[r,null];}
 function avg(arr){if(!arr||arr.length===0)return NaN;return arr.reduce((a,b)=>a+b,0)/arr.length;}
 function trimmedAvg(arr){if(!arr||arr.length===0)return NaN;if(arr.length<5)return avg(arr);let s=[...arr].sort((a,b)=>a-b);s.shift();s.pop();return avg(s);}
 function stdDev(arr){if(!arr||arr.length<2)return 0;let m=avg(arr);return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));}
@@ -1232,8 +1233,12 @@ function runEngine(){
   let pgr=(!isNaN(aS)&&!isNaN(bS)&&Math.abs(aS-bS)>eb*0.10);
 
   let h2ha=null,h2hb=null;
-  if(document.getElementById("useFTH2H").checked){h2ha=parseGames("aFTH2H");h2hb=parseGames("bFTH2H");}
-  if(fma&&h2ha&&h2hb&&h2ha!=="error"&&h2hb!=="error"&&h2ha.length>=2&&h2hb.length>=2){
+  if(document.getElementById("useFTH2H").checked){
+    const _ha=parseGames("aFTH2H"),_hb=parseGames("bFTH2H");
+    h2ha=(_ha&&!_ha.err)?_ha:null;
+    h2hb=(_hb&&!_hb.err)?_hb:null;
+  }
+  if(fma&&h2ha&&h2hb&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(0.30,dynamicWeight(h2ha)+dynamicWeight(h2hb));
     let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
     if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){
@@ -1292,7 +1297,8 @@ function runEngine(){
       pgr1=(!isNaN(aS1)&&!isNaN(bS1)&&Math.abs(aS1-bS1)>eb1H*0.10);
       if(document.getElementById("use1HH2H").checked){
         let h2ha1=parseGames("a1HH2H"),h2hb1=parseGames("b1HH2H");
-        if(h2ha1&&h2hb1&&h2ha1!=="error"&&h2hb1!=="error"&&h2ha1.length>=2&&h2hb1.length>=2){
+        if(h2ha1?.err)h2ha1=null;if(h2hb1?.err)h2hb1=null;
+        if(h2ha1&&h2hb1&&h2ha1.length>=2&&h2hb1.length>=2){
           let w1=Math.min(0.30,dynamicWeight(h2ha1)+dynamicWeight(h2hb1));
           let h2hA1avg=avg(h2ha1),h2hB1avg=avg(h2hb1);
           if(!isNaN(bA1H)&&bA1H>0&&!isNaN(h2hA1avg)){
