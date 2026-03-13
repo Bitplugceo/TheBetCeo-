@@ -1485,7 +1485,7 @@ function runEngine(){
         if(!isNaN(h1Line)){
           const h1Diff=h1P-h1Line;
           if(league==="nba"&&Math.abs(h1Diff)>9) h1P=h1Line+h1Diff*0.55;
-          else if(Math.abs(h1Diff)>12) h1P=h1Line+h1Diff*0.50;
+          else if(league!=="nba"&&Math.abs(h1Diff)>12) h1P=h1Line+h1Diff*0.50;
         }
       }
     }
