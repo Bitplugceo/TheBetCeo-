@@ -163,16 +163,49 @@ function restMultiplier(days) {
   return 0.985;
 }
 
+// ── FIX 1: Fetch the actual next scheduled game date for a team from ESPN.
+// Works for both NBA and NCAA. Returns ISO date string or null.
+// This replaces the old hardcoded +1 day assumption so rest days are always
+// calculated against the real upcoming match date — today, tomorrow, or any future date.
+async function fetchNextGameDate(base, teamId) {
+  for (const season of ["2026","2025"]) {
+    for (const stype of ["2","3"]) {
+      try {
+        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+        const events = r?.events || r?.team?.schedule?.events || [];
+        for (const ev of events) {
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+          const completed = comp?.status?.type?.completed ||
+                            comp?.status?.type?.name === "STATUS_FINAL" ||
+                            comp?.status?.type?.state === "post";
+          // First event that is NOT completed = next scheduled game
+          if (!completed && ev.date) return ev.date;
+        }
+      } catch(e) {}
+    }
+  }
+  return null;
+}
+
 // Fetch injuries + calculate rest days for one team
-async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate) {
+// FIX 1: nextGameDate is now the real scheduled match date fetched from ESPN,
+// not a hardcoded +1 day. Falls back to tomorrow only if ESPN returns nothing.
+// Manual leagues (euro, africa, etc.) never call this — they keep restMult=1 by default.
+async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nextGameDate) {
   const result = {restMult:1, scoringMult:1, notes:[]};
 
   // ── REST DAYS ──
   if(lastGameDate) {
     const last = new Date(lastGameDate);
-    const today = new Date(); today.setHours(0,0,0,0); last.setHours(0,0,0,0);
-    const daysSince = Math.round((today-last)/86400000);
-    const restDays = Math.max(0, daysSince-1); // 0 = B2B, 1 = one day rest, etc.
+    // Use the actual next game date fetched from ESPN schedule.
+    // Falls back to tomorrow only if ESPN has no upcoming game listed yet.
+    const gameDate = nextGameDate ? new Date(nextGameDate) : (() => {
+      const d = new Date(); d.setDate(d.getDate()+1); return d;
+    })();
+    gameDate.setHours(0,0,0,0); last.setHours(0,0,0,0);
+    const daysSince = Math.round((gameDate-last)/86400000);
+    const restDays = Math.max(0, daysSince-1); // 0 = B2B (played yesterday), 1 = one day rest, etc.
     result.restMult = restMultiplier(restDays);
     const label = restDays===0?"Back-to-back ⚠️":restDays===1?"1 day rest":restDays===2?"2 days rest ✓":`${restDays} days rest`;
     const adj = result.restMult!==1?` (${((result.restMult-1)*100).toFixed(1)}% scoring adj)`:"";
@@ -202,6 +235,7 @@ async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate) {
       }
       // Skip low-impact bench players when no stats available
       if(ppg<5&&!isOut) continue;
+      if(ppg===0&&isOut) continue; // OUT with no PPG data — can't estimate impact, skip silently
       // Replacement effect: team recovers ~35% of lost production from other players
       const share = ppg/avgPPG;
       const impact = Math.min(isOut?share*0.65:share*0.30, 0.22); // cap single player at 22%
@@ -776,13 +810,23 @@ async function fetchESPN() {
     }
 
     // ── INJURY + REST ──────────────────────────────────────────────────────────
+    // FIX 1: Fetch actual next game date from ESPN for each team in parallel.
+    // Works for both NBA and NCAA. Rest days calculated against the real match date.
+    // Manual leagues skip this entirely — restMult stays at 1 by default.
     setStatus('<span class="spinner"></span>Checking injuries &amp; rest days...', "loading");
     const aAvg = aStats?.scored?.length ? aStats.scored.reduce((a,b)=>a+b,0)/aStats.scored.length : 75;
     const bAvg = bStats?.scored?.length ? bStats.scored.reduce((a,b)=>a+b,0)/bStats.scored.length : 75;
-    [g_injA, g_injB] = await Promise.all([
-      fetchInjuryAndRest(espnBase, teamAId, aAvg, aStats?.lastGameDate||null),
-      fetchInjuryAndRest(espnBase, teamBId, bAvg, bStats?.lastGameDate||null)
+
+    const [nextGameDateA, nextGameDateB] = await Promise.all([
+      fetchNextGameDate(espnBase, teamAId),
+      fetchNextGameDate(espnBase, teamBId)
     ]);
+
+    [g_injA, g_injB] = await Promise.all([
+      fetchInjuryAndRest(espnBase, teamAId, aAvg, aStats?.lastGameDate||null, nextGameDateA),
+      fetchInjuryAndRest(espnBase, teamBId, bAvg, bStats?.lastGameDate||null, nextGameDateB)
+    ]);
+
     function renderInjBox(boxId, contentId, inj) {
       if(!inj.notes.length) return;
       document.getElementById(contentId).innerHTML = inj.notes.map(n=>{
@@ -811,7 +855,7 @@ async function fetchNcaaSchedule(base, teamId) {
   const gameRefs = [];
 
   for (const season of ["2026","2025","2024"]) {
-    for (const stype of ["2","3","1"]) {
+    for (const stype of ["2","3"]) { // stype 2=regular, 3=postseason/tournament. Exclude 1=preseason.
       try {
         const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
         const events = r?.events || r?.team?.schedule?.events || [];
@@ -893,7 +937,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
 
   for (const scanId of [teamAId, teamBId]) {
     for (const season of ["2026","2025","2024"]) {
-      for (const stype of ["2","3","1"]) {
+      for (const stype of ["2","3"]) { // stype 2=regular, 3=postseason/tournament. Exclude 1=preseason.
         try {
           const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
           const events = r?.events || r?.team?.schedule?.events || [];
@@ -1182,12 +1226,15 @@ function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;i
 
 function decision(edge,line,type,teamSc,aSc,bSc){
   if(isNaN(edge)||isNaN(line))return"NaN";
+  // Market trap: edge must be ≥4.5% of line to be actionable
   if(Math.abs(edge/line)<0.045)return"NO PLAY";
   const isTotalType=type==="ft_total"||type==="1h_total";
-  let thr=isTotalType?(edge>0?line*0.045:line*0.06):(edge>0?line*0.05:line*0.065);
-  if(isNaN(thr)||Math.abs(edge)<thr)return"NO PLAY";
+  // UNDER requires a higher bar (6% for totals, 6.5% for team totals) — harder to fade
   if(edge<0){
-    if(isTotalType&&!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.58||bSc>=line*0.58))return"NO PLAY";
+    let underThr=isTotalType?line*0.060:line*0.065;
+    if(Math.abs(edge)<underThr)return"NO PLAY";
+    // Suppress UNDER if a team is individually covering 48%+ of the total line (team is too hot)
+    if(isTotalType&&!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.48||bSc>=line*0.48))return"NO PLAY";
     if(type==="team"&&!isNaN(teamSc)&&teamSc>=line*0.58)return"NO PLAY";
   }
   return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
@@ -1199,7 +1246,7 @@ function runEngine(){
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   const league=document.getElementById("leagueSelect").value;
   const bases={"nba":230,"euro_elite":175,"secondary":170,"ncaa":150,"africa":160,"unknown":160};
-  const paceClamps={"nba":{min:0.90,max:1.15},"euro_elite":{min:0.92,max:1.10},"secondary":{min:0.92,max:1.10},"ncaa":{min:0.90,max:1.12},"africa":{min:0.90,max:1.12},"unknown":{min:0.90,max:1.12}};
+  const paceClamps={"nba":{min:0.85,max:1.15},"euro_elite":{min:0.87,max:1.10},"secondary":{min:0.87,max:1.10},"ncaa":{min:0.85,max:1.12},"africa":{min:0.85,max:1.12},"unknown":{min:0.85,max:1.12}};
   let eb=bases[league]||160;
   const cl=paceClamps[league]||{min:0.90,max:1.12};
   let ftLine=mid(document.getElementById("ftMarket").value);
@@ -1252,9 +1299,7 @@ function runEngine(){
       bBFT=bBFT*(1-wB)+h2hAvgB*wB;
     }
   }
-  // FT pace computed AFTER H2H blending (mirrors 1H approach)
-  let rawFTPace=(!isNaN(bAFT)&&!isNaN(bBFT))?(bAFT+bBFT)/eb:NaN;
-  let pace=!isNaN(rawFTPace)?Math.max(cl.min,Math.min(cl.max,rawFTPace)):1;
+  // Volatility and regression to mean first
   let aVolRaw=(stdDev(aSA===null||aSA==="error"||aSA?.err?[]:aSA)+stdDev(aAA===null||aAA==="error"||aAA?.err?[]:aAA))/2;
   let bVolRaw=(stdDev(bSA===null||bSA==="error"||bSA?.err?[]:bSA)+stdDev(bAA===null||bAA==="error"||bAA?.err?[]:bAA))/2;
   let aVol=aVolRaw*0.6+bVolRaw*0.4;
@@ -1262,8 +1307,25 @@ function runEngine(){
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
   let vl={"nba":14,"euro_elite":12,"secondary":12,"ncaa":11,"africa":11,"unknown":12}[league]||12;
   bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
-  let lta=eb/2;bAFT=(bAFT*0.85)+(lta*0.15);bBFT=(bBFT*0.85)+(lta*0.15);
+  bAFT=(bAFT*0.85)+((eb/2)*0.15);bBFT=(bBFT*0.85)+((eb/2)*0.15);
+
+  // ── FIX 2: Pace derived from raw historical averages (trimmed last-5) BEFORE any blending.
+  // Old code used bAFT+bBFT which had already been blended/adjusted — causing fast teams
+  // to inflate their own projection in a feedback loop.
+  // Now uses actual aS/aA/bS/bA (trimmed avg of last 5 scored+allowed).
+  // Falls back gracefully: if only partial data, uses what's available; if none, pace=1.0.
+  // Safe for manual leagues — fma is false when data is missing so pace defaults to 1.0.
+  let rawFTPace;
+  if(fma){
+    rawFTPace = (aS + aA + bS + bA) / (2 * eb);
+  } else if(!isNaN(bAFT)&&!isNaN(bBFT)){
+    rawFTPace = (bAFT + bBFT) / eb; // partial data fallback
+  } else {
+    rawFTPace = 1.0; // no data — neutral pace, no distortion
+  }
+  let pace=Math.max(cl.min,Math.min(cl.max,rawFTPace));
   bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
+
   // Apply injury + rest to scoring projections only
   const injMultA = g_injA.restMult * g_injA.scoringMult;
   const injMultB = g_injB.restMult * g_injB.scoringMult;
@@ -1273,8 +1335,12 @@ function runEngine(){
   if(!isNaN(ftP)){
     if(Math.abs(bAFT-bBFT)>18)ftP*=0.98;
     if(pgr)ftP*=0.97;
-    if(!isNaN(ftLine)&&Math.abs(ftP-ftLine)>25)ftP=ftLine+(ftP-ftLine)*0.5;
-    if(league==="nba"&&!isNaN(ftLine)&&Math.abs(ftP-ftLine)>18)ftP=ftLine+(ftP-ftLine)*0.65;
+    // Pull extreme projections toward the line — only one pull fires (largest diff wins)
+    if(!isNaN(ftLine)){
+      const ftDiff=ftP-ftLine;
+      if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*0.55;
+      else if(Math.abs(ftDiff)>25) ftP=ftLine+ftDiff*0.50;
+    }
   }
 
   let h1P=NaN,h1Line=NaN;
@@ -1313,9 +1379,10 @@ function runEngine(){
           }
         }
       }
-      // FIX #5: pace from full 1H load after H2H blending
-      let rawTotal1=bA1H+bB1H;
-      let pace1=Math.max(cl.min,Math.min(cl.max,rawTotal1/eb1H));
+      // FIX 2 (1H): Pace from raw 1H historical averages — not projected values.
+      // Same principle as FT pace fix: use actual aS1/aA1/bS1/bA1 trimmed averages.
+      let rawPace1H = (aS1 + aA1 + bS1 + bA1) / (2 * eb1H);
+      let pace1=Math.max(cl.min,Math.min(cl.max,rawPace1H));
       vl1={"nba":7,"ncaa":6}[league]||7;
       let aVol1raw=(stdDev(a1HS||[])+stdDev(a1HA||[]))/2;
       let bVol1raw=(stdDev(b1HS||[])+stdDev(b1HA||[]))/2;
@@ -1334,8 +1401,11 @@ function runEngine(){
       if(!isNaN(h1P)){
         if(Math.abs(bA1H-bB1H)>9)h1P*=0.98;
         if(pgr1)h1P*=0.97;
-        if(!isNaN(h1Line)&&Math.abs(h1P-h1Line)>12)h1P=h1Line+(h1P-h1Line)*0.5;
-        if(league==="nba"&&!isNaN(h1Line)&&Math.abs(h1P-h1Line)>9)h1P=h1Line+(h1P-h1Line)*0.65;
+        if(!isNaN(h1Line)){
+          const h1Diff=h1P-h1Line;
+          if(league==="nba"&&Math.abs(h1Diff)>9) h1P=h1Line+h1Diff*0.55;
+          else if(Math.abs(h1Diff)>12) h1P=h1Line+h1Diff*0.50;
+        }
       }
     }
   }
@@ -1375,11 +1445,16 @@ function runEngine(){
     return {edge,pt,dn};
   });
 
+  // Lock: highest edge pick that passes 5.5% threshold
+  // Uses pick-level data readiness so team total can be locked even without FT total data
   let li=-1,ms=0;
   finalPicks.forEach(({edge,pt},i)=>{
     if(isNaN(edge)||!picks[i].line)return;
+    const pickReady=picks[i].type==="ft_total"?fma:
+                    picks[i].type==="1h_total"?true:
+                    picks[i].type==="team"?(picks[i].name==="Team A Total"?aFTReady:bFTReady):false;
     let st=Math.abs(edge/picks[i].line);
-    if(fma&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.045&&st>ms){ms=st;li=i;}
+    if(pickReady&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.055&&st>ms){ms=st;li=i;}
   });
 
   finalPicks.forEach(({edge,pt,dn},i)=>{
