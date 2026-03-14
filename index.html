@@ -79,7 +79,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
         <option value="elbl">Estonian-Latvian League</option>
         <option value="austria_zweite">Austria - Zweite Liga</option>
         <option value="belgium_top">Belgium - Top Division 1</option>
-        <option value="bih_1st">Bosnia & Herzegovina - 1st Division</option>
+        <option value="bih_1st">Bosnia &amp; Herzegovina - 1st Division</option>
         <option value="bulgaria_nbl">Bulgaria - NBL</option>
         <option value="croatia_premier">Croatia - Premijer Liga</option>
         <option value="nbl_cz">Czech Republic - NBL</option>
@@ -203,7 +203,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 
 </div>
 
-<div style="text-align:center;">
+<div style="text-align:center;padding-bottom:40px;">
   <button onclick="runEngine()">Run</button>
   <button onclick="clearAll()">Clear</button>
 </div>
@@ -212,8 +212,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 <table id="results" style="display:none;">
   <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
 </table>
-</div>
-
 </div>
 
 <script>
@@ -1233,15 +1231,10 @@ function runEngine(){
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   const league=document.getElementById("leagueSelect").value;
   const bases={
-    // USA
     "nba":228,"ncaa":150,
-    // South America
     "lnb":157,"nbb":160,
-    // North America
     "cebl":154,
-    // Africa
     "bal":154,"nigeria":148,"rwanda":144,
-    // Europe
     "aba":158,"euroleague":160,"eurocup":158,"elbl":152,
     "austria_zweite":155,"belgium_top":158,"bih_1st":154,"bulgaria_nbl":154,
     "croatia_premier":157,"nbl_cz":152,"denmark_bliga":158,"england_slb":155,
@@ -1262,13 +1255,10 @@ function runEngine(){
     "swiss_nlb":156,"swiss_sbl":150,
     "bsl":170,"turkey_tbl":162,"turkey_tb2l":156,"turkey_tkbl_w":138,
     "united_league":155,
-    // Asia
     "cba":192,"china_nbl":178,
     "taipei_pleague":178,"taipei_sbl":165,"taipei_tpbl":168,
     "bleague":158,"pba":188,"korea_kbl":162,
-    // Oceania
     "ausnbl":164,"nznbl":157,
-    // International
     "fiba_wc":154,"fiba_eb":156,"fiba_ac":154,
     "unknown":160
   };
