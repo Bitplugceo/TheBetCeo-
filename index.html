@@ -52,8 +52,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 <h1>&#127936; Basketball Prediction Engine</h1>
 <div class="wrapper">
 
-  <!-- LEAGUE -->
-
   <div class="section">
     <h3 style="font-size:22px;">League Tier</h3>
     <label style="font-size:18px;margin-top:10px;">Select League</label>
@@ -62,58 +60,92 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
         <option value="nba">USA - NBA</option>
         <option value="ncaa">USA - NCAA</option>
       </optgroup>
-      <optgroup label="── Europe Top Tier ──────">
-        <option value="euroleague">Europe - EuroLeague</option>
-        <option value="eurocup">Europe - EuroCup</option>
-        <option value="acb">Europe - Spain ACB</option>
-        <option value="bsl">Europe - Turkey BSL</option>
-        <option value="lba">Europe - Italy Lega Basket Serie A</option>
-        <option value="bcl">Europe - Greece BCL</option>
-        <option value="bbl">Europe - Germany BBL</option>
-        <option value="proa">Europe - France Pro A</option>
+      <optgroup label="── South America ────────">
+        <option value="lnb">Argentina - LNB</option>
+        <option value="nbb">Brazil - NBB</option>
       </optgroup>
-      <optgroup label="── Europe Second Tier ───">
-        <option value="aba">Europe - ABA League</option>
-        <option value="prob">Europe - France Pro B</option>
-        <option value="plk">Europe - Poland PLK</option>
-        <option value="a2">Europe - Greece A2</option>
-        <option value="nbl_cz">Europe - Czech NBL</option>
-        <option value="lkl">Europe - Lithuania LKL</option>
-        <option value="isl">Europe - Israel BSL</option>
+      <optgroup label="── North America ────────">
+        <option value="cebl">Canada - CEBL</option>
       </optgroup>
       <optgroup label="── Africa ───────────────">
         <option value="bal">Africa - BAL (Basketball Africa League)</option>
-        <option value="nigeria">Africa - Nigeria Premier League</option>
-        <option value="rwanda">Africa - Rwanda Basketball League</option>
+        <option value="nigeria">Nigeria - Premier League</option>
+        <option value="rwanda">Rwanda - Basketball League</option>
       </optgroup>
-      <optgroup label="── South America ────────">
-        <option value="nbb">South America - Brazil NBB</option>
-        <option value="lnb">South America - Argentina LNB</option>
-      </optgroup>
-      <optgroup label="── North America ────────">
-        <option value="cebl">North America - Canada CEBL</option>
+      <optgroup label="── Europe ───────────────">
+        <option value="aba">ABA League (Regional)</option>
+        <option value="euroleague">EuroLeague</option>
+        <option value="eurocup">EuroCup</option>
+        <option value="elbl">Estonian-Latvian League</option>
+        <option value="austria_zweite">Austria - Zweite Liga</option>
+        <option value="belgium_top">Belgium - Top Division 1</option>
+        <option value="bih_1st">Bosnia & Herzegovina - 1st Division</option>
+        <option value="bulgaria_nbl">Bulgaria - NBL</option>
+        <option value="croatia_premier">Croatia - Premijer Liga</option>
+        <option value="nbl_cz">Czech Republic - NBL</option>
+        <option value="denmark_bliga">Denmark - Basketligaen</option>
+        <option value="england_slb">England - SLB</option>
+        <option value="finland_koris">Finland - Korisliiga</option>
+        <option value="finland_koris_w">Finland - Korisliiga Women</option>
+        <option value="proa">France - Pro A</option>
+        <option value="prob">France - Pro B</option>
+        <option value="georgia_super">Georgia - Superleague</option>
+        <option value="bbl">Germany - BBL</option>
+        <option value="germany_proa">Germany - Pro A</option>
+        <option value="germany_prob">Germany - Pro B</option>
+        <option value="bcl">Greece - Basketball League (BCL)</option>
+        <option value="a2">Greece - Elite League (A2)</option>
+        <option value="hungary_nb1">Hungary - NB I. A</option>
+        <option value="isl">Israel - BSL</option>
+        <option value="lba">Italy - Lega Basket Serie A</option>
+        <option value="italy_a2">Italy - Serie A2</option>
+        <option value="italy_serb">Italy - Serie B</option>
+        <option value="lkl">Lithuania - LKL</option>
+        <option value="lithuania_nkl">Lithuania - NKL</option>
+        <option value="plk">Poland - PLK</option>
+        <option value="poland_1liga">Poland - 1. Liga</option>
+        <option value="portugal_lpb">Portugal - LPB</option>
+        <option value="portugal_proliga">Portugal - Proliga</option>
+        <option value="romania_ln">Romania - Liga Nationala</option>
+        <option value="serbia_kls">Serbia - KLS</option>
+        <option value="serbia_2mls">Serbia - 2. MLS</option>
+        <option value="acb">Spain - Liga ACB</option>
+        <option value="spain_primera">Spain - Primera FEB</option>
+        <option value="spain_segunda">Spain - Segunda FEB</option>
+        <option value="sweden_super">Sweden - Superettan</option>
+        <option value="sweden_sbl">Sweden - SBL</option>
+        <option value="swiss_nlb">Switzerland - NLB</option>
+        <option value="swiss_sbl">Switzerland - SB League</option>
+        <option value="bsl">Turkiye - BSL (Super Lig)</option>
+        <option value="turkey_tbl">Turkiye - TBL</option>
+        <option value="turkey_tb2l">Turkiye - TB2L</option>
+        <option value="turkey_tkbl_w">Turkiye - TKBL Women</option>
+        <option value="united_league">United League (Regional)</option>
       </optgroup>
       <optgroup label="── Asia ─────────────────">
-        <option value="pba">Asia - Philippines PBA</option>
-        <option value="bleague">Asia - Japan B.League</option>
-        <option value="cba">Asia - China CBA</option>
+        <option value="cba">China - CBA</option>
+        <option value="china_nbl">China - NBL</option>
+        <option value="taipei_pleague">Chinese Taipei - P League+</option>
+        <option value="taipei_sbl">Chinese Taipei - SBL</option>
+        <option value="taipei_tpbl">Chinese Taipei - TPBL</option>
+        <option value="bleague">Japan - B.League</option>
+        <option value="pba">Philippines - PBA</option>
+        <option value="korea_kbl">Republic of Korea - KBL</option>
       </optgroup>
       <optgroup label="── Oceania ──────────────">
-        <option value="ausnbl">Oceania - Australia NBL</option>
-        <option value="nznbl">Oceania - New Zealand NBL</option>
+        <option value="ausnbl">Australia - NBL</option>
+        <option value="nznbl">New Zealand - NBL</option>
       </optgroup>
       <optgroup label="── International ────────">
-        <option value="fiba_wc">International - FIBA World Cup</option>
-        <option value="fiba_eb">International - FIBA EuroBasket</option>
-        <option value="fiba_ac">International - FIBA AmeriCup</option>
+        <option value="fiba_wc">FIBA - World Cup</option>
+        <option value="fiba_eb">FIBA - EuroBasket</option>
+        <option value="fiba_ac">FIBA - AmeriCup</option>
       </optgroup>
       <optgroup label="── Other ────────────────">
         <option value="unknown">Other / Mixed League</option>
       </optgroup>
     </select>
   </div>
-
-  <!-- ESPN AUTO-FETCH -->
 
   <div class="section" id="espnSection">
     <h3 style="font-size:15px;">&#9889; ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
@@ -127,8 +159,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <div class="injury-box" id="injuryBoxB"><div class="inj-title">Team B — Injury &amp; Rest</div><div id="injuryContentB"></div></div>
   </div>
 
-  <!-- MARKET LINES -->
-
   <div class="section">
     <h3>Market Lines</h3>
     <label>FT Total</label><input id="ftMarket" placeholder="150.5 - 160.5">
@@ -138,8 +168,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <label>Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5">
     <label>Team B Total</label><input id="teamBMarket" placeholder="75.5 - 79.5">
   </div>
-
-  <!-- TEAM A -->
 
   <div class="section">
     <h3>Team A (Last 5) <span class="autofill-indicator" id="aAutoTag">&#9989; Auto-filled</span></h3>
@@ -151,8 +179,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     </div>
   </div>
 
-  <!-- TEAM B -->
-
   <div class="section">
     <h3>Team B (Last 5) <span class="autofill-indicator" id="bAutoTag">&#9989; Auto-filled</span></h3>
     <label>FT Scored</label><input id="bFTScored" placeholder="83,77,81,79,80">
@@ -162,8 +188,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
       <label>1H Allowed</label><input id="b1HAllowed" placeholder="37,40,38,41,39">
     </div>
   </div>
-
-  <!-- H2H -->
 
   <div class="section">
     <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">&#9989; Auto-filled (2024+, OT stripped)</span></h3>
@@ -190,24 +214,14 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 </table>
 </div>
 
-</div><!-- end wrapper -->
+</div>
 
 <script>
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
-
-// FIX 6 — Scoreboard response cache so repeat fetches don't re-hit the same dates
 const _sbCache = new Map();
-
-// Global injury/rest state — set during fetch, read by runEngine
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
 let g_injB = {restMult:1, scoringMult:1, notes:[]};
 
-// ─────────────────────────────────────────────────────────────
-// FIX 1 — Single canonical helper: readVal
-// Replaces all pv / pvN scattered across functions.
-// Reads ESPN stat objects that may be {value:...}, {displayValue:...},
-// a plain number, or a string. Always returns a finite float or 0.
-// ─────────────────────────────────────────────────────────────
 function readVal(p) {
   if (p === null || p === undefined) return 0;
   if (typeof p === "object") {
@@ -218,74 +232,84 @@ function readVal(p) {
   return isFinite(v) ? v : 0;
 }
 
-// ─────────────────────────────────────────────────────────────
-// FIX 4 — Per-league rest multiplier curves
-// NBA / NCAA: well-researched B2B fatigue data (high game-density)
-// Euro top tier: moderate fatigue (2-3 games/week possible)
-// Euro second tier / FIBA / others: lighter schedule, smaller penalty
-// ─────────────────────────────────────────────────────────────
 const REST_CURVES = {
-  // [0=B2B, 1=1day, 2=2days(optimal), 3=3days, 4+=stale]
-  nba:     [0.965, 0.990, 1.000, 0.992, 0.985],
-  ncaa:    [0.968, 0.991, 1.000, 0.993, 0.986],
-  // Euro top tier — less B2B, but players still feel it
-  euroleague:[0.972, 0.992, 1.000, 0.994, 0.988],
-  eurocup:   [0.972, 0.992, 1.000, 0.994, 0.988],
-  acb:       [0.970, 0.991, 1.000, 0.993, 0.987],
-  bsl:       [0.970, 0.991, 1.000, 0.993, 0.987],
-  lba:       [0.972, 0.992, 1.000, 0.994, 0.988],
-  bcl:       [0.972, 0.992, 1.000, 0.994, 0.988],
-  bbl:       [0.972, 0.992, 1.000, 0.994, 0.988],
-  proa:      [0.972, 0.992, 1.000, 0.994, 0.988],
-  // Euro second tier / lighter schedules
-  aba:    [0.975, 0.993, 1.000, 0.995, 0.990],
-  prob:   [0.975, 0.993, 1.000, 0.995, 0.990],
-  plk:    [0.975, 0.993, 1.000, 0.995, 0.990],
-  a2:     [0.975, 0.993, 1.000, 0.995, 0.990],
-  nbl_cz: [0.975, 0.993, 1.000, 0.995, 0.990],
-  lkl:    [0.975, 0.993, 1.000, 0.995, 0.990],
-  isl:    [0.972, 0.992, 1.000, 0.994, 0.988],
-  // Africa
-  bal:    [0.975, 0.993, 1.000, 0.995, 0.990],
-  nigeria:[0.977, 0.994, 1.000, 0.995, 0.991],
-  rwanda: [0.977, 0.994, 1.000, 0.995, 0.991],
-  // Americas
-  nbb:    [0.972, 0.992, 1.000, 0.994, 0.988],
-  lnb:    [0.974, 0.993, 1.000, 0.994, 0.989],
-  cebl:   [0.974, 0.993, 1.000, 0.994, 0.989],
-  // Asia / Oceania
-  pba:    [0.968, 0.990, 1.000, 0.992, 0.986],
-  bleague:[0.972, 0.992, 1.000, 0.994, 0.988],
-  cba:    [0.970, 0.991, 1.000, 0.993, 0.987],
-  ausnbl: [0.972, 0.992, 1.000, 0.994, 0.988],
-  nznbl:  [0.974, 0.993, 1.000, 0.994, 0.989],
-  // FIBA
-  fiba_wc:[0.975, 0.993, 1.000, 0.995, 0.990],
-  fiba_eb:[0.975, 0.993, 1.000, 0.995, 0.990],
-  fiba_ac:[0.975, 0.993, 1.000, 0.995, 0.990],
-  unknown:[0.973, 0.992, 1.000, 0.994, 0.988],
+  nba:[0.965,0.990,1.000,0.992,0.985],ncaa:[0.968,0.991,1.000,0.993,0.986],
+  lnb:[0.974,0.993,1.000,0.994,0.989],nbb:[0.972,0.992,1.000,0.994,0.988],cebl:[0.974,0.993,1.000,0.994,0.989],
+  bal:[0.975,0.993,1.000,0.995,0.990],nigeria:[0.977,0.994,1.000,0.995,0.991],rwanda:[0.977,0.994,1.000,0.995,0.991],
+  aba:[0.975,0.993,1.000,0.995,0.990],
+  euroleague:[0.972,0.992,1.000,0.994,0.988],eurocup:[0.972,0.992,1.000,0.994,0.988],
+  elbl:[0.976,0.993,1.000,0.995,0.990],
+  austria_zweite:[0.976,0.993,1.000,0.995,0.990],
+  belgium_top:[0.975,0.993,1.000,0.995,0.990],
+  bih_1st:[0.976,0.993,1.000,0.995,0.990],
+  bulgaria_nbl:[0.976,0.993,1.000,0.995,0.990],
+  croatia_premier:[0.975,0.993,1.000,0.995,0.990],
+  nbl_cz:[0.975,0.993,1.000,0.995,0.990],
+  denmark_bliga:[0.976,0.993,1.000,0.995,0.990],
+  england_slb:[0.976,0.993,1.000,0.995,0.990],
+  finland_koris:[0.975,0.993,1.000,0.995,0.990],
+  finland_koris_w:[0.976,0.993,1.000,0.995,0.990],
+  proa:[0.972,0.992,1.000,0.994,0.988],prob:[0.975,0.993,1.000,0.995,0.990],
+  georgia_super:[0.975,0.993,1.000,0.995,0.990],
+  bbl:[0.972,0.992,1.000,0.994,0.988],
+  germany_proa:[0.974,0.993,1.000,0.994,0.989],
+  germany_prob:[0.975,0.993,1.000,0.995,0.990],
+  bcl:[0.972,0.992,1.000,0.994,0.988],a2:[0.975,0.993,1.000,0.995,0.990],
+  hungary_nb1:[0.975,0.993,1.000,0.995,0.990],
+  isl:[0.972,0.992,1.000,0.994,0.988],
+  lba:[0.972,0.992,1.000,0.994,0.988],
+  italy_a2:[0.974,0.993,1.000,0.994,0.989],
+  italy_serb:[0.975,0.993,1.000,0.995,0.990],
+  lkl:[0.975,0.993,1.000,0.995,0.990],
+  lithuania_nkl:[0.976,0.993,1.000,0.995,0.990],
+  plk:[0.975,0.993,1.000,0.995,0.990],
+  poland_1liga:[0.976,0.993,1.000,0.995,0.990],
+  portugal_lpb:[0.974,0.993,1.000,0.994,0.989],
+  portugal_proliga:[0.975,0.993,1.000,0.995,0.990],
+  romania_ln:[0.975,0.993,1.000,0.995,0.990],
+  serbia_kls:[0.974,0.993,1.000,0.994,0.989],
+  serbia_2mls:[0.975,0.993,1.000,0.995,0.990],
+  acb:[0.970,0.991,1.000,0.993,0.987],
+  spain_primera:[0.972,0.992,1.000,0.994,0.988],
+  spain_segunda:[0.974,0.993,1.000,0.994,0.989],
+  sweden_super:[0.976,0.993,1.000,0.995,0.990],
+  sweden_sbl:[0.977,0.994,1.000,0.995,0.991],
+  swiss_nlb:[0.975,0.993,1.000,0.995,0.990],
+  swiss_sbl:[0.976,0.993,1.000,0.995,0.990],
+  bsl:[0.970,0.991,1.000,0.993,0.987],
+  turkey_tbl:[0.972,0.992,1.000,0.994,0.988],
+  turkey_tb2l:[0.974,0.993,1.000,0.994,0.989],
+  turkey_tkbl_w:[0.975,0.993,1.000,0.995,0.990],
+  united_league:[0.974,0.993,1.000,0.994,0.989],
+  cba:[0.970,0.991,1.000,0.993,0.987],
+  china_nbl:[0.972,0.992,1.000,0.994,0.988],
+  taipei_pleague:[0.972,0.992,1.000,0.994,0.988],
+  taipei_sbl:[0.974,0.993,1.000,0.994,0.989],
+  taipei_tpbl:[0.974,0.993,1.000,0.994,0.989],
+  bleague:[0.972,0.992,1.000,0.994,0.988],
+  pba:[0.968,0.990,1.000,0.992,0.986],
+  korea_kbl:[0.970,0.991,1.000,0.993,0.987],
+  ausnbl:[0.972,0.992,1.000,0.994,0.988],nznbl:[0.974,0.993,1.000,0.994,0.989],
+  fiba_wc:[0.975,0.993,1.000,0.995,0.990],fiba_eb:[0.975,0.993,1.000,0.995,0.990],fiba_ac:[0.975,0.993,1.000,0.995,0.990],
+  unknown:[0.973,0.992,1.000,0.994,0.988],
 };
 
 function restMultiplier(days, league) {
   const curve = REST_CURVES[league] || REST_CURVES.unknown;
-  const idx = Math.min(Math.max(days, 0), 4); // clamp 0-4
-  return curve[idx];
+  return curve[Math.min(Math.max(days,0),4)];
 }
 
-// Fetch the actual next scheduled game date for a team from ESPN.
 async function fetchNextGameDate(base, teamId) {
   for (const season of ["2026","2025"]) {
     for (const stype of ["2","3"]) {
       try {
-        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(()=>({}));
         const events = r?.events || r?.team?.schedule?.events || [];
-        events.sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
+        events.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
         for (const ev of events) {
           const comp = ev?.competitions?.[0];
           if (!comp) continue;
-          const completed = comp?.status?.type?.completed ||
-                            comp?.status?.type?.name === "STATUS_FINAL" ||
-                            comp?.status?.type?.state === "post";
+          const completed = comp?.status?.type?.completed||comp?.status?.type?.name==="STATUS_FINAL"||comp?.status?.type?.state==="post";
           if (!completed && ev.date) return ev.date;
         }
       } catch(e) {}
@@ -294,83 +318,68 @@ async function fetchNextGameDate(base, teamId) {
   return null;
 }
 
-// Fetch injuries + calculate rest days for one team.
-// FIX 4: passes league through to restMultiplier so per-league curve is used.
 async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nextGameDate, league) {
   const result = {restMult:1, scoringMult:1, notes:[]};
-
-  // ── REST DAYS ──
   if (lastGameDate) {
     const last = new Date(lastGameDate);
-    const gameDate = nextGameDate ? new Date(nextGameDate) : (() => {
-      const d = new Date(); d.setDate(d.getDate()+1); return d;
-    })();
+    const gameDate = nextGameDate ? new Date(nextGameDate) : (()=>{const d=new Date();d.setDate(d.getDate()+1);return d;})();
     gameDate.setHours(0,0,0,0); last.setHours(0,0,0,0);
-    const daysSince = Math.round((gameDate - last) / 86400000);
-    const restDays = Math.max(0, daysSince - 1);
-    // FIX 4: use per-league curve
+    const restDays = Math.max(0, Math.round((gameDate-last)/86400000)-1);
     result.restMult = restMultiplier(restDays, league);
-    const label = restDays===0 ? "Back-to-back ⚠️"
-                : restDays===1 ? "1 day rest"
-                : restDays===2 ? "2 days rest ✓"
-                : `${restDays} days rest`;
-    const adj = result.restMult !== 1 ? ` (${((result.restMult-1)*100).toFixed(1)}% scoring adj)` : "";
-    result.notes.push({type:"rest", text: label + adj});
+    const label = restDays===0?"Back-to-back ⚠️":restDays===1?"1 day rest":restDays===2?"2 days rest ✓":`${restDays} days rest`;
+    const adj = result.restMult!==1?` (${((result.restMult-1)*100).toFixed(1)}% scoring adj)`:"";
+    result.notes.push({type:"rest", text:label+adj});
   }
-
-  // ── INJURIES ──
   try {
     const data = await proxyFetch(`${base}/teams/${teamId}/injuries`).catch(()=>null);
-    const items = data?.injuries || data?.items || [];
+    const items = data?.injuries||data?.items||[];
     if (!items.length) return result;
-    const avgPPG = teamAvgScored || 75;
+    const avgPPG = teamAvgScored||75;
     let totalReduction = 0;
     for (const inj of items) {
-      const status = (inj?.status || inj?.type?.description || "").toLowerCase();
-      const isOut = status.includes("out") || status.includes("injured reserve") || status.includes("suspended");
-      const isDTD = status.includes("questionable") || status.includes("doubtful") || status.includes("day-to-day");
-      if (!isOut && !isDTD) continue;
-      const athlete = inj?.athlete || inj?.person || {};
-      const playerName = athlete?.displayName || athlete?.fullName || "Unknown";
+      const status = (inj?.status||inj?.type?.description||"").toLowerCase();
+      const isOut = status.includes("out")||status.includes("injured reserve")||status.includes("suspended");
+      const isDTD = status.includes("questionable")||status.includes("doubtful")||status.includes("day-to-day");
+      if (!isOut&&!isDTD) continue;
+      const athlete = inj?.athlete||inj?.person||{};
+      const playerName = athlete?.displayName||athlete?.fullName||"Unknown";
       let ppg = 0;
-      for (const cat of (athlete?.statistics?.splits?.categories || [])) {
-        for (const stat of (cat.stats || [])) {
-          if (stat.name === "avgPoints" || stat.abbreviation === "PPG") ppg = parseFloat(stat.value) || 0;
+      for (const cat of (athlete?.statistics?.splits?.categories||[])) {
+        for (const stat of (cat.stats||[])) {
+          if (stat.name==="avgPoints"||stat.abbreviation==="PPG") ppg=parseFloat(stat.value)||0;
         }
       }
-      if (ppg === 0) {
-        const pos = (athlete?.position?.abbreviation || athlete?.position?.name || "").toUpperCase();
+      if (ppg===0) {
+        const pos=(athlete?.position?.abbreviation||athlete?.position?.name||"").toUpperCase();
         if (isOut) {
-          if (pos==="PG"||pos==="SG"||pos==="G") ppg = 10;
-          else if (pos==="SF"||pos==="PF"||pos==="F") ppg = 9;
-          else if (pos==="C") ppg = 8;
-          else ppg = 7;
+          if (pos==="PG"||pos==="SG"||pos==="G") ppg=10;
+          else if (pos==="SF"||pos==="PF"||pos==="F") ppg=9;
+          else if (pos==="C") ppg=8;
+          else ppg=7;
         }
       }
-      if (ppg === 0) continue;
-      const share = ppg / avgPPG;
-      const impact = Math.min(isOut ? share*0.65 : share*0.30, 0.22);
-      totalReduction += impact;
-      const tag = isOut ? "OUT" : "DTD";
-      const ppgStr = ppg > 0 ? ` (${ppg.toFixed(1)} ppg)` : "";
-      const adjStr = impact > 0.005 ? ` → -${(impact*100).toFixed(1)}% offense` : "";
-      result.notes.push({type: isOut ? "out" : "dtd", text: `${playerName}${ppgStr} — ${tag}${adjStr}`});
+      if (ppg===0) continue;
+      const share=ppg/avgPPG;
+      const impact=Math.min(isOut?share*0.65:share*0.30,0.22);
+      totalReduction+=impact;
+      const tag=isOut?"OUT":"DTD";
+      const ppgStr=ppg>0?` (${ppg.toFixed(1)} ppg)`:"";
+      const adjStr=impact>0.005?` → -${(impact*100).toFixed(1)}% offense`:"";
+      result.notes.push({type:isOut?"out":"dtd",text:`${playerName}${ppgStr} — ${tag}${adjStr}`});
     }
-    result.scoringMult = 1 - Math.min(totalReduction, 0.35);
+    result.scoringMult=1-Math.min(totalReduction,0.35);
   } catch(e) {}
-
   return result;
 }
 
 async function proxyFetch(url, timeoutMs=12000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),timeoutMs);
   try {
-    const res = await fetch(WORKER_URL + "?url=" + encodeURIComponent(url), {signal: ctrl.signal});
-    if (!res.ok) throw new Error("Worker HTTP " + res.status);
-    const text = await res.text();
-    try { return JSON.parse(text); }
-    catch(e) { throw new Error("Bad JSON: " + text.slice(0,100)); }
+    const res=await fetch(WORKER_URL+"?url="+encodeURIComponent(url),{signal:ctrl.signal});
+    if (!res.ok) throw new Error("Worker HTTP "+res.status);
+    const text=await res.text();
+    try { return JSON.parse(text); } catch(e) { throw new Error("Bad JSON: "+text.slice(0,100)); }
   } finally { clearTimeout(timer); }
 }
 
@@ -384,7 +393,7 @@ const NBA_TEAM_MAP = {
   "timberwolves":16,"wolves":16,"minnesota":16,"pelicans":3,"new orleans":3,
   "knicks":18,"new york":18,"thunder":25,"okc":25,"oklahoma":25,"magic":19,"orlando":19,
   "76ers":20,"sixers":20,"philadelphia":20,"suns":21,"phoenix":21,
-  "trail blazers":22,"trailblazers":22,"blazers":22,"portland":22,
+  "trail blazers":22,"trailblazers":22,"blazers":22,
   "kings":23,"sacramento":23,"spurs":24,"san antonio":24,"raptors":28,"toronto":28,
   "jazz":26,"utah":26,"wizards":27,"washington":27
 };
@@ -582,7 +591,7 @@ const NCAA_TEAM_MAP = {
   "liu":2707,"long island university":2707,
   "longwood":2344,"longwood lancers":2344,
   "louisiana tech":2348,"louisiana tech bulldogs":2348,
-  "loyola marymount":2349,"lmu lions":2349,
+  "loyola marymount":2351,"lmu lions":2351,
   "loyola maryland":2352,"loyola maryland greyhounds":2352,
   "manhattan":2357,"manhattan jaspers":2357,
   "marist":2368,"marist red foxes":2368,
@@ -613,7 +622,8 @@ const NCAA_TEAM_MAP = {
   "northwestern state":2466,"northwestern state demons":2466,
   "oakland":2467,"oakland golden grizzlies":2467,
   "old dominion":2494,"old dominion monarchs":2494,
-  "pepperdine":2501,"pepperdine waves":2501,
+  "pepperdine":2492,"pepperdine waves":2492,
+  "portland":2501,"portland pilots":2501,
   "portland state":2502,"portland state vikings":2502,
   "prairie view":2504,"prairie view a&m":2504,"prairie view a&m panthers":2504,
   "presbyterian":2506,"presbyterian blue hose":2506,
@@ -636,11 +646,13 @@ const NCAA_TEAM_MAP = {
   "siena":2561,"siena saints":2561,
   "south carolina state":2563,"sc state bulldogs":2563,
   "south dakota state":2571,"sdsu jackrabbits":2571,
+  "south florida":58,"usf":58,"south florida bulls":58,
   "southeastern louisiana":2566,"selu lions":2566,
   "southern university":2574,"southern jaguars":2574,
   "smu":2567,"smu mustangs":2567,
   "southern illinois":2565,"southern illinois salukis":2565,
   "southern utah":253,"southern utah thunderbirds":253,
+  "st. thomas":2900,"st thomas":2900,"tommies":2900,"st thomas minnesota":2900,
   "stony brook":543,"stony brook seawolves":543,
   "stephen f. austin":2180,"stephen f austin":2180,"sfa lumberjacks":2180,
   "stetson":56,"stetson hatters":56,
@@ -682,9 +694,10 @@ const NCAA_TEAM_MAP = {
   "idaho":70,"idaho vandals":70,
   "louisiana lafayette":309,"louisiana ragin cajuns":309,"ul lafayette":309,"louisiana":309,
   "maine":311,"maine black bears":311,
-  "maryland eastern shore":2378,"umes hawks":2378,
+  "maryland eastern shore":2379,"umes hawks":2379,
+  "umbc":2378,"umbc retrievers":2378,
   "massachusetts minutemen":113,
-  "umass lowell":2732,"umass lowell river hawks":2732,
+  "umass lowell":2349,"umass lowell river hawks":2349,
   "umkc":2406,"kansas city roos":2406,"missouri kansas city":2406,
   "montana":149,"montana grizzlies":149,
   "nebraska omaha":2437,"omaha mavericks":2437,
@@ -727,998 +740,776 @@ const NCAA_TEAM_MAP = {
   "incarnate word":2439,"incarnate word cardinals":2439,
   "abilene christian":2000,"abilene christian wildcats":2000,
   "western kentucky":98,"western kentucky hilltoppers":98,
+  "vmi":2678,"vmi keydets":2678,"keydets":2678,
 };
 
 function lookupTeamId(name, leagueHint) {
   const n = name.toLowerCase().trim();
-  const isNba = leagueHint === "nba";
-  const PRIMARY   = isNba ? NBA_TEAM_MAP : NCAA_TEAM_MAP;
-  const SECONDARY = isNba ? NCAA_TEAM_MAP : NBA_TEAM_MAP;
-
-  if (PRIMARY[n]   !== undefined) return PRIMARY[n];
-  if (SECONDARY[n] !== undefined) return SECONDARY[n];
-
-  let bestKey = null, bestLen = 0;
-  for (let key of Object.keys(PRIMARY)) {
-    if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-  }
+  const isNba = leagueHint==="nba";
+  const PRIMARY=isNba?NBA_TEAM_MAP:NCAA_TEAM_MAP;
+  const SECONDARY=isNba?NCAA_TEAM_MAP:NBA_TEAM_MAP;
+  if (PRIMARY[n]!==undefined) return PRIMARY[n];
+  if (SECONDARY[n]!==undefined) return SECONDARY[n];
+  let bestKey=null,bestLen=0;
+  for (let key of Object.keys(PRIMARY)) { if (n.includes(key)&&key.length>bestLen){bestKey=key;bestLen=key.length;} }
   if (bestKey) return PRIMARY[bestKey];
-  for (let key of Object.keys(SECONDARY)) {
-    if (n.includes(key) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-  }
+  for (let key of Object.keys(SECONDARY)) { if (n.includes(key)&&key.length>bestLen){bestKey=key;bestLen=key.length;} }
   if (bestKey) return SECONDARY[bestKey];
-
-  if (n.length >= 3) {
-    bestKey = null; bestLen = 0;
-    for (let key of Object.keys(PRIMARY)) {
-      if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-    }
+  if (n.length>=3) {
+    bestKey=null;bestLen=0;
+    for (let key of Object.keys(PRIMARY)) { if (key.includes(n)&&key.length>bestLen){bestKey=key;bestLen=key.length;} }
     if (bestKey) return PRIMARY[bestKey];
-    for (let key of Object.keys(SECONDARY)) {
-      if (key.includes(n) && key.length > bestLen) { bestKey = key; bestLen = key.length; }
-    }
+    for (let key of Object.keys(SECONDARY)) { if (key.includes(n)&&key.length>bestLen){bestKey=key;bestLen=key.length;} }
     if (bestKey) return SECONDARY[bestKey];
   }
-
   return null;
 }
 
 function normalizeId(raw) {
-  if (raw === null || raw === undefined) return "";
-  const s = String(raw);
-  const tMatch = s.match(/t:(\d+)/);
+  if (raw===null||raw===undefined) return "";
+  const s=String(raw);
+  const tMatch=s.match(/t:(\d+)/);
   if (tMatch) return tMatch[1];
-  const numMatch = s.match(/^(\d+)$/);
+  const numMatch=s.match(/^(\d+)$/);
   if (numMatch) return numMatch[1];
-  return s.replace(/\D/g, "") || s;
+  return s.replace(/\D/g,"")||s;
 }
 
 function matchesTeam(competitor, teamId) {
-  const tid = String(teamId);
+  const tid=String(teamId);
   if (!competitor) return false;
-  if (normalizeId(competitor.team?.id) === tid) return true;
-  if (normalizeId(competitor.team?.uid) === tid) return true;
-  if (normalizeId(competitor.uid) === tid) return true;
-  if (normalizeId(competitor.id) === tid) return true;
+  if (normalizeId(competitor.team?.id)===tid) return true;
+  if (normalizeId(competitor.team?.uid)===tid) return true;
+  if (normalizeId(competitor.uid)===tid) return true;
+  if (normalizeId(competitor.id)===tid) return true;
   return false;
 }
 
-// FIX 5 — onLeagueChange wrapped in DOMContentLoaded (called at bottom)
 function onLeagueChange() {
-  const league = document.getElementById("leagueSelect").value;
-  const isNbaOrNcaa = league === "nba" || league === "ncaa";
-  document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
-  ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
-    document.getElementById(id).style.display = isNbaOrNcaa ? "block" : "none";
+  const league=document.getElementById("leagueSelect").value;
+  const isNbaOrNcaa=league==="nba"||league==="ncaa";
+  document.getElementById("espnSection").style.display=isNbaOrNcaa?"block":"none";
+  ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id=>{
+    document.getElementById(id).style.display=isNbaOrNcaa?"block":"none";
   });
 }
 
 function clearAutoFill() {
-  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id => document.getElementById(id).style.display = "none");
+  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id=>document.getElementById(id).style.display="none");
   setStatus("","");
 }
 
-function setStatus(msg, type) {
-  const el = document.getElementById("fetchStatus");
-  el.className = type;
-  el.innerHTML = msg;
+function setStatus(msg,type) {
+  const el=document.getElementById("fetchStatus");
+  el.className=type; el.innerHTML=msg;
 }
 
 function getDateString(daysAgo) {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
+  const d=new Date(); d.setDate(d.getDate()-daysAgo);
   return d.toISOString().slice(0,10).replace(/-/g,"");
 }
 
 async function fetchESPN() {
-  const league = document.getElementById("leagueSelect").value;
-  const teamAName = document.getElementById("teamAName").value.trim();
-  const teamBName = document.getElementById("teamBName").value.trim();
-  if (!teamAName || !teamBName) { setStatus("&#10060; Enter both team names first.","err"); return; }
-
-  const btn = document.getElementById("fetchBtn");
-  btn.disabled = true;
-  g_injA = {restMult:1, scoringMult:1, notes:[]};
-  g_injB = {restMult:1, scoringMult:1, notes:[]};
-  document.getElementById("injuryBoxA").style.display = "none";
-  document.getElementById("injuryBoxB").style.display = "none";
-  setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
-
+  const league=document.getElementById("leagueSelect").value;
+  const teamAName=document.getElementById("teamAName").value.trim();
+  const teamBName=document.getElementById("teamBName").value.trim();
+  if (!teamAName||!teamBName){setStatus("&#10060; Enter both team names first.","err");return;}
+  const btn=document.getElementById("fetchBtn");
+  btn.disabled=true;
+  g_injA={restMult:1,scoringMult:1,notes:[]};
+  g_injB={restMult:1,scoringMult:1,notes:[]};
+  document.getElementById("injuryBoxA").style.display="none";
+  document.getElementById("injuryBoxB").style.display="none";
+  setStatus('<span class="spinner"></span>Fetching from ESPN...',"loading");
   try {
-    const isNcaa = league === "ncaa";
-    const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
-    const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
-
-    let teamAId = lookupTeamId(teamAName, league) || await searchTeamFromAPI(espnBase, teamAName);
-    let teamBId = lookupTeamId(teamBName, league) || await searchTeamFromAPI(espnBase, teamBName);
+    const isNcaa=league==="ncaa";
+    const leagueSlug=isNcaa?"mens-college-basketball":"nba";
+    const espnBase=`https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
+    let teamAId=lookupTeamId(teamAName,league)||await searchTeamFromAPI(espnBase,teamAName);
+    let teamBId=lookupTeamId(teamBName,league)||await searchTeamFromAPI(espnBase,teamBName);
     if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname.`);
     if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname.`);
-
-    setStatus('<span class="spinner"></span>Loading game stats...', "loading");
-
-    let aStats, bStats;
+    setStatus('<span class="spinner"></span>Loading game stats...',"loading");
+    let aStats,bStats;
     if (isNcaa) {
-      [aStats, bStats] = await Promise.all([
-        fetchNcaaSchedule(espnBase, teamAId),
-        fetchNcaaSchedule(espnBase, teamBId)
-      ]);
+      [aStats,bStats]=await Promise.all([fetchNcaaSchedule(espnBase,teamAId),fetchNcaaSchedule(espnBase,teamBId)]);
     } else {
-      const allGames = await fetchNbaScoreboard(espnBase, 60);
+      const allGames=await fetchNbaScoreboard(espnBase,60);
       if (!allGames.length) throw new Error("No recent game data from ESPN.");
-      aStats = extractLastFive(allGames, String(teamAId));
-      bStats = extractLastFive(allGames, String(teamBId));
+      aStats=extractLastFive(allGames,String(teamAId));
+      bStats=extractLastFive(allGames,String(teamBId));
     }
-
-    const messages = [];
-
-    if (aStats?.scored?.length > 0) {
-      document.getElementById("aFTScored").value  = aStats.scored.join(",");
-      document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
-      if (aStats.h1Scored?.length > 0) {
-        document.getElementById("a1HScored").value  = aStats.h1Scored.join(",");
-        document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
-      }
-      document.getElementById("aAutoTag").style.display = "inline";
+    const messages=[];
+    if (aStats?.scored?.length>0) {
+      document.getElementById("aFTScored").value=aStats.scored.join(",");
+      document.getElementById("aFTAllowed").value=aStats.allowed.join(",");
+      if (aStats.h1Scored?.length>0){document.getElementById("a1HScored").value=aStats.h1Scored.join(",");document.getElementById("a1HAllowed").value=aStats.h1Allowed.join(",");}
+      document.getElementById("aAutoTag").style.display="inline";
       messages.push(`${teamAName}: ${aStats.scored.length} games &#9989;`);
-    } else {
-      messages.push(`${teamAName}: no data &#10060;`);
-    }
-
-    if (bStats?.scored?.length > 0) {
-      document.getElementById("bFTScored").value  = bStats.scored.join(",");
-      document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
-      if (bStats.h1Scored?.length > 0) {
-        document.getElementById("b1HScored").value  = bStats.h1Scored.join(",");
-        document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
-      }
-      document.getElementById("bAutoTag").style.display = "inline";
+    } else { messages.push(`${teamAName}: no data &#10060;`); }
+    if (bStats?.scored?.length>0) {
+      document.getElementById("bFTScored").value=bStats.scored.join(",");
+      document.getElementById("bFTAllowed").value=bStats.allowed.join(",");
+      if (bStats.h1Scored?.length>0){document.getElementById("b1HScored").value=bStats.h1Scored.join(",");document.getElementById("b1HAllowed").value=bStats.h1Allowed.join(",");}
+      document.getElementById("bAutoTag").style.display="inline";
       messages.push(`${teamBName}: ${bStats.scored.length} games &#9989;`);
-    } else {
-      messages.push(`${teamBName}: no data &#10060;`);
-    }
-
-    setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
-
-    let h2hGames = [];
-    try {
-      h2hGames = isNcaa
-        ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
-        : await fetchNbaH2H(espnBase, teamAId, teamBId);
-    } catch(h2hErr) { h2hGames = []; }
-
-    if (h2hGames?.length >= 2) {
-      const tA = String(teamAId);
-      const h2hA = [], h2hB = [];
+    } else { messages.push(`${teamBName}: no data &#10060;`); }
+    setStatus('<span class="spinner"></span>Scanning H2H since 2024...',"loading");
+    let h2hGames=[];
+    try { h2hGames=isNcaa?await fetchNcaaH2H(espnBase,teamAId,teamBId):await fetchNbaH2H(espnBase,teamAId,teamBId); } catch(e){h2hGames=[];}
+    if (h2hGames?.length>=2) {
+      const tA=String(teamAId);
+      const h2hA=[],h2hB=[];
       for (const g of h2hGames.slice(0,5)) {
-        if (normalizeId(g.teamAId) === tA) { h2hA.push(g.scoreA); h2hB.push(g.scoreB); }
-        else { h2hA.push(g.scoreB); h2hB.push(g.scoreA); }
+        if (normalizeId(g.teamAId)===tA){h2hA.push(g.scoreA);h2hB.push(g.scoreB);}
+        else{h2hA.push(g.scoreB);h2hB.push(g.scoreA);}
       }
-      document.getElementById("aFTH2H").value = h2hA.join(",");
-      document.getElementById("bFTH2H").value = h2hB.join(",");
-      document.getElementById("useFTH2H").checked = true;
-      document.getElementById("h2hAutoTag").style.display = "inline";
-
-      const h2hA1H = h2hGames.slice(0,5).map(g => normalizeId(g.teamAId)===tA ? g.h1A : g.h1B).filter(v => v > 0);
-      const h2hB1H = h2hGames.slice(0,5).map(g => normalizeId(g.teamAId)===tA ? g.h1B : g.h1A).filter(v => v > 0);
-      if (h2hA1H.length >= 2) {
-        document.getElementById("a1HH2H").value = h2hA1H.join(",");
-        document.getElementById("b1HH2H").value = h2hB1H.join(",");
-        document.getElementById("use1HH2H").checked = true;
-      }
+      document.getElementById("aFTH2H").value=h2hA.join(",");
+      document.getElementById("bFTH2H").value=h2hB.join(",");
+      document.getElementById("useFTH2H").checked=true;
+      document.getElementById("h2hAutoTag").style.display="inline";
+      const h2hA1H=h2hGames.slice(0,5).map(g=>normalizeId(g.teamAId)===tA?g.h1A:g.h1B).filter(v=>v>0);
+      const h2hB1H=h2hGames.slice(0,5).map(g=>normalizeId(g.teamAId)===tA?g.h1B:g.h1A).filter(v=>v>0);
+      if (h2hA1H.length>=2){document.getElementById("a1HH2H").value=h2hA1H.join(",");document.getElementById("b1HH2H").value=h2hB1H.join(",");document.getElementById("use1HH2H").checked=true;}
       messages.push(`H2H: ${Math.min(h2hGames.length,5)} games &#9989;`);
-    } else if (h2hGames?.length === 1) {
-      const tA = String(teamAId);
-      const g = h2hGames[0];
-      document.getElementById("aFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreA : g.scoreB;
-      document.getElementById("bFTH2H").value = normalizeId(g.teamAId)===tA ? g.scoreB : g.scoreA;
+    } else if (h2hGames?.length===1) {
+      const tA=String(teamAId);const g=h2hGames[0];
+      document.getElementById("aFTH2H").value=normalizeId(g.teamAId)===tA?g.scoreA:g.scoreB;
+      document.getElementById("bFTH2H").value=normalizeId(g.teamAId)===tA?g.scoreB:g.scoreA;
       messages.push("H2H: 1 game found (min 2 to auto-enable)");
-    } else {
-      document.getElementById("useFTH2H").checked = false;
-      messages.push("H2H: none found");
-    }
-
-    // ── INJURY + REST ──────────────────────────────────────────────────────────
-    setStatus('<span class="spinner"></span>Checking injuries &amp; rest days...', "loading");
-    const aAvg = aStats?.scored?.length ? aStats.scored.reduce((a,b)=>a+b,0)/aStats.scored.length : 75;
-    const bAvg = bStats?.scored?.length ? bStats.scored.reduce((a,b)=>a+b,0)/bStats.scored.length : 75;
-
-    const [nextGameDateA, nextGameDateB] = await Promise.all([
-      fetchNextGameDate(espnBase, teamAId),
-      fetchNextGameDate(espnBase, teamBId)
+    } else { document.getElementById("useFTH2H").checked=false; messages.push("H2H: none found"); }
+    setStatus('<span class="spinner"></span>Checking injuries &amp; rest days...',"loading");
+    const aAvg=aStats?.scored?.length?aStats.scored.reduce((a,b)=>a+b,0)/aStats.scored.length:75;
+    const bAvg=bStats?.scored?.length?bStats.scored.reduce((a,b)=>a+b,0)/bStats.scored.length:75;
+    const [nextGameDateA,nextGameDateB]=await Promise.all([fetchNextGameDate(espnBase,teamAId),fetchNextGameDate(espnBase,teamBId)]);
+    [g_injA,g_injB]=await Promise.all([
+      fetchInjuryAndRest(espnBase,teamAId,aAvg,aStats?.lastGameDate||null,nextGameDateA,league),
+      fetchInjuryAndRest(espnBase,teamBId,bAvg,bStats?.lastGameDate||null,nextGameDateB,league)
     ]);
-
-    // FIX 4: pass league into fetchInjuryAndRest
-    [g_injA, g_injB] = await Promise.all([
-      fetchInjuryAndRest(espnBase, teamAId, aAvg, aStats?.lastGameDate||null, nextGameDateA, league),
-      fetchInjuryAndRest(espnBase, teamBId, bAvg, bStats?.lastGameDate||null, nextGameDateB, league)
-    ]);
-
-    function renderInjBox(boxId, contentId, inj) {
+    function renderInjBox(boxId,contentId,inj) {
       if (!inj.notes.length) return;
-      document.getElementById(contentId).innerHTML = inj.notes.map(n => {
-        const cls = n.type==="out" ? "inj-out" : n.type==="dtd" ? "inj-dtd" : "inj-rest";
+      document.getElementById(contentId).innerHTML=inj.notes.map(n=>{
+        const cls=n.type==="out"?"inj-out":n.type==="dtd"?"inj-dtd":"inj-rest";
         return `<div class="${cls}">${n.text}</div>`;
       }).join("");
-      document.getElementById(boxId).style.display = "block";
+      document.getElementById(boxId).style.display="block";
     }
     renderInjBox("injuryBoxA","injuryContentA",g_injA);
     renderInjBox("injuryBoxB","injuryContentB",g_injB);
-
-    const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
-    setStatus(messages.map(m=>`<div>${m}</div>`).join(""), allGood ? "ok" : "err");
-
-  } catch(e) {
-    setStatus("&#10060; " + e.message, "err");
-  } finally {
-    btn.disabled = false;
-  }
+    const allGood=aStats?.scored?.length>0&&bStats?.scored?.length>0;
+    setStatus(messages.map(m=>`<div>${m}</div>`).join(""),allGood?"ok":"err");
+  } catch(e) { setStatus("&#10060; "+e.message,"err"); }
+  finally { btn.disabled=false; }
 }
 
-async function fetchNcaaSchedule(base, teamId) {
-  const tId = String(teamId);
-  const gameRefs = [];
-
+async function fetchNcaaSchedule(base,teamId) {
+  const tId=String(teamId);const gameRefs=[];
   for (const season of ["2026","2025","2024"]) {
     for (const stype of ["2","3"]) {
       try {
-        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
-        const events = r?.events || r?.team?.schedule?.events || [];
+        const r=await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(()=>({}));
+        const events=r?.events||r?.team?.schedule?.events||[];
         for (const ev of events) {
           if (!ev.id) continue;
-          const comp = ev?.competitions?.[0];
-          if (!comp) continue;
-          const done = comp?.status?.type?.completed ||
-                       comp?.status?.type?.name === "STATUS_FINAL" ||
-                       comp?.status?.type?.state === "post";
-          if (!done || (comp?.competitors || []).length < 2) continue;
-          const c = comp.competitors;
-          const mine = c.find(x => matchesTeam(x, tId)) || c[0];
-          const opp  = c.find(x => !matchesTeam(x, tId)) || c[1];
-          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-          gameRefs.push({id:String(ev.id), date:ev.date||"", rawS:ps(mine?.score), rawA:ps(opp?.score)});
+          const comp=ev?.competitions?.[0];if (!comp) continue;
+          const done=comp?.status?.type?.completed||comp?.status?.type?.name==="STATUS_FINAL"||comp?.status?.type?.state==="post";
+          if (!done||(comp?.competitors||[]).length<2) continue;
+          const c=comp.competitors;
+          const mine=c.find(x=>matchesTeam(x,tId))||c[0];
+          const opp=c.find(x=>!matchesTeam(x,tId))||c[1];
+          const ps=s=>typeof s==="object"?parseFloat(s.value??s.displayValue??0):parseFloat(s);
+          gameRefs.push({id:String(ev.id),date:ev.date||"",rawS:ps(mine?.score),rawA:ps(opp?.score)});
         }
       } catch(e) {}
     }
-    if (gameRefs.length >= 10) break;
+    if (gameRefs.length>=10) break;
   }
-
   if (!gameRefs.length) return null;
-
-  const seen = new Set();
-  const unique = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
-  unique.sort((a,b) => {
-    const da = a.date ? new Date(a.date).getTime() : 0;
-    const db = b.date ? new Date(b.date).getTime() : 0;
-    return db - da;
-  });
-
-  const top5 = unique.slice(0,5);
-  const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
-  const lastGameDate = unique[0]?.date || null;
-
+  const seen=new Set();
+  const unique=gameRefs.filter(g=>{if(seen.has(g.id))return false;seen.add(g.id);return true;});
+  unique.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0;const db=b.date?new Date(b.date).getTime():0;return db-da;});
+  const top5=unique.slice(0,5);
+  const scored=[],allowed=[],h1Scored=[],h1Allowed=[];
+  const lastGameDate=unique[0]?.date||null;
   for (const ref of top5) {
-    let ms = ref.rawS, os = ref.rawA, h1m = 0, h1o = 0, gotLS = false;
+    let ms=ref.rawS,os=ref.rawA,h1m=0,h1o=0,gotLS=false;
     try {
-      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
-      const hc = data?.header?.competitions?.[0];
+      const data=await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const hc=data?.header?.competitions?.[0];
       if (hc) {
-        const competitors = hc?.competitors || [];
-        const mine = competitors.find(c => matchesTeam(c, tId));
-        const opp  = competitors.find(c => !matchesTeam(c, tId));
-        if (mine && opp) {
-          // FIX 1: use readVal everywhere instead of local pv
-          const lm = mine?.linescores || [], lo = opp?.linescores || [];
-          if (lm.length >= 1) {
-            gotLS = true;
-            ms = parseFloat(mine.score) || ms;
-            os = parseFloat(opp.score) || os;
-            h1m = readVal(lm[0]); h1o = readVal(lo[0]);
-            if (lm.length > 2) {
-              const sm = lm.reduce((s,p) => s+readVal(p), 0), so = lo.reduce((s,p) => s+readVal(p), 0);
-              if (Math.abs(sm-ms) <= 3 && Math.abs(so-os) <= 3) {
-                let otm = 0, oto = 0;
-                for(let i=2; i<lm.length; i++) otm += readVal(lm[i]);
-                for(let i=2; i<lo.length; i++) oto += readVal(lo[i]);
-                if(otm > 0 || oto > 0) { ms -= otm; os -= oto; }
+        const competitors=hc?.competitors||[];
+        const mine=competitors.find(c=>matchesTeam(c,tId));
+        const opp=competitors.find(c=>!matchesTeam(c,tId));
+        if (mine&&opp) {
+          const lm=mine?.linescores||[],lo=opp?.linescores||[];
+          if (lm.length>=1) {
+            gotLS=true;ms=parseFloat(mine.score)||ms;os=parseFloat(opp.score)||os;
+            h1m=readVal(lm[0]);h1o=readVal(lo[0]);
+            if (lm.length>2) {
+              const sm=lm.reduce((s,p)=>s+readVal(p),0),so=lo.reduce((s,p)=>s+readVal(p),0);
+              if (Math.abs(sm-ms)<=3&&Math.abs(so-os)<=3) {
+                let otm=0,oto=0;
+                for(let i=2;i<lm.length;i++) otm+=readVal(lm[i]);
+                for(let i=2;i<lo.length;i++) oto+=readVal(lo[i]);
+                if(otm>0||oto>0){ms-=otm;os-=oto;}
               }
             }
           }
         }
       }
     } catch(e) {}
-    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-    scored.push(Math.round(ms));
-    allowed.push(Math.round(os));
-    if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
+    if (isNaN(ms)||isNaN(os)||ms<=0||os<=0) continue;
+    scored.push(Math.round(ms));allowed.push(Math.round(os));
+    if (gotLS&&h1m>0){h1Scored.push(Math.round(h1m));h1Allowed.push(Math.round(h1o));}
   }
-
-  return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed, lastGameDate} : null;
+  return scored.length>=2?{scored,allowed,h1Scored,h1Allowed,lastGameDate}:null;
 }
 
-async function fetchNcaaH2H(base, teamAId, teamBId) {
-  const tA = String(teamAId), tB = String(teamBId);
-  const gameRefs = [];
-
-  for (const scanId of [teamAId, teamBId]) {
+async function fetchNcaaH2H(base,teamAId,teamBId) {
+  const tA=String(teamAId),tB=String(teamBId);const gameRefs=[];
+  for (const scanId of [teamAId,teamBId]) {
     for (const season of ["2026","2025","2024"]) {
       for (const stype of ["2","3"]) {
         try {
-          const r = await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
-          const events = r?.events || r?.team?.schedule?.events || [];
+          const r=await proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(()=>({}));
+          const events=r?.events||r?.team?.schedule?.events||[];
           for (const ev of events) {
-            const dateStr = ev?.date || "";
-            if (dateStr && dateStr < "2024-01-01") continue;
-            const comp = ev?.competitions?.[0];
-            if (!comp) continue;
-            const done = comp?.status?.type?.completed ||
-                         comp?.status?.type?.name === "STATUS_FINAL" ||
-                         comp?.status?.type?.state === "post";
+            const dateStr=ev?.date||"";
+            if (dateStr&&dateStr<"2024-01-01") continue;
+            const comp=ev?.competitions?.[0];if (!comp) continue;
+            const done=comp?.status?.type?.completed||comp?.status?.type?.name==="STATUS_FINAL"||comp?.status?.type?.state==="post";
             if (!done) continue;
-            const competitors = comp?.competitors || [];
-            if (competitors.length < 2 || !ev.id) continue;
-            const hasA = competitors.some(c => matchesTeam(c, tA));
-            const hasB = competitors.some(c => matchesTeam(c, tB));
-            if (!hasA || !hasB) continue;
-            const cA = competitors.find(x => matchesTeam(x, tA)) || competitors[0];
-            const cB = competitors.find(x => matchesTeam(x, tB)) || competitors[1];
-            const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-            gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
+            const competitors=comp?.competitors||[];
+            if (competitors.length<2||!ev.id) continue;
+            const hasA=competitors.some(c=>matchesTeam(c,tA));
+            const hasB=competitors.some(c=>matchesTeam(c,tB));
+            if (!hasA||!hasB) continue;
+            const cA=competitors.find(x=>matchesTeam(x,tA))||competitors[0];
+            const cB=competitors.find(x=>matchesTeam(x,tB))||competitors[1];
+            const ps=s=>typeof s==="object"?parseFloat(s.value??s.displayValue??0):parseFloat(s);
+            gameRefs.push({id:String(ev.id),date:dateStr,rawScoreA:ps(cA?.score),rawScoreB:ps(cB?.score)});
           }
         } catch(e) {}
       }
     }
   }
-
   if (!gameRefs.length) return [];
-
-  const seen = new Set();
-  const uniqueRefs = gameRefs.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
-  uniqueRefs.sort((a,b) => {
-    const da = a.date ? new Date(a.date).getTime() : 0;
-    const db = b.date ? new Date(b.date).getTime() : 0;
-    return db - da;
-  });
-
-  const h2h = [];
+  const seen=new Set();
+  const uniqueRefs=gameRefs.filter(g=>{if(seen.has(g.id))return false;seen.add(g.id);return true;});
+  uniqueRefs.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0;const db=b.date?new Date(b.date).getTime():0;return db-da;});
+  const h2h=[];
   for (const ref of uniqueRefs.slice(0,5)) {
-    let added = false;
+    let added=false;
     try {
-      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
-      const hc = data?.header?.competitions?.[0];
+      const data=await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const hc=data?.header?.competitions?.[0];
       if (hc) {
-        const competitors = hc?.competitors || [];
-        const cA = competitors.find(c => matchesTeam(c, tA));
-        const cB = competitors.find(c => matchesTeam(c, tB));
-        if (competitors.length > 0 && cA && cB) {
-          let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
-          if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
-            const lA = cA?.linescores || [], lB = cB?.linescores || [];
-            // FIX 1: readVal in linescore reduction
-            const h1A = lA.length >= 1 ? readVal(lA[0]) : 0;
-            const h1B = lB.length >= 1 ? readVal(lB[0]) : 0;
-            if (lA.length > 2 && lB.length > 2) {
-              const sumA = lA.reduce((s,p) => s+readVal(p), 0), sumB = lB.reduce((s,p) => s+readVal(p), 0);
-              if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
-                let otA = 0, otB = 0;
-                for(let i=2; i<lA.length; i++) otA += readVal(lA[i]);
-                for(let i=2; i<lB.length; i++) otB += readVal(lB[i]);
-                if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
+        const competitors=hc?.competitors||[];
+        const cA=competitors.find(c=>matchesTeam(c,tA));
+        const cB=competitors.find(c=>matchesTeam(c,tB));
+        if (competitors.length>0&&cA&&cB) {
+          let sA=parseFloat(cA.score),sB=parseFloat(cB.score);
+          if (!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0) {
+            const lA=cA?.linescores||[],lB=cB?.linescores||[];
+            const h1A=lA.length>=1?readVal(lA[0]):0;
+            const h1B=lB.length>=1?readVal(lB[0]):0;
+            if (lA.length>2&&lB.length>2) {
+              const sumA=lA.reduce((s,p)=>s+readVal(p),0),sumB=lB.reduce((s,p)=>s+readVal(p),0);
+              if (Math.abs(sumA-sA)<=3&&Math.abs(sumB-sB)<=3) {
+                let otA=0,otB=0;
+                for(let i=2;i<lA.length;i++) otA+=readVal(lA[i]);
+                for(let i=2;i<lB.length;i++) otB+=readVal(lB[i]);
+                if(otA>0||otB>0){sA-=otA;sB-=otB;}
               }
             }
-            h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(sA), scoreB:Math.round(sB), h1A, h1B, date:ref.date, eventId:ref.id});
-            added = true;
+            h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(sA),scoreB:Math.round(sB),h1A,h1B,date:ref.date,eventId:ref.id});
+            added=true;
           }
         }
       }
     } catch(e) {}
-    if (!added && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
-      h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(ref.rawScoreA), scoreB:Math.round(ref.rawScoreB), h1A:0, h1B:0, date:ref.date, eventId:ref.id});
+    if (!added&&!isNaN(ref.rawScoreA)&&!isNaN(ref.rawScoreB)&&ref.rawScoreA>0&&ref.rawScoreB>0) {
+      h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(ref.rawScoreA),scoreB:Math.round(ref.rawScoreB),h1A:0,h1B:0,date:ref.date,eventId:ref.id});
     }
   }
-
-  h2h.sort((a,b) => {
-    const da = a.date ? new Date(a.date).getTime() : 0;
-    const db = b.date ? new Date(b.date).getTime() : 0;
-    return db - da;
-  });
+  h2h.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0;const db=b.date?new Date(b.date).getTime():0;return db-da;});
   return h2h.slice(0,5);
 }
 
 function parseNbaEvents(data) {
-  const games = [];
-  for (const ev of (data?.events || [])) {
-    const comp = ev?.competitions?.[0];
+  const games=[];
+  for (const ev of (data?.events||[])) {
+    const comp=ev?.competitions?.[0];
     if (!comp?.status?.type?.completed) continue;
-    const c = comp.competitors || [];
-    if (c.length < 2) continue;
-    let sA = Number(c[0]?.score), sB = Number(c[1]?.score);
-    if (isNaN(sA) || isNaN(sB) || (sA === 0 && sB === 0)) continue;
-    const lA = c[0]?.linescores || [], lB = c[1]?.linescores || [];
-    // FIX 1: readVal replaces pvN
-    const h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
-    const h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
-    if (lA.length > 4 && lB.length > 4) {
-      const tA = lA.reduce((s,p) => s+readVal(p), 0), tB = lB.reduce((s,p) => s+readVal(p), 0);
-      if (Math.abs(tA-sA) <= 3 && Math.abs(tB-sB) <= 3) {
-        let otA = 0, otB = 0;
-        for(let i=4; i<lA.length; i++) otA += readVal(lA[i]);
-        for(let i=4; i<lB.length; i++) otB += readVal(lB[i]);
-        if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
+    const c=comp.competitors||[];if (c.length<2) continue;
+    let sA=Number(c[0]?.score),sB=Number(c[1]?.score);
+    if (isNaN(sA)||isNaN(sB)||(sA===0&&sB===0)) continue;
+    const lA=c[0]?.linescores||[],lB=c[1]?.linescores||[];
+    const h1A=lA.length>=2?readVal(lA[0])+readVal(lA[1]):0;
+    const h1B=lB.length>=2?readVal(lB[0])+readVal(lB[1]):0;
+    if (lA.length>4&&lB.length>4) {
+      const tA=lA.reduce((s,p)=>s+readVal(p),0),tB=lB.reduce((s,p)=>s+readVal(p),0);
+      if (Math.abs(tA-sA)<=3&&Math.abs(tB-sB)<=3) {
+        let otA=0,otB=0;
+        for(let i=4;i<lA.length;i++) otA+=readVal(lA[i]);
+        for(let i=4;i<lB.length;i++) otB+=readVal(lB[i]);
+        if(otA>0||otB>0){sA-=otA;sB-=otB;}
       }
     }
-    if (sA > 0 && sB > 0) games.push({
-      teamAId: String(c[0]?.team?.id),
-      teamBId: String(c[1]?.team?.id),
-      scoreA: sA, scoreB: sB, h1A, h1B, date: ev?.date || ""
-    });
+    if (sA>0&&sB>0) games.push({teamAId:String(c[0]?.team?.id),teamBId:String(c[1]?.team?.id),scoreA:sA,scoreB:sB,h1A,h1B,date:ev?.date||""});
   }
   return games;
 }
 
-// FIX 6 — Cached scoreboard fetch
-async function fetchNbaScoreboard(base, daysBack) {
-  const BATCH = 8;
-  const all = [];
-  const days = Array.from({length: daysBack}, (_,i) => i+1);
-  for (let i = 0; i < days.length; i += BATCH) {
-    const batch = days.slice(i, i + BATCH);
-    const results = await Promise.allSettled(
-      batch.map(d => {
-        const dateStr = getDateString(d);
-        const cacheKey = `sb:${dateStr}`;
-        // Return cached promise if we already fetched this date
-        if (_sbCache.has(cacheKey)) return _sbCache.get(cacheKey);
-        const p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`).catch(() => ({}));
-        _sbCache.set(cacheKey, p);
-        return p;
-      })
-    );
-    for (const r of results) {
-      try { if(r.status==="fulfilled") all.push(...parseNbaEvents(r.value)); } catch(e) {}
-    }
+async function fetchNbaScoreboard(base,daysBack) {
+  const BATCH=8;const all=[];
+  const days=Array.from({length:daysBack},(_,i)=>i+1);
+  for (let i=0;i<days.length;i+=BATCH) {
+    const batch=days.slice(i,i+BATCH);
+    const results=await Promise.allSettled(batch.map(d=>{
+      const dateStr=getDateString(d);const cacheKey=`sb:${dateStr}`;
+      if (_sbCache.has(cacheKey)) return _sbCache.get(cacheKey);
+      const p=proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`).catch(()=>({}));
+      _sbCache.set(cacheKey,p);return p;
+    }));
+    for (const r of results) { try{if(r.status==="fulfilled")all.push(...parseNbaEvents(r.value));}catch(e){} }
   }
   return all;
 }
 
-async function fetchNbaH2H(base, teamAId, teamBId) {
-  const tA = String(teamAId), tB = String(teamBId);
-  const gameRefs = [];
-
+async function fetchNbaH2H(base,teamAId,teamBId) {
+  const tA=String(teamAId),tB=String(teamBId);const gameRefs=[];
   for (const season of ["2026","2025","2024"]) {
     try {
-      const [r1, r2] = await Promise.all([
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(() => ({})),
-        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(() => ({}))
+      const [r1,r2]=await Promise.all([
+        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(()=>({})),
+        proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(()=>({}))
       ]);
-      const events = [...(r1?.events||r1?.team?.schedule?.events||[]), ...(r2?.events||r2?.team?.schedule?.events||[])];
+      const events=[...(r1?.events||r1?.team?.schedule?.events||[]),...(r2?.events||r2?.team?.schedule?.events||[])];
       for (const ev of events) {
-        const dateStr = ev?.date || "";
-        if (dateStr && dateStr < "2024-01-01") continue;
-        const comp = ev?.competitions?.[0];
-        if (!comp) continue;
-        const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL" || comp?.status?.type?.state === "post";
+        const dateStr=ev?.date||"";
+        if (dateStr&&dateStr<"2024-01-01") continue;
+        const comp=ev?.competitions?.[0];if (!comp) continue;
+        const done=comp?.status?.type?.completed||comp?.status?.type?.name==="STATUS_FINAL"||comp?.status?.type?.state==="post";
         if (!done) continue;
-        const c = comp?.competitors || [];
-        if (c.length < 2 || !ev.id) continue;
-        const hasB = c.some(x => matchesTeam(x, tB));
-        if (!hasB) continue;
-        const cA = c.find(x => matchesTeam(x, tA)) || c[0];
-        const cB = c.find(x => matchesTeam(x, tB)) || c[1];
-        const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-        gameRefs.push({id:String(ev.id), date:dateStr, rawScoreA:ps(cA?.score), rawScoreB:ps(cB?.score)});
+        const c=comp?.competitors||[];if (c.length<2||!ev.id) continue;
+        const hasB=c.some(x=>matchesTeam(x,tB));if (!hasB) continue;
+        const cA=c.find(x=>matchesTeam(x,tA))||c[0];
+        const cB=c.find(x=>matchesTeam(x,tB))||c[1];
+        const ps=s=>typeof s==="object"?parseFloat(s.value??s.displayValue??0):parseFloat(s);
+        gameRefs.push({id:String(ev.id),date:dateStr,rawScoreA:ps(cA?.score),rawScoreB:ps(cB?.score)});
       }
     } catch(e) {}
   }
-
   if (!gameRefs.length) return [];
-  const seenIds = new Set();
-  const uniqueGameRefs = gameRefs.filter(g => { if(seenIds.has(g.id)) return false; seenIds.add(g.id); return true; });
-  uniqueGameRefs.sort((a,b) => {
-    const da = a.date ? new Date(a.date).getTime() : 0;
-    const db = b.date ? new Date(b.date).getTime() : 0;
-    return db - da;
-  });
-
-  const h2h = [];
+  const seenIds=new Set();
+  const uniqueGameRefs=gameRefs.filter(g=>{if(seenIds.has(g.id))return false;seenIds.add(g.id);return true;});
+  uniqueGameRefs.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0;const db=b.date?new Date(b.date).getTime():0;return db-da;});
+  const h2h=[];
   for (const ref of uniqueGameRefs.slice(0,5)) {
-    let gameAdded = false;
+    let gameAdded=false;
     try {
-      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
-      const hc = data?.header?.competitions?.[0];
+      const data=await proxyFetch(`${base}/summary?event=${ref.id}`);
+      const hc=data?.header?.competitions?.[0];
       if (hc) {
-        const competitors = hc?.competitors || [];
-        const cA = competitors.find(c => matchesTeam(c, tA));
-        const cB = competitors.find(c => matchesTeam(c, tB));
-        if (competitors.length > 0 && cA && cB) {
-          let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
-          if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
-            const lA = cA?.linescores || [], lB = cB?.linescores || [];
-            // FIX 1: readVal replaces pvN
-            if (lA.length > 4 && lB.length > 4) {
-              const sumA = lA.reduce((s,p) => s+readVal(p), 0), sumB = lB.reduce((s,p) => s+readVal(p), 0);
-              if (Math.abs(sumA-sA) <= 3 && Math.abs(sumB-sB) <= 3) {
-                let otA = 0, otB = 0;
-                for(let i=4; i<lA.length; i++) otA += readVal(lA[i]);
-                for(let i=4; i<lB.length; i++) otB += readVal(lB[i]);
-                if(otA > 0 || otB > 0) { sA -= otA; sB -= otB; }
+        const competitors=hc?.competitors||[];
+        const cA=competitors.find(c=>matchesTeam(c,tA));
+        const cB=competitors.find(c=>matchesTeam(c,tB));
+        if (competitors.length>0&&cA&&cB) {
+          let sA=parseFloat(cA.score),sB=parseFloat(cB.score);
+          if (!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0) {
+            const lA=cA?.linescores||[],lB=cB?.linescores||[];
+            if (lA.length>4&&lB.length>4) {
+              const sumA=lA.reduce((s,p)=>s+readVal(p),0),sumB=lB.reduce((s,p)=>s+readVal(p),0);
+              if (Math.abs(sumA-sA)<=3&&Math.abs(sumB-sB)<=3) {
+                let otA=0,otB=0;
+                for(let i=4;i<lA.length;i++) otA+=readVal(lA[i]);
+                for(let i=4;i<lB.length;i++) otB+=readVal(lB[i]);
+                if(otA>0||otB>0){sA-=otA;sB-=otB;}
               }
             }
-            const h1A = lA.length >= 2 ? readVal(lA[0])+readVal(lA[1]) : 0;
-            const h1B = lB.length >= 2 ? readVal(lB[0])+readVal(lB[1]) : 0;
-            h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(sA), scoreB:Math.round(sB), h1A, h1B, date:ref.date, eventId:ref.id});
-            gameAdded = true;
+            const h1A=lA.length>=2?readVal(lA[0])+readVal(lA[1]):0;
+            const h1B=lB.length>=2?readVal(lB[0])+readVal(lB[1]):0;
+            h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(sA),scoreB:Math.round(sB),h1A,h1B,date:ref.date,eventId:ref.id});
+            gameAdded=true;
           }
         }
       }
     } catch(e) {}
-    if (!gameAdded && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
-      h2h.push({teamAId:tA, teamBId:tB, scoreA:Math.round(ref.rawScoreA), scoreB:Math.round(ref.rawScoreB), h1A:0, h1B:0, date:ref.date, eventId:ref.id});
+    if (!gameAdded&&!isNaN(ref.rawScoreA)&&!isNaN(ref.rawScoreB)&&ref.rawScoreA>0&&ref.rawScoreB>0) {
+      h2h.push({teamAId:tA,teamBId:tB,scoreA:Math.round(ref.rawScoreA),scoreB:Math.round(ref.rawScoreB),h1A:0,h1B:0,date:ref.date,eventId:ref.id});
     }
   }
-
-  h2h.sort((a,b) => {
-    const da = a.date ? new Date(a.date).getTime() : 0;
-    const db = b.date ? new Date(b.date).getTime() : 0;
-    return db - da;
-  });
+  h2h.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0;const db=b.date?new Date(b.date).getTime():0;return db-da;});
   return h2h;
 }
 
-function extractLastFive(games, teamId) {
-  const scored=[], allowed=[], h1Scored=[], h1Allowed=[];
-  let lastGameDate = null;
-  const sorted = [...games].sort((a,b) => {
-    const da = a.date ? new Date(a.date).getTime() : 0;
-    const db = b.date ? new Date(b.date).getTime() : 0;
-    return db - da;
-  });
+function extractLastFive(games,teamId) {
+  const scored=[],allowed=[],h1Scored=[],h1Allowed=[];let lastGameDate=null;
+  const sorted=[...games].sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0;const db=b.date?new Date(b.date).getTime():0;return db-da;});
   for (const g of sorted) {
-    if (scored.length >= 5) break;
-    if (g.teamAId === teamId) {
-      if(!lastGameDate&&g.date) lastGameDate=g.date;
-      scored.push(g.scoreA); allowed.push(g.scoreB);
-      if (g.h1A > 0) { h1Scored.push(g.h1A); h1Allowed.push(g.h1B); }
-    } else if (g.teamBId === teamId) {
-      if(!lastGameDate&&g.date) lastGameDate=g.date;
-      scored.push(g.scoreB); allowed.push(g.scoreA);
-      if (g.h1B > 0) { h1Scored.push(g.h1B); h1Allowed.push(g.h1A); }
-    }
+    if (scored.length>=5) break;
+    if (g.teamAId===teamId){if(!lastGameDate&&g.date)lastGameDate=g.date;scored.push(g.scoreA);allowed.push(g.scoreB);if(g.h1A>0){h1Scored.push(g.h1A);h1Allowed.push(g.h1B);}}
+    else if (g.teamBId===teamId){if(!lastGameDate&&g.date)lastGameDate=g.date;scored.push(g.scoreB);allowed.push(g.scoreA);if(g.h1B>0){h1Scored.push(g.h1B);h1Allowed.push(g.h1A);}}
   }
-  return scored.length >= 2 ? {scored, allowed, h1Scored, h1Allowed, lastGameDate} : null;
+  return scored.length>=2?{scored,allowed,h1Scored,h1Allowed,lastGameDate}:null;
 }
 
-async function searchTeamFromAPI(base, name) {
-  const n = name.toLowerCase().trim();
+async function searchTeamFromAPI(base,name) {
+  const n=name.toLowerCase().trim();
   try {
-    const data = await proxyFetch(`https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=10&type=team&sport=basketball`);
-    for (const r of (data?.items || data?.results || [])) {
-      const uid = r?.uid || r?.team?.uid || "";
-      const m = uid.match(/t:(\d+)/);
+    const data=await proxyFetch(`https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=10&type=team&sport=basketball`);
+    for (const r of (data?.items||data?.results||[])) {
+      const uid=r?.uid||r?.team?.uid||"";const m=uid.match(/t:(\d+)/);
       if (m) return m[1];
-      const id = r?.id || r?.team?.id;
-      if (id && String(id).match(/^\d+$/)) return String(id);
+      const id=r?.id||r?.team?.id;
+      if (id&&String(id).match(/^\d+$/)) return String(id);
     }
   } catch(e) {}
   try {
-    const data = await proxyFetch(`${base}/teams?limit=500`);
-    const leagues = data?.sports?.[0]?.leagues || [];
-    let teams = [];
-    for (const l of leagues) teams = teams.concat(l?.teams || []);
-    if (!teams.length) teams = data?.teams || [];
-    const words = n.split(/\s+/).filter(w => w.length >= 3);
-    let best = null, bestScore = 0;
+    const data=await proxyFetch(`${base}/teams?limit=500`);
+    const leagues=data?.sports?.[0]?.leagues||[];let teams=[];
+    for (const l of leagues) teams=teams.concat(l?.teams||[]);
+    if (!teams.length) teams=data?.teams||[];
+    const words=n.split(/\s+/).filter(w=>w.length>=3);
+    let best=null,bestScore=0;
     for (let t of teams) {
-      const team = t.team || t;
-      const fields = [team.displayName, team.shortDisplayName, team.name, team.nickname, team.abbreviation, team.location]
-        .filter(Boolean).map(f => f.toLowerCase()).join(" ");
+      const team=t.team||t;
+      const fields=[team.displayName,team.shortDisplayName,team.name,team.nickname,team.abbreviation,team.location].filter(Boolean).map(f=>f.toLowerCase()).join(" ");
       if (fields.includes(n)) return String(team.id);
-      let score = words.filter(w => fields.includes(w)).length;
-      if (team.location && n.includes(team.location.toLowerCase())) score += 2;
-      if (team.nickname && n.includes(team.nickname.toLowerCase())) score += 2;
-      if (score > bestScore) { bestScore = score; best = String(team.id); }
+      let score=words.filter(w=>fields.includes(w)).length;
+      if (team.location&&n.includes(team.location.toLowerCase())) score+=2;
+      if (team.nickname&&n.includes(team.nickname.toLowerCase())) score+=2;
+      if (score>bestScore){bestScore=score;best=String(team.id);}
     }
-    return bestScore >= 2 ? best : null;
-  } catch(e) { return null; }
+    return bestScore>=2?best:null;
+  } catch(e){return null;}
 }
 
-/* ============= ENGINE CORE ============= */
 function parseGames(id) {
-  const el = document.getElementById(id);
-  const raw = el.value.trim();
-  el.style.borderColor = "";
+  const el=document.getElementById(id);const raw=el.value.trim();el.style.borderColor="";
   if (!raw) return null;
-  const parts = raw.split(",").map(x=>x.trim()).filter(x=>x!=="");
+  const parts=raw.split(",").map(x=>x.trim()).filter(x=>x!=="");
   if (!parts.length) return null;
-  for (let i=0; i<parts.length; i++) {
-    const v = parseFloat(parts[i]);
+  for (let i=0;i<parts.length;i++) {
+    const v=parseFloat(parts[i]);
     if (isNaN(v)) return {err:'"'+parts[i]+'" at position '+(i+1)+' is not a number'};
-    if (v < 0)    return {err:'value at position '+(i+1)+' is negative ('+v+')'};
-    if (v > 250)  return {err:'value at position '+(i+1)+' is too high ('+v+')'};
+    if (v<0) return {err:'value at position '+(i+1)+' is negative ('+v+')'};
+    if (v>250) return {err:'value at position '+(i+1)+' is too high ('+v+')'};
   }
   return parts.map(x=>parseFloat(x));
 }
 
-function avg(arr) { if(!arr||arr.length===0) return NaN; return arr.reduce((a,b)=>a+b,0)/arr.length; }
-function trimmedAvg(arr) {
-  if(!arr||arr.length===0) return NaN;
-  if(arr.length<5) return avg(arr);
-  let s=[...arr].sort((a,b)=>a-b); s.shift(); s.pop();
-  return avg(s);
-}
-
-// FIX 3 — Weights corrected: newest game = 0.30, oldest = 0.10 (oldest→newest order).
-// ESPN returns games in date-descending order (newest first), so the
-// array passed in is reversed before applying weights to ensure [0]=oldest, [4]=newest.
+function avg(arr){if(!arr||arr.length===0)return NaN;return arr.reduce((a,b)=>a+b,0)/arr.length;}
+function trimmedAvg(arr){if(!arr||arr.length===0)return NaN;if(arr.length<5)return avg(arr);let s=[...arr].sort((a,b)=>a-b);s.shift();s.pop();return avg(s);}
 function weightedAvg(arr) {
-  if (!arr || arr.length === 0) return NaN;
-  if (arr.length < 2) return arr[0];
-  // Weights from oldest[0] → newest[4]: 0.10, 0.15, 0.20, 0.25, 0.30  (sum = 1.0)
-  const W = [0.10, 0.15, 0.20, 0.25, 0.30];
-  if (arr.length >= 5) {
-    // Take the 5 entries; arr[0] = most recent (ESPN order), arr[4] = oldest
-    // Reverse so index 0 = oldest, index 4 = newest, then apply weights.
-    const a = arr.slice(0,5).reverse();
-    return a.reduce((s,v,i) => s + v * W[i], 0);
-  }
-  // Fewer than 5: equal weights
+  if (!arr||arr.length===0) return NaN;if (arr.length<2) return arr[0];
+  const W=[0.10,0.15,0.20,0.25,0.30];
+  if (arr.length>=5){const a=arr.slice(0,5).reverse();return a.reduce((s,v,i)=>s+v*W[i],0);}
   return avg(arr);
 }
+function stdDev(arr){if(!arr||arr.length<2)return 0;let m=avg(arr);return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));}
+function mid(val){if(!val)return NaN;val=val.trim();if(!val.includes("-"))return NaN;let p=val.split("-").map(x=>x.trim());let a=parseFloat(p[0]),b=parseFloat(p[1]);if(isNaN(a)||isNaN(b))return NaN;return(a+b)/2;}
+function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).toFixed(1);}
+function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
+function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.07*Math.min(1,(std-limit)/limit));}
 
-function stdDev(arr) {
-  if (!arr||arr.length<2) return 0;
-  let m = avg(arr);
-  return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));
-}
-function mid(val) {
-  if (!val) return NaN;
-  val = val.trim();
-  if (!val.includes("-")) return NaN;
-  let p = val.split("-").map(x=>x.trim());
-  let a = parseFloat(p[0]), b = parseFloat(p[1]);
-  if (isNaN(a)||isNaN(b)) return NaN;
-  return (a+b)/2;
-}
-function displayLine(val) { if(isNaN(val))return"NaN"; return(Math.round(val*2)/2).toFixed(1); }
-function dynamicWeight(s) { if(!s||s.length<2)return 0; return s.length<=3?0.20:0.30; }
-function applyVolatility(proj,std,limit) {
-  if(isNaN(proj)||isNaN(std))return NaN;
-  if(std<=limit)return proj;
-  return proj*(1-0.07*Math.min(1,(std-limit)/limit));
-}
-
-function decision(edge,line,type,teamSc,aSc,bSc) {
+function decision(edge,line,type,teamSc,aSc,bSc){
   if(isNaN(edge)||isNaN(line))return"NaN";
   if(Math.abs(edge/line)<0.045)return"NO PLAY";
-  const isTotalType = type==="ft_total"||type==="1h_total";
+  const isTotalType=type==="ft_total"||type==="1h_total";
   if(edge<0){
-    let underThr = isTotalType ? line*0.060 : line*0.065;
+    let underThr=isTotalType?line*0.060:line*0.065;
     if(Math.abs(edge)<underThr)return"NO PLAY";
     if(isTotalType&&!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.48||bSc>=line*0.48))return"NO PLAY";
     if(type==="team"&&!isNaN(teamSc)&&teamSc>=line*0.58)return"NO PLAY";
   }
-  return edge>0 ? "OVER "+displayLine(line) : "UNDER "+displayLine(line);
+  return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
 }
 
-function runEngine() {
-  const table = document.getElementById("results");
-  table.style.display = "table";
-  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
-  const league = document.getElementById("leagueSelect").value;
-
-  const bases = {
+function runEngine(){
+  const table=document.getElementById("results");
+  table.style.display="table";
+  table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+  const league=document.getElementById("leagueSelect").value;
+  const bases={
+    // USA
     "nba":228,"ncaa":150,
-    "euroleague":160,"eurocup":158,"acb":166,"bsl":170,"lba":164,"bcl":162,"bbl":172,"proa":162,
-    "aba":158,"prob":154,"plk":154,"a2":153,"nbl_cz":152,"lkl":157,"isl":164,
-    "bal":154,"nigeria":148,"rwanda":144,
-    "nbb":160,"lnb":157,
+    // South America
+    "lnb":157,"nbb":160,
+    // North America
     "cebl":154,
-    "pba":188,"bleague":158,"cba":192,
+    // Africa
+    "bal":154,"nigeria":148,"rwanda":144,
+    // Europe
+    "aba":158,"euroleague":160,"eurocup":158,"elbl":152,
+    "austria_zweite":155,"belgium_top":158,"bih_1st":154,"bulgaria_nbl":154,
+    "croatia_premier":157,"nbl_cz":152,"denmark_bliga":158,"england_slb":155,
+    "finland_koris":160,"finland_koris_w":140,
+    "proa":162,"prob":154,
+    "georgia_super":156,
+    "bbl":172,"germany_proa":162,"germany_prob":156,
+    "bcl":162,"a2":154,
+    "hungary_nb1":156,"isl":164,
+    "lba":164,"italy_a2":156,"italy_serb":150,
+    "lkl":157,"lithuania_nkl":150,
+    "plk":154,"poland_1liga":148,
+    "portugal_lpb":160,"portugal_proliga":152,
+    "romania_ln":154,
+    "serbia_kls":158,"serbia_2mls":150,
+    "acb":166,"spain_primera":162,"spain_segunda":158,
+    "sweden_super":154,"sweden_sbl":148,
+    "swiss_nlb":156,"swiss_sbl":150,
+    "bsl":170,"turkey_tbl":162,"turkey_tb2l":156,"turkey_tkbl_w":138,
+    "united_league":155,
+    // Asia
+    "cba":192,"china_nbl":178,
+    "taipei_pleague":178,"taipei_sbl":165,"taipei_tpbl":168,
+    "bleague":158,"pba":188,"korea_kbl":162,
+    // Oceania
     "ausnbl":164,"nznbl":157,
+    // International
     "fiba_wc":154,"fiba_eb":156,"fiba_ac":154,
     "unknown":160
   };
-  const paceClamps = {
+  const paceClamps={
     "nba":{min:0.85,max:1.15},"ncaa":{min:0.85,max:1.12},
-    "euroleague":{min:0.87,max:1.10},"eurocup":{min:0.87,max:1.10},"acb":{min:0.87,max:1.10},"bsl":{min:0.87,max:1.10},"lba":{min:0.87,max:1.10},"bcl":{min:0.87,max:1.10},"bbl":{min:0.87,max:1.10},"proa":{min:0.87,max:1.10},
-    "aba":{min:0.87,max:1.10},"prob":{min:0.87,max:1.10},"plk":{min:0.87,max:1.10},"a2":{min:0.87,max:1.10},"nbl_cz":{min:0.87,max:1.10},"lkl":{min:0.87,max:1.10},"isl":{min:0.87,max:1.10},
+    "lnb":{min:0.87,max:1.10},"nbb":{min:0.87,max:1.10},"cebl":{min:0.87,max:1.10},
     "bal":{min:0.85,max:1.12},"nigeria":{min:0.85,max:1.12},"rwanda":{min:0.85,max:1.12},
-    "nbb":{min:0.87,max:1.10},"lnb":{min:0.87,max:1.10},
-    "cebl":{min:0.87,max:1.10},
-    "pba":{min:0.85,max:1.15},"bleague":{min:0.87,max:1.10},"cba":{min:0.85,max:1.15},
+    "aba":{min:0.87,max:1.10},"euroleague":{min:0.87,max:1.10},"eurocup":{min:0.87,max:1.10},"elbl":{min:0.87,max:1.10},
+    "austria_zweite":{min:0.87,max:1.10},"belgium_top":{min:0.87,max:1.10},"bih_1st":{min:0.87,max:1.10},"bulgaria_nbl":{min:0.87,max:1.10},
+    "croatia_premier":{min:0.87,max:1.10},"nbl_cz":{min:0.87,max:1.10},"denmark_bliga":{min:0.87,max:1.10},"england_slb":{min:0.87,max:1.10},
+    "finland_koris":{min:0.87,max:1.10},"finland_koris_w":{min:0.87,max:1.10},
+    "proa":{min:0.87,max:1.10},"prob":{min:0.87,max:1.10},
+    "georgia_super":{min:0.87,max:1.10},
+    "bbl":{min:0.87,max:1.10},"germany_proa":{min:0.87,max:1.10},"germany_prob":{min:0.87,max:1.10},
+    "bcl":{min:0.87,max:1.10},"a2":{min:0.87,max:1.10},
+    "hungary_nb1":{min:0.87,max:1.10},"isl":{min:0.87,max:1.10},
+    "lba":{min:0.87,max:1.10},"italy_a2":{min:0.87,max:1.10},"italy_serb":{min:0.87,max:1.10},
+    "lkl":{min:0.87,max:1.10},"lithuania_nkl":{min:0.87,max:1.10},
+    "plk":{min:0.87,max:1.10},"poland_1liga":{min:0.87,max:1.10},
+    "portugal_lpb":{min:0.87,max:1.10},"portugal_proliga":{min:0.87,max:1.10},
+    "romania_ln":{min:0.87,max:1.10},
+    "serbia_kls":{min:0.87,max:1.10},"serbia_2mls":{min:0.87,max:1.10},
+    "acb":{min:0.87,max:1.10},"spain_primera":{min:0.87,max:1.10},"spain_segunda":{min:0.87,max:1.10},
+    "sweden_super":{min:0.87,max:1.10},"sweden_sbl":{min:0.87,max:1.10},
+    "swiss_nlb":{min:0.87,max:1.10},"swiss_sbl":{min:0.87,max:1.10},
+    "bsl":{min:0.87,max:1.10},"turkey_tbl":{min:0.87,max:1.10},"turkey_tb2l":{min:0.87,max:1.10},"turkey_tkbl_w":{min:0.87,max:1.10},
+    "united_league":{min:0.87,max:1.10},
+    "cba":{min:0.85,max:1.15},"china_nbl":{min:0.85,max:1.12},
+    "taipei_pleague":{min:0.85,max:1.12},"taipei_sbl":{min:0.87,max:1.10},"taipei_tpbl":{min:0.87,max:1.10},
+    "bleague":{min:0.87,max:1.10},"pba":{min:0.85,max:1.15},"korea_kbl":{min:0.87,max:1.10},
     "ausnbl":{min:0.87,max:1.10},"nznbl":{min:0.87,max:1.10},
     "fiba_wc":{min:0.87,max:1.10},"fiba_eb":{min:0.87,max:1.10},"fiba_ac":{min:0.87,max:1.10},
     "unknown":{min:0.85,max:1.12}
   };
-
-  let eb = bases[league] || 160;
-  const cl = paceClamps[league] || {min:0.90,max:1.12};
-
-  let ftLine = mid(document.getElementById("ftMarket").value);
-  let aLine  = mid(document.getElementById("teamAMarket").value);
-  let bLine  = mid(document.getElementById("teamBMarket").value);
-
-  let aSA = parseGames("aFTScored"), aAA = parseGames("aFTAllowed");
-  let bSA = parseGames("bFTScored"), bAA = parseGames("bFTAllowed");
-
-  // Collect input errors
-  let inputErrors = [];
+  let eb=bases[league]||160;
+  const cl=paceClamps[league]||{min:0.90,max:1.12};
+  let ftLine=mid(document.getElementById("ftMarket").value);
+  let aLine=mid(document.getElementById("teamAMarket").value);
+  let bLine=mid(document.getElementById("teamBMarket").value);
+  let aSA=parseGames("aFTScored"),aAA=parseGames("aFTAllowed"),bSA=parseGames("bFTScored"),bAA=parseGames("bFTAllowed");
+  let inputErrors=[];
   if(aSA?.err){document.getElementById("aFTScored").style.borderColor="#ff6b6b";inputErrors.push("Team A FT Scored: "+aSA.err);aSA=null;}
   if(aAA?.err){document.getElementById("aFTAllowed").style.borderColor="#ff6b6b";inputErrors.push("Team A FT Allowed: "+aAA.err);aAA=null;}
   if(bSA?.err){document.getElementById("bFTScored").style.borderColor="#ff6b6b";inputErrors.push("Team B FT Scored: "+bSA.err);bSA=null;}
   if(bAA?.err){document.getElementById("bFTAllowed").style.borderColor="#ff6b6b";inputErrors.push("Team B FT Allowed: "+bAA.err);bAA=null;}
-  if(inputErrors.length) {
-    let row = table.insertRow();
-    row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">&#9888; Fix these inputs before running:<br>${inputErrors.map(e=>"&nbsp;&nbsp;• "+e).join("<br>")}</td>`;
-    table.style.display="table"; return;
-  }
-
-  const aFTReady = aSA !== null && aAA !== null;
-  const bFTReady = bSA !== null && bAA !== null;
-
-  const calcAvg = (league==="nba"||league==="ncaa") ? weightedAvg : trimmedAvg;
-
-  // FIX 2 — Guard parseGames results before passing to calcAvg
-  // If the result is null or an error object, calcAvg receives null → returns NaN safely.
-  const safeArr = a => (a && !a.err) ? a : null;
-  let aS = safeArr(aSA) ? calcAvg(aSA) : NaN;
-  let aA = safeArr(aAA) ? calcAvg(aAA) : NaN;
-  let bS = safeArr(bSA) ? calcAvg(bSA) : NaN;
-  let bA = safeArr(bAA) ? calcAvg(bAA) : NaN;
-
-  let fma = !isNaN(aS) && !isNaN(aA) && !isNaN(bS) && !isNaN(bA);
-
-  let bAFT = (!isNaN(aS)&&!isNaN(bA)) ? (aS*0.60+bA*0.40) : (!isNaN(aS)?aS:NaN);
-  let bBFT = (!isNaN(bS)&&!isNaN(aA)) ? (bS*0.60+aA*0.40) : (!isNaN(bS)?bS:NaN);
-
-  let pgr = (!isNaN(aS)&&!isNaN(bS)&&Math.abs(aS-bS)>eb*0.10);
-
-  let h2ha=null, h2hb=null;
-  if(document.getElementById("useFTH2H").checked){
-    const _ha=parseGames("aFTH2H"), _hb=parseGames("bFTH2H");
-    h2ha = (_ha&&!_ha.err)?_ha:null;
-    h2hb = (_hb&&!_hb.err)?_hb:null;
-  }
+  if(inputErrors.length){let row=table.insertRow();row.innerHTML=`<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">&#9888; Fix these inputs before running:<br>${inputErrors.map(e=>"&nbsp;&nbsp;• "+e).join("<br>")}</td>`;table.style.display="table";return;}
+  const aFTReady=aSA!==null&&aAA!==null;
+  const bFTReady=bSA!==null&&bAA!==null;
+  const isNbaOrNcaa=league==="nba"||league==="ncaa";
+  const calcAvg=isNbaOrNcaa?weightedAvg:trimmedAvg;
+  const safeArr=a=>(a&&!a.err)?a:null;
+  let aS=safeArr(aSA)?calcAvg(aSA):NaN;
+  let aA=safeArr(aAA)?calcAvg(aAA):NaN;
+  let bS=safeArr(bSA)?calcAvg(bSA):NaN;
+  let bA=safeArr(bAA)?calcAvg(bAA):NaN;
+  let fma=!isNaN(aS)&&!isNaN(aA)&&!isNaN(bS)&&!isNaN(bA);
+  let bAFT=(!isNaN(aS)&&!isNaN(bA))?(aS*0.60+bA*0.40):(!isNaN(aS)?aS:NaN);
+  let bBFT=(!isNaN(bS)&&!isNaN(aA))?(bS*0.60+aA*0.40):(!isNaN(bS)?bS:NaN);
+  let pgr=(!isNaN(aS)&&!isNaN(bS)&&Math.abs(aS-bS)>eb*0.10);
+  let h2ha=null,h2hb=null;
+  if(document.getElementById("useFTH2H").checked){const _ha=parseGames("aFTH2H"),_hb=parseGames("bFTH2H");h2ha=(_ha&&!_ha.err)?_ha:null;h2hb=(_hb&&!_hb.err)?_hb:null;}
   if(fma&&h2ha&&h2hb&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(0.30,dynamicWeight(h2ha)+dynamicWeight(h2hb));
-    let h2hAvgA=avg(h2ha), h2hAvgB=avg(h2hb);
-    if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){
-      let divA=Math.abs(h2hAvgA-bAFT)/bAFT;
-      let wA=divA>0.20?w*0.5:w;
-      bAFT=bAFT*(1-wA)+h2hAvgA*wA;
-    }
-    if(!isNaN(bBFT)&&bBFT>0&&!isNaN(h2hAvgB)){
-      let divB=Math.abs(h2hAvgB-bBFT)/bBFT;
-      let wB=divB>0.20?w*0.5:w;
-      bBFT=bBFT*(1-wB)+h2hAvgB*wB;
-    }
+    let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
+    if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){let divA=Math.abs(h2hAvgA-bAFT)/bAFT;let wA=divA>0.20?w*0.5:w;bAFT=bAFT*(1-wA)+h2hAvgA*wA;}
+    if(!isNaN(bBFT)&&bBFT>0&&!isNaN(h2hAvgB)){let divB=Math.abs(h2hAvgB-bBFT)/bBFT;let wB=divB>0.20?w*0.5:w;bBFT=bBFT*(1-wB)+h2hAvgB*wB;}
   }
-
-  // FIX 2 — safeArr guards before passing to stdDev
-  let aVolRaw = (stdDev(safeArr(aSA)||[]) + stdDev(safeArr(aAA)||[])) / 2;
-  let bVolRaw = (stdDev(safeArr(bSA)||[]) + stdDev(safeArr(bAA)||[])) / 2;
-  let aVol = aVolRaw*0.6 + bVolRaw*0.4;
-  let bVol = bVolRaw*0.6 + aVolRaw*0.4;
-
-  let dfr = (!isNaN(aA)&&aA<eb*0.40) || (!isNaN(bA)&&bA<eb*0.40);
-  const vlMap = {
+  let aVolRaw=(stdDev(safeArr(aSA)||[])+stdDev(safeArr(aAA)||[]))/2;
+  let bVolRaw=(stdDev(safeArr(bSA)||[])+stdDev(safeArr(bAA)||[]))/2;
+  let aVol=aVolRaw*0.6+bVolRaw*0.4;let bVol=bVolRaw*0.6+aVolRaw*0.4;
+  let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
+  const vlMap={
     "nba":14,"ncaa":11,
-    "euroleague":12,"eurocup":12,"acb":12,"bsl":12,"lba":12,"bcl":12,"bbl":12,"proa":12,
-    "aba":11,"prob":11,"plk":11,"a2":11,"nbl_cz":11,"lkl":11,"isl":12,
+    "lnb":11,"nbb":12,"cebl":11,
     "bal":11,"nigeria":10,"rwanda":10,
-    "nbb":12,"lnb":11,"cebl":11,
-    "pba":13,"bleague":12,"cba":13,
+    "aba":11,"euroleague":12,"eurocup":12,"elbl":10,
+    "austria_zweite":10,"belgium_top":11,"bih_1st":10,"bulgaria_nbl":10,
+    "croatia_premier":11,"nbl_cz":11,"denmark_bliga":11,"england_slb":10,
+    "finland_koris":11,"finland_koris_w":9,
+    "proa":12,"prob":11,
+    "georgia_super":11,
+    "bbl":12,"germany_proa":11,"germany_prob":10,
+    "bcl":12,"a2":11,
+    "hungary_nb1":11,"isl":12,
+    "lba":12,"italy_a2":11,"italy_serb":10,
+    "lkl":11,"lithuania_nkl":10,
+    "plk":11,"poland_1liga":10,
+    "portugal_lpb":11,"portugal_proliga":10,
+    "romania_ln":10,
+    "serbia_kls":11,"serbia_2mls":10,
+    "acb":12,"spain_primera":11,"spain_segunda":11,
+    "sweden_super":10,"sweden_sbl":10,
+    "swiss_nlb":11,"swiss_sbl":10,
+    "bsl":12,"turkey_tbl":11,"turkey_tb2l":10,"turkey_tkbl_w":8,
+    "united_league":11,
+    "cba":13,"china_nbl":12,
+    "taipei_pleague":12,"taipei_sbl":11,"taipei_tpbl":11,
+    "bleague":12,"pba":13,"korea_kbl":12,
     "ausnbl":12,"nznbl":11,
     "fiba_wc":11,"fiba_eb":11,"fiba_ac":11,
     "unknown":12
   };
-  let vl = vlMap[league] || 12;
-  bAFT = applyVolatility(bAFT,aVol,vl);
-  bBFT = applyVolatility(bBFT,bVol,vl);
-  bAFT = (bAFT*0.85)+((eb/2)*0.15);
-  bBFT = (bBFT*0.85)+((eb/2)*0.15);
-
+  let vl=vlMap[league]||12;
+  bAFT=applyVolatility(bAFT,aVol,vl);bBFT=applyVolatility(bBFT,bVol,vl);
+  bAFT=(bAFT*0.85)+((eb/2)*0.15);bBFT=(bBFT*0.85)+((eb/2)*0.15);
   let rawFTPace;
-  if(fma) {
-    rawFTPace = (aS + aA + bS + bA) / (2 * eb);
-  } else if(!isNaN(bAFT)&&!isNaN(bBFT)) {
-    rawFTPace = (bAFT + bBFT) / eb;
-  } else {
-    rawFTPace = 1.0;
-  }
-  let pace = Math.max(cl.min, Math.min(cl.max, rawFTPace));
-  bAFT = bAFT*(0.5+pace/2);
-  bBFT = bBFT*(0.5+pace/2);
-
-  const homeEdge = {
+  if(fma){rawFTPace=(aS+aA+bS+bA)/(2*eb);}
+  else if(!isNaN(bAFT)&&!isNaN(bBFT)){rawFTPace=(bAFT+bBFT)/eb;}
+  else{rawFTPace=1.0;}
+  let pace=Math.max(cl.min,Math.min(cl.max,rawFTPace));
+  bAFT=bAFT*(0.5+pace/2);bBFT=bBFT*(0.5+pace/2);
+  const homeEdge={
     "nba":1.5,"ncaa":2.0,
-    "euroleague":1.5,"eurocup":1.5,"acb":1.8,"bsl":2.0,"lba":1.6,"bcl":1.6,"bbl":1.6,"proa":1.6,
-    "aba":1.5,"prob":1.4,"plk":1.4,"a2":1.4,"nbl_cz":1.3,"lkl":1.5,"isl":1.6,
+    "lnb":1.6,"nbb":1.6,"cebl":1.4,
     "bal":1.5,"nigeria":1.8,"rwanda":1.8,
-    "nbb":1.6,"lnb":1.6,"cebl":1.4,
-    "pba":1.5,"bleague":1.5,"cba":2.0,
+    "aba":1.5,"euroleague":1.5,"eurocup":1.5,"elbl":1.3,
+    "austria_zweite":1.4,"belgium_top":1.4,"bih_1st":1.4,"bulgaria_nbl":1.4,
+    "croatia_premier":1.4,"nbl_cz":1.3,"denmark_bliga":1.3,"england_slb":1.3,
+    "finland_koris":1.4,"finland_koris_w":1.3,
+    "proa":1.6,"prob":1.4,
+    "georgia_super":1.5,
+    "bbl":1.6,"germany_proa":1.5,"germany_prob":1.4,
+    "bcl":1.6,"a2":1.4,
+    "hungary_nb1":1.4,"isl":1.6,
+    "lba":1.6,"italy_a2":1.4,"italy_serb":1.3,
+    "lkl":1.5,"lithuania_nkl":1.3,
+    "plk":1.4,"poland_1liga":1.3,
+    "portugal_lpb":1.5,"portugal_proliga":1.3,
+    "romania_ln":1.4,
+    "serbia_kls":1.5,"serbia_2mls":1.3,
+    "acb":1.8,"spain_primera":1.6,"spain_segunda":1.5,
+    "sweden_super":1.3,"sweden_sbl":1.3,
+    "swiss_nlb":1.4,"swiss_sbl":1.3,
+    "bsl":2.0,"turkey_tbl":1.6,"turkey_tb2l":1.4,"turkey_tkbl_w":1.3,
+    "united_league":1.4,
+    "cba":2.0,"china_nbl":1.6,
+    "taipei_pleague":1.6,"taipei_sbl":1.4,"taipei_tpbl":1.4,
+    "bleague":1.5,"pba":1.5,"korea_kbl":1.5,
     "ausnbl":1.5,"nznbl":1.4,
     "fiba_wc":1.2,"fiba_eb":1.3,"fiba_ac":1.3,
     "unknown":1.5
   };
-  const hAdj = homeEdge[league] || 1.5;
-  if(!isNaN(bAFT)) bAFT += hAdj;
-  if(!isNaN(bBFT)) bBFT -= hAdj*0.5;
-
-  const injMultA = g_injA.restMult * g_injA.scoringMult;
-  const injMultB = g_injB.restMult * g_injB.scoringMult;
-  if(!isNaN(bAFT)&&injMultA!==1) bAFT *= injMultA;
-  if(!isNaN(bBFT)&&injMultB!==1) bBFT *= injMultB;
-
-  let ftP = (!isNaN(bAFT)&&!isNaN(bBFT)) ? bAFT+bBFT : NaN;
-  if(!isNaN(ftP)) {
-    if(Math.abs(bAFT-bBFT)>18) ftP*=0.98;
-    if(pgr) ftP*=0.97;
-    if(!isNaN(ftLine)){
-      const ftDiff=ftP-ftLine;
-      if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*0.55;
-      else if(Math.abs(ftDiff)>25) ftP=ftLine+ftDiff*0.50;
-    }
+  const hAdj=homeEdge[league]||1.5;
+  if(!isNaN(bAFT)) bAFT+=hAdj;if(!isNaN(bBFT)) bBFT-=hAdj*0.5;
+  const injMultA=g_injA.restMult*g_injA.scoringMult;const injMultB=g_injB.restMult*g_injB.scoringMult;
+  if(!isNaN(bAFT)&&injMultA!==1) bAFT*=injMultA;if(!isNaN(bBFT)&&injMultB!==1) bBFT*=injMultB;
+  let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
+  if(!isNaN(ftP)){
+    if(Math.abs(bAFT-bBFT)>18)ftP*=0.98;if(pgr)ftP*=0.97;
+    if(!isNaN(ftLine)){const ftDiff=ftP-ftLine;if(league==="nba"&&Math.abs(ftDiff)>18)ftP=ftLine+ftDiff*0.55;else if(Math.abs(ftDiff)>25)ftP=ftLine+ftDiff*0.50;}
   }
-
-  let h1P=NaN, h1Line=NaN;
-  let aVol1=0, bVol1=0, vl1=7, pgr1=false, dfr1=false;
-  const isNbaOrNcaa = league==="nba" || league==="ncaa";
-
+  let h1P=NaN,h1Line=NaN,aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
   if(isNbaOrNcaa){
-    const eb1H = eb/2;
-    h1Line = mid(document.getElementById("h1Market").value);
-    let a1HS=parseGames("a1HScored"), a1HA=parseGames("a1HAllowed");
-    let b1HS=parseGames("b1HScored"), b1HA=parseGames("b1HAllowed");
-    if(a1HS?.err) a1HS=null; if(a1HA?.err) a1HA=null;
-    if(b1HS?.err) b1HS=null; if(b1HA?.err) b1HA=null;
-
-    // FIX 2 — guard 1H arrays before calcAvg
-    let aS1 = safeArr(a1HS) ? weightedAvg(a1HS) : NaN;
-    let aA1 = safeArr(a1HA) ? weightedAvg(a1HA) : NaN;
-    let bS1 = safeArr(b1HS) ? weightedAvg(b1HS) : NaN;
-    let bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
-    let fma1 = !isNaN(aS1)&&!isNaN(aA1)&&!isNaN(bS1)&&!isNaN(bA1);
-
+    const eb1H=eb/2;h1Line=mid(document.getElementById("h1Market").value);
+    let a1HS=parseGames("a1HScored"),a1HA=parseGames("a1HAllowed"),b1HS=parseGames("b1HScored"),b1HA=parseGames("b1HAllowed");
+    if(a1HS?.err)a1HS=null;if(a1HA?.err)a1HA=null;if(b1HS?.err)b1HS=null;if(b1HA?.err)b1HA=null;
+    let aS1=safeArr(a1HS)?weightedAvg(a1HS):NaN;let aA1=safeArr(a1HA)?weightedAvg(a1HA):NaN;
+    let bS1=safeArr(b1HS)?weightedAvg(b1HS):NaN;let bA1=safeArr(b1HA)?weightedAvg(b1HA):NaN;
+    let fma1=!isNaN(aS1)&&!isNaN(aA1)&&!isNaN(bS1)&&!isNaN(bA1);
     if(fma1){
-      let bA1H = (aS1*0.60+bA1*0.40), bB1H = (bS1*0.60+aA1*0.40);
-      pgr1 = (!isNaN(aS1)&&!isNaN(bS1)&&Math.abs(aS1-bS1)>eb1H*0.10);
-
+      let bA1H=(aS1*0.60+bA1*0.40),bB1H=(bS1*0.60+aA1*0.40);
+      pgr1=(!isNaN(aS1)&&!isNaN(bS1)&&Math.abs(aS1-bS1)>eb1H*0.10);
       if(document.getElementById("use1HH2H").checked){
-        let h2ha1=parseGames("a1HH2H"), h2hb1=parseGames("b1HH2H");
-        if(h2ha1?.err) h2ha1=null; if(h2hb1?.err) h2hb1=null;
+        let h2ha1=parseGames("a1HH2H"),h2hb1=parseGames("b1HH2H");
+        if(h2ha1?.err)h2ha1=null;if(h2hb1?.err)h2hb1=null;
         if(h2ha1&&h2hb1&&h2ha1.length>=2&&h2hb1.length>=2){
           let w1=Math.min(0.30,dynamicWeight(h2ha1)+dynamicWeight(h2hb1));
-          let h2hA1avg=avg(h2ha1), h2hB1avg=avg(h2hb1);
-          if(!isNaN(bA1H)&&bA1H>0&&!isNaN(h2hA1avg)){
-            let dA1=Math.abs(h2hA1avg-bA1H)/bA1H;
-            let wA1=dA1>0.20?w1*0.5:w1;
-            bA1H=bA1H*(1-wA1)+h2hA1avg*wA1;
-          }
-          if(!isNaN(bB1H)&&bB1H>0&&!isNaN(h2hB1avg)){
-            let dB1=Math.abs(h2hB1avg-bB1H)/bB1H;
-            let wB1=dB1>0.20?w1*0.5:w1;
-            bB1H=bB1H*(1-wB1)+h2hB1avg*wB1;
-          }
+          let h2hA1avg=avg(h2ha1),h2hB1avg=avg(h2hb1);
+          if(!isNaN(bA1H)&&bA1H>0&&!isNaN(h2hA1avg)){let dA1=Math.abs(h2hA1avg-bA1H)/bA1H;let wA1=dA1>0.20?w1*0.5:w1;bA1H=bA1H*(1-wA1)+h2hA1avg*wA1;}
+          if(!isNaN(bB1H)&&bB1H>0&&!isNaN(h2hB1avg)){let dB1=Math.abs(h2hB1avg-bB1H)/bB1H;let wB1=dB1>0.20?w1*0.5:w1;bB1H=bB1H*(1-wB1)+h2hB1avg*wB1;}
         }
       }
-
-      let rawPace1H = (aS1 + aA1 + bS1 + bA1) / (2 * eb1H);
-      let pace1 = Math.max(cl.min, Math.min(cl.max, rawPace1H));
-      vl1 = {"nba":7,"ncaa":6}[league] || 7;
-      let aVol1raw = (stdDev(safeArr(a1HS)||[]) + stdDev(safeArr(a1HA)||[])) / 2;
-      let bVol1raw = (stdDev(safeArr(b1HS)||[]) + stdDev(safeArr(b1HA)||[])) / 2;
-      aVol1 = aVol1raw*0.6 + bVol1raw*0.4;
-      bVol1 = bVol1raw*0.6 + aVol1raw*0.4;
-      dfr1 = (!isNaN(aA1)&&aA1<eb1H*0.40) || (!isNaN(bA1)&&bA1<eb1H*0.40);
-      bA1H = applyVolatility(bA1H,aVol1,vl1);
-      bB1H = applyVolatility(bB1H,bVol1,vl1);
-      bA1H = (bA1H*0.85)+((eb1H/2)*0.15);
-      bB1H = (bB1H*0.85)+((eb1H/2)*0.15);
-      bA1H = bA1H*(0.5+pace1/2);
-      bB1H = bB1H*(0.5+pace1/2);
-
-      // FIX 7 — Apply home court adjustment to 1H projections (was missing)
-      if(!isNaN(bA1H)) bA1H += hAdj * 0.5;   // home team gets half the full hAdj in 1H
-      if(!isNaN(bB1H)) bB1H -= hAdj * 0.25;  // away team gets quarter dampener in 1H
-
-      if(!isNaN(bA1H)&&injMultA!==1) bA1H *= injMultA;
-      if(!isNaN(bB1H)&&injMultB!==1) bB1H *= injMultB;
-
-      h1P = bA1H + bB1H;
+      let rawPace1H=(aS1+aA1+bS1+bA1)/(2*eb1H);let pace1=Math.max(cl.min,Math.min(cl.max,rawPace1H));
+      vl1={"nba":7,"ncaa":6}[league]||7;
+      let aVol1raw=(stdDev(safeArr(a1HS)||[])+stdDev(safeArr(a1HA)||[]))/2;
+      let bVol1raw=(stdDev(safeArr(b1HS)||[])+stdDev(safeArr(b1HA)||[]))/2;
+      aVol1=aVol1raw*0.6+bVol1raw*0.4;bVol1=bVol1raw*0.6+aVol1raw*0.4;
+      dfr1=(!isNaN(aA1)&&aA1<eb1H*0.40)||(!isNaN(bA1)&&bA1<eb1H*0.40);
+      bA1H=applyVolatility(bA1H,aVol1,vl1);bB1H=applyVolatility(bB1H,bVol1,vl1);
+      bA1H=(bA1H*0.85)+((eb1H/2)*0.15);bB1H=(bB1H*0.85)+((eb1H/2)*0.15);
+      bA1H=bA1H*(0.5+pace1/2);bB1H=bB1H*(0.5+pace1/2);
+      if(!isNaN(bA1H))bA1H+=hAdj*0.5;if(!isNaN(bB1H))bB1H-=hAdj*0.25;
+      if(!isNaN(bA1H)&&injMultA!==1)bA1H*=injMultA;if(!isNaN(bB1H)&&injMultB!==1)bB1H*=injMultB;
+      h1P=bA1H+bB1H;
       if(!isNaN(h1P)){
-        if(Math.abs(bA1H-bB1H)>9) h1P*=0.98;
-        if(pgr1) h1P*=0.97;
-        if(!isNaN(h1Line)){
-          const h1Diff=h1P-h1Line;
-          if(league==="nba"&&Math.abs(h1Diff)>9) h1P=h1Line+h1Diff*0.55;
-          else if(league!=="nba"&&Math.abs(h1Diff)>12) h1P=h1Line+h1Diff*0.50;
-        }
+        if(Math.abs(bA1H-bB1H)>9)h1P*=0.98;if(pgr1)h1P*=0.97;
+        if(!isNaN(h1Line)){const h1Diff=h1P-h1Line;if(league==="nba"&&Math.abs(h1Diff)>9)h1P=h1Line+h1Diff*0.55;else if(league!=="nba"&&Math.abs(h1Diff)>12)h1P=h1Line+h1Diff*0.50;}
       }
     }
   }
-
-  let picks = [
-    {name:"FT Total",    proj:(aFTReady&&bFTReady)?ftP:NaN, line:ftLine, type:"ft_total", teamSc:null, aSc:aS, bSc:bS,
-     note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null},
-    {name:"1H Total",    proj:h1P, line:h1Line, type:"1h_total", teamSc:null, aSc:aS, bSc:bS},
-    {name:"Team A Total",proj:aFTReady?bAFT:NaN, line:aLine, type:"team", teamSc:aS, aSc:aS, bSc:bS,
-     note:!aFTReady?"Team A FT Scored + Allowed required":null},
-    {name:"Team B Total",proj:bFTReady?bBFT:NaN, line:bLine, type:"team", teamSc:bS, aSc:aS, bSc:bS,
-     note:!bFTReady?"Team B FT Scored + Allowed required":null}
+  let picks=[
+    {name:"FT Total",proj:(aFTReady&&bFTReady)?ftP:NaN,line:ftLine,type:"ft_total",teamSc:null,aSc:aS,bSc:bS,note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null},
+    {name:"1H Total",proj:h1P,line:h1Line,type:"1h_total",teamSc:null,aSc:aS,bSc:bS},
+    {name:"Team A Total",proj:aFTReady?bAFT:NaN,line:aLine,type:"team",teamSc:aS,aSc:aS,bSc:bS,note:!aFTReady?"Team A FT Scored + Allowed required":null},
+    {name:"Team B Total",proj:bFTReady?bBFT:NaN,line:bLine,type:"team",teamSc:bS,aSc:aS,bSc:bS,note:!bFTReady?"Team B FT Scored + Allowed required":null}
   ];
-
-  if(!isNbaOrNcaa||isNaN(h1P)) picks = picks.filter(p=>p.type!=="1h_total");
-
-  const finalPicks = picks.map((p,i) => {
-    let edge=NaN, pt="NaN", dn="";
-    if(p.note)    {dn=p.note; pt="&#8212;";}
-    else if(isNaN(p.line)) {dn="Missing / Invalid Line"; pt="&#8212;";}
-    else if(isNaN(p.proj)) {dn="Missing / Invalid Last-5 Data"; pt="&#8212;";}
-    else {
-      edge = p.proj - p.line;
-      pt = decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
-      if(p.type==="ft_total"&&pt.startsWith("OVER")){
-        if(pgr||dfr) pt="NO PLAY";
-        if(Math.abs(bAFT-bBFT)>20) pt="NO PLAY";
-        if(aVol>vl&&bVol>vl) pt="NO PLAY";
-      }
-      if(p.type==="team"&&pt.startsWith("OVER")&&dfr) pt="NO PLAY";
-      if(p.type==="1h_total"&&pt.startsWith("OVER")){
-        if(pgr1) pt="NO PLAY";
-        if(dfr1) pt="NO PLAY";
-        if(aVol1>vl1&&bVol1>vl1) pt="NO PLAY";
-      }
+  if(!isNbaOrNcaa||isNaN(h1P))picks=picks.filter(p=>p.type!=="1h_total");
+  const finalPicks=picks.map((p,i)=>{
+    let edge=NaN,pt="NaN",dn="";
+    if(p.note){dn=p.note;pt="&#8212;";}
+    else if(isNaN(p.line)){dn="Missing / Invalid Line";pt="&#8212;";}
+    else if(isNaN(p.proj)){dn="Missing / Invalid Last-5 Data";pt="&#8212;";}
+    else{
+      edge=p.proj-p.line;pt=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
+      if(p.type==="ft_total"&&pt.startsWith("OVER")){if(pgr||dfr)pt="NO PLAY";if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";if(aVol>vl&&bVol>vl)pt="NO PLAY";}
+      if(p.type==="team"&&pt.startsWith("OVER")&&dfr)pt="NO PLAY";
+      if(p.type==="1h_total"&&pt.startsWith("OVER")){if(pgr1)pt="NO PLAY";if(dfr1)pt="NO PLAY";if(aVol1>vl1&&bVol1>vl1)pt="NO PLAY";}
     }
     return {edge,pt,dn};
   });
-
-  // Lock: highest edge pick that passes 5.5% threshold
-  let li=-1, ms=0;
-  finalPicks.forEach(({edge,pt},i) => {
-    if(isNaN(edge)||!picks[i].line) return;
-    const pickReady = picks[i].type==="ft_total"   ? fma :
-                      picks[i].type==="1h_total"   ? true :
-                      picks[i].type==="team"        ? (picks[i].name==="Team A Total" ? aFTReady : bFTReady) : false;
-    let st = Math.abs(edge/picks[i].line);
+  let li=-1,ms=0;
+  finalPicks.forEach(({edge,pt},i)=>{
+    if(isNaN(edge)||!picks[i].line)return;
+    const pickReady=picks[i].type==="ft_total"?fma:picks[i].type==="1h_total"?true:picks[i].type==="team"?(picks[i].name==="Team A Total"?aFTReady:bFTReady):false;
+    let st=Math.abs(edge/picks[i].line);
     if(pickReady&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.055&&st>ms){ms=st;li=i;}
   });
-
-  finalPicks.forEach(({edge,pt,dn},i) => {
-    const p = picks[i];
-    let row = table.insertRow();
-    let pred = pt;
-    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;") pred += ` <span class="lock">&#128274;</span>`;
-    let pd = isNaN(p.proj)?"NaN":p.proj.toFixed(2);
-    let ed = isNaN(edge)?"NaN":edge.toFixed(2);
-    let cn = pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
-    row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
+  finalPicks.forEach(({edge,pt,dn},i)=>{
+    const p=picks[i];let row=table.insertRow();let pred=pt;
+    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;")pred+=` <span class="lock">&#128274;</span>`;
+    let pd=isNaN(p.proj)?"NaN":p.proj.toFixed(2);let ed=isNaN(edge)?"NaN":edge.toFixed(2);
+    let cn=pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
+    row.innerHTML=`<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
   });
-
-  table.style.display = "table";
-  setTimeout(() => {
-    table.style.display = "table";
-    table.scrollIntoView({behavior:"smooth",block:"start"});
-  }, 100);
+  table.style.display="table";
+  setTimeout(()=>{table.style.display="table";table.scrollIntoView({behavior:"smooth",block:"start"});},100);
 }
 
-function clearAll() {
-  document.querySelectorAll("input").forEach(i => { if(i.type!=="checkbox") i.value=""; else i.checked=false; });
-  document.querySelectorAll("input").forEach(i => i.style.borderColor="");
-  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id => document.getElementById(id).style.display="none");
-  ["injuryBoxA","injuryBoxB"].forEach(id => document.getElementById(id).style.display="none");
-  g_injA={restMult:1,scoringMult:1,notes:[]};
-  g_injB={restMult:1,scoringMult:1,notes:[]};
-  _sbCache.clear(); // FIX 6: clear scoreboard cache on reset
-  setStatus("","");
-  const t = document.getElementById("results");
-  t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
-  t.style.display = "none";
+function clearAll(){
+  document.querySelectorAll("input").forEach(i=>{if(i.type!=="checkbox")i.value="";else i.checked=false;});
+  document.querySelectorAll("input").forEach(i=>i.style.borderColor="");
+  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id=>document.getElementById(id).style.display="none");
+  ["injuryBoxA","injuryBoxB"].forEach(id=>document.getElementById(id).style.display="none");
+  g_injA={restMult:1,scoringMult:1,notes:[]};g_injB={restMult:1,scoringMult:1,notes:[]};
+  _sbCache.clear();setStatus("","");
+  const t=document.getElementById("results");
+  t.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+  t.style.display="none";
 }
 
-// FIX 5 — Ensure DOM is ready before calling onLeagueChange
-document.addEventListener("DOMContentLoaded", () => {
-  onLeagueChange();
-});
+document.addEventListener("DOMContentLoaded",()=>{onLeagueChange();});
 </script>
 
 </body>
