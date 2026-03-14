@@ -187,14 +187,16 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
       <input id="a1HH2H" placeholder="41,39,43,38,41">
       <input id="b1HH2H" placeholder="39,41,38,42,39">
     </div>
-  </div></div><div class="btn-row">
+  </div></div>
+<div class="btn-row">
   <button onclick="runEngine()">Run</button>
   <button onclick="clearAll()">Clear</button>
-</div><div class="table-wrap">
+</div>
+<div class="table-wrap">
 <table id="results" style="display:none;">
   <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
 </table>
-</div></div><script>
+</div><script>
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const _sbCache = new Map();
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
@@ -1159,7 +1161,8 @@ const p=picks[i];let row=table.insertRow();let pred=pt;
 if(i===li&&pt!==“NO PLAY”&&pt!==“NaN”&&pt!==”—”)pred+=` <span class="lock">&#128274;</span>`;
 let pd=isNaN(p.proj)?“NaN”:p.proj.toFixed(2);let ed=isNaN(edge)?“NaN”:edge.toFixed(2);
 let cn=pred.startsWith(“OVER”)?“pred-over”:pred.startsWith(“UNDER”)?“pred-under”:“pred-noplay”;
-row.innerHTML=`<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${dn}</small>`:""}</td>`;
+var dnHtml=dn?’<br><small class="error-note">’+dn+’</small>’:””;
+row.innerHTML=’<td>’+p.name+’</td><td>’+pd+’</td><td>’+ed+’</td><td class="'+cn+'">’+pred+dnHtml+’</td>’;
 });
 table.style.display=“table”;
 setTimeout(()=>{table.style.display=“table”;table.scrollIntoView({behavior:“smooth”,block:“start”});},100);
