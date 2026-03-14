@@ -1181,6 +1181,13 @@ t.style.display=“none”;
 }
 
 document.addEventListener(“DOMContentLoaded”,()=>{onLeagueChange();});
+window.onerror=function(msg,src,line,col,err){
+var d=document.createElement(“div”);
+d.style.cssText=“background:#8b1e1e;color:#fff;font-size:12px;padding:8px;margin:6px;word-break:break-all;”;
+d.textContent=“JS ERROR: “+msg+” (line “+line+”)”;
+document.body.appendChild(d);
+return false;
+};
 </script></body>
 
 </html>
