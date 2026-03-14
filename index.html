@@ -187,7 +187,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
       <input id="a1HH2H" placeholder="41,39,43,38,41">
       <input id="b1HH2H" placeholder="39,41,38,42,39">
     </div>
-  </div></div>
+  </div>
 <div class="btn-row">
   <button onclick="runEngine()">Run</button>
   <button onclick="clearAll()">Clear</button>
@@ -196,7 +196,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 <table id="results" style="display:none;">
   <tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>
 </table>
-</div><script>
+</div></div><script>
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const _sbCache = new Map();
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
@@ -1181,13 +1181,6 @@ t.style.display=“none”;
 }
 
 document.addEventListener(“DOMContentLoaded”,()=>{onLeagueChange();});
-window.onerror=function(msg,src,line,col,err){
-var d=document.createElement(“div”);
-d.style.cssText=“background:#8b1e1e;color:#fff;font-size:12px;padding:8px;margin:6px;word-break:break-all;”;
-d.textContent=“JS ERROR: “+msg+” (line “+line+”)”;
-document.body.appendChild(d);
-return false;
-};
 </script></body>
 
 </html>
