@@ -350,7 +350,7 @@ const SETKA_TID_WOMEN = 15005;
 async function buildSetkaMap(){
   if(setkaMapLoaded||setkaMapLoading) return;
   setkaMapLoading=true;
-  tt_setStatus('<span class="spinner"></span>Loading today's Setka Cup matches...','loading');
+  tt_setStatus('<span class="spinner"></span>Loading Setka Cup players...','loading');
   try{
     const allPlayers={};
     function indexPlayer(p){
@@ -414,70 +414,51 @@ async function tt_searchInput(side){
       seen.add(String(id));
       results.push({id:String(id),name,sport:sport||''});
     }
-    // 1. Local map from Setka Cup events (most reliable)
     for(const player of Object.values(SETKA_MAP)){
       if(player.name.toLowerCase().includes(q)){
         addR(player.id,player.name,'Table Tennis');
         if(results.length>=8) break;
       }
     }
-    // 2. Search via SofaScore suggest endpoint (more reliable than search/all)
-    if(results.length<5){
-      try{
-        // Try suggest endpoint - returns player suggestions
-        const d=await proxyFetch('https://api.sofascore.com/api/v1/search/all?q='+encodeURIComponent(val)+'&sport=table-tennis').catch(()=>null);
-        if(d){
-          for(const r of (d?.results||d?.players||[])){
-            const ent=r.entity||r;
-            if(ent?.id&&ent?.name) addR(ent.id,ent.name,(ent.sport?.name||ent.sport?.slug||'Table Tennis'));
-            if(results.length>=12) break;
-          }
-        }
-      }catch(e){}
-    }
-    // 3. Try the general search as last resort
-    if(results.length<3){
-      try{
-        const d=await proxyFetch('https://api.sofascore.com/api/v1/search/all?q='+encodeURIComponent(val)).catch(()=>null);
-        if(d){
-          for(const r of (d?.results||[])){
-            if(r.type==='player'&&r.entity?.id&&r.entity?.name){
-              addR(r.entity.id,r.entity.name,(r.entity?.sport?.name||r.entity?.sport?.slug||''));
-            }
-            if(results.length>=12) break;
-          }
-        }
-      }catch(e){}
-    }
+    try{
+      const d=await proxyFetch('https://api.sofascore.com/api/v1/search/all?q='+encodeURIComponent(val)).catch(()=>null);
+      if(d){for(const r of(d?.results||[])){if(r.type==='player'&&r.entity?.id&&r.entity?.name){addR(r.entity.id,r.entity.name,(r.entity?.sport?.name||''));}if(results.length>=12)break;}}
+    }catch(e){}
     if(!results.length){
-      drop.innerHTML='<div class="sd-loading">Not found — check spelling or try surname only</div>';
+      drop.innerHTML='<div class="sd-loading">Not found — try surname only</div>';
       return;
     }
-    // Sort TT players first
     results.sort((a,b)=>{
-      const at=a.sport.toLowerCase().includes('table')||a.sport.toLowerCase().includes('ping')||a.sport==='';
-      const bt=b.sport.toLowerCase().includes('table')||b.sport.toLowerCase().includes('ping')||b.sport==='';
+      const at=a.sport.toLowerCase().includes('table');
+      const bt=b.sport.toLowerCase().includes('table');
       return (bt?1:0)-(at?1:0);
     });
-    drop.innerHTML=results.slice(0,10).map(p=>{
-      const isTT=p.sport.toLowerCase().includes('table')||p.sport.toLowerCase().includes('ping')||p.sport==='';
-      const stag=p.sport&&!isTT?' <span style="color:#666;font-size:9px;">('+p.sport+')</span>':'';
-      const sid=p.id.replace(/['"]/g,''),snm=p.name.replace(/'/g,'&apos;');
-      return '<div class="sd-item" onclick="tt_selectPlayer(''+side+'',''+sid+'',''+snm+'')">'+p.name+stag+'</div>';
-    }).join('');
+    // Use data attributes to avoid all quote escaping
+    drop.innerHTML='';
+    results.slice(0,10).forEach(function(p){
+      const isTT=p.sport.toLowerCase().includes('table')||p.sport==='';
+      const div=document.createElement('div');
+      div.className='sd-item';
+      div.textContent=p.name+(p.sport&&!isTT?' ('+p.sport+')':'');
+      div.dataset.id=p.id;
+      div.dataset.name=p.name;
+      div.dataset.side=side;
+      div.addEventListener('click',function(){
+        tt_selectPlayer(this.dataset.side,this.dataset.id,this.dataset.name);
+      });
+      drop.appendChild(div);
+    });
     drop.style.display='block';
   },500);
 }
 
-
 function tt_selectPlayer(side,id,name){
-  document.getElementById(`tt-search${side}`).value=name;
-  document.getElementById(`tt-player${side}Id`).value=id;
-  document.getElementById(`tt-player${side}Name`).value=name;
-  document.getElementById(`tt-drop${side}`).style.display='none';
+  document.getElementById('tt-search'+side).value=name;
+  document.getElementById('tt-player'+side+'Id').value=id;
+  document.getElementById('tt-player'+side+'Name').value=name;
+  document.getElementById('tt-drop'+side).style.display='none';
 }
 
-// Close dropdowns on outside click
 document.addEventListener('click',e=>{
   if(!e.target.closest('.search-wrap')){
     document.querySelectorAll('.search-dropdown').forEach(d=>d.style.display='none');
