@@ -148,6 +148,7 @@ small.err-note{color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <div id="bb-fetchStatus" class="status-box"></div>
     <div class="inj-box" id="bb-injuryBoxA"><div class="inj-title">Team A — Injury &amp; Rest</div><div id="bb-injuryContentA"></div></div>
     <div class="inj-box" id="bb-injuryBoxB"><div class="inj-title">Team B — Injury &amp; Rest</div><div id="bb-injuryContentB"></div></div>
+    <div id="tt-debug" style="background:#0a0a0a;border:1px solid #333;padding:8px;margin-top:8px;font-size:10px;font-family:monospace;color:#aaa;display:none;max-height:200px;overflow-y:auto;word-break:break-all;"></div>
   </div>
 
   <div class="section">
@@ -223,6 +224,7 @@ small.err-note{color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <br>
     <button class="fetch-btn" id="tt-fetchBtn" onclick="tt_fetchPlayers()" style="margin-top:8px;">📡 Fetch Stats</button>
     <div id="tt-fetchStatus" class="status-box"></div>
+    <div id="tt-debug" style="background:#0a0a0a;border:1px solid #333;padding:8px;margin-top:8px;font-size:10px;font-family:monospace;color:#aaa;display:none;max-height:200px;overflow-y:auto;word-break:break-all;"></div>
   </div>
 
   <div class="section">
@@ -319,6 +321,19 @@ function switchTab(s){
 }
 
 // ── PROXY ─────────────────────────────────────────────────────────────────────
+// DEBUG
+function dbg(msg){
+  var box = document.getElementById('tt-debug');
+  if(!box) return;
+  box.style.display = 'block';
+  var line = document.createElement('div');
+  line.style.borderBottom = '1px solid #222';
+  line.style.padding = '2px 0';
+  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
 async function proxyFetch(url,ms=12000){
   const ctrl=new AbortController();
   const t=setTimeout(()=>ctrl.abort(),ms);
@@ -342,33 +357,53 @@ const SETKA_TID_MEN = 15004;
 const SETKA_TID_WOMEN = 15005;
 
 async function tt_findPlayerInEvents(name){
-  // Search through Setka Cup recent events to find player by name
   var q = name.toLowerCase().trim();
-  var found = null;
-  for(var tid of [15004, 15005]){
-    for(var pg = 0; pg < 10; pg++){
-      try{
-        var d = await proxyFetch('https://api.sofascore.com/api/v1/unique-tournament/'+tid+'/events/last/'+pg).catch(function(){return null;});
-        if(!d || !d.events || !d.events.length) break;
-        for(var ev of d.events){
-          var home = ev.homeTeam || ev.homePlayer;
-          var away = ev.awayTeam || ev.awayPlayer;
-          if(home && home.name && home.name.toLowerCase().includes(q)){
-            found = {id: String(home.id), name: home.name};
-            break;
-          }
-          if(away && away.name && away.name.toLowerCase().includes(q)){
-            found = {id: String(away.id), name: away.name};
-            break;
-          }
-        }
-        if(found) break;
-      }catch(e){ break; }
+  dbg('Searching for: ' + name);
+  for(var k in SETKA_MAP){
+    if(SETKA_MAP[k].name.toLowerCase().includes(q)){
+      dbg('Found in map: ' + SETKA_MAP[k].name + ' id=' + SETKA_MAP[k].id);
+      return SETKA_MAP[k];
     }
-    if(found) break;
   }
-  return found;
+  dbg('Not in map, scanning events...');
+  var tids = [15004, 15005];
+  for(var t = 0; t < tids.length; t++){
+    var tid = tids[t];
+    dbg('Fetching tid='+tid+' pages 0-3...');
+    var pages = await Promise.allSettled([0,1,2,3].map(function(pg){
+      return proxyFetch('https://api.sofascore.com/api/v1/unique-tournament/'+tid+'/events/last/'+pg).catch(function(e){
+        dbg('Page '+pg+' error: '+e.message);
+        return null;
+      });
+    }));
+    var totalEvents = 0;
+    for(var p = 0; p < pages.length; p++){
+      var d = pages[p].status === 'fulfilled' ? pages[p].value : null;
+      if(!d){ dbg('Page '+p+' returned null'); continue; }
+      if(!d.events){ dbg('Page '+p+' no events key. Keys: '+Object.keys(d).join(',')); continue; }
+      totalEvents += d.events.length;
+      for(var i = 0; i < d.events.length; i++){
+        var ev = d.events[i];
+        var home = ev.homeTeam || ev.homePlayer;
+        var away = ev.awayTeam || ev.awayPlayer;
+        if(home && home.name && home.name.toLowerCase().includes(q)){
+          dbg('FOUND: ' + home.name + ' id=' + home.id);
+          SETKA_MAP[home.name.toLowerCase()] = {id:String(home.id), name:home.name};
+          return {id:String(home.id), name:home.name};
+        }
+        if(away && away.name && away.name.toLowerCase().includes(q)){
+          dbg('FOUND: ' + away.name + ' id=' + away.id);
+          SETKA_MAP[away.name.toLowerCase()] = {id:String(away.id), name:away.name};
+          return {id:String(away.id), name:away.name};
+        }
+      }
+    }
+    dbg('tid='+tid+' scanned '+totalEvents+' events, not found');
+  }
+  dbg('Player not found anywhere');
+  return null;
 }
+
 
 async function tt_fetchPlayers(){
   const nameA = document.getElementById('tt-searchA').value.trim();
@@ -424,8 +459,9 @@ async function tt_fetchPlayers(){
     tt_setStatus(msgs.map(function(m){return '<div>'+m+'</div>';}).join(''),'ok');
   }catch(e){
     tt_setStatus('❌ '+e.message,'err');
+  }finally{
+    btn.disabled=false;
   }
-  btn.disabled=false;
 }
 
 
