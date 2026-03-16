@@ -212,18 +212,12 @@ small.err-note{color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 
   <div class="section">
     <h3>⚡ Player Auto-Fetch <span style="font-size:11px;color:#aaa;">(SofaScore · Setka Cup)</span></h3>
-    <label class="lbl">Player A — type name, pick from list</label>
-    <div class="search-wrap">
-      <input id="tt-searchA" class="inp" style="max-width:100%;" placeholder="e.g. Levchenko Dmytro" oninput="tt_searchInput('A')" autocomplete="off">
-      <div class="search-dropdown" id="tt-dropA"></div>
-    </div>
+    <label class="lbl">Player A Name (surname or full name)</label>
+    <input id="tt-searchA" class="inp" placeholder="e.g. Levchenko or Levchenko Dmytro" autocomplete="off">
     <input type="hidden" id="tt-playerAId">
     <input type="hidden" id="tt-playerAName">
-    <label class="lbl" style="margin-top:8px;">Player B — type name, pick from list</label>
-    <div class="search-wrap">
-      <input id="tt-searchB" class="inp" style="max-width:100%;" placeholder="e.g. Pitsyk Serhii" oninput="tt_searchInput('B')" autocomplete="off">
-      <div class="search-dropdown" id="tt-dropB"></div>
-    </div>
+    <label class="lbl" style="margin-top:8px;">Player B Name (surname or full name)</label>
+    <input id="tt-searchB" class="inp" placeholder="e.g. Pitsyk or Pitsyk Serhii" autocomplete="off">
     <input type="hidden" id="tt-playerBId">
     <input type="hidden" id="tt-playerBName">
     <br>
@@ -347,228 +341,75 @@ let setkaMapLoading = false;
 const SETKA_TID_MEN = 15004;
 const SETKA_TID_WOMEN = 15005;
 
-async function buildSetkaMap(){
-  if(setkaMapLoaded||setkaMapLoading) return;
-  setkaMapLoading=true;
-  tt_setStatus('<span class="spinner"></span>Loading Setka Cup players...','loading');
-  try{
-    const allPlayers={};
-    function indexPlayer(p){
-      if(!p||!p.id||!p.name) return;
-      const name=p.name.trim();
-      const key=name.toLowerCase();
-      if(!allPlayers[key]) allPlayers[key]={id:String(p.id),name};
-      name.split(/\s+/).forEach(function(part){
-        if(part.length>2){
-          const pk=part.toLowerCase();
-          if(!allPlayers[pk]) allPlayers[pk]={id:String(p.id),name};
-        }
-      });
-    }
-    // Fetch last events from Setka Cup - this endpoint works without auth
-    var pages = [0,1,2,3,4,5];
-    for(var t=0;t<2;t++){
-      var tid = t===0 ? 15004 : 15005;
-      for(var pg=0;pg<pages.length;pg++){
-        try{
-          var d = await proxyFetch('https://api.sofascore.com/api/v1/unique-tournament/'+tid+'/events/last/'+pages[pg]).catch(function(){return null;});
-          if(!d||!d.events||!d.events.length) break;
-          d.events.forEach(function(ev){
-            indexPlayer(ev.homeTeam||ev.homePlayer);
-            indexPlayer(ev.awayTeam||ev.awayPlayer);
-          });
-        }catch(e){ break; }
-      }
-    }
-    SETKA_MAP=allPlayers;
-    setkaMapLoaded=true;
-    var count=Object.values(allPlayers).reduce(function(acc,v,i,arr){
-      return acc+(arr.findIndex(function(x){return x.id===v.id;})===i?1:0);
-    },0);
-    if(count>0){
-      tt_setStatus('Players loaded: '+count+' — type to search','ok');
-    } else {
-      tt_setStatus('Type player name to search','loading');
-    }
-  }catch(e){
-    setkaMapLoaded=true;
-    tt_setStatus('Type player name to search','loading');
-  }
-  setkaMapLoading=false;
-}
-
-async function tt_searchInput(side){
-  const input=document.getElementById('tt-search'+side);
-  const drop=document.getElementById('tt-drop'+side);
-  const val=input.value.trim();
-  document.getElementById('tt-player'+side+'Id').value='';
-  document.getElementById('tt-player'+side+'Name').value='';
-  if(val.length<2){drop.style.display='none';return;}
-  clearTimeout(searchTimers[side]);
-  searchTimers[side]=setTimeout(async function(){
-    drop.innerHTML='<div class="sd-loading"><span class="spinner"></span>Searching...</div>';
-    drop.style.display='block';
-    var results=[];
-    var seen={};
-    var q=val.toLowerCase();
-    // Search local map built from real Setka Cup events
-    Object.values(SETKA_MAP).forEach(function(player){
-      if(player.name.toLowerCase().includes(q)&&!seen[player.id]){
-        seen[player.id]=true;
-        results.push({id:player.id,name:player.name});
-      }
-    });
-    // If map is empty or no results, try fetching today's events fresh
-    if(results.length===0&&!setkaMapLoaded){
-      await buildSetkaMap();
-      Object.values(SETKA_MAP).forEach(function(player){
-        if(player.name.toLowerCase().includes(q)&&!seen[player.id]){
-          seen[player.id]=true;
-          results.push({id:player.id,name:player.name});
-        }
-      });
-    }
-    if(results.length===0){
-      // Last resort: try fetching a specific page looking for this player
+async function tt_findPlayerInEvents(name){
+  // Search through Setka Cup recent events to find player by name
+  var q = name.toLowerCase().trim();
+  var found = null;
+  for(var tid of [15004, 15005]){
+    for(var pg = 0; pg < 10; pg++){
       try{
-        for(var pg=0;pg<8;pg++){
-          var d=await proxyFetch('https://api.sofascore.com/api/v1/unique-tournament/15004/events/last/'+pg).catch(function(){return null;});
-          if(!d||!d.events) break;
-          d.events.forEach(function(ev){
-            var home=ev.homeTeam||ev.homePlayer;
-            var away=ev.awayTeam||ev.awayPlayer;
-            if(home&&home.name&&home.name.toLowerCase().includes(q)&&!seen[String(home.id)]){
-              seen[String(home.id)]=true;
-              results.push({id:String(home.id),name:home.name});
-            }
-            if(away&&away.name&&away.name.toLowerCase().includes(q)&&!seen[String(away.id)]){
-              seen[String(away.id)]=true;
-              results.push({id:String(away.id),name:away.name});
-            }
-          });
-          if(results.length>=3) break;
+        var d = await proxyFetch('https://api.sofascore.com/api/v1/unique-tournament/'+tid+'/events/last/'+pg).catch(function(){return null;});
+        if(!d || !d.events || !d.events.length) break;
+        for(var ev of d.events){
+          var home = ev.homeTeam || ev.homePlayer;
+          var away = ev.awayTeam || ev.awayPlayer;
+          if(home && home.name && home.name.toLowerCase().includes(q)){
+            found = {id: String(home.id), name: home.name};
+            break;
+          }
+          if(away && away.name && away.name.toLowerCase().includes(q)){
+            found = {id: String(away.id), name: away.name};
+            break;
+          }
         }
-      }catch(e){}
+        if(found) break;
+      }catch(e){ break; }
     }
-    if(results.length===0){
-      drop.innerHTML='<div class="sd-loading">Not found — player may not have recent matches</div>';
-      return;
-    }
-    drop.innerHTML='';
-    results.slice(0,10).forEach(function(p){
-      var div=document.createElement('div');
-      div.className='sd-item';
-      div.textContent=p.name;
-      div.dataset.id=p.id;
-      div.dataset.name=p.name;
-      div.dataset.side=side;
-      div.addEventListener('click',function(){
-        tt_selectPlayer(this.dataset.side,this.dataset.id,this.dataset.name);
-      });
-      drop.appendChild(div);
-    });
-    drop.style.display='block';
-  },500);
-}
-
-
-
-function tt_selectPlayer(side,id,name){
-  document.getElementById('tt-search'+side).value=name;
-  document.getElementById('tt-player'+side+'Id').value=id;
-  document.getElementById('tt-player'+side+'Name').value=name;
-  document.getElementById('tt-drop'+side).style.display='none';
-}
-
-document.addEventListener('click',e=>{
-  if(!e.target.closest('.search-wrap')){
-    document.querySelectorAll('.search-dropdown').forEach(d=>d.style.display='none');
+    if(found) break;
   }
-});
-
-// ── TT FETCH ──────────────────────────────────────────────────────────────────
-function tt_setStatus(msg,type){const el=document.getElementById("tt-fetchStatus");el.className="status-box "+type;el.innerHTML=msg;}
-function tt_clearAutoFill(){["tt-aAutoTag","tt-bAutoTag","tt-h2hAutoTag"].forEach(id=>document.getElementById(id).style.display="none");tt_setStatus("","");}
-
-async function tt_fetchLastEvents(pid){
-  const all=[];
-  for(let page=0;page<=2;page++){
-    try{const d=await proxyFetch(`https://api.sofascore.com/api/v1/player/${pid}/events/last/${page}`);const evs=(d?.events||[]).filter(e=>e.status?.type==='finished');all.push(...evs);if(all.length>=15)break;}catch(e){break;}
-  }
-  return all.slice(0,15);
-}
-
-function ttClassify(h,a){const w=Math.max(h,a),l=Math.min(h,a);if(w>=12)return'deuce';if(l>=9)return'close';if(l>=7)return'medium';return'blowout';}
-
-function tt_computeStats(events,pid){
-  const pidS=String(pid);
-  const allST=[],g1T=[];
-  let blowout=0,closeS=0,deuce=0,tot=0,scored=0,allowed=0,sc=0,collapse=0;
-  const md={r30:0,r31:0,r32:0,total:0};
-  for(const ev of events){
-    const hId=String(ev.homeTeam?.id||ev.homePlayer?.id||'');
-    const aId=String(ev.awayTeam?.id||ev.awayPlayer?.id||'');
-    const isHome=hId===pidS,isAway=aId===pidS;
-    if(!isHome&&!isAway)continue;
-    const hs=ev.homeScore||{},as_=ev.awayScore||{};
-    const myMP=isHome?(parseInt(hs.current)||0):(parseInt(as_.current)||0);
-    const oppMP=isHome?(parseInt(as_.current)||0):(parseInt(hs.current)||0);
-    if(myMP+oppMP>=3){md.total++;const diff=Math.abs(myMP-oppMP);if(diff===3)md.r30++;else if(diff===2)md.r31++;else if(diff===1)md.r32++;}
-    const sets=[];
-    for(let i=1;i<=7;i++){const hv=hs[`period${i}`],av=as_[`period${i}`];if(hv==null||av==null)break;const h=parseInt(hv)||0,a=parseInt(av)||0;if(!h&&!a)break;sets.push({h,a});}
-    sets.forEach((s,idx)=>{const myP=isHome?s.h:s.a,oppP=isHome?s.a:s.h,t=s.h+s.a;allST.push(t);scored+=myP;allowed+=oppP;sc++;tot++;const cls=ttClassify(s.h,s.a);if(cls==='blowout')blowout++;else if(cls==='close')closeS++;else if(cls==='deuce')deuce++;if(oppP>myP&&oppP-myP>=5)collapse++;if(idx===0)g1T.push(t);});
-  }
-  if(sc<3)return null;
-  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN;
-  const med=a=>{if(!a.length)return NaN;const s=[...a].sort((x,y)=>x-y);const m=Math.floor(s.length/2);return s.length%2?s[m]:(s[m-1]+s[m])/2;};
-  const sd=a=>{if(a.length<2)return 0;const m=avg(a);return Math.sqrt(a.reduce((x,y)=>x+Math.pow(y-m,2),0)/(a.length-1));};
-  return{avgScored:scored/sc,avgAllowed:allowed/sc,avgSetTotal:avg(allST),medianSet:med(allST),stdDevSet:sd(allST),avgG1:avg(g1T),medianG1:med(g1T),blowoutRate:Math.round(blowout/tot*100),closeRate:Math.round(closeS/tot*100),deuceRate:Math.round(deuce/tot*100),collapseRate:Math.round(collapse/tot*100),r30:md.total?Math.round(md.r30/md.total*100):0,r31:md.total?Math.round(md.r31/md.total*100):0,r32:md.total?Math.round(md.r32/md.total*100):0,matchCount:events.length,setCount:sc};
-}
-
-function tt_fillForm(p,s){
-  const f=v=>isFinite(v)?v.toFixed(1):'';
-  document.getElementById(`tt-${p}AvgScored`).value=f(s.avgScored);
-  document.getElementById(`tt-${p}AvgAllowed`).value=f(s.avgAllowed);
-  document.getElementById(`tt-${p}MedianSet`).value=f(s.medianSet);
-  document.getElementById(`tt-${p}AvgG1`).value=f(s.avgG1);
-  document.getElementById(`tt-${p}MedianG1`).value=f(s.medianG1);
-  document.getElementById(`tt-${p}Blowout`).value=s.blowoutRate;
-  document.getElementById(`tt-${p}Close`).value=s.closeRate;
-  document.getElementById(`tt-${p}Deuce`).value=s.deuceRate;
-  document.getElementById(`tt-${p}MatchDist`).value=`${s.r30},${s.r31},${s.r32}`;
-  document.getElementById(`tt-${p}StdDev`).value=f(s.stdDevSet);
-}
-
-async function tt_fetchH2H(idA,idB){
-  try{
-    const d=await proxyFetch(`https://api.sofascore.com/api/v1/player/${idA}/events/last/0`);
-    const events=(d?.events||[]).filter(e=>{if(e.status?.type!=='finished')return false;const h=String(e.homeTeam?.id||e.homePlayer?.id||'');const a=String(e.awayTeam?.id||e.awayPlayer?.id||'');return h===String(idB)||a===String(idB);});
-    if(!events.length)return null;
-    const st=[],g1=[];let deuce=0,ts=0,r32=0,total=0;
-    for(const ev of events.slice(0,8)){const hs=ev.homeScore||{},as_=ev.awayScore||{};const hw=parseInt(hs.current)||0,aw=parseInt(as_.current)||0;if(hw+aw>=3){total++;if(Math.abs(hw-aw)===1)r32++;}for(let i=1;i<=7;i++){const hv=hs[`period${i}`],av=as_[`period${i}`];if(hv==null||av==null)break;const h=parseInt(hv)||0,a=parseInt(av)||0;if(!h&&!a)break;st.push(h+a);ts++;if(ttClassify(h,a)==='deuce')deuce++;if(i===1)g1.push(h+a);}}
-    if(!st.length)return null;
-    const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:NaN;
-    return{avgSetTotal:avg(st),avgG1Total:avg(g1),deuceRate:ts?Math.round(deuce/ts*100):0,r32rate:total?Math.round(r32/total*100):0,matchCount:events.slice(0,8).length};
-  }catch(e){return null;}
+  return found;
 }
 
 async function tt_fetchPlayers(){
-  const idA=document.getElementById('tt-playerAId').value.trim();
-  const idB=document.getElementById('tt-playerBId').value.trim();
-  const nameA=document.getElementById('tt-searchA').value.trim();
-  const nameB=document.getElementById('tt-searchB').value.trim();
-  if(!nameA||!nameB){tt_setStatus('❌ Type player names and select from the dropdown.','err');return;}
-  if(!idA||!idB){tt_setStatus('❌ Select a player from the dropdown list for both players.','err');return;}
-  const btn=document.getElementById('tt-fetchBtn');btn.disabled=true;
-  tt_setStatus('<span class="spinner"></span>Fetching match histories...','loading');
+  const nameA = document.getElementById('tt-searchA').value.trim();
+  const nameB = document.getElementById('tt-searchB').value.trim();
+  if(!nameA || !nameB){
+    tt_setStatus('❌ Enter both player names.','err');
+    return;
+  }
+  const btn = document.getElementById('tt-fetchBtn');
+  btn.disabled = true;
+
+  // Check if IDs already selected from dropdown, else find by scanning events
+  var idA = document.getElementById('tt-playerAId').value.trim();
+  var idB = document.getElementById('tt-playerBId').value.trim();
+
   try{
+    if(!idA){
+      tt_setStatus('<span class="spinner"></span>Finding '+nameA+' in Setka Cup...','loading');
+      var pA = await tt_findPlayerInEvents(nameA);
+      if(!pA) throw new Error('"'+nameA+'" not found in recent Setka Cup matches. Check spelling.');
+      idA = pA.id;
+      document.getElementById('tt-playerAId').value = idA;
+      document.getElementById('tt-searchA').value = pA.name;
+    }
+    if(!idB){
+      tt_setStatus('<span class="spinner"></span>Finding '+nameB+' in Setka Cup...','loading');
+      var pB = await tt_findPlayerInEvents(nameB);
+      if(!pB) throw new Error('"'+nameB+'" not found in recent Setka Cup matches. Check spelling.');
+      idB = pB.id;
+      document.getElementById('tt-playerBId').value = idB;
+      document.getElementById('tt-searchB').value = pB.name;
+    }
+
+    tt_setStatus('<span class="spinner"></span>Fetching match histories...','loading');
     const[evA,evB]=await Promise.all([tt_fetchLastEvents(idA),tt_fetchLastEvents(idB)]);
     const sA=tt_computeStats(evA,idA),sB=tt_computeStats(evB,idB);
     const msgs=[];
-    if(sA){tt_fillForm('a',sA);document.getElementById('tt-aAutoTag').style.display='inline';msgs.push(`${nameA}: ${sA.matchCount} matches · ${sA.setCount} sets ✅`);}
-    else msgs.push(`${nameA}: not enough data ⚠️`);
-    if(sB){tt_fillForm('b',sB);document.getElementById('tt-bAutoTag').style.display='inline';msgs.push(`${nameB}: ${sB.matchCount} matches · ${sB.setCount} sets ✅`);}
-    else msgs.push(`${nameB}: not enough data ⚠️`);
+    if(sA){tt_fillForm('a',sA);document.getElementById('tt-aAutoTag').style.display='inline';msgs.push(document.getElementById('tt-searchA').value+': '+sA.matchCount+' matches, '+sA.setCount+' sets ✅');}
+    else msgs.push(nameA+': not enough data ⚠️');
+    if(sB){tt_fillForm('b',sB);document.getElementById('tt-bAutoTag').style.display='inline';msgs.push(document.getElementById('tt-searchB').value+': '+sB.matchCount+' matches, '+sB.setCount+' sets ✅');}
+    else msgs.push(nameB+': not enough data ⚠️');
     tt_setStatus('<span class="spinner"></span>Checking H2H...','loading');
     const h2h=await tt_fetchH2H(idA,idB);
     if(h2h&&h2h.matchCount>=2){
@@ -578,12 +419,18 @@ async function tt_fetchPlayers(){
       document.getElementById('tt-h2h32rate').value=h2h.r32rate;
       document.getElementById('tt-useH2H').checked=true;
       document.getElementById('tt-h2hAutoTag').style.display='inline';
-      msgs.push(`H2H: ${h2h.matchCount} matches ✅`);
-    }else msgs.push('H2H: no recent data');
-    tt_setStatus(msgs.map(m=>`<div>${m}</div>`).join(''),'ok');
-  }catch(e){tt_setStatus('❌ '+e.message,'err');}
-  finally{btn.disabled=false;}
+      msgs.push('H2H: '+h2h.matchCount+' matches ✅');
+    } else msgs.push('H2H: no recent data');
+    tt_setStatus(msgs.map(function(m){return '<div>'+m+'</div>';}).join(''),'ok');
+  }catch(e){
+    tt_setStatus('❌ '+e.message,'err');
+  }
+  btn.disabled=false;
 }
+
+
+
+
 
 // ── TT ENGINE ─────────────────────────────────────────────────────────────────
 function ttPf(v){const n=parseFloat(v);return isFinite(n)?n:NaN;}
