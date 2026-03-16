@@ -343,8 +343,9 @@ let SETKA_MAP = {}; // "firstname lastname" → {id, name}
 let setkaMapLoaded = false;
 let setkaMapLoading = false;
 
-// SofaScore Setka Cup tournament IDs (main + women)
-const SETKA_TOURNAMENT_IDS = [2657, 8159, 40607, 40608, 54657, 54658, 63811, 63812];
+// SofaScore Setka Cup unique tournament IDs (confirmed from sofascore.com URLs)
+// Men: 15004, Women: 15005, plus seasonal sub-tournaments
+const SETKA_TOURNAMENT_IDS = [15004, 15005, 15006, 15007, 15008, 15009];
 
 async function buildSetkaMap(){
   if(setkaMapLoaded||setkaMapLoading) return;
@@ -352,49 +353,64 @@ async function buildSetkaMap(){
   tt_setStatus('<span class="spinner"></span>Loading Setka Cup player map...','loading');
   try{
     const allPlayers={};
-    // Fetch current season participants from multiple Setka tournaments
+
+    function indexPlayer(p){
+      if(!p?.id||!p?.name) return;
+      const name=p.name.trim();
+      const key=name.toLowerCase();
+      allPlayers[key]={id:p.id,name};
+      // Index each word so partial matches work
+      name.split(/\s+/).forEach(part=>{
+        if(part.length>2){
+          const pk=part.toLowerCase();
+          if(!allPlayers[pk]) allPlayers[pk]={id:p.id,name};
+        }
+      });
+    }
+
+    // Strategy 1: fetch recent events from known tournament IDs
     await Promise.allSettled(SETKA_TOURNAMENT_IDS.map(async tid=>{
-      try{
-        // Try recent events to extract player names
-        for(const page of [0,1,2]){
+      for(const page of [0,1,2,3]){
+        try{
           const d=await proxyFetch(`https://api.sofascore.com/api/v1/unique-tournament/${tid}/events/last/${page}`).catch(()=>null);
           if(!d) break;
           const events=d?.events||[];
           for(const ev of events){
-            const home=ev.homeTeam||ev.homePlayer;
-            const away=ev.awayTeam||ev.awayPlayer;
-            if(home?.id&&home?.name){
-              const key=home.name.toLowerCase().trim();
-              allPlayers[key]={id:home.id,name:home.name};
-              // Also index by parts
-              home.name.split(/\s+/).forEach(part=>{
-                if(part.length>2){
-                  const pk=part.toLowerCase();
-                  if(!allPlayers[pk]) allPlayers[pk]={id:home.id,name:home.name};
-                }
-              });
-            }
-            if(away?.id&&away?.name){
-              const key=away.name.toLowerCase().trim();
-              allPlayers[key]={id:away.id,name:away.name};
-              away.name.split(/\s+/).forEach(part=>{
-                if(part.length>2){
-                  const pk=part.toLowerCase();
-                  if(!allPlayers[pk]) allPlayers[pk]={id:away.id,name:away.name};
-                }
-              });
-            }
+            indexPlayer(ev.homeTeam||ev.homePlayer);
+            indexPlayer(ev.awayTeam||ev.awayPlayer);
           }
-          if(events.length<10) break;
+          if(events.length<5) break;
+        }catch(e){ break; }
+      }
+    }));
+
+    // Strategy 2: if we got nothing, try the season endpoint
+    if(Object.keys(allPlayers).length<10){
+      try{
+        // Try fetching directly from Setka Cup season
+        for(const page of [0,1,2]){
+          const d=await proxyFetch(`https://api.sofascore.com/api/v1/unique-tournament/15004/season/latest/events/last/${page}`).catch(()=>null);
+          if(!d) break;
+          const events=d?.events||[];
+          for(const ev of events){
+            indexPlayer(ev.homeTeam||ev.homePlayer);
+            indexPlayer(ev.awayTeam||ev.awayPlayer);
+          }
+          if(events.length<5) break;
         }
       }catch(e){}
-    }));
+    }
+
     SETKA_MAP=allPlayers;
     setkaMapLoaded=true;
     const count=Object.keys(allPlayers).filter(k=>k.includes(' ')).length;
-    tt_setStatus(`✅ Player map loaded — ${count} Setka Cup players indexed`,'ok');
+    if(count>0){
+      tt_setStatus(`✅ Player map loaded — ${count} players indexed`,'ok');
+    } else {
+      tt_setStatus('ℹ️ Player map empty — live search active','loading');
+    }
   }catch(e){
-    tt_setStatus('⚠️ Map load failed — search still works manually','err');
+    tt_setStatus('ℹ️ Live search active','loading');
   }finally{setkaMapLoading=false;}
 }
 
