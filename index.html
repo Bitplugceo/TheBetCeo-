@@ -354,46 +354,48 @@ async function buildSetkaMap(){
   try{
     const allPlayers={};
     function indexPlayer(p){
-      if(!p?.id||!p?.name) return;
+      if(!p||!p.id||!p.name) return;
       const name=p.name.trim();
-      allPlayers[name.toLowerCase()]={id:String(p.id),name};
-      name.split(/\s+/).forEach(part=>{
-        if(part.length>2&&!allPlayers[part.toLowerCase()])
-          allPlayers[part.toLowerCase()]={id:String(p.id),name};
+      const key=name.toLowerCase();
+      if(!allPlayers[key]) allPlayers[key]={id:String(p.id),name};
+      name.split(/\s+/).forEach(function(part){
+        if(part.length>2){
+          const pk=part.toLowerCase();
+          if(!allPlayers[pk]) allPlayers[pk]={id:String(p.id),name};
+        }
       });
     }
-    // Fetch today's Setka Cup events - this endpoint is reliable and doesn't need auth
-    const today=new Date().toISOString().slice(0,10);
-    await Promise.allSettled([SETKA_TID_MEN,SETKA_TID_WOMEN].map(async tid=>{
-      for(let page=0;page<=5;page++){
+    // Fetch last events from Setka Cup - this endpoint works without auth
+    var pages = [0,1,2,3,4,5];
+    for(var t=0;t<2;t++){
+      var tid = t===0 ? 15004 : 15005;
+      for(var pg=0;pg<pages.length;pg++){
         try{
-          const d=await proxyFetch(`https://api.sofascore.com/api/v1/unique-tournament/${tid}/events/last/${page}`).catch(()=>null);
-          if(!d) break;
-          const evs=d?.events||[];
-          if(!evs.length) break;
-          evs.forEach(ev=>{
+          var d = await proxyFetch('https://api.sofascore.com/api/v1/unique-tournament/'+tid+'/events/last/'+pages[pg]).catch(function(){return null;});
+          if(!d||!d.events||!d.events.length) break;
+          d.events.forEach(function(ev){
             indexPlayer(ev.homeTeam||ev.homePlayer);
             indexPlayer(ev.awayTeam||ev.awayPlayer);
           });
         }catch(e){ break; }
       }
-    }));
+    }
     SETKA_MAP=allPlayers;
     setkaMapLoaded=true;
-    const count=Object.values(allPlayers).filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i).length;
+    var count=Object.values(allPlayers).reduce(function(acc,v,i,arr){
+      return acc+(arr.findIndex(function(x){return x.id===v.id;})===i?1:0);
+    },0);
     if(count>0){
-      tt_setStatus('✅ '+count+' Setka Cup players loaded','ok');
+      tt_setStatus('Players loaded: '+count+' — type to search','ok');
     } else {
-      tt_setStatus('ℹ️ Type player name to search live','loading');
+      tt_setStatus('Type player name to search','loading');
     }
   }catch(e){
     setkaMapLoaded=true;
-    tt_setStatus('ℹ️ Type player name to search live','loading');
-  }finally{setkaMapLoading=false;}
+    tt_setStatus('Type player name to search','loading');
+  }
+  setkaMapLoading=false;
 }
-
-// ── SEARCH PLAYERS WITH DROPDOWN ──────────────────────────────────────────────
-let searchTimers={A:null,B:null};
 
 async function tt_searchInput(side){
   const input=document.getElementById('tt-search'+side);
@@ -403,43 +405,60 @@ async function tt_searchInput(side){
   document.getElementById('tt-player'+side+'Name').value='';
   if(val.length<2){drop.style.display='none';return;}
   clearTimeout(searchTimers[side]);
-  searchTimers[side]=setTimeout(async()=>{
+  searchTimers[side]=setTimeout(async function(){
     drop.innerHTML='<div class="sd-loading"><span class="spinner"></span>Searching...</div>';
     drop.style.display='block';
-    const results=[];
-    const seen=new Set();
-    const q=val.toLowerCase();
-    function addR(id,name,sport){
-      if(!id||!name||seen.has(String(id)))return;
-      seen.add(String(id));
-      results.push({id:String(id),name,sport:sport||''});
-    }
-    for(const player of Object.values(SETKA_MAP)){
-      if(player.name.toLowerCase().includes(q)){
-        addR(player.id,player.name,'Table Tennis');
-        if(results.length>=8) break;
+    var results=[];
+    var seen={};
+    var q=val.toLowerCase();
+    // Search local map built from real Setka Cup events
+    Object.values(SETKA_MAP).forEach(function(player){
+      if(player.name.toLowerCase().includes(q)&&!seen[player.id]){
+        seen[player.id]=true;
+        results.push({id:player.id,name:player.name});
       }
+    });
+    // If map is empty or no results, try fetching today's events fresh
+    if(results.length===0&&!setkaMapLoaded){
+      await buildSetkaMap();
+      Object.values(SETKA_MAP).forEach(function(player){
+        if(player.name.toLowerCase().includes(q)&&!seen[player.id]){
+          seen[player.id]=true;
+          results.push({id:player.id,name:player.name});
+        }
+      });
     }
-    try{
-      const d=await proxyFetch('https://api.sofascore.com/api/v1/search/all?q='+encodeURIComponent(val)).catch(()=>null);
-      if(d){for(const r of(d?.results||[])){if(r.type==='player'&&r.entity?.id&&r.entity?.name){addR(r.entity.id,r.entity.name,(r.entity?.sport?.name||''));}if(results.length>=12)break;}}
-    }catch(e){}
-    if(!results.length){
-      drop.innerHTML='<div class="sd-loading">Not found — try surname only</div>';
+    if(results.length===0){
+      // Last resort: try fetching a specific page looking for this player
+      try{
+        for(var pg=0;pg<8;pg++){
+          var d=await proxyFetch('https://api.sofascore.com/api/v1/unique-tournament/15004/events/last/'+pg).catch(function(){return null;});
+          if(!d||!d.events) break;
+          d.events.forEach(function(ev){
+            var home=ev.homeTeam||ev.homePlayer;
+            var away=ev.awayTeam||ev.awayPlayer;
+            if(home&&home.name&&home.name.toLowerCase().includes(q)&&!seen[String(home.id)]){
+              seen[String(home.id)]=true;
+              results.push({id:String(home.id),name:home.name});
+            }
+            if(away&&away.name&&away.name.toLowerCase().includes(q)&&!seen[String(away.id)]){
+              seen[String(away.id)]=true;
+              results.push({id:String(away.id),name:away.name});
+            }
+          });
+          if(results.length>=3) break;
+        }
+      }catch(e){}
+    }
+    if(results.length===0){
+      drop.innerHTML='<div class="sd-loading">Not found — player may not have recent matches</div>';
       return;
     }
-    results.sort((a,b)=>{
-      const at=a.sport.toLowerCase().includes('table');
-      const bt=b.sport.toLowerCase().includes('table');
-      return (bt?1:0)-(at?1:0);
-    });
-    // Use data attributes to avoid all quote escaping
     drop.innerHTML='';
     results.slice(0,10).forEach(function(p){
-      const isTT=p.sport.toLowerCase().includes('table')||p.sport==='';
-      const div=document.createElement('div');
+      var div=document.createElement('div');
       div.className='sd-item';
-      div.textContent=p.name+(p.sport&&!isTT?' ('+p.sport+')':'');
+      div.textContent=p.name;
       div.dataset.id=p.id;
       div.dataset.name=p.name;
       div.dataset.side=side;
@@ -451,6 +470,8 @@ async function tt_searchInput(side){
     drop.style.display='block';
   },500);
 }
+
+
 
 function tt_selectPlayer(side,id,name){
   document.getElementById('tt-search'+side).value=name;
