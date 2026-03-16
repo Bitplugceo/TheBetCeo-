@@ -343,74 +343,52 @@ let SETKA_MAP = {}; // "firstname lastname" → {id, name}
 let setkaMapLoaded = false;
 let setkaMapLoading = false;
 
-// SofaScore Setka Cup unique tournament IDs (confirmed from sofascore.com URLs)
-// Men: 15004, Women: 15005, plus seasonal sub-tournaments
-const SETKA_TOURNAMENT_IDS = [15004, 15005, 15006, 15007, 15008, 15009];
+// Setka Cup SofaScore IDs
+const SETKA_TID_MEN = 15004;
+const SETKA_TID_WOMEN = 15005;
 
 async function buildSetkaMap(){
   if(setkaMapLoaded||setkaMapLoading) return;
   setkaMapLoading=true;
-  tt_setStatus('<span class="spinner"></span>Loading Setka Cup player map...','loading');
+  tt_setStatus('<span class="spinner"></span>Loading today's Setka Cup matches...','loading');
   try{
     const allPlayers={};
-
     function indexPlayer(p){
       if(!p?.id||!p?.name) return;
       const name=p.name.trim();
-      const key=name.toLowerCase();
-      allPlayers[key]={id:p.id,name};
-      // Index each word so partial matches work
+      allPlayers[name.toLowerCase()]={id:String(p.id),name};
       name.split(/\s+/).forEach(part=>{
-        if(part.length>2){
-          const pk=part.toLowerCase();
-          if(!allPlayers[pk]) allPlayers[pk]={id:p.id,name};
-        }
+        if(part.length>2&&!allPlayers[part.toLowerCase()])
+          allPlayers[part.toLowerCase()]={id:String(p.id),name};
       });
     }
-
-    // Strategy 1: fetch recent events from known tournament IDs
-    await Promise.allSettled(SETKA_TOURNAMENT_IDS.map(async tid=>{
-      for(const page of [0,1,2,3]){
+    // Fetch today's Setka Cup events - this endpoint is reliable and doesn't need auth
+    const today=new Date().toISOString().slice(0,10);
+    await Promise.allSettled([SETKA_TID_MEN,SETKA_TID_WOMEN].map(async tid=>{
+      for(let page=0;page<=5;page++){
         try{
           const d=await proxyFetch(`https://api.sofascore.com/api/v1/unique-tournament/${tid}/events/last/${page}`).catch(()=>null);
           if(!d) break;
-          const events=d?.events||[];
-          for(const ev of events){
+          const evs=d?.events||[];
+          if(!evs.length) break;
+          evs.forEach(ev=>{
             indexPlayer(ev.homeTeam||ev.homePlayer);
             indexPlayer(ev.awayTeam||ev.awayPlayer);
-          }
-          if(events.length<5) break;
+          });
         }catch(e){ break; }
       }
     }));
-
-    // Strategy 2: if we got nothing, try the season endpoint
-    if(Object.keys(allPlayers).length<10){
-      try{
-        // Try fetching directly from Setka Cup season
-        for(const page of [0,1,2]){
-          const d=await proxyFetch(`https://api.sofascore.com/api/v1/unique-tournament/15004/season/latest/events/last/${page}`).catch(()=>null);
-          if(!d) break;
-          const events=d?.events||[];
-          for(const ev of events){
-            indexPlayer(ev.homeTeam||ev.homePlayer);
-            indexPlayer(ev.awayTeam||ev.awayPlayer);
-          }
-          if(events.length<5) break;
-        }
-      }catch(e){}
-    }
-
     SETKA_MAP=allPlayers;
     setkaMapLoaded=true;
-    const count=Object.keys(allPlayers).filter(k=>k.includes(' ')).length;
+    const count=Object.values(allPlayers).filter((v,i,a)=>a.findIndex(x=>x.id===v.id)===i).length;
     if(count>0){
-      tt_setStatus(`✅ Player map loaded — ${count} players indexed`,'ok');
+      tt_setStatus('✅ '+count+' Setka Cup players loaded','ok');
     } else {
-      tt_setStatus('ℹ️ Player map empty — live search active','loading');
+      tt_setStatus('ℹ️ Type player name to search live','loading');
     }
   }catch(e){
-    tt_setStatus('ℹ️ Live search active','loading');
+    setkaMapLoaded=true;
+    tt_setStatus('ℹ️ Type player name to search live','loading');
   }finally{setkaMapLoading=false;}
 }
 
@@ -418,59 +396,79 @@ async function buildSetkaMap(){
 let searchTimers={A:null,B:null};
 
 async function tt_searchInput(side){
-  const input=document.getElementById(`tt-search${side}`);
-  const drop=document.getElementById(`tt-drop${side}`);
+  const input=document.getElementById('tt-search'+side);
+  const drop=document.getElementById('tt-drop'+side);
   const val=input.value.trim();
-
-  // Clear hidden ID if user is typing again
-  document.getElementById(`tt-player${side}Id`).value='';
-  document.getElementById(`tt-player${side}Name`).value='';
-
+  document.getElementById('tt-player'+side+'Id').value='';
+  document.getElementById('tt-player'+side+'Name').value='';
   if(val.length<2){drop.style.display='none';return;}
-
   clearTimeout(searchTimers[side]);
   searchTimers[side]=setTimeout(async()=>{
     drop.innerHTML='<div class="sd-loading"><span class="spinner"></span>Searching...</div>';
     drop.style.display='block';
-
     const results=[];
+    const seen=new Set();
     const q=val.toLowerCase();
-
-    // 1. Check local Setka map first
-    for(const [key,player] of Object.entries(SETKA_MAP)){
-      if(key.includes(q)||player.name.toLowerCase().includes(q)){
-        if(!results.find(r=>r.id===player.id)) results.push(player);
+    function addR(id,name,sport){
+      if(!id||!name||seen.has(String(id)))return;
+      seen.add(String(id));
+      results.push({id:String(id),name,sport:sport||''});
+    }
+    // 1. Local map from Setka Cup events (most reliable)
+    for(const player of Object.values(SETKA_MAP)){
+      if(player.name.toLowerCase().includes(q)){
+        addR(player.id,player.name,'Table Tennis');
         if(results.length>=8) break;
       }
     }
-
-    // 2. If not enough from map, query SofaScore live
-    if(results.length<3){
+    // 2. Search via SofaScore suggest endpoint (more reliable than search/all)
+    if(results.length<5){
       try{
-        const d=await proxyFetch(`https://api.sofascore.com/api/v1/search/all?q=${encodeURIComponent(val)}`);
-        for(const r of (d?.results||[])){
-          if(r.type==='player'&&r.entity?.id&&r.entity?.name){
-            if(!results.find(x=>x.id===r.entity.id)){
-              results.push({id:r.entity.id,name:r.entity.name,sport:r.entity?.sport?.name||''});
-            }
+        // Try suggest endpoint - returns player suggestions
+        const d=await proxyFetch('https://api.sofascore.com/api/v1/search/all?q='+encodeURIComponent(val)+'&sport=table-tennis').catch(()=>null);
+        if(d){
+          for(const r of (d?.results||d?.players||[])){
+            const ent=r.entity||r;
+            if(ent?.id&&ent?.name) addR(ent.id,ent.name,(ent.sport?.name||ent.sport?.slug||'Table Tennis'));
+            if(results.length>=12) break;
           }
-          if(results.length>=10) break;
         }
       }catch(e){}
     }
-
+    // 3. Try the general search as last resort
+    if(results.length<3){
+      try{
+        const d=await proxyFetch('https://api.sofascore.com/api/v1/search/all?q='+encodeURIComponent(val)).catch(()=>null);
+        if(d){
+          for(const r of (d?.results||[])){
+            if(r.type==='player'&&r.entity?.id&&r.entity?.name){
+              addR(r.entity.id,r.entity.name,(r.entity?.sport?.name||r.entity?.sport?.slug||''));
+            }
+            if(results.length>=12) break;
+          }
+        }
+      }catch(e){}
+    }
     if(!results.length){
-      drop.innerHTML='<div class="sd-loading">No players found</div>';
+      drop.innerHTML='<div class="sd-loading">Not found — check spelling or try surname only</div>';
       return;
     }
-
-    drop.innerHTML=results.map(p=>`
-      <div class="sd-item" onclick="tt_selectPlayer('${side}','${p.id}','${p.name.replace(/'/g,"\\'")}')">
-        ${p.name}${p.sport&&!p.sport.toLowerCase().includes('table')?` <span style="color:#555;font-size:9px;">(${p.sport})</span>`:''}
-      </div>`).join('');
+    // Sort TT players first
+    results.sort((a,b)=>{
+      const at=a.sport.toLowerCase().includes('table')||a.sport.toLowerCase().includes('ping')||a.sport==='';
+      const bt=b.sport.toLowerCase().includes('table')||b.sport.toLowerCase().includes('ping')||b.sport==='';
+      return (bt?1:0)-(at?1:0);
+    });
+    drop.innerHTML=results.slice(0,10).map(p=>{
+      const isTT=p.sport.toLowerCase().includes('table')||p.sport.toLowerCase().includes('ping')||p.sport==='';
+      const stag=p.sport&&!isTT?' <span style="color:#666;font-size:9px;">('+p.sport+')</span>':'';
+      const sid=p.id.replace(/['"]/g,''),snm=p.name.replace(/'/g,'&apos;');
+      return '<div class="sd-item" onclick="tt_selectPlayer(''+side+'',''+sid+'',''+snm+'')">'+p.name+stag+'</div>';
+    }).join('');
     drop.style.display='block';
-  },300);
+  },500);
 }
+
 
 function tt_selectPlayer(side,id,name){
   document.getElementById(`tt-search${side}`).value=name;
