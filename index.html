@@ -54,11 +54,55 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 .autocomplete-list div {padding:7px 10px;font-size:12px;cursor:pointer;color:#d4af37;}
 .autocomplete-list div:hover,.autocomplete-list div.active {background:#d4af37;color:#111;}
 .autocomplete-list div.group-label {color:#888;font-size:10px;padding:4px 8px;cursor:default;background:#111;pointer-events:none;}
+
+/* ── Tabs ── */
+.tab-bar {display:flex;border-bottom:2px solid #d4af37;margin-bottom:8px;}
+.tab-btn {flex:1;padding:8px 0;font-size:13px;font-weight:bold;background:#111;color:#888;border:none;cursor:pointer;letter-spacing:0.5px;}
+.tab-btn.active {background:#1a1a1a;color:#d4af37;border-bottom:2px solid #d4af37;margin-bottom:-2px;}
+.tab-panel {display:none;}
+.tab-panel.active {display:block;}
+
+/* ── Auto-Scan ── */
+.scan-controls {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.scan-btn {background:#1e5fa8;color:#fff;padding:6px 14px;font-size:12px;font-weight:bold;border:1px solid #4a9eff;cursor:pointer;}
+.scan-btn:disabled {opacity:0.5;cursor:not-allowed;}
+.scan-btn.stop {background:#8b1e1e;border-color:#ff6b6b;}
+#scanStatus {font-size:11px;color:#aaa;min-height:16px;margin-bottom:6px;}
+#scanStatus.ok {color:#2ecc71;}
+#scanStatus.err {color:#ff6b6b;}
+#scanStatus.loading {color:#d4af37;}
+.scan-results-wrap {overflow-x:auto;}
+#scanTable {width:100%;border-collapse:collapse;font-size:11px;display:none;}
+#scanTable th {background:#1a1a1a;color:#d4af37;border:1px solid #d4af37;padding:6px;text-align:center;position:sticky;top:0;}
+#scanTable td {border:1px solid #333;padding:5px 6px;text-align:center;color:#ccc;}
+#scanTable tr.has-play td {color:#fff;}
+#scanTable tr.is-lock {background:#1a2a1a;}
+.scan-over {color:#2ecc71;font-weight:bold;}
+.scan-under {color:#ff6b6b;font-weight:bold;}
+.scan-noplay {color:#555;}
+.scan-lock-icon {margin-left:3px;}
+.progress-bar-wrap {background:#222;border:1px solid #444;height:6px;border-radius:3px;margin-bottom:6px;display:none;}
+.progress-bar {height:6px;background:#d4af37;border-radius:3px;width:0%;transition:width 0.3s;}
+.scan-summary {font-size:11px;color:#aaa;margin-top:6px;display:none;}
+.scan-summary b {color:#d4af37;}
 </style>
 
 </head>
 <body>
 <h1>&#127936; Basketball Prediction Engine</h1>
+
+<!-- Tab Bar -->
+
+<div style="max-width:760px;margin:0 auto;padding:0 10px;">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('manual')">⚙️ Manual</button>
+    <button class="tab-btn" onclick="switchTab('autoscan')">🔍 Auto-Scan</button>
+  </div>
+</div>
+
+<!-- MANUAL TAB -->
+
+<div id="tab-manual" class="tab-panel active">
 <div class="wrapper">
 
   <div class="section">
@@ -229,6 +273,73 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 </table>
 </div>
 
+</div><!-- /tab-manual -->
+
+<!-- AUTO-SCAN TAB -->
+
+<div id="tab-autoscan" class="tab-panel">
+<div class="wrapper">
+
+  <div class="section">
+    <h3 style="font-size:15px;">🔍 Auto-Scan Today's Games</h3>
+    <p style="font-size:11px;color:#aaa;margin:0 0 8px 0;">
+      Automatically fetches all games scheduled today, runs the V4 engine on each one, and surfaces picks with edge.
+    </p>
+
+```
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+  <label style="font-size:12px;margin:0;">League</label>
+  <select id="scanLeague" class="league-box" style="margin:0;width:auto;">
+    <option value="nba">NBA</option>
+    <option value="ncaa">NCAA</option>
+  </select>
+  <label style="font-size:12px;margin:0;">Min Edge %</label>
+  <select id="scanMinEdge" class="league-box" style="margin:0;width:auto;">
+    <option value="0.045">4.5%</option>
+    <option value="0.050">5.0%</option>
+    <option value="0.055">5.5%</option>
+    <option value="0.060">6.0%</option>
+  </select>
+  <label style="font-size:12px;margin:0;">Show</label>
+  <select id="scanFilter" class="league-box" style="margin:0;width:auto;">
+    <option value="all">All Games</option>
+    <option value="picks">Picks Only</option>
+    <option value="locks">Locks Only</option>
+  </select>
+</div>
+
+<button class="scan-btn" id="scanBtn" onclick="startAutoScan()">▶ Scan Today's Games</button>
+<button class="scan-btn stop" id="scanStopBtn" onclick="stopAutoScan()" style="display:none;">■ Stop</button>
+
+<div class="progress-bar-wrap" id="scanProgressWrap">
+  <div class="progress-bar" id="scanProgress"></div>
+</div>
+<div id="scanStatus"></div>
+<div class="scan-summary" id="scanSummary"></div>
+```
+
+  </div>
+
+  <div class="scan-results-wrap">
+    <table id="scanTable">
+      <thead>
+        <tr>
+          <th>Matchup</th>
+          <th>FT Total</th>
+          <th>Proj</th>
+          <th>Edge</th>
+          <th>Pick</th>
+          <th>Team A Total</th>
+          <th>Team B Total</th>
+        </tr>
+      </thead>
+      <tbody id="scanBody"></tbody>
+    </table>
+  </div>
+
+</div>
+</div><!-- /tab-autoscan -->
+
 <script>
 // ── Constants ────────────────────────────────────────────────
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
@@ -240,7 +351,7 @@ const MODEL = {
   REGRESSION_WEIGHT: 0.85,
   BASELINE_WEIGHT: 0.15,
   PACE_BLEND: 0.5,
-  H2H_MAX_WEIGHT: 0.30,
+  H2H_MAX_WEIGHT: 0.25,
   H2H_DIVERGE_THRESHOLD: 0.20,
   LINE_ANCHOR_NBA: 0.55,
   LINE_ANCHOR_OTHER: 0.50,
@@ -248,7 +359,9 @@ const MODEL = {
   PACE_SUPPRESS: 0.97,
 };
 
-const _sbCache = new Map();
+const _sbCache = new Map();      // scoreboard date cache
+const _schedCache = new Map();   // team schedule cache
+const _summaryCache = new Map(); // game summary cache
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
 let g_injB = {restMult:1, scoringMult:1, notes:[]};
 
@@ -257,6 +370,20 @@ function safeText(str) {
   const d = document.createElement("div");
   d.textContent = str;
   return d.innerHTML;
+}
+
+function extractFirstHalf(lm, lo) {
+  if (!lm || !lo || lm.length === 0) return [0, 0];
+  if (lm.length === 2) {
+    // Halves format (NCAA standard)
+    return [readVal(lm[0]), readVal(lo[0])];
+  }
+  if (lm.length >= 4) {
+    // Quarters format (NBA, some NCAA) — sum Q1+Q2
+    return [readVal(lm[0]) + readVal(lm[1]), readVal(lo[0]) + readVal(lo[1])];
+  }
+  // Single period — best guess
+  return [readVal(lm[0]), readVal(lo[0])];
 }
 
 function readVal(p) {
@@ -546,7 +673,8 @@ async function fetchNextGameDate(base, teamId) {
   for (const season of ["2026","2025"]) {
     for (const stype of ["2","3"]) {
       try {
-        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(()=>({}));
+        const _sk = `sched:${teamId}:${season}:${stype}`;
+        const r = await (_schedCache.has(_sk) ? _schedCache.get(_sk) : (()=>{const p=proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(()=>({}));_schedCache.set(_sk,p);return p;})());
         const events = r?.events || r?.team?.schedule?.events || [];
         events.sort((a,b) => new Date(a.date||0) - new Date(b.date||0));
         for (const ev of events) {
@@ -610,7 +738,8 @@ async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nex
       const adjStr=impact>0.005?` → -${(impact*100).toFixed(1)}% offense`:"";
       result.notes.push({type:isOut?"out":"dtd",text:`${playerName}${ppgStr} — ${tag}${adjStr}`});
     }
-    result.scoringMult=1-Math.min(totalReduction,0.35);
+    const maxInjCap = league === "nba" ? 0.25 : 0.20;
+    result.scoringMult=1-Math.min(totalReduction, maxInjCap);
   } catch(e) {}
   return result;
 }
@@ -666,7 +795,7 @@ const NCAA_TEAM_MAP = {
   "brown":225,"brown bears":225,
   "bryant":2803,"bryant bulldogs":2803,
   "bucknell":2083,"bucknell bison":2083,
-  "buffalo":2870,"buffalo bulls":2870,
+  "buffalo":2055,"buffalo bulls":2055,
   "butler":2086,"butler bulldogs":2086,
   "byu":252,"byu cougars":252,
 
@@ -766,7 +895,7 @@ const NCAA_TEAM_MAP = {
   "idaho state":304,"idaho state bengals":304,
   "illinois":356,"illinois fighting illini":356,
   "illinois state":2287,"illinois state redbirds":2287,
-  "incarnate word":2439,"uiw":2439,"incarnate word cardinals":2439,
+  "incarnate word":2750,"uiw":2750,"incarnate word cardinals":2750,
   "indiana":84,"hoosiers":84,"indiana hoosiers":84,
   "indiana state":282,"indiana state sycamores":282,
   "iona":314,"iona gaels":314,
@@ -921,7 +1050,7 @@ const NCAA_TEAM_MAP = {
   "saint peter's":2612,"st. peter's":2612,"saint peters peacocks":2612,
   "sam houston":3163,"sam houston state":3163,"sam houston bearkats":3163,
   "samford":2535,"samford bulldogs":2535,
-  "san diego":2515,"san diego toreros":2515,
+  "san diego":2544,"san diego toreros":2544,
   "san diego state":21,"sdsu":21,"aztecs":21,"san diego state aztecs":21,
   "san francisco":2539,"usf dons":2539,"san francisco dons":2539,
   "san jose state":23,"sjsu":23,"san jose state spartans":23,
@@ -937,7 +1066,7 @@ const NCAA_TEAM_MAP = {
   "south dakota":2569,"south dakota coyotes":2569,
   "south dakota state":2571,"sdsu jackrabbits":2571,"south dakota state jackrabbits":2571,
   "south florida":58,"usf bulls":58,"south florida bulls":58,
-  "southeast missouri state":2655,"semo":2655,"semo redhawks":2655,"southeast missouri state redhawks":2655,
+  "southeast missouri state":116,"semo":116,"semo redhawks":116,"southeast missouri state redhawks":116,
   "southeastern louisiana":2566,"selu":2566,"southeastern louisiana lions":2566,
   "southern":2574,"southern university":2574,"southern jaguars":2574,
   "southern illinois":2565,"siu":2565,"southern illinois salukis":2565,
@@ -965,7 +1094,7 @@ const NCAA_TEAM_MAP = {
   "texas state":2642,"texas state bobcats":2642,
   "texas tech":2641,"texas tech red raiders":2641,
   "toledo":2649,"toledo rockets":2649,
-  "towson":2649,"towson tigers":2649,
+  "towson":231,"towson tigers":231,
   "troy":2653,"troy trojans":2653,
   "tulane":2655,"tulane green wave":2655,
   "tulsa":202,"tulsa golden hurricane":202,
@@ -1022,7 +1151,7 @@ const NCAA_TEAM_MAP = {
   "western michigan":2711,"western michigan broncos":2711,
   "wichita state":2724,"wichita state shockers":2724,
   "william & mary":2729,"william and mary":2729,"william & mary tribe":2729,
-  "winthrop":2737,"winthrop eagles":2737,
+  "winthrop":2935,"winthrop eagles":2935,
   "wisconsin":275,"wisconsin badgers":275,
   "wofford":2562,"wofford terriers":2562,
   "wright state":2737,"wright state raiders":2737,
@@ -1033,6 +1162,17 @@ const NCAA_TEAM_MAP = {
   "yale":43,"yale bulldogs":43,
   "youngstown state":2741,"ysu":2741,"youngstown state penguins":2741,
 };
+
+function validateTeamId(id, league) {
+  if (!id) return false;
+  const n = parseInt(id);
+  if (isNaN(n)) return false;
+  // NBA IDs are all <= 30; reject if suspiciously large
+  if (league === "nba" && n > 100) return false;
+  // NCAA IDs are all >= 2; reject if too small
+  if (league === "ncaa" && n < 2) return false;
+  return true;
+}
 
 function lookupTeamId(name, leagueHint) {
   const n = name.toLowerCase().trim();
@@ -1129,8 +1269,10 @@ async function fetchESPN() {
     const isNcaa = league === "ncaa";
     const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
     const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
-    let teamAId = lookupTeamId(teamAName,league) || await searchTeamFromAPI(espnBase,teamAName);
-    let teamBId = lookupTeamId(teamBName,league) || await searchTeamFromAPI(espnBase,teamBName);
+    let teamAId = lookupTeamId(teamAName,league);
+    if (!validateTeamId(teamAId, league)) teamAId = await searchTeamFromAPI(espnBase, teamAName);
+    let teamBId = lookupTeamId(teamBName,league);
+    if (!validateTeamId(teamBId, league)) teamBId = await searchTeamFromAPI(espnBase, teamBName);
     if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname.`);
     if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname.`);
     setStatus('<span class="spinner"></span>Loading game stats...',"loading");
@@ -1261,7 +1403,9 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug) {
   for (const ref of top5) {
     let ms=ref.rawS, os=ref.rawA, h1m=0, h1o=0, gotLS=false;
     try {
-      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      await new Promise(r=>setTimeout(r,80)); // rate limit protection
+      const _sumK = `sum:${ref.id}`;
+      const data = await (_summaryCache.has(_sumK) ? _summaryCache.get(_sumK) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);_summaryCache.set(_sumK,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors||[];
@@ -1273,20 +1417,16 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug) {
             gotLS = true;
             ms = parseFloat(mine.score)||ms;
             os = parseFloat(opp.score)||os;
-            // FIX: NCAA returns 4 quarters; sum Q1+Q2 for 1H
-            if (isNcaaLeague && lm.length>=2) {
-              h1m = readVal(lm[0]) + readVal(lm[1]);
-              h1o = readVal(lo[0]) + readVal(lo[1]);
-            } else {
-              h1m = readVal(lm[0]);
-              h1o = readVal(lo[0]);
-            }
-            if (lm.length>2) {
+            // Dynamic 1H detection via extractFirstHalf
+            const regPeriods = isNcaaLeague ? 2 : 4;
+            [h1m, h1o] = extractFirstHalf(lm, lo);
+            // OT removal using regulationPeriods
+            if (lm.length > regPeriods) {
               const sm=lm.reduce((s,p)=>s+readVal(p),0), so=lo.reduce((s,p)=>s+readVal(p),0);
               if (Math.abs(sm-ms)<=3&&Math.abs(so-os)<=3) {
                 let otm=0, oto=0;
-                for(let i=2;i<lm.length;i++) otm+=readVal(lm[i]);
-                for(let i=2;i<lo.length;i++) oto+=readVal(lo[i]);
+                for(let i=regPeriods;i<lm.length;i++) otm+=readVal(lm[i]);
+                for(let i=regPeriods;i<lo.length;i++) oto+=readVal(lo[i]);
                 if(otm>0||oto>0){ms-=otm;os-=oto;}
               }
             }
@@ -1340,7 +1480,9 @@ async function fetchNcaaH2H(base, teamAId, teamBId, leagueSlug) {
   for (const ref of uniqueRefs.slice(0,5)) {
     let added = false;
     try {
-      const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
+      await new Promise(r=>setTimeout(r,80)); // rate limit protection
+      const _sumK2 = `sum:${ref.id}`;
+      const data = await (_summaryCache.has(_sumK2) ? _summaryCache.get(_sumK2) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);_summaryCache.set(_sumK2,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors||[];
@@ -1350,21 +1492,16 @@ async function fetchNcaaH2H(base, teamAId, teamBId, leagueSlug) {
           let sA=parseFloat(cA.score), sB=parseFloat(cB.score);
           if (!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0) {
             const lA=cA?.linescores||[], lB=cB?.linescores||[];
-            // FIX: NCAA 1H = Q1+Q2
-            let h1A=0, h1B=0;
-            if (isNcaaLeague && lA.length>=2) {
-              h1A = readVal(lA[0]) + readVal(lA[1]);
-              h1B = readVal(lB[0]) + readVal(lB[1]);
-            } else if (lA.length>=1) {
-              h1A = readVal(lA[0]);
-              h1B = readVal(lB[0]);
-            }
-            if (lA.length>2&&lB.length>2) {
+            // Dynamic 1H detection via extractFirstHalf
+            const regP = isNcaaLeague ? 2 : 4;
+            let [h1A, h1B] = extractFirstHalf(lA, lB);
+            // OT removal
+            if (lA.length > regP && lB.length > regP) {
               const sumA=lA.reduce((s,p)=>s+readVal(p),0), sumB=lB.reduce((s,p)=>s+readVal(p),0);
               if (Math.abs(sumA-sA)<=3&&Math.abs(sumB-sB)<=3) {
                 let otA=0, otB=0;
-                for(let i=2;i<lA.length;i++) otA+=readVal(lA[i]);
-                for(let i=2;i<lB.length;i++) otB+=readVal(lB[i]);
+                for(let i=regP;i<lA.length;i++) otA+=readVal(lA[i]);
+                for(let i=regP;i<lB.length;i++) otB+=readVal(lB[i]);
                 if(otA>0||otB>0){sA-=otA;sB-=otB;}
               }
             }
@@ -1394,12 +1531,13 @@ function parseNbaEvents(data) {
     const lA=c[0]?.linescores||[], lB=c[1]?.linescores||[];
     const h1A = lA.length>=2 ? readVal(lA[0])+readVal(lA[1]) : 0;
     const h1B = lB.length>=2 ? readVal(lB[0])+readVal(lB[1]) : 0;
-    if (lA.length>4&&lB.length>4) {
+    const nbaReg = 4;
+    if (lA.length>nbaReg&&lB.length>nbaReg) {
       const tA=lA.reduce((s,p)=>s+readVal(p),0), tB=lB.reduce((s,p)=>s+readVal(p),0);
       if (Math.abs(tA-sA)<=3&&Math.abs(tB-sB)<=3) {
         let otA=0, otB=0;
-        for(let i=4;i<lA.length;i++) otA+=readVal(lA[i]);
-        for(let i=4;i<lB.length;i++) otB+=readVal(lB[i]);
+        for(let i=nbaReg;i<lA.length;i++) otA+=readVal(lA[i]);
+        for(let i=nbaReg;i<lB.length;i++) otB+=readVal(lB[i]);
         if(otA>0||otB>0){sA-=otA;sB-=otB;}
       }
     }
@@ -1471,6 +1609,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
   for (const ref of uniqueGameRefs.slice(0,5)) {
     let gameAdded = false;
     try {
+      await new Promise(r=>setTimeout(r,80)); // rate limit protection
       const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
       const hc = data?.header?.competitions?.[0];
       if (hc) {
@@ -1589,11 +1728,13 @@ function mid(val) {
 
 function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).toFixed(1);}
 function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
-function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.07*Math.min(1,(std-limit)/limit));}
+function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.05*Math.min(1,(std-limit)/limit));}
 
 function decision(edge,line,type,teamSc,aSc,bSc){
   if(isNaN(edge)||isNaN(line))return"NaN";
-  if(Math.abs(edge/line)<0.045)return"NO PLAY";
+  // Dynamic min edge: tighter threshold for low-scoring leagues
+  const minEdgePct = line < 140 ? 0.050 : line < 160 ? 0.047 : 0.045;
+  if(Math.abs(edge/line)<minEdgePct)return"NO PLAY";
   const isTotalType=type==="ft_total"||type==="1h_total";
   if(edge<0){
     let underThr=isTotalType?line*0.060:line*0.065;
@@ -1680,6 +1821,8 @@ function runEngine(){
   if(document.getElementById("useFTH2H").checked){const _ha=parseGames("aFTH2H"),_hb=parseGames("bFTH2H");h2ha=(_ha&&!_ha.err)?_ha:null;h2hb=(_hb&&!_hb.err)?_hb:null;}
   if(fma&&h2ha&&h2hb&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(MODEL.H2H_MAX_WEIGHT,dynamicWeight(h2ha)+dynamicWeight(h2hb));
+    // Stability penalty: small H2H samples get 30% weight reduction
+    if(h2ha.length < 3) w*=0.70;
     let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
     if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){let divA=Math.abs(h2hAvgA-bAFT)/bAFT;let wA=divA>MODEL.H2H_DIVERGE_THRESHOLD?w*0.5:w;bAFT=bAFT*(1-wA)+h2hAvgA*wA;}
     if(!isNaN(bBFT)&&bBFT>0&&!isNaN(h2hAvgB)){let divB=Math.abs(h2hAvgB-bBFT)/bBFT;let wB=divB>MODEL.H2H_DIVERGE_THRESHOLD?w*0.5:w;bBFT=bBFT*(1-wB)+h2hAvgB*wB;}
@@ -1708,7 +1851,13 @@ function runEngine(){
   bAFT=(bAFT*MODEL.REGRESSION_WEIGHT)+((eb/2)*MODEL.BASELINE_WEIGHT);
   bBFT=(bBFT*MODEL.REGRESSION_WEIGHT)+((eb/2)*MODEL.BASELINE_WEIGHT);
   let rawFTPace;
-  if(fma){rawFTPace=(aS+aA+bS+bA)/(2*eb);}
+  if(fma&&!isNaN(aA)&&!isNaN(bA)&&(aA+bA)>0){
+    // True pace: combined offense vs combined defense
+    rawFTPace=(aS+bS)/(aA+bA);
+  }
+  else if(fma){
+    rawFTPace=((aS+bS)/2)/(eb/2);
+  }
   else if(!isNaN(bAFT)&&!isNaN(bBFT)){rawFTPace=(bAFT+bBFT)/eb;}
   else{rawFTPace=1.0;}
   let pace=Math.max(cl.min,Math.min(cl.max,rawFTPace));
@@ -1739,6 +1888,15 @@ function runEngine(){
   if(!isNaN(ftP)){
     if(Math.abs(bAFT-bBFT)>18) ftP*=MODEL.MULTI_GOAL_SUPPRESS;
     if(pgr) ftP*=MODEL.PACE_SUPPRESS;
+    // Pace gap filter: large scoring gap between teams suppresses total
+    if(fma){
+      const paceGap=Math.abs(aS-bS)/eb;
+      if(paceGap>0.12) ftP*=0.96;
+    }
+    // Extreme pace cap: runaway pace estimate gets pulled back
+    if(!isNaN(pace)&&pace>1.12) ftP*=0.98;
+    // Defensive floor filter: both teams allowing very little → suppress OVER
+    if(fma&&!isNaN(aA)&&!isNaN(bA)&&aA<eb*0.42&&bA<eb*0.42) ftP*=0.97;
     if(!isNaN(ftLine)){
       const ftDiff=ftP-ftLine;
       if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_NBA;
@@ -1811,6 +1969,7 @@ function runEngine(){
     else{
       edge=p.proj-p.line;pt=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
       if(p.type==="ft_total"&&pt.startsWith("OVER")){if(pgr||dfr)pt="NO PLAY";if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";if(aVol>vl&&bVol>vl)pt="NO PLAY";}
+      if(p.type==="team"&&dfr){bAFT*=0.97;bBFT*=0.97;} // soften instead of kill
       if(p.type==="team"&&pt.startsWith("OVER")&&dfr)pt="NO PLAY";
       if(p.type==="1h_total"&&pt.startsWith("OVER")){if(pgr1)pt="NO PLAY";if(dfr1)pt="NO PLAY";if(aVol1>vl1&&bVol1>vl1)pt="NO PLAY";}
     }
@@ -1821,7 +1980,7 @@ function runEngine(){
     if(isNaN(edge)||!picks[i].line) return;
     const pickReady=picks[i].type==="ft_total"?fma:picks[i].type==="1h_total"?true:picks[i].type==="team"?(picks[i].name==="Team A Total"?aFTReady:bFTReady):false;
     let st=Math.abs(edge/picks[i].line);
-    if(pickReady&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.055&&st>ms){ms=st;li=i;}
+    if(pickReady&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.045&&st>ms){ms=st;li=i;}
   });
   finalPicks.forEach(({edge,pt,dn},i)=>{
     const p=picks[i]; let row=table.insertRow(); let pred=pt;
@@ -1844,6 +2003,8 @@ function clearAll(){
   g_injA={restMult:1,scoringMult:1,notes:[]};
   g_injB={restMult:1,scoringMult:1,notes:[]};
   _sbCache.clear();
+  _schedCache.clear();
+  _summaryCache.clear();
   setStatus("","");
   closeDrop("dropA");
   closeDrop("dropB");
@@ -1853,6 +2014,269 @@ function clearAll(){
 }
 
 document.addEventListener("DOMContentLoaded",()=>{ onLeagueChange(); });
+
+// ── Tab System ────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.toLowerCase().includes(tab === 'manual' ? 'manual' : 'scan'))
+      b.classList.add('active');
+  });
+}
+
+// ── Auto-Scan Engine ──────────────────────────────────────────
+let _scanAbort = false;
+
+function setScanStatus(msg, type) {
+  const el = document.getElementById('scanStatus');
+  el.className = type || ''; el.innerHTML = msg;
+}
+
+function setProgress(pct) {
+  document.getElementById('scanProgress').style.width = pct + '%';
+}
+
+function stopAutoScan() {
+  _scanAbort = true;
+  document.getElementById('scanStopBtn').style.display = 'none';
+  document.getElementById('scanBtn').disabled = false;
+  setScanStatus('Scan stopped.', '');
+}
+
+async function startAutoScan() {
+  _scanAbort = false;
+  const scanLeague = document.getElementById('scanLeague').value;
+  const minEdgePct = parseFloat(document.getElementById('scanMinEdge').value);
+  const filterMode = document.getElementById('scanFilter').value;
+
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true;
+  document.getElementById('scanStopBtn').style.display = 'inline-block';
+  document.getElementById('scanProgressWrap').style.display = 'block';
+  document.getElementById('scanSummary').style.display = 'none';
+  document.getElementById('scanTable').style.display = 'none';
+  document.getElementById('scanBody').innerHTML = '';
+  setProgress(0);
+
+  const isNcaa = scanLeague === 'ncaa';
+  const leagueSlug = isNcaa ? 'mens-college-basketball' : 'nba';
+  const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
+  const eb = isNcaa ? 150 : 228;
+  const league = scanLeague;
+
+  setScanStatus('<span class="spinner"></span>Fetching today's schedule...', 'loading');
+
+  try {
+    // Fetch today's scoreboard
+    const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const sbData = await proxyFetch(`${espnBase}/scoreboard?dates=${today}&limit=100`).catch(() => ({}));
+    const events = sbData?.events || [];
+
+    if (!events.length) {
+      setScanStatus('No games found for today.', 'err');
+      btn.disabled = false;
+      document.getElementById('scanStopBtn').style.display = 'none';
+      return;
+    }
+
+    setScanStatus(`<span class="spinner"></span>Found ${events.length} games. Scanning...`, 'loading');
+    document.getElementById('scanTable').style.display = 'table';
+
+    let totalPicks = 0, totalLocks = 0, gamesScanned = 0;
+
+    for (let gi = 0; gi < events.length; gi++) {
+      if (_scanAbort) break;
+
+      const ev = events[gi];
+      const comp = ev?.competitions?.[0];
+      if (!comp) continue;
+
+      const competitors = comp?.competitors || [];
+      if (competitors.length < 2) continue;
+
+      const cA = competitors[0], cB = competitors[1];
+      const teamAName = cA?.team?.displayName || 'Team A';
+      const teamBName = cB?.team?.displayName || 'Team B';
+      const teamAId = String(cA?.team?.id || '');
+      const teamBId = String(cB?.team?.id || '');
+
+      setProgress(Math.round((gi / events.length) * 85));
+      setScanStatus(`<span class="spinner"></span>[${gi+1}/${events.length}] Fetching: ${teamAName} vs ${teamBName}`, 'loading');
+
+      // Add placeholder row
+      const tbody = document.getElementById('scanBody');
+      const placeholderRow = document.createElement('tr');
+      placeholderRow.id = `scan-row-${gi}`;
+      placeholderRow.innerHTML = `
+        <td style="text-align:left;color:#888">${teamAName} vs ${teamBName}</td>
+        <td colspan="6" style="color:#555">⏳ scanning...</td>`;
+      tbody.appendChild(placeholderRow);
+
+      try {
+        await new Promise(r => setTimeout(r, 80));
+
+        // Fetch both team schedules in parallel
+        const [aStats, bStats] = await Promise.all([
+          fetchNcaaSchedule(espnBase, teamAId, leagueSlug).catch(() => null),
+          fetchNcaaSchedule(espnBase, teamBId, leagueSlug).catch(() => null)
+        ]);
+
+        if (!aStats || !bStats || aStats.scored.length < 2 || bStats.scored.length < 2) {
+          placeholderRow.innerHTML = `
+            <td style="text-align:left;color:#555">${teamAName} vs ${teamBName}</td>
+            <td colspan="6" style="color:#444">Insufficient data</td>`;
+          continue;
+        }
+
+        // Run V4 engine core
+        const result = runScanEngine(aStats, bStats, league, eb, minEdgePct);
+        gamesScanned++;
+
+        const hasPlay = result.ftPick !== 'NO PLAY' && result.ftPick !== '—';
+        const isLock = result.lockIdx === 0; // FT Total is strongest
+
+        if (filterMode === 'picks' && !hasPlay) {
+          placeholderRow.remove();
+          continue;
+        }
+        if (filterMode === 'locks' && !isLock) {
+          placeholderRow.remove();
+          continue;
+        }
+
+        if (hasPlay) totalPicks++;
+        if (result.bestLock) totalLocks++;
+
+        // Build row
+        const ftClass = result.ftPick.startsWith('OVER') ? 'scan-over' :
+                        result.ftPick.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
+        const lockIcon = result.bestLock ? ' <span class="scan-lock-icon">🔒</span>' : '';
+
+        placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
+        placeholderRow.innerHTML = `
+          <td style="text-align:left;font-size:11px;color:#ddd">${teamAName}<br><span style="color:#888">vs ${teamBName}</span></td>
+          <td style="color:#aaa">${result.ftLine > 0 ? result.ftLine.toFixed(1) : '—'}</td>
+          <td style="color:#d4af37">${isNaN(result.ftProj) ? '—' : result.ftProj.toFixed(1)}</td>
+          <td style="color:${result.ftEdge > 0 ? '#2ecc71' : result.ftEdge < 0 ? '#ff6b6b' : '#aaa'}">${isNaN(result.ftEdge) ? '—' : (result.ftEdge > 0 ? '+' : '') + result.ftEdge.toFixed(1)}</td>
+          <td class="${ftClass}">${result.ftPick}${lockIcon}</td>
+          <td class="${result.aPick.startsWith('OVER') ? 'scan-over' : result.aPick.startsWith('UNDER') ? 'scan-under' : 'scan-noplay'}">${result.aPick}</td>
+          <td class="${result.bPick.startsWith('OVER') ? 'scan-over' : result.bPick.startsWith('UNDER') ? 'scan-under' : 'scan-noplay'}">${result.bPick}</td>`;
+
+      } catch(e) {
+        placeholderRow.innerHTML = `
+          <td style="text-align:left;color:#555">${teamAName} vs ${teamBName}</td>
+          <td colspan="6" style="color:#444">Error: ${safeText(e.message || 'fetch failed')}</td>`;
+      }
+    }
+
+    setProgress(100);
+    document.getElementById('scanSummary').style.display = 'block';
+    document.getElementById('scanSummary').innerHTML =
+      `Scanned <b>${gamesScanned}</b> games &nbsp;|&nbsp; <b>${totalPicks}</b> picks found &nbsp;|&nbsp; <b>${totalLocks}</b> 🔒 locks`;
+    setScanStatus(_scanAbort ? 'Scan stopped early.' : `✅ Scan complete — ${events.length} games processed.`, 'ok');
+
+  } catch(e) {
+    setScanStatus('❌ ' + safeText(e.message), 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('scanStopBtn').style.display = 'none';
+  }
+}
+
+// ── Scan Engine Core (V4 logic, no DOM reads) ─────────────────
+function runScanEngine(aStats, bStats, league, eb, minEdgePct) {
+  const result = { ftPick:'—', ftProj:NaN, ftLine:NaN, ftEdge:NaN, aPick:'—', bPick:'—', bestLock:false, lockIdx:-1 };
+
+  const cl = { min:0.85, max:league==='nba'?1.15:1.12 };
+  const isNbaLeague = league === 'nba';
+  const calcA = isNbaLeague ? weightedAvg : trimmedAvg;
+
+  const aS = calcA(aStats.scored);
+  const aA = calcA(aStats.allowed);
+  const bS = calcA(bStats.scored);
+  const bA = calcA(bStats.allowed);
+
+  if (isNaN(aS)||isNaN(aA)||isNaN(bS)||isNaN(bA)) return result;
+
+  const fma = true;
+  let bAFT = aS * MODEL.TEAM_WEIGHT + bA * MODEL.OPP_WEIGHT;
+  let bBFT = bS * MODEL.TEAM_WEIGHT + aA * MODEL.OPP_WEIGHT;
+
+  // Volatility
+  const aVolRaw = (stdDev(aStats.scored) + stdDev(aStats.allowed)) / 2;
+  const bVolRaw = (stdDev(bStats.scored) + stdDev(bStats.allowed)) / 2;
+  const aVol = aVolRaw * 0.6 + bVolRaw * 0.4;
+  const bVol = bVolRaw * 0.6 + aVolRaw * 0.4;
+  const vlMap = { nba:14, ncaa:11 };
+  const vl = vlMap[league] || 12;
+  bAFT = applyVolatility(bAFT, aVol, vl);
+  bBFT = applyVolatility(bBFT, bVol, vl);
+
+  // Regression to baseline
+  bAFT = bAFT * MODEL.REGRESSION_WEIGHT + (eb/2) * MODEL.BASELINE_WEIGHT;
+  bBFT = bBFT * MODEL.REGRESSION_WEIGHT + (eb/2) * MODEL.BASELINE_WEIGHT;
+
+  // Pace
+  let rawPace = (aA + bA) > 0 ? (aS + bS) / (aA + bA) : ((aS+bS)/2)/(eb/2);
+  let pace = Math.max(cl.min, Math.min(cl.max, rawPace));
+  bAFT = bAFT * (MODEL.PACE_BLEND + pace/2);
+  bBFT = bBFT * (MODEL.PACE_BLEND + pace/2);
+
+  // Home edge (Team A = home)
+  const homeEdgeMap = { nba:1.5, ncaa:2.0 };
+  const hAdj = homeEdgeMap[league] || 1.5;
+  bAFT += hAdj; bBFT -= hAdj * 0.5;
+
+  // Filters
+  let ftP = bAFT + bBFT;
+  const pgr = Math.abs(aS - bS) > eb * 0.10;
+  const dfr = aA < eb * 0.42 && bA < eb * 0.42;
+  if (Math.abs(bAFT - bBFT) > 18) ftP *= MODEL.MULTI_GOAL_SUPPRESS;
+  if (pgr) ftP *= MODEL.PACE_SUPPRESS;
+  const paceGap = Math.abs(aS - bS) / eb;
+  if (paceGap > 0.12) ftP *= 0.96;
+  if (dfr) { ftP *= 0.97; bAFT *= 0.97; bBFT *= 0.97; }
+  if (pace > 1.12) ftP *= 0.98;
+
+  result.ftProj = ftP;
+
+  // Decision helper (no DOM)
+  function scanDecision(edge, line) {
+    if (isNaN(edge) || isNaN(line) || line <= 0) return '—';
+    const minE = line < 140 ? 0.052 : line < 160 ? 0.047 : 0.045;
+    const useMin = Math.max(minE, minEdgePct);
+    if (Math.abs(edge / line) < useMin) return 'NO PLAY';
+    return edge > 0 ? 'OVER ' + displayLine(line) : 'UNDER ' + displayLine(line);
+  }
+
+  // We don't have market lines in auto-scan — use projection as self-reference
+  // Show raw projection and flag edge vs typical league baseline
+  result.ftLine = eb; // use league baseline as reference line
+  result.ftEdge = ftP - eb;
+  result.ftPick = scanDecision(result.ftEdge, eb);
+
+  // Team totals
+  const aEdge = bAFT - eb/2;
+  const bEdge = bBFT - eb/2;
+  result.aPick = scanDecision(aEdge, eb/2);
+  result.bPick = scanDecision(bEdge, eb/2);
+
+  // Lock = strongest pick
+  const edges = [
+    { pick: result.ftPick, st: Math.abs(result.ftEdge / eb) },
+    { pick: result.aPick,  st: Math.abs(aEdge / (eb/2)) },
+    { pick: result.bPick,  st: Math.abs(bEdge / (eb/2)) },
+  ];
+  const validEdges = edges.filter(e => e.pick !== 'NO PLAY' && e.pick !== '—');
+  if (validEdges.length > 0) {
+    const maxSt = Math.max(...validEdges.map(e => e.st));
+    result.bestLock = maxSt >= 0.045;
+  }
+
+  return result;
+}
 </script>
 
 </body>
