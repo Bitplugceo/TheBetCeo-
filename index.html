@@ -344,14 +344,14 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
       <thead>
         <tr>
           <th>Matchup</th>
-          <th>FT Pick</th>
-          <th>1H Pick</th>
-          <th>Team A Pick</th>
-          <th>Team B Pick</th>
           <th>FT Line</th>
           <th>1H Line</th>
           <th>A Line</th>
           <th>B Line</th>
+          <th>FT Pick</th>
+          <th>1H Pick</th>
+          <th>Team A Pick</th>
+          <th>Team B Pick</th>
           <th>Projection</th>
           <th>Edge</th>
           <th>Str%</th>
@@ -1848,14 +1848,13 @@ async function startAutoScan() {
       const gameDate = new Date(event.date);
       const local = new Date(gameDate.toLocaleString());
       const eventDay = new Date(local.getFullYear(), local.getMonth(), local.getDate());
-      // Shift early-AM games (<3AM local) to next day to match SportyBet
-      if (local.getHours() < 3) eventDay.setDate(eventDay.getDate() + 1);
       const targetDay = new Date(scanDate.getFullYear(), scanDate.getMonth(), scanDate.getDate());
+      if (local.getHours() < 3) eventDay.setDate(eventDay.getDate() + 1);
+      const validStatus = ["pre","scheduled","created"].includes(event.status?.type?.state);
       return (
         eventDay.getTime() === targetDay.getTime() &&
-        ["pre","scheduled","created"].includes(event.status?.type?.state) &&
-        event.competitions?.[0]?.competitors?.length === 2 &&
-      event.competitions?.[0]?.competitors?.every(c => c.team?.id)
+        validStatus &&
+        event.competitions?.[0]?.competitors?.length === 2
       );
     });
 
@@ -1971,10 +1970,6 @@ async function startAutoScan() {
 
         placeholderRow.innerHTML = `
           <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span><br><span style="font-size:10px;color:#aaa;">${(() => { const pe = Math.abs((result.ftProj - eb) / eb); return pe >= 0.06 ? '💣 model bias' : pe >= 0.045 ? '👀 model bias' : ''; })()}</span></td>
-          <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
-          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${(isNaN(result.h1Proj) || isNaN(result.h1Line) || result.h1Pick === 'NO PLAY') ? '—' : result.h1Pick + h1Lock}</td>
-          <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
-          <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>
           <td><input id="${rowId}-ft" class="scan-line-input" placeholder="e.g. 226.5" value=""
             oninput="debounceRecalc(this,'${rowId}')">
             <div style="font-size:9px;color:#888;margin-top:2px">model: ${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</div></td>
@@ -1987,6 +1982,10 @@ async function startAutoScan() {
           <td><input id="${rowId}-b" class="scan-line-input" placeholder="e.g. 113.5" value=""
             oninput="debounceRecalc(this,'${rowId}')">
             <div style="font-size:9px;color:#888;margin-top:2px">model: ${isNaN(result.bProj)?'—':result.bProj.toFixed(1)}</div></td>
+          <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
+          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${(isNaN(result.h1Proj) || isNaN(result.h1Line) || result.h1Pick === 'NO PLAY') ? '—' : result.h1Pick + h1Lock}</td>
+          <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
+          <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>
           <td style="color:#d4af37" id="${rowId}-proj">${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</td>
           <td id="${rowId}-edge" style="color:${result.ftEdge>0?'#2ecc71':result.ftEdge<0?'#ff6b6b':'#aaa'}">${isNaN(result.ftEdge)?'—':(result.ftEdge>0?'+':'')+result.ftEdge.toFixed(1)}</td>
           <td style="color:#d4af37;font-size:10px;font-weight:bold" id="${rowId}-str">${strengthPct}</td>
