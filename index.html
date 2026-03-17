@@ -1836,13 +1836,14 @@ async function startAutoScan() {
     const today = scanDate.toISOString().slice(0,10).replace(/-/g,'');
 
     // ── FIX #1: Strict date filtering ────────────────────────
-    const sbData = await proxyFetch(`${espnBase}/scoreboard?dates=${today}&limit=100`).catch(() => ({}));
+    const sbData = await proxyFetch(`${espnBase}/scoreboard`).catch(() => ({}));
     const games = (sbData?.events || []).filter(event => {
       if (!event || !event.date || !event.competitions?.length) return false;
-      const gameDate = new Date(event.date);
-      const localStr = gameDate.toISOString().slice(0,10).replace(/-/g,'');
+      const eventDay = new Date(event.date);
+      const eventLocal = new Date(eventDay.getFullYear(), eventDay.getMonth(), eventDay.getDate());
+      const targetLocal = new Date(scanDate.getFullYear(), scanDate.getMonth(), scanDate.getDate());
       return (
-        localStr === today &&
+        eventLocal.getTime() === targetLocal.getTime() &&
         event.status?.type?.state !== 'post' &&
         event.competitions?.[0]?.competitors?.length === 2
       );
@@ -2199,10 +2200,10 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
     el.textContent = pick + lockFor(i);
     el.className = pickClass(pick);
   };
-  setPick('ftpick', ftPick, 0);
-  setPick('h1pick', h1Pick, 1);
-  setPick('apick',  aPick,  2);
-  setPick('bpick',  bPick,  3);
+  setPick('ftpick', ftSafe, 0);
+  setPick('h1pick', h1Safe, 1);
+  setPick('apick',  aSafe,  2);
+  setPick('bpick',  bSafe,  3);
 
   const edgeEl = document.getElementById(`${rowId}-edge`);
   if (edgeEl) {
