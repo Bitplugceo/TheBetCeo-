@@ -324,7 +324,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <option value="0">Today</option>
     <option value="1">Tomorrow</option>
   </select>
-
 </div>
 
 <button class="scan-btn" id="scanBtn" onclick="startAutoScan()">▶ Scan Today's Games</button>
@@ -340,21 +339,22 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
   </div>
 
   <div class="scan-results-wrap">
+    <!-- FIX #6: Correct column order: Matchup | FT Pick | 1H Pick | Team A Pick | Team B Pick | FT Line | 1H Line | A Line | B Line | Projection | Edge | Strength | God Mode -->
     <table id="scanTable">
       <thead>
         <tr>
           <th>Matchup</th>
-          <th>FT Line</th>
-          <th>1H Line</th>
-          <th>Proj</th>
-          <th>Edge</th>
           <th>FT Pick</th>
           <th>1H Pick</th>
-          <th>Str%</th>
+          <th>Team A Pick</th>
+          <th>Team B Pick</th>
+          <th>FT Line</th>
+          <th>1H Line</th>
           <th>A Line</th>
-          <th>A Pick</th>
           <th>B Line</th>
-          <th>B Pick</th>
+          <th>Projection</th>
+          <th>Edge</th>
+          <th>Str%</th>
           <th>☯ God Mode</th>
         </tr>
       </thead>
@@ -368,7 +368,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 <script>
 // ── Constants ────────────────────────────────────────────────
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
-const AUTH_TOKEN = "YOUR_SECRET_TOKEN_HERE"; // Set this + validate in your Worker
+const AUTH_TOKEN = "YOUR_SECRET_TOKEN_HERE";
 
 const MODEL = {
   TEAM_WEIGHT: 0.60,
@@ -384,11 +384,26 @@ const MODEL = {
   PACE_SUPPRESS: 0.97,
 };
 
-const _sbCache = new Map();      // scoreboard date cache
-const _schedCache = new Map();   // team schedule cache
-const _summaryCache = new Map(); // game summary cache
+const _sbCache = new Map();
+const _schedCache = new Map();
+const _summaryCache = new Map();
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
 let g_injB = {restMult:1, scoringMult:1, notes:[]};
+
+// ── FIX #3: Universal range/single line parser ────────────────
+// Accepts "150.5 - 160.5", "150.5-160.5", or "155.5" → returns midpoint or null
+function parseLineRange(val) {
+  if (!val || !String(val).trim()) return null;
+  val = String(val).trim();
+  if (val.includes('-')) {
+    const parts = val.split('-').map(v => parseFloat(v.trim()));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return (parts[0] + parts[1]) / 2;
+    }
+  }
+  const single = parseFloat(val);
+  return isNaN(single) ? null : single;
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 function safeText(str) {
@@ -399,15 +414,8 @@ function safeText(str) {
 
 function extractFirstHalf(lm, lo) {
   if (!lm || !lo || lm.length === 0) return [0, 0];
-  if (lm.length === 2) {
-    // Halves format (NCAA standard)
-    return [readVal(lm[0]), readVal(lo[0])];
-  }
-  if (lm.length >= 4) {
-    // Quarters format (NBA, some NCAA) — sum Q1+Q2
-    return [readVal(lm[0]) + readVal(lm[1]), readVal(lo[0]) + readVal(lo[1])];
-  }
-  // Single period — best guess
+  if (lm.length === 2) return [readVal(lm[0]), readVal(lo[0])];
+  if (lm.length >= 4) return [readVal(lm[0]) + readVal(lm[1]), readVal(lo[0]) + readVal(lo[1])];
   return [readVal(lm[0]), readVal(lo[0])];
 }
 
@@ -564,20 +572,15 @@ function onTeamInput(side) {
   const dropId  = side === "A" ? "dropA" : "dropB";
   const val = document.getElementById(inputId).value.trim().toLowerCase();
   const drop = document.getElementById(dropId);
-
   if (!val || val.length < 1) { closeDrop(dropId); return; }
-
   const list = getTeamList();
   if (!list) { closeDrop(dropId); return; }
-
   const matches = list.teams.filter(t => t.toLowerCase().includes(val));
   if (!matches.length) { closeDrop(dropId); return; }
-
   drop.innerHTML = `<div class="group-label">${list.label}</div>` +
     matches.map(t =>
       `<div onmousedown="selectTeam('${side}','${t.replace(/'/g,"\\'")}')">${highlight(t, val)}</div>`
     ).join("");
-
   drop.style.display = "block";
   activeDropTeam = side;
 }
@@ -786,415 +789,118 @@ const NBA_TEAM_MAP = {
 };
 
 const NCAA_TEAM_MAP = {
-  // ── A ──
-  "abilene christian":2000,"abilene christian wildcats":2000,
-  "air force":323,"air force falcons":323,
-  "akron":2005,"akron zips":2005,
-  "alabama":333,"alabama crimson tide":333,
-  "alabama a&m":2626,"alabama a&m bulldogs":2626,
-  "alabama state":2009,"alabama state hornets":2009,
-  "albany":399,"ualbany":399,"albany great danes":399,"ualbany great danes":399,
-  "alcorn state":2010,"alcorn state braves":2010,
-  "american":2011,"american university":2011,"american eagles":2011,
-  "appalachian state":2026,"app state":2026,"appalachian state mountaineers":2026,
-  "arizona":12,"arizona wildcats":12,
-  "arizona state":9,"sun devils":9,"arizona state sun devils":9,
-  "arkansas":8,"razorbacks":8,"arkansas razorbacks":8,
-  "arkansas pine bluff":2029,"uapb":2029,"arkansas-pine bluff golden lions":2029,"arkansas pine bluff golden lions":2029,
-  "arkansas state":2032,"arkansas state red wolves":2032,
-  "army":349,"army black knights":349,
-  "auburn":2,"auburn tigers":2,
-
-  // ── B ──
-  "ball state":2050,"ball state cardinals":2050,
-  "baylor":239,"baylor bears":239,
-  "bellarmine":91,"bellarmine knights":91,
-  "belmont":2057,"belmont bruins":2057,
-  "bethune-cookman":2059,"bethune cookman":2059,"bethune-cookman wildcats":2059,
-  "binghamton":2066,"binghamton bearcats":2066,
-  "boise state":68,"boise state broncos":68,
-  "boston college":103,"bc eagles":103,"boston college eagles":103,
-  "boston university":104,"bu terriers":104,"boston university terriers":104,
-  "bowling green":189,"bgsu":189,"bowling green falcons":189,
-  "bradley":71,"bradley braves":71,
-  "brown":225,"brown bears":225,
-  "bryant":2803,"bryant bulldogs":2803,
-  "bucknell":2083,"bucknell bison":2083,
-  "buffalo":2055,"buffalo bulls":2055,
-  "butler":2086,"butler bulldogs":2086,
-  "byu":252,"byu cougars":252,
-
-  // ── C ──
-  "cal poly":13,"cal poly mustangs":13,
-  "cal state bakersfield":2934,"csub":2934,"cal state bakersfield roadrunners":2934,
-  "cal state fullerton":2239,"fullerton titans":2239,"cal state fullerton titans":2239,
-  "california":25,"cal":25,"california golden bears":25,
-  "campbell":2097,"campbell fighting camels":2097,
-  "canisius":2099,"canisius golden griffins":2099,
-  "central arkansas":2110,"central arkansas bears":2110,"uca bears":2110,
-  "central connecticut":2115,"ccsu":2115,"central connecticut blue devils":2115,"ccsu blue devils":2115,
-  "central michigan":2117,"central michigan chippewas":2117,
-  "charleston southern":2127,"charleston southern buccaneers":2127,
-  "chattanooga":233,"utc":233,"utc mocs":233,"chattanooga mocs":233,
-  "charlotte":2429,"charlotte 49ers":2429,"unc charlotte":2429,
-  "chicago state":2130,"chicago state cougars":2130,
-  "cincinnati":2132,"cincinnati bearcats":2132,
-  "citadel":2134,"the citadel":2134,"the citadel bulldogs":2134,
-  "clemson":228,"clemson tigers":228,
-  "cleveland state":325,"cleveland state vikings":325,
-  "coastal carolina":324,"coastal carolina chanticleers":324,
-  "colgate":2142,"colgate raiders":2142,
-  "college of charleston":232,"charleston cougars":232,
-  "colorado":38,"colorado buffaloes":38,
-  "colorado state":36,"colorado state rams":36,
-  "columbia":171,"columbia lions":171,
-  "connecticut":41,"uconn":41,"uconn huskies":41,"connecticut huskies":41,
-  "coppin state":2154,"coppin state eagles":2154,
-  "cornell":172,"cornell big red":172,
-  "creighton":156,"creighton bluejays":156,
-
-  // ── D ──
-  "dartmouth":159,"dartmouth big green":159,
-  "davidson":2166,"davidson wildcats":2166,
-  "dayton":2168,"dayton flyers":2168,
-  "delaware":48,"delaware blue hens":48,"delaware fightin blue hens":48,
-  "delaware state":2169,"delaware state hornets":2169,
-  "depaul":305,"depaul blue demons":305,
-  "denver":2172,"denver pioneers":2172,
-  "detroit mercy":2174,"detroit":2174,"detroit mercy titans":2174,
-  "drake":2181,"drake bulldogs":2181,
-  "drexel":2182,"drexel dragons":2182,
-  "duke":150,"blue devils":150,"duke blue devils":150,
-  "duquesne":2184,"duquesne dukes":2184,
-
-  // ── E ──
-  "east carolina":151,"ecu":151,"east carolina pirates":151,
-  "east tennessee state":2193,"etsu":2193,"etsu buccaneers":2193,"east tennessee state buccaneers":2193,
-  "eastern illinois":2197,"eastern illinois panthers":2197,
-  "eastern kentucky":2198,"eku":2198,"eastern kentucky colonels":2198,
-  "eastern michigan":2199,"eastern michigan eagles":2199,
-  "eastern washington":331,"ewu":331,"eastern washington eagles":331,
-  "elon":2210,"elon phoenix":2210,
-  "evansville":339,"evansville purple aces":339,
-
-  // ── F ──
-  "fairfield":2217,"fairfield stags":2217,
-  "fairleigh dickinson":2218,"fdu":2218,"fairleigh dickinson knights":2218,"fdu knights":2218,
-  "florida":57,"florida gators":57,
-  "florida a&m":2212,"famu":2212,"florida a&m rattlers":2212,"famu rattlers":2212,
-  "florida atlantic":2226,"fau":2226,"florida atlantic owls":2226,"fau owls":2226,
-  "florida gulf coast":526,"fgcu":526,"florida gulf coast eagles":526,"fgcu eagles":526,
-  "florida international":2229,"fiu":2229,"florida international panthers":2229,"fiu panthers":2229,
-  "florida state":52,"florida state seminoles":52,
-  "fordham":2230,"fordham rams":2230,
-  "fresno state":278,"fresno state bulldogs":278,
-  "furman":231,"furman paladins":231,
-
-  // ── G ──
-  "gardner-webb":2241,"gardner webb":2241,"gardner-webb runnin bulldogs":2241,
-  "george mason":2244,"george mason patriots":2244,
-  "george washington":45,"gw":45,"gwu":45,"george washington revolutionaries":45,"gw revolutionaries":45,
-  "georgetown":46,"georgetown hoyas":46,
-  "georgia":61,"georgia bulldogs":61,
-  "georgia southern":290,"georgia southern eagles":290,
-  "georgia state":2247,"georgia state panthers":2247,
-  "georgia tech":59,"yellow jackets":59,"georgia tech yellow jackets":59,
-  "gonzaga":2250,"zags":2250,"gonzaga bulldogs":2250,
-  "grambling":2755,"grambling state":2755,"grambling state tigers":2755,
-  "grand canyon":2253,"gcu":2253,"grand canyon antelopes":2253,
-  "green bay":2739,"green bay phoenix":2739,"uwgb":2739,
-
-  // ── H ──
-  "hampton":2261,"hampton pirates":2261,
-  "harvard":108,"harvard crimson":108,
-  "hawaii":62,"hawaii rainbow warriors":62,
-  "high point":2272,"high point panthers":2272,
-  "hofstra":2275,"hofstra pride":2275,
-  "holy cross":107,"holy cross crusaders":107,
-  "houston":248,"houston cougars":248,
-  "houston christian":2284,"hcu":2284,"houston christian huskies":2284,
-  "howard":47,"howard bison":47,
-
-  // ── I ──
-  "idaho":70,"idaho vandals":70,
-  "idaho state":304,"idaho state bengals":304,
-  "illinois":356,"illinois fighting illini":356,
-  "illinois state":2287,"illinois state redbirds":2287,
-  "incarnate word":2750,"uiw":2750,"incarnate word cardinals":2750,
-  "indiana":84,"hoosiers":84,"indiana hoosiers":84,
-  "indiana state":282,"indiana state sycamores":282,
-  "iona":314,"iona gaels":314,
-  "iowa":2294,"hawkeyes":2294,"iowa hawkeyes":2294,
-  "iowa state":66,"cyclones":66,"iowa state cyclones":66,
-
-  // ── J ──
-  "jackson state":2296,"jackson state tigers":2296,
-  "jacksonville":294,"jacksonville dolphins":294,
-  "jacksonville state":55,"jacksonville state gamecocks":55,
-  "james madison":256,"jmu":256,"james madison dukes":256,
-
-  // ── K ──
-  "kansas":2305,"jayhawks":2305,"kansas jayhawks":2305,
-  "kansas state":2306,"kansas state wildcats":2306,
-  "kennesaw state":338,"kennesaw state owls":338,
-  "kent state":2309,"kent state golden flashes":2309,
-  "kentucky":96,"kentucky wildcats":96,
-
-  // ── L ──
-  "la salle":2325,"la salle explorers":2325,
-  "lafayette":322,"lafayette leopards":322,
-  "lamar":2320,"lamar cardinals":2320,
-  "lehigh":327,"lehigh mountain hawks":327,
-  "liberty":2335,"liberty flames":2335,
-  "lipscomb":288,"lipscomb bisons":288,
-  "little rock":2031,"arkansas little rock":2031,"arkansas little rock trojans":2031,"little rock trojans":2031,
-  "liu":2707,"long island university":2707,"liu sharks":2707,"long island university sharks":2707,
-  "long beach state":2396,"long beach state beach":2396,"cal state long beach":2396,
-  "longwood":2344,"longwood lancers":2344,
-  "louisiana":309,"louisiana lafayette":309,"louisiana ragin cajuns":309,"ul lafayette":309,
-  "louisiana monroe":2433,"ul monroe":2433,"louisiana monroe warhawks":2433,"ul monroe warhawks":2433,
-  "louisiana tech":2348,"louisiana tech bulldogs":2348,
-  "louisiana state":99,"lsu":99,"lsu tigers":99,"louisiana state tigers":99,
-  "louisville":97,"louisville cardinals":97,
-  "loyola chicago":2350,"loyola chicago ramblers":2350,
-  "loyola marymount":2351,"lmu":2351,"lmu lions":2351,"loyola marymount lions":2351,
-  "loyola maryland":2352,"loyola maryland greyhounds":2352,
-
-  // ── M ──
-  "maine":311,"maine black bears":311,
-  "manhattan":2357,"manhattan jaspers":2357,
-  "marist":2368,"marist red foxes":2368,
-  "marquette":269,"marquette golden eagles":269,
-  "marshall":276,"marshall thundering herd":276,
-  "maryland":120,"maryland terrapins":120,
-  "maryland eastern shore":2379,"umes":2379,"umes hawks":2379,
-  "massachusetts":113,"umass":113,"umass minutemen":113,"massachusetts minutemen":113,
-  "mcneese":2377,"mcneese state":2377,"mcneese cowboys":2377,
-  "memphis":235,"memphis tigers":235,
-  "mercer":2382,"mercer bears":2382,
-  "merrimack":2383,"merrimack warriors":2383,
-  "miami":2390,"miami fl":2390,"miami hurricanes":2390,
-  "miami ohio":193,"miami oh":193,"miami (oh)":193,"miami oh redhawks":193,"miami (oh) redhawks":193,
-  "michigan":130,"wolverines":130,"michigan wolverines":130,
-  "michigan state":127,"spartans":127,"michigan state spartans":127,
-  "middle tennessee":2393,"mtsu":2393,"middle tennessee blue raiders":2393,
-  "milwaukee":2587,"uw milwaukee":2587,"milwaukee panthers":2587,
-  "minnesota":135,"minnesota golden gophers":135,
-  "mississippi state":344,"mississippi state bulldogs":344,
-  "mississippi valley state":2401,"mvsu":2401,"mvsu delta devils":2401,"mississippi valley state delta devils":2401,
-  "missouri":142,"missouri tigers":142,
-  "missouri state":2623,"missouri state bears":2623,
-  "monmouth":2405,"monmouth hawks":2405,
-  "montana":149,"montana grizzlies":149,
-  "montana state":147,"montana state bobcats":147,
-  "morehead state":2413,"morehead state eagles":2413,
-  "morgan state":2415,"morgan state bears":2415,
-  "mount st. mary's":2417,"mount st marys":2417,"mount st. mary's mountaineers":2417,"mount st marys mountaineers":2417,
-  "murray state":93,"murray state racers":93,
-
-  // ── N ──
-  "navy":2426,"navy midshipmen":2426,
-  "nc state":152,"north carolina state":152,"wolfpack":152,"nc state wolfpack":152,"north carolina state wolfpack":152,
-  "nebraska":158,"nebraska cornhuskers":158,
-  "nebraska omaha":2437,"omaha":2437,"omaha mavericks":2437,"nebraska omaha mavericks":2437,
-  "nevada":4,"nevada wolf pack":4,
-  "new hampshire":160,"new hampshire wildcats":160,
-  "new mexico":167,"new mexico lobos":167,
-  "new mexico state":2423,"nmsu":2423,"new mexico state aggies":2423,
-  "new orleans":2443,"new orleans privateers":2443,
-  "niagara":2430,"niagara purple eagles":2430,
-  "nicholls":2432,"nicholls state":2432,"nicholls colonels":2432,
-  "njit":2885,"njit highlanders":2885,
-  "norfolk state":2440,"norfolk state spartans":2440,
-  "north alabama":2453,"north alabama lions":2453,
-  "north carolina":153,"unc":153,"tar heels":153,"north carolina tar heels":153,
-  "north carolina a&t":2448,"nc a&t":2448,"nc a&t aggies":2448,"north carolina a&t aggies":2448,
-  "north carolina central":2428,"nccu":2428,"nccu eagles":2428,"north carolina central eagles":2428,
-  "north dakota":2455,"north dakota fighting hawks":2455,
-  "north dakota state":2449,"ndsu":2449,"ndsu bison":2449,"north dakota state bison":2449,
-  "north florida":2454,"unf":2454,"unf ospreys":2454,"north florida ospreys":2454,
-  "north texas":249,"unt":249,"north texas mean green":249,
-  "northeastern":2450,"northeastern huskies":2450,
-  "northern arizona":2464,"nau":2464,"northern arizona lumberjacks":2464,
-  "northern colorado":2458,"northern colorado bears":2458,"unco bears":2458,
-  "northern illinois":2459,"niu":2459,"northern illinois huskies":2459,
-  "northern iowa":2271,"uni":2271,"northern iowa panthers":2271,
-  "northern kentucky":2461,"nku":2461,"nku norse":2461,"northern kentucky norse":2461,
-  "northwestern":77,"northwestern wildcats":77,
-  "northwestern state":2466,"northwestern state demons":2466,
-  "notre dame":87,"notre dame fighting irish":87,
-
-  // ── O ──
-  "oakland":2467,"oakland golden grizzlies":2467,
-  "ohio":195,"ohio bobcats":195,
-  "ohio state":194,"buckeyes":194,"ohio state buckeyes":194,
-  "oklahoma":201,"oklahoma sooners":201,
-  "oklahoma state":197,"oklahoma state cowboys":197,
-  "old dominion":2494,"odu":2494,"old dominion monarchs":2494,
-  "ole miss":145,"mississippi":145,"mississippi rebels":145,"ole miss rebels":145,
-  "oral roberts":492,"oru":492,"oral roberts golden eagles":492,
-  "oregon":2483,"ducks":2483,"oregon ducks":2483,
-  "oregon state":204,"oregon state beavers":204,
-
-  // ── P ──
-  "pacific":279,"pacific tigers":279,"university of the pacific":279,
-  "penn":219,"penn quakers":219,"pennsylvania":219,"pennsylvania quakers":219,
-  "penn state":213,"penn state nittany lions":213,
-  "pepperdine":2492,"pepperdine waves":2492,
-  "pittsburgh":221,"pitt":221,"pittsburgh panthers":221,
-  "portland":2501,"portland pilots":2501,
-  "portland state":2502,"portland state vikings":2502,
-  "prairie view":2504,"prairie view a&m":2504,"prairie view a&m panthers":2504,
-  "presbyterian":2506,"presbyterian blue hose":2506,
-  "princeton":163,"princeton tigers":163,
-  "providence":2507,"providence friars":2507,
-  "purdue":2509,"boilermakers":2509,"purdue boilermakers":2509,
-  "purdue fort wayne":2870,"pfw":2870,"purdue fort wayne mastodons":2870,
-
-  // ── Q ──
-  "queens":2511,"queens royals":2511,"queens university":2511,
-  "quinnipiac":2512,"quinnipiac bobcats":2512,
-
-  // ── R ──
-  "radford":2515,"radford highlanders":2515,
-  "rhode island":227,"uri":227,"rhode island rams":227,
-  "rice":242,"rice owls":242,
-  "richmond":257,"richmond spiders":257,
-  "rider":2520,"rider broncs":2520,
-  "robert morris":2523,"robert morris colonials":2523,
-  "rutgers":164,"rutgers scarlet knights":164,
-
-  // ── S ──
-  "sacred heart":2529,"sacred heart pioneers":2529,
-  "sacramento state":2578,"sac state":2578,"sac state hornets":2578,"sacramento state hornets":2578,
-  "saint bonaventure":179,"st. bonaventure":179,"st bonaventure":179,"st. bonaventure bonnies":179,"st bonaventure bonnies":179,
-  "saint francis":2534,"saint francis red flash":2534,"saint francis pa":2534,
-  "saint joseph's":2603,"st. joseph's":2603,"saint josephs":2603,"saint josephs hawks":2603,
-  "saint louis":139,"saint louis billikens":139,
-  "saint mary's":2608,"st. mary's":2608,"gaels":2608,"saint mary's gaels":2608,
-  "saint peter's":2612,"st. peter's":2612,"saint peters peacocks":2612,
-  "sam houston":3163,"sam houston state":3163,"sam houston bearkats":3163,
-  "samford":2535,"samford bulldogs":2535,
-  "san diego":2544,"san diego toreros":2544,
-  "san diego state":21,"sdsu":21,"aztecs":21,"san diego state aztecs":21,
-  "san francisco":2539,"usf dons":2539,"san francisco dons":2539,
-  "san jose state":23,"sjsu":23,"san jose state spartans":23,
-  "santa clara":2541,"santa clara broncos":2541,
-  "seattle":2547,"seattle redhawks":2547,
-  "seton hall":2550,"seton hall pirates":2550,
-  "siena":2561,"siena saints":2561,
-  "siu edwardsville":2576,"siue":2576,"siue cougars":2576,"siu edwardsville cougars":2576,
-  "smu":2567,"smu mustangs":2567,
-  "south alabama":6,"south alabama jaguars":6,
-  "south carolina":2579,"south carolina gamecocks":2579,
-  "south carolina state":2563,"sc state":2563,"sc state bulldogs":2563,"south carolina state bulldogs":2563,
-  "south dakota":2569,"south dakota coyotes":2569,
-  "south dakota state":2571,"sdsu jackrabbits":2571,"south dakota state jackrabbits":2571,
-  "south florida":58,"usf bulls":58,"south florida bulls":58,
-  "southeast missouri state":116,"semo":116,"semo redhawks":116,"southeast missouri state redhawks":116,
-  "southeastern louisiana":2566,"selu":2566,"southeastern louisiana lions":2566,
-  "southern":2574,"southern university":2574,"southern jaguars":2574,
-  "southern illinois":2565,"siu":2565,"southern illinois salukis":2565,
-  "southern indiana":2877,"southern indiana screaming eagles":2877,
-  "southern miss":2572,"usm":2572,"southern miss golden eagles":2572,"southern mississippi":2572,
-  "southern utah":253,"southern utah thunderbirds":253,
-  "st. john's":2599,"st johns":2599,"saint john's":2599,"red storm":2599,"st. john's red storm":2599,
-  "stanford":24,"stanford cardinal":24,
-  "stephen f. austin":2180,"sfa":2180,"sfa lumberjacks":2180,"stephen f. austin lumberjacks":2180,
-  "stetson":56,"stetson hatters":56,
-  "stonehill":2583,"stonehill skyhawks":2583,
-  "stony brook":543,"stony brook seawolves":543,
-  "syracuse":183,"syracuse orange":183,
-
-  // ── T ──
-  "tcu":2628,"tcu horned frogs":2628,
-  "temple":218,"temple owls":218,
-  "tennessee":2633,"volunteers":2633,"vols":2633,"tennessee volunteers":2633,
-  "tennessee state":2634,"tennessee state tigers":2634,
-  "tennessee tech":2635,"tennessee tech golden eagles":2635,
-  "texas":251,"longhorns":251,"texas longhorns":251,
-  "texas a&m":245,"texas a&m aggies":245,
-  "texas a&m corpus christi":732,"islanders":732,"texas a&m-corpus christi islanders":732,
-  "texas southern":2640,"texas southern tigers":2640,
-  "texas state":2642,"texas state bobcats":2642,
-  "texas tech":2641,"texas tech red raiders":2641,
-  "toledo":2649,"toledo rockets":2649,
-  "towson":2650,"towson tigers":2650,
-  "troy":2653,"troy trojans":2653,
-  "tulane":2655,"tulane green wave":2655,
-  "tulsa":202,"tulsa golden hurricane":202,
-
-  // ── U ──
-  "uab":5,"uab blazers":5,
-  "uc davis":2119,"uc davis aggies":2119,
-  "uc irvine":2591,"uci":2591,"uc irvine anteaters":2591,
-  "uc riverside":2854,"ucr":2854,"uc riverside highlanders":2854,
-  "uc san diego":2490,"ucsd":2490,"ucsd tritons":2490,"uc san diego tritons":2490,
-  "uc santa barbara":2590,"ucsb":2590,"ucsb gauchos":2590,"uc santa barbara gauchos":2590,
-  "ucf":2116,"ucf knights":2116,
-  "ucla":26,"bruins":26,"ucla bruins":26,
-  "uic":2530,"uic flames":2530,"illinois chicago":2530,
-  "umass lowell":2349,"umass lowell river hawks":2349,
-  "umbc":2378,"umbc retrievers":2378,
-  "umkc":2406,"kansas city roos":2406,"missouri kansas city":2406,
-  "unc asheville":2427,"unc asheville bulldogs":2427,
-  "unc greensboro":2734,"uncg":2734,"uncg spartans":2734,"unc greensboro spartans":2734,
-  "unc wilmington":2780,"uncw":2780,"uncw seahawks":2780,"unc wilmington seahawks":2780,
-  "unlv":2439,"unlv runnin rebels":2439,"unlv running rebels":2439,
-  "usc":30,"trojans":30,"usc trojans":30,
-  "usc upstate":2908,"usc upstate spartans":2908,
-  "ut arlington":2637,"uta":2637,"uta mavericks":2637,"ut arlington mavericks":2637,
-  "ut martin":2630,"ut martin skyhawks":2630,"tennessee martin":2630,
-  "ut rio grande valley":2638,"utrgv":2638,"utrgv vaqueros":2638,"ut rio grande valley vaqueros":2638,
-  "utah":254,"utah utes":254,
-  "utah state":328,"utah state aggies":328,
-  "utah tech":3101,"utah tech trailblazers":3101,
-  "utah valley":3084,"uvu":3084,"utah valley wolverines":3084,
-  "utsa":2636,"utsa roadrunners":2636,
-
-  // ── V ──
-  "valparaiso":2674,"valpo":2674,"valparaiso beacons":2674,
-  "vanderbilt":238,"vanderbilt commodores":238,
-  "vermont":261,"vermont catamounts":261,
-  "villanova":222,"villanova wildcats":222,
-  "virginia":258,"virginia cavaliers":258,
-  "virginia tech":259,"virginia tech hokies":259,
-  "vmi":2678,"keydets":2678,"vmi keydets":2678,
-  "vcu":2670,"vcu rams":2670,
-
-  // ── W ──
-  "wagner":2676,"wagner seahawks":2676,
-  "wake forest":154,"wake forest demon deacons":154,
-  "washington":264,"washington huskies":264,
-  "washington state":265,"wsu":265,"washington state cougars":265,
-  "weber state":2692,"weber state wildcats":2692,
-  "west georgia":2698,"west georgia wolves":2698,
-  "west virginia":277,"west virginia mountaineers":277,
-  "western carolina":2717,"western carolina catamounts":2717,
-  "western illinois":2710,"western illinois leathernecks":2710,
-  "western kentucky":98,"wku":98,"western kentucky hilltoppers":98,
-  "western michigan":2711,"western michigan broncos":2711,
-  "wichita state":2724,"wichita state shockers":2724,
-  "william & mary":2729,"william and mary":2729,"william & mary tribe":2729,
-  "winthrop":2935,"winthrop eagles":2935,
-  "wisconsin":275,"wisconsin badgers":275,
-  "wofford":2562,"wofford terriers":2562,
-  "wright state":2737,"wright state raiders":2737,
-  "wyoming":273,"wyoming cowboys":273,
-
-  // ── X / Y ──
-  "xavier":2752,"xavier musketeers":2752,
-  "yale":43,"yale bulldogs":43,
-  "youngstown state":2741,"ysu":2741,"youngstown state penguins":2741,
+  "abilene christian":2000,"air force":323,"akron":2005,"alabama":333,"alabama a&m":2626,
+  "alabama state":2009,"albany":399,"ualbany":399,"alcorn state":2010,"american":2011,
+  "appalachian state":2026,"app state":2026,"arizona":12,"arizona state":9,"arkansas":8,
+  "arkansas pine bluff":2029,"arkansas state":2032,"army":349,"auburn":2,
+  "ball state":2050,"baylor":239,"bellarmine":91,"belmont":2057,"bethune-cookman":2059,
+  "binghamton":2066,"boise state":68,"boston college":103,"boston university":104,
+  "bowling green":189,"bradley":71,"brown":225,"bryant":2803,"bucknell":2083,
+  "buffalo":2055,"butler":2086,"byu":252,
+  "cal poly":13,"cal state bakersfield":2934,"cal state fullerton":2239,"california":25,"cal":25,
+  "campbell":2097,"canisius":2099,"central arkansas":2110,"central connecticut":2115,
+  "central michigan":2117,"charleston southern":2127,"chattanooga":233,"charlotte":2429,
+  "chicago state":2130,"cincinnati":2132,"citadel":2134,"clemson":228,"cleveland state":325,
+  "coastal carolina":324,"colgate":2142,"college of charleston":232,"colorado":38,
+  "colorado state":36,"columbia":171,"connecticut":41,"uconn":41,"coppin state":2154,
+  "cornell":172,"creighton":156,
+  "dartmouth":159,"davidson":2166,"dayton":2168,"delaware":48,"delaware state":2169,
+  "depaul":305,"denver":2172,"detroit mercy":2174,"drake":2181,"drexel":2182,
+  "duke":150,"blue devils":150,"duquesne":2184,
+  "east carolina":151,"east tennessee state":2193,"etsu":2193,"eastern illinois":2197,
+  "eastern kentucky":2198,"eastern michigan":2199,"eastern washington":331,"elon":2210,"evansville":339,
+  "fairfield":2217,"fairleigh dickinson":2218,"florida":57,"florida a&m":2212,
+  "florida atlantic":2226,"fau":2226,"florida gulf coast":526,"fgcu":526,
+  "florida international":2229,"fiu":2229,"florida state":52,"fordham":2230,
+  "fresno state":278,"furman":231,
+  "gardner-webb":2241,"george mason":2244,"george washington":45,"gw":45,
+  "georgetown":46,"georgia":61,"georgia southern":290,"georgia state":2247,
+  "georgia tech":59,"gonzaga":2250,"zags":2250,"grambling":2755,"grambling state":2755,
+  "grand canyon":2253,"gcu":2253,"green bay":2739,
+  "hampton":2261,"harvard":108,"hawaii":62,"high point":2272,"hofstra":2275,
+  "holy cross":107,"houston":248,"houston christian":2284,"howard":47,
+  "idaho":70,"idaho state":304,"illinois":356,"illinois state":2287,
+  "incarnate word":2750,"uiw":2750,"indiana":84,"hoosiers":84,"indiana state":282,
+  "iona":314,"iowa":2294,"hawkeyes":2294,"iowa state":66,"cyclones":66,
+  "jackson state":2296,"jacksonville":294,"jacksonville state":55,"james madison":256,"jmu":256,
+  "kansas":2305,"jayhawks":2305,"kansas state":2306,"kennesaw state":338,
+  "kent state":2309,"kentucky":96,
+  "la salle":2325,"lafayette":322,"lamar":2320,"lehigh":327,"liberty":2335,
+  "lipscomb":288,"little rock":2031,"liu":2707,"long island university":2707,
+  "long beach state":2396,"longwood":2344,"louisiana":309,"louisiana monroe":2433,
+  "louisiana tech":2348,"louisiana state":99,"lsu":99,"louisville":97,
+  "loyola chicago":2350,"loyola marymount":2351,"lmu":2351,"loyola maryland":2352,
+  "maine":311,"manhattan":2357,"marist":2368,"marquette":269,"marshall":276,
+  "maryland":120,"massachusetts":113,"umass":113,"mcneese":2377,"memphis":235,
+  "mercer":2382,"merrimack":2383,"miami":2390,"miami ohio":193,"miami oh":193,
+  "michigan":130,"wolverines":130,"michigan state":127,"spartans":127,
+  "middle tennessee":2393,"mtsu":2393,"milwaukee":2587,"minnesota":135,
+  "mississippi state":344,"mississippi valley state":2401,"missouri":142,
+  "missouri state":2623,"monmouth":2405,"montana":149,"montana state":147,
+  "morehead state":2413,"morgan state":2415,"mount st. mary's":2417,"murray state":93,
+  "navy":2426,"nc state":152,"north carolina state":152,"wolfpack":152,
+  "nebraska":158,"nebraska omaha":2437,"nevada":4,"new hampshire":160,
+  "new mexico":167,"new mexico state":2423,"nmsu":2423,"new orleans":2443,
+  "niagara":2430,"nicholls":2432,"njit":2885,"norfolk state":2440,
+  "north alabama":2453,"north carolina":153,"unc":153,"tar heels":153,
+  "north carolina a&t":2448,"north carolina central":2428,"nccu":2428,
+  "north dakota":2455,"north dakota state":2449,"ndsu":2449,
+  "north florida":2454,"unf":2454,"north texas":249,"northeastern":2450,
+  "northern arizona":2464,"nau":2464,"northern colorado":2458,
+  "northern illinois":2459,"northern iowa":2271,"uni":2271,
+  "northern kentucky":2461,"nku":2461,"northwestern":77,"northwestern state":2466,
+  "notre dame":87,
+  "oakland":2467,"ohio":195,"ohio state":194,"buckeyes":194,
+  "oklahoma":201,"oklahoma state":197,"old dominion":2494,"odu":2494,
+  "ole miss":145,"oral roberts":492,"oru":492,"oregon":2483,"ducks":2483,"oregon state":204,
+  "pacific":279,"penn":219,"penn state":213,"pepperdine":2492,"pittsburgh":221,"pitt":221,
+  "portland":2501,"portland state":2502,"prairie view":2504,"presbyterian":2506,
+  "princeton":163,"providence":2507,"purdue":2509,"boilermakers":2509,"purdue fort wayne":2870,
+  "queens":2511,"quinnipiac":2512,
+  "radford":2515,"rhode island":227,"uri":227,"rice":242,"richmond":257,
+  "rider":2520,"robert morris":2523,"rutgers":164,
+  "sacred heart":2529,"sacramento state":2578,"sac state":2578,
+  "saint bonaventure":179,"st. bonaventure":179,"saint francis":2534,
+  "saint joseph's":2603,"st. joseph's":2603,"saint louis":139,"saint mary's":2608,
+  "st. mary's":2608,"gaels":2608,"saint peter's":2612,"st. peter's":2612,
+  "sam houston":3163,"samford":2535,"san diego":2544,"san diego state":21,"sdsu":21,
+  "aztecs":21,"san francisco":2539,"san jose state":23,"santa clara":2541,
+  "seattle":2547,"seton hall":2550,"siena":2561,"siu edwardsville":2576,"siue":2576,
+  "smu":2567,"south alabama":6,"south carolina":2579,"south carolina state":2563,
+  "south dakota":2569,"south dakota state":2571,"south florida":58,"usf bulls":58,
+  "southeast missouri state":116,"semo":116,"southeastern louisiana":2566,
+  "southern":2574,"southern illinois":2565,"siu":2565,"southern indiana":2877,
+  "southern miss":2572,"usm":2572,"southern utah":253,
+  "st. john's":2599,"st johns":2599,"red storm":2599,"stanford":24,
+  "stephen f. austin":2180,"sfa":2180,"stetson":56,"stonehill":2583,"stony brook":543,
+  "syracuse":183,
+  "tcu":2628,"temple":218,"tennessee":2633,"volunteers":2633,"vols":2633,
+  "tennessee state":2634,"tennessee tech":2635,"texas":251,"longhorns":251,
+  "texas a&m":245,"texas a&m corpus christi":732,"texas southern":2640,
+  "texas state":2642,"texas tech":2641,"toledo":2649,"towson":2650,"troy":2653,
+  "tulane":2655,"tulsa":202,
+  "uab":5,"uc davis":2119,"uc irvine":2591,"uci":2591,"uc riverside":2854,
+  "uc san diego":2490,"ucsd":2490,"ucf":2116,"ucla":26,"bruins":26,"uic":2530,
+  "umass lowell":2349,"umbc":2378,"unc asheville":2427,"unc greensboro":2734,
+  "uncg":2734,"unc wilmington":2780,"uncw":2780,"unlv":2439,"usc":30,"trojans":30,
+  "usc upstate":2908,"ut arlington":2637,"uta":2637,"ut martin":2630,
+  "ut rio grande valley":2638,"utrgv":2638,"utah":254,"utah state":328,
+  "utah tech":3101,"utah valley":3084,"uvu":3084,"utsa":2636,
+  "valparaiso":2674,"valpo":2674,"vanderbilt":238,"vermont":261,"villanova":222,
+  "virginia":258,"virginia tech":259,"vmi":2678,"keydets":2678,"vcu":2670,
+  "wagner":2676,"wake forest":154,"washington":264,"washington state":265,"wsu":265,
+  "weber state":2692,"west georgia":2698,"west virginia":277,"western carolina":2717,
+  "western illinois":2710,"western kentucky":98,"wku":98,"western michigan":2711,
+  "wichita state":2724,"william & mary":2729,"william and mary":2729,
+  "winthrop":2935,"wisconsin":275,"wofford":2562,"wright state":2737,"wyoming":273,
+  "xavier":2752,"yale":43,"youngstown state":2741,"ysu":2741,
 };
 
 function validateTeamId(id, league) {
   if (!id) return false;
   const n = parseInt(id);
   if (isNaN(n)) return false;
-  // NBA IDs are 1-30 — reject anything outside that range
   if (league === "nba" && (n < 1 || n > 30)) return false;
-  // FIX 5: NCAA IDs only need a lower bound — no artificial upper cap
   if (league === "ncaa" && n < 2) return false;
   return true;
 }
@@ -1308,7 +1014,6 @@ async function fetchESPN() {
         fetchNcaaSchedule(espnBase,teamBId,leagueSlug)
       ]);
     } else {
-      // FIX: early exit once both teams have 5 games
       const allGames = await fetchNbaScoreboard(espnBase,60,teamAId,teamBId);
       if (!allGames.length) throw new Error("No recent game data from ESPN.");
       aStats = extractLastFive(allGames,String(teamAId));
@@ -1428,7 +1133,7 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug) {
   for (const ref of top5) {
     let ms=ref.rawS, os=ref.rawA, h1m=0, h1o=0, gotLS=false;
     try {
-      await new Promise(r=>setTimeout(r,80)); // rate limit protection
+      await new Promise(r=>setTimeout(r,80));
       const _sumK = `sum:${ref.id}`;
       const data = await (_summaryCache.has(_sumK) ? _summaryCache.get(_sumK) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);_summaryCache.set(_sumK,p);return p;})());
       const hc = data?.header?.competitions?.[0];
@@ -1442,10 +1147,8 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug) {
             gotLS = true;
             ms = parseFloat(mine.score)||ms;
             os = parseFloat(opp.score)||os;
-            // Dynamic 1H detection via extractFirstHalf
             const regPeriods = isNcaaLeague ? 2 : 4;
             [h1m, h1o] = extractFirstHalf(lm, lo);
-            // OT removal using regulationPeriods
             if (lm.length > regPeriods) {
               const sm=lm.reduce((s,p)=>s+readVal(p),0), so=lo.reduce((s,p)=>s+readVal(p),0);
               if (Math.abs(sm-ms)<=3&&Math.abs(so-os)<=3) {
@@ -1505,7 +1208,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId, leagueSlug) {
   for (const ref of uniqueRefs.slice(0,5)) {
     let added = false;
     try {
-      await new Promise(r=>setTimeout(r,80)); // rate limit protection
+      await new Promise(r=>setTimeout(r,80));
       const _sumK2 = `sum:${ref.id}`;
       const data = await (_summaryCache.has(_sumK2) ? _summaryCache.get(_sumK2) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);_summaryCache.set(_sumK2,p);return p;})());
       const hc = data?.header?.competitions?.[0];
@@ -1517,10 +1220,8 @@ async function fetchNcaaH2H(base, teamAId, teamBId, leagueSlug) {
           let sA=parseFloat(cA.score), sB=parseFloat(cB.score);
           if (!isNaN(sA)&&!isNaN(sB)&&sA>0&&sB>0) {
             const lA=cA?.linescores||[], lB=cB?.linescores||[];
-            // Dynamic 1H detection via extractFirstHalf
             const regP = isNcaaLeague ? 2 : 4;
             let [h1A, h1B] = extractFirstHalf(lA, lB);
-            // OT removal
             if (lA.length > regP && lB.length > regP) {
               const sumA=lA.reduce((s,p)=>s+readVal(p),0), sumB=lB.reduce((s,p)=>s+readVal(p),0);
               if (Math.abs(sumA-sA)<=3&&Math.abs(sumB-sB)<=3) {
@@ -1571,7 +1272,6 @@ function parseNbaEvents(data) {
   return games;
 }
 
-// FIX: early exit once both teams have 5 games
 async function fetchNbaScoreboard(base, daysBack, teamAId, teamBId) {
   const all = [];
   const tA = String(teamAId), tB = String(teamBId);
@@ -1585,7 +1285,7 @@ async function fetchNbaScoreboard(base, daysBack, teamAId, teamBId) {
       p = _sbCache.get(cacheKey);
     } else {
       p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`)
-        .catch(() => { _sbCache.delete(cacheKey); return {}; }); // FIX: clear failed cache entries
+        .catch(() => { _sbCache.delete(cacheKey); return {}; });
       _sbCache.set(cacheKey, p);
     }
     try {
@@ -1634,7 +1334,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
   for (const ref of uniqueGameRefs.slice(0,5)) {
     let gameAdded = false;
     try {
-      await new Promise(r=>setTimeout(r,80)); // rate limit protection
+      await new Promise(r=>setTimeout(r,80));
       const data = await proxyFetch(`${base}/summary?event=${ref.id}`);
       const hc = data?.header?.competitions?.[0];
       if (hc) {
@@ -1737,48 +1437,43 @@ function weightedAvg(arr) {
 }
 function stdDev(arr){if(!arr||arr.length<2)return 0;let m=avg(arr);return Math.sqrt(arr.reduce((a,b)=>a+Math.pow(b-m,2),0)/(arr.length-1));}
 
-// FIX: mid() accepts single value gracefully
-function mid(val) {
-  if (!val) return NaN;
-  val = val.trim();
-  if (!val.includes("-")) {
-    const single = parseFloat(val);
-    return isFinite(single) ? single : NaN;
-  }
-  let p = val.split("-").map(x=>x.trim());
-  let a=parseFloat(p[0]), b=parseFloat(p[1]);
-  if (isNaN(a)||isNaN(b)) return NaN;
-  return (a+b)/2;
-}
-
 function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).toFixed(1);}
 function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
 function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.05*Math.min(1,(std-limit)/limit));}
 
+// ── FIX #4: Single pick logic function ───────────────────────
+// Returns "OVER X.X", "UNDER X.X", or "NO PLAY"
+function getPick(edge, line) {
+  if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
+  const pct = Math.abs(edge / line);
+  if (pct < 0.045) return "NO PLAY";
+  return edge > 0
+    ? `OVER ${displayLine(line)}`
+    : `UNDER ${displayLine(line)}`;
+}
+
+// ── FIX #5: Single lock selector ─────────────────────────────
+// Takes array of {edge, line, pick} → returns index of strongest valid pick, or -1
+function selectLock(markets) {
+  const valid = markets.filter(m =>
+    m.pick !== "NO PLAY" && m.pick !== "—" && !isNaN(m.edge) && m.line > 0
+  );
+  if (!valid.length) return -1;
+  const max = Math.max(...valid.map(m => Math.abs(m.edge / m.line)));
+  return markets.findIndex(m =>
+    m.pick !== "NO PLAY" && m.pick !== "—" && !isNaN(m.edge) && m.line > 0 &&
+    Math.abs(m.edge / m.line) === max
+  );
+}
+
 // ── Shared Edge Threshold ─────────────────────────────────────
-// Single source of truth used by both manual engine and scan engine
 function minEdgeForLine(line) {
   if (line < 135) return 0.052;
   if (line < 150) return 0.048;
   return 0.045;
 }
 
-function decision(edge,line,type,teamSc,aSc,bSc){
-  if(isNaN(edge)||isNaN(line))return"NaN";
-  // Dynamic min edge: tighter threshold for low-scoring leagues
-  const minEdgePct = minEdgeForLine(line);
-  if(Math.abs(edge/line)<minEdgePct)return"NO PLAY";
-  const isTotalType=type==="ft_total"||type==="1h_total";
-  if(edge<0){
-    let underThr=isTotalType?line*0.060:line*0.065;
-    if(Math.abs(edge)<underThr)return"NO PLAY";
-    if(isTotalType&&!isNaN(aSc)&&!isNaN(bSc)&&(aSc>=line*0.48||bSc>=line*0.48))return"NO PLAY";
-    if(type==="team"&&!isNaN(teamSc)&&teamSc>=line*0.58)return"NO PLAY";
-  }
-  return edge>0?"OVER "+displayLine(line):"UNDER "+displayLine(line);
-}
-
-// ── Run Engine ────────────────────────────────────────────────
+// ── Run Engine (Manual Tab) ───────────────────────────────────
 function runEngine(){
   const table = document.getElementById("results");
   table.style.display="table";
@@ -1823,9 +1518,13 @@ function runEngine(){
   };
   let eb = bases[league]||160;
   const cl = paceClamps[league]||{min:0.90,max:1.12};
-  let ftLine=mid(document.getElementById("ftMarket").value);
-  let aLine=mid(document.getElementById("teamAMarket").value);
-  let bLine=mid(document.getElementById("teamBMarket").value);
+
+  // FIX #3: Use parseLineRange everywhere for market line parsing
+  let ftLine = parseLineRange(document.getElementById("ftMarket").value);
+  let aLine  = parseLineRange(document.getElementById("teamAMarket").value);
+  let bLine  = parseLineRange(document.getElementById("teamBMarket").value);
+  let h1Line = parseLineRange(document.getElementById("h1Market").value);
+
   let aSA=parseGames("aFTScored"),aAA=parseGames("aFTAllowed"),bSA=parseGames("bFTScored"),bAA=parseGames("bFTAllowed");
   let inputErrors=[];
   if(aSA?.err){document.getElementById("aFTScored").style.borderColor="#ff6b6b";inputErrors.push("Team A FT Scored: "+aSA.err);aSA=null;}
@@ -1854,7 +1553,6 @@ function runEngine(){
   if(document.getElementById("useFTH2H").checked){const _ha=parseGames("aFTH2H"),_hb=parseGames("bFTH2H");h2ha=(_ha&&!_ha.err)?_ha:null;h2hb=(_hb&&!_hb.err)?_hb:null;}
   if(fma&&h2ha&&h2hb&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(MODEL.H2H_MAX_WEIGHT,dynamicWeight(h2ha)+dynamicWeight(h2hb));
-    // Stability penalty: small H2H samples get 30% weight reduction
     if(h2ha.length < 3) w*=0.60;
     let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
     if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){let divA=Math.abs(h2hAvgA-bAFT)/bAFT;let wA=divA>MODEL.H2H_DIVERGE_THRESHOLD?w*0.5:w;bAFT=bAFT*(1-wA)+h2hAvgA*wA;}
@@ -1863,7 +1561,6 @@ function runEngine(){
   let aVolRaw=(stdDev(safeArr(aSA)||[])+stdDev(safeArr(aAA)||[]))/2;
   let bVolRaw=(stdDev(safeArr(bSA)||[])+stdDev(safeArr(bAA)||[]))/2;
   let aVol=aVolRaw*0.6+bVolRaw*0.4; let bVol=bVolRaw*0.6+aVolRaw*0.4;
-  // FIX 4: Only compute dfr once — remove duplicate team-level suppression below
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
   const vlMap={
     "nba":14,"ncaa":11,"lnb":11,"nbb":12,"cebl":11,"bal":11,"nigeria":10,"rwanda":10,
@@ -1886,13 +1583,10 @@ function runEngine(){
   bBFT=(bBFT*MODEL.REGRESSION_WEIGHT)+((eb/2)*MODEL.BASELINE_WEIGHT);
   let rawFTPace;
   if(fma&&!isNaN(aA)&&!isNaN(bA)&&(aA+bA)>0){
-    // True pace: combined offense vs combined defense
     rawFTPace=(aS+bS)/(aA+bA);
-  }
-  else if(fma){
+  } else if(fma){
     rawFTPace=((aS+bS)/2)/(eb/2);
-  }
-  else if(!isNaN(bAFT)&&!isNaN(bBFT)){rawFTPace=(bAFT+bBFT)/eb;}
+  } else if(!isNaN(bAFT)&&!isNaN(bBFT)){rawFTPace=(bAFT+bBFT)/eb;}
   else{rawFTPace=1.0;}
   let pace=Math.max(cl.min,Math.min(cl.max,rawFTPace));
   bAFT=bAFT*(MODEL.PACE_BLEND+pace/2); bBFT=bBFT*(MODEL.PACE_BLEND+pace/2);
@@ -1911,36 +1605,31 @@ function runEngine(){
     "ausnbl":1.5,"nznbl":1.4,"fiba_wc":1.2,"fiba_eb":1.3,"fiba_ac":1.3,"unknown":1.5
   };
   const hAdj = homeEdge[league]||1.5;
-  // Team A is always Home
   if(!isNaN(bAFT)) bAFT+=hAdj;
   if(!isNaN(bBFT)) bBFT-=hAdj*0.5;
   const injMultA=g_injA.restMult*g_injA.scoringMult;
   const injMultB=g_injB.restMult*g_injB.scoringMult;
   if(!isNaN(bAFT)&&injMultA!==1) bAFT*=injMultA;
   if(!isNaN(bBFT)&&injMultB!==1) bBFT*=injMultB;
-  // FIX 4: Apply DFR only to total — not to individual team projections
   let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
   if(!isNaN(ftP)){
     if(dfr) ftP*=0.97;
     if(Math.abs(bAFT-bBFT)>18) ftP*=MODEL.MULTI_GOAL_SUPPRESS;
     if(pgr) ftP*=MODEL.PACE_SUPPRESS;
-    // Pace gap filter: large scoring gap between teams suppresses total
     if(fma){
       const paceGap=Math.abs(aS-bS)/eb;
       if(paceGap>0.14) ftP*=0.97;
     }
-    // Extreme pace cap: runaway pace estimate gets pulled back
     if(!isNaN(pace)&&pace>1.12) ftP*=0.98;
-    // FIX 4: Removed duplicate defensive floor filter (was double-penalising with dfr above)
-    if(!isNaN(ftLine)){
+    if(ftLine !== null){
       const ftDiff=ftP-ftLine;
       if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_NBA;
       else if(Math.abs(ftDiff)>25) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_OTHER;
     }
   }
-  let h1P=NaN,h1Line=NaN,aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
+  let h1P=NaN,aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
   if(isNbaOrNcaa){
-    const eb1H=eb/2; h1Line=mid(document.getElementById("h1Market").value);
+    const eb1H=eb/2;
     let a1HS=parseGames("a1HScored"),a1HA=parseGames("a1HAllowed"),b1HS=parseGames("b1HScored"),b1HA=parseGames("b1HAllowed");
     if(a1HS?.err)a1HS=null;if(a1HA?.err)a1HA=null;if(b1HS?.err)b1HS=null;if(b1HA?.err)b1HA=null;
     let aS1=safeArr(a1HS)?weightedAvg(a1HS):NaN;
@@ -1972,7 +1661,6 @@ function runEngine(){
       bA1H=(bA1H*MODEL.REGRESSION_WEIGHT)+((eb1H/2)*MODEL.BASELINE_WEIGHT);
       bB1H=(bB1H*MODEL.REGRESSION_WEIGHT)+((eb1H/2)*MODEL.BASELINE_WEIGHT);
       bA1H=bA1H*(MODEL.PACE_BLEND+pace1/2); bB1H=bB1H*(MODEL.PACE_BLEND+pace1/2);
-      // Team A is always Home
       if(!isNaN(bA1H)) bA1H+=hAdj*0.5;
       if(!isNaN(bB1H)) bB1H-=hAdj*0.25;
       if(!isNaN(bA1H)&&injMultA!==1)bA1H*=injMultA;
@@ -1981,7 +1669,7 @@ function runEngine(){
       if(!isNaN(h1P)){
         if(Math.abs(bA1H-bB1H)>9) h1P*=MODEL.MULTI_GOAL_SUPPRESS;
         if(pgr1) h1P*=MODEL.PACE_SUPPRESS;
-        if(!isNaN(h1Line)){
+        if(h1Line !== null){
           const h1Diff=h1P-h1Line;
           if(league==="nba"&&Math.abs(h1Diff)>9) h1P=h1Line+h1Diff*MODEL.LINE_ANCHOR_NBA;
           else if(league!=="nba"&&Math.abs(h1Diff)>12) h1P=h1Line+h1Diff*MODEL.LINE_ANCHOR_OTHER;
@@ -1989,43 +1677,56 @@ function runEngine(){
       }
     }
   }
-  let picks=[
-    {name:"FT Total",proj:(aFTReady&&bFTReady)?ftP:NaN,line:ftLine,type:"ft_total",teamSc:null,aSc:aS,bSc:bS,note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null},
-    {name:"1H Total",proj:h1P,line:h1Line,type:"1h_total",teamSc:null,aSc:aS,bSc:bS},
-    {name:"Team A Total",proj:aFTReady?bAFT:NaN,line:aLine,type:"team",teamSc:aS,aSc:aS,bSc:bS,note:!aFTReady?"Team A FT Scored + Allowed required":null},
-    {name:"Team B Total",proj:bFTReady?bBFT:NaN,line:bLine,type:"team",teamSc:bS,aSc:aS,bSc:bS,note:!bFTReady?"Team B FT Scored + Allowed required":null}
+
+  // FIX #7+#8: Projections are FIXED. Only edge changes when lines are entered.
+  // Build picks using getPick (includes line in label)
+  const ftEdge  = (ftLine !== null && !isNaN(ftP))  ? ftP  - ftLine  : NaN;
+  const h1Edge  = (h1Line !== null && !isNaN(h1P))  ? h1P  - h1Line  : NaN;
+  const aEdge   = (aLine  !== null && !isNaN(bAFT)) ? bAFT - aLine   : NaN;
+  const bEdge   = (bLine  !== null && !isNaN(bBFT)) ? bBFT - bLine   : NaN;
+
+  const ftPick  = getPick(ftEdge,  ftLine);
+  const h1Pick  = getPick(h1Edge,  h1Line);
+  const aPick   = getPick(aEdge,   aLine);
+  const bPick   = getPick(bEdge,   bLine);
+
+  // FIX #5: One lock only
+  const markets = [
+    { edge: ftEdge,  line: ftLine,  pick: ftPick  },
+    { edge: h1Edge,  line: h1Line,  pick: h1Pick  },
+    { edge: aEdge,   line: aLine,   pick: aPick   },
+    { edge: bEdge,   line: bLine,   pick: bPick   },
   ];
-  if(!isNbaOrNcaa||isNaN(h1P)) picks=picks.filter(p=>p.type!=="1h_total");
-  const finalPicks=picks.map((p,i)=>{
-    let edge=NaN,pt="NaN",dn="";
-    if(p.note){dn=p.note;pt="&#8212;";}
-    else if(isNaN(p.line)){dn="Missing / Invalid Line";pt="&#8212;";}
-    else if(isNaN(p.proj)){dn="Missing / Invalid Last-5 Data";pt="&#8212;";}
-    else{
-      edge=p.proj-p.line;pt=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
-      if(p.type==="ft_total"&&pt.startsWith("OVER")){if(pgr||dfr)pt="NO PLAY";if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";if(aVol>vl&&bVol>vl)pt="NO PLAY";}
-      if(p.type==="team"&&pt.startsWith("OVER")&&dfr)pt="NO PLAY";
-      if(p.type==="1h_total"&&pt.startsWith("OVER")){if(pgr1)pt="NO PLAY";if(dfr1)pt="NO PLAY";if(aVol1>vl1&&bVol1>vl1)pt="NO PLAY";}
-    }
-    return {edge,pt,dn};
+  const lockIdx = selectLock(markets);
+
+  const picks = [
+    { name:"FT Total",   proj:aFTReady&&bFTReady?ftP:NaN, edge:ftEdge,  pick:ftPick,  note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null },
+    { name:"1H Total",   proj:h1P,                          edge:h1Edge,  pick:h1Pick,  note:null },
+    { name:"Team A Total",proj:aFTReady?bAFT:NaN,           edge:aEdge,   pick:aPick,   note:!aFTReady?"Team A FT Scored + Allowed required":null },
+    { name:"Team B Total",proj:bFTReady?bBFT:NaN,           edge:bEdge,   pick:bPick,   note:!bFTReady?"Team B FT Scored + Allowed required":null },
+  ];
+
+  // Filter out 1H if not applicable
+  const finalPicks = picks.filter(p => {
+    if (p.name === "1H Total" && (!isNbaOrNcaa || isNaN(h1P))) return false;
+    return true;
   });
-  let li=-1,ms=0;
-  finalPicks.forEach(({edge,pt},i)=>{
-    if(isNaN(edge)||!picks[i].line) return;
-    const pickReady=picks[i].type==="ft_total"?fma:picks[i].type==="1h_total"?true:picks[i].type==="team"?(picks[i].name==="Team A Total"?aFTReady:bFTReady):false;
-    let st=Math.abs(edge/picks[i].line);
-    if(pickReady&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;"&&st>=0.045&&st>ms){ms=st;li=i;}
+
+  finalPicks.forEach((p, i) => {
+    const isLock = lockIdx === picks.indexOf(p);
+    let row = table.insertRow();
+    let predText = p.pick;
+    if (p.note) { predText = "—"; }
+    else if (markets[picks.indexOf(p)] && markets[picks.indexOf(p)].line === null) { predText = "—"; }
+    if (isLock && predText !== "—" && predText !== "NO PLAY") predText += " 🔒";
+    const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
+    const ed = isNaN(p.edge) ? "—" : (p.edge > 0 ? "+" : "") + p.edge.toFixed(2);
+    const cn = predText.includes("OVER") ? "pred-over" : predText.includes("UNDER") ? "pred-under" : "pred-noplay";
+    row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
   });
-  finalPicks.forEach(({edge,pt,dn},i)=>{
-    const p=picks[i]; let row=table.insertRow(); let pred=pt;
-    if(i===li&&pt!=="NO PLAY"&&pt!=="NaN"&&pt!=="&#8212;") pred+=` <span class="lock">&#128274;</span>`;
-    let pd=isNaN(p.proj)?"NaN":p.proj.toFixed(2);
-    let ed=isNaN(edge)?"NaN":edge.toFixed(2);
-    let cn=pred.startsWith("OVER")?"pred-over":pred.startsWith("UNDER")?"pred-under":"pred-noplay";
-    row.innerHTML=`<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${pred}${dn?`<br><small class="error-note">${safeText(dn)}</small>`:""}</td>`;
-  });
+
   table.style.display="table";
-  setTimeout(()=>{table.style.display="table";table.scrollIntoView({behavior:"smooth",block:"start"});},100);
+  setTimeout(()=>{table.scrollIntoView({behavior:"smooth",block:"start"});},100);
 }
 
 // ── Clear All ─────────────────────────────────────────────────
@@ -2103,30 +1804,45 @@ async function startAutoScan() {
   setScanStatus('<span class="spinner"></span>Fetching today\'s schedule...', 'loading');
 
   try {
-    // Fetch today's scoreboard
     const dayOffset = parseInt(document.getElementById('scanDay').value || '0');
     const scanDate = new Date();
     scanDate.setDate(scanDate.getDate() + dayOffset);
     const today = scanDate.toISOString().slice(0,10).replace(/-/g,'');
-    const sbData = await proxyFetch(`${espnBase}/scoreboard?dates=${today}&limit=100`).catch(() => ({}));
-    const events = sbData?.events || [];
 
-    if (!events.length) {
-      setScanStatus('No games found for today.', 'err');
+    // ── FIX #1: Strict date filtering ────────────────────────
+    const sbData = await proxyFetch(`${espnBase}/scoreboard?dates=${today}&limit=100`).catch(() => ({}));
+    const selectedDate = today;
+
+    const games = (sbData?.events || []).filter(event => {
+      if (!event || !event.date || !event.competitions?.length) return false;
+      const gameDate = new Date(event.date);
+      const localDate = new Date(
+        gameDate.getFullYear(),
+        gameDate.getMonth(),
+        gameDate.getDate()
+      );
+      const localStr = localDate.toISOString().slice(0,10).replace(/-/g,'');
+      return localStr === selectedDate;
+    });
+
+    if (games.length === 0) {
+      setScanStatus('No games found for selected day.', 'err');
       btn.disabled = false;
       document.getElementById('scanStopBtn').style.display = 'none';
+      document.getElementById('scanProgressWrap').style.display = 'none';
       return;
     }
+    // ─────────────────────────────────────────────────────────
 
-    setScanStatus(`<span class="spinner"></span>Found ${events.length} games. Scanning...`, 'loading');
+    setScanStatus(`<span class="spinner"></span>Found ${games.length} games. Scanning...`, 'loading');
     document.getElementById('scanTable').style.display = 'table';
 
     let totalPicks = 0, totalLocks = 0, gamesScanned = 0;
 
-    for (let gi = 0; gi < events.length; gi++) {
+    for (let gi = 0; gi < games.length; gi++) {
       if (_scanAbort) break;
 
-      const ev = events[gi];
+      const ev = games[gi];
       const comp = ev?.competitions?.[0];
       if (!comp) continue;
 
@@ -2139,10 +1855,9 @@ async function startAutoScan() {
       const teamAId = String(cA?.team?.id || '');
       const teamBId = String(cB?.team?.id || '');
 
-      setProgress(Math.round((gi / events.length) * 85));
-      setScanStatus(`<span class="spinner"></span>[${gi+1}/${events.length}] Fetching: ${teamAName} vs ${teamBName}`, 'loading');
+      setProgress(Math.round((gi / games.length) * 85));
+      setScanStatus(`<span class="spinner"></span>[${gi+1}/${games.length}] Fetching: ${teamAName} vs ${teamBName}`, 'loading');
 
-      // Add placeholder row
       const tbody = document.getElementById('scanBody');
       const placeholderRow = document.createElement('tr');
       placeholderRow.id = `scan-row-${gi}`;
@@ -2154,7 +1869,6 @@ async function startAutoScan() {
       try {
         await new Promise(r => setTimeout(r, 80));
 
-        // Fetch both team schedules in parallel
         const [aStats, bStats] = await Promise.all([
           fetchNcaaSchedule(espnBase, teamAId, leagueSlug).catch(() => null),
           fetchNcaaSchedule(espnBase, teamBId, leagueSlug).catch(() => null)
@@ -2167,81 +1881,73 @@ async function startAutoScan() {
           continue;
         }
 
-        // Run V4 engine core
-        // Read per-row line inputs (populated after initial render)
-        const rowId = `scan-row-${gi}`;
-        const getLine = suffix => {
-          const el = document.getElementById(`${rowId}-${suffix}`);
-          return el ? parseFloat(el.value) : NaN;
-        };
-        const lines = { ft: getLine('ft'), h1: getLine('h1'), a: getLine('a'), b: getLine('b') };
-        const result = runScanEngine(aStats, bStats, league, eb, minEdgePct, lines);
+        // FIX #8: Projections are computed ONCE and stored — never recalculated on line input
+        const result = runScanEngine(aStats, bStats, league, eb, minEdgePct, { ft: NaN, h1: NaN, a: NaN, b: NaN });
         gamesScanned++;
 
         const hasPlay = result.ftPick !== 'NO PLAY' && result.ftPick !== '—';
         const isLock = result.bestLock;
 
-        if (filterMode === 'picks' && !hasPlay) {
-          placeholderRow.remove();
-          continue;
-        }
-        if (filterMode === 'locks' && !isLock) {
-          placeholderRow.remove();
-          continue;
-        }
+        if (filterMode === 'picks' && !hasPlay) { placeholderRow.remove(); continue; }
+        if (filterMode === 'locks' && !isLock)  { placeholderRow.remove(); continue; }
 
         if (hasPlay) totalPicks++;
         if (result.bestLock) totalLocks++;
 
-        // Build row — highlight the strongest pick column
-        const ftClass = result.ftPick.startsWith('OVER') ? 'scan-over' :
-                        result.ftPick.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
+        const rowId = `scan-row-${gi}`;
 
-        const strengthPct = isNaN(result.ftEdge) || !result.ftLine ? '—' : (Math.abs(result.ftEdge / result.ftLine) * 100).toFixed(1) + '%';
-        placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
-
-        // Lock icons — now 4 columns: 0=FT,1=1H,2=TeamA,3=TeamB
-        const ftLockIcon2 = result.bestLock && result.lockIdx === 0 ? ' 🔒' : '';
-        const h1LockIcon  = result.bestLock && result.lockIdx === 1 ? ' 🔒' : '';
-        const aLockIcon2  = result.bestLock && result.lockIdx === 2 ? ' 🔒' : '';
-        const bLockIcon2  = result.bestLock && result.lockIdx === 3 ? ' 🔒' : '';
-
+        // FIX #6: Column order: Matchup | FT Pick | 1H Pick | Team A Pick | Team B Pick | FT Line | 1H Line | A Line | B Line | Proj | Edge | Str% | God
         const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
-        const rowIdStr = `scan-row-${gi}`;
+
+        // FIX #5: Lock icon on exactly ONE column
+        const ftLock = result.lockIdx === 0 ? ' 🔒' : '';
+        const h1Lock = result.lockIdx === 1 ? ' 🔒' : '';
+        const aLock  = result.lockIdx === 2 ? ' 🔒' : '';
+        const bLock  = result.lockIdx === 3 ? ' 🔒' : '';
+
+        const strengthPct = isNaN(result.ftEdge) || !result.ftLine
+          ? '—'
+          : (Math.abs(result.ftEdge / result.ftLine) * 100).toFixed(1) + '%';
 
         placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
 
-        // Helper: format range placeholder  e.g. "226.5 - 228.5"
-        const rangePh = (mid, half) => half
-          ? `${(mid - 1).toFixed(1)}-${(mid + 1).toFixed(1)}`
-          : `${(mid - 1.5).toFixed(1)}-${(mid + 1.5).toFixed(1)}`;
-
-        placeholderRow.innerHTML = `
-          <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span></td>
-          <td><input id="${rowIdStr}-ft" class="scan-line-input" placeholder="${rangePh(result.ftProj, false)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-ftmid">${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</span></div></td>
-          <td><input id="${rowIdStr}-h1" class="scan-line-input" placeholder="${rangePh(result.h1Proj, true)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-h1mid">${isNaN(result.h1Proj)?'—':result.h1Proj.toFixed(1)}</span></div></td>
-          <td style="color:#d4af37" id="${rowIdStr}-proj">${isNaN(result.ftProj) ? '—' : result.ftProj.toFixed(1)}</td>
-          <td id="${rowIdStr}-edge" style="color:${result.ftEdge > 0 ? '#2ecc71' : result.ftEdge < 0 ? '#ff6b6b' : '#aaa'}">${isNaN(result.ftEdge) ? '—' : (result.ftEdge > 0 ? '+' : '') + result.ftEdge.toFixed(1)}</td>
-          <td class="${pickClass(result.ftPick)}" id="${rowIdStr}-ftpick">${result.ftPick}${ftLockIcon2}</td>
-          <td class="${pickClass(result.h1Pick)}" id="${rowIdStr}-h1pick">${result.h1Pick}${h1LockIcon}</td>
-          <td style="color:#d4af37;font-size:10px;font-weight:bold;" id="${rowIdStr}-str">${strengthPct}</td>
-          <td><input id="${rowIdStr}-a" class="scan-line-input" placeholder="${rangePh(result.aProj, true)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-amid">${isNaN(result.aProj)?'—':result.aProj.toFixed(1)}</span></div></td>
-          <td class="${pickClass(result.aPick)}" id="${rowIdStr}-apick">${result.aPick}${aLockIcon2}</td>
-          <td><input id="${rowIdStr}-b" class="scan-line-input" placeholder="${rangePh(result.bProj, true)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-bmid">${isNaN(result.bProj)?'—':result.bProj.toFixed(1)}</span></div></td>
-          <td class="${pickClass(result.bPick)}" id="${rowIdStr}-bpick">${result.bPick}${bLockIcon2}</td>
-          <td id="${rowIdStr}-god" style="text-align:center;">
-            <button onclick="fetchGodMode('${rowIdStr}','${teamAName}','${teamBName}','${league}',${result.ftProj.toFixed(1)},${result.h1Proj.toFixed(1)},${result.aProj.toFixed(1)},${result.bProj.toFixed(1)})"
-              style="background:#1a2a1a;color:#2ecc71;border:1px solid #2ecc71;padding:3px 7px;font-size:10px;font-weight:bold;cursor:pointer;">
-              ☯ Analyse
-            </button>
-            <div id="${rowIdStr}-godbox" class="god-panel"></div>
-          </td>`;
-
-        // Store projections on the row element for live recalc
+        // Store projections for recalc (projections never change, only edges do)
         placeholderRow._ftProj = result.ftProj;
         placeholderRow._h1Proj = result.h1Proj;
         placeholderRow._aProj  = result.aProj;
         placeholderRow._bProj  = result.bProj;
+        placeholderRow._league = league;
+        placeholderRow._eb     = eb;
+        placeholderRow._minEdgePct = minEdgePct;
+
+        placeholderRow.innerHTML = `
+          <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span></td>
+          <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
+          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${result.h1Pick}${h1Lock}</td>
+          <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
+          <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>
+          <td><input id="${rowId}-ft" class="scan-line-input" placeholder="e.g. 226.5" value=""
+            oninput="recalcScanRow(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</div></td>
+          <td><input id="${rowId}-h1" class="scan-line-input" placeholder="e.g. 113.5" value=""
+            oninput="recalcScanRow(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.h1Proj)?'—':result.h1Proj.toFixed(1)}</div></td>
+          <td><input id="${rowId}-a" class="scan-line-input" placeholder="e.g. 113.5" value=""
+            oninput="recalcScanRow(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.aProj)?'—':result.aProj.toFixed(1)}</div></td>
+          <td><input id="${rowId}-b" class="scan-line-input" placeholder="e.g. 113.5" value=""
+            oninput="recalcScanRow(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.bProj)?'—':result.bProj.toFixed(1)}</div></td>
+          <td style="color:#d4af37" id="${rowId}-proj">${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</td>
+          <td id="${rowId}-edge" style="color:${result.ftEdge>0?'#2ecc71':result.ftEdge<0?'#ff6b6b':'#aaa'}">${isNaN(result.ftEdge)?'—':(result.ftEdge>0?'+':'')+result.ftEdge.toFixed(1)}</td>
+          <td style="color:#d4af37;font-size:10px;font-weight:bold" id="${rowId}-str">${strengthPct}</td>
+          <td id="${rowId}-god" style="text-align:center;">
+            <button onclick="fetchGodMode('${rowId}','${teamAName}','${teamBName}','${league}',${result.ftProj.toFixed(1)},${result.h1Proj.toFixed(1)},${result.aProj.toFixed(1)},${result.bProj.toFixed(1)})"
+              style="background:#1a2a1a;color:#2ecc71;border:1px solid #2ecc71;padding:3px 7px;font-size:10px;font-weight:bold;cursor:pointer;">
+              ☯ Analyse
+            </button>
+            <div id="${rowId}-godbox" class="god-panel"></div>
+          </td>`;
 
       } catch(e) {
         placeholderRow.innerHTML = `
@@ -2254,7 +1960,7 @@ async function startAutoScan() {
     document.getElementById('scanSummary').style.display = 'block';
     document.getElementById('scanSummary').innerHTML =
       `Scanned <b>${gamesScanned}</b> games &nbsp;|&nbsp; <b>${totalPicks}</b> picks found &nbsp;|&nbsp; <b>${totalLocks}</b> 🔒 locks`;
-    setScanStatus(_scanAbort ? 'Scan stopped early.' : `✅ Scan complete — ${events.length} games processed.`, 'ok');
+    setScanStatus(_scanAbort ? 'Scan stopped early.' : `✅ Scan complete — ${games.length} games processed.`, 'ok');
 
   } catch(e) {
     setScanStatus('❌ ' + safeText(e.message), 'err');
@@ -2264,252 +1970,172 @@ async function startAutoScan() {
   }
 }
 
-// ── Scan Engine Core (V4 logic, no DOM reads) ─────────────────
+// ── Scan Engine Core ──────────────────────────────────────────
+// FIX #8: Projections stored once — NEVER recalculated on line input
 function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
-  const result = { ftPick:'—', ftProj:NaN, ftLine:NaN, ftEdge:NaN, aPick:'—', bPick:'—', bestLock:false, lockIdx:-1 };
+  const result = { ftPick:'—', ftProj:NaN, ftLine:NaN, ftEdge:NaN,
+    h1Pick:'—', h1Proj:NaN, h1Edge:NaN,
+    aPick:'—', aProj:NaN, aEdge:NaN,
+    bPick:'—', bProj:NaN, bEdge:NaN,
+    bestLock:false, lockIdx:-1 };
 
   const cl = { min:0.85, max:league==='nba'?1.15:1.12 };
-  const isNbaLeague = league === 'nba';
-  const calcA = isNbaLeague ? weightedAvg : trimmedAvg;
-
-  const aS = calcA(aStats.scored);
-  const aA = calcA(aStats.allowed);
-  const bS = calcA(bStats.scored);
-  const bA = calcA(bStats.allowed);
-
+  const calcA = league === 'nba' ? weightedAvg : trimmedAvg;
+  const aS = calcA(aStats.scored), aA = calcA(aStats.allowed);
+  const bS = calcA(bStats.scored), bA = calcA(bStats.allowed);
   if (isNaN(aS)||isNaN(aA)||isNaN(bS)||isNaN(bA)) return result;
 
   let bAFT = aS * MODEL.TEAM_WEIGHT + bA * MODEL.OPP_WEIGHT;
   let bBFT = bS * MODEL.TEAM_WEIGHT + aA * MODEL.OPP_WEIGHT;
 
-  // Volatility
   const aVolRaw = (stdDev(aStats.scored) + stdDev(aStats.allowed)) / 2;
   const bVolRaw = (stdDev(bStats.scored) + stdDev(bStats.allowed)) / 2;
-  const aVol = aVolRaw * 0.6 + bVolRaw * 0.4;
-  const bVol = bVolRaw * 0.6 + aVolRaw * 0.4;
-  const vlMap = { nba:14, ncaa:11 };
-  const vl = vlMap[league] || 12;
+  const aVol = aVolRaw*0.6 + bVolRaw*0.4, bVol = bVolRaw*0.6 + aVolRaw*0.4;
+  const vl = league==='nba' ? 14 : 11;
   bAFT = applyVolatility(bAFT, aVol, vl);
   bBFT = applyVolatility(bBFT, bVol, vl);
-
-  // Regression to baseline
   bAFT = bAFT * MODEL.REGRESSION_WEIGHT + (eb/2) * MODEL.BASELINE_WEIGHT;
   bBFT = bBFT * MODEL.REGRESSION_WEIGHT + (eb/2) * MODEL.BASELINE_WEIGHT;
 
-  // Pace
-  let rawPace = (aA + bA) > 0 ? (aS + bS) / (aA + bA) : ((aS+bS)/2)/(eb/2);
+  let rawPace = (aA+bA) > 0 ? (aS+bS)/(aA+bA) : ((aS+bS)/2)/(eb/2);
   let pace = Math.max(cl.min, Math.min(cl.max, rawPace));
   bAFT = bAFT * (MODEL.PACE_BLEND + pace/2);
   bBFT = bBFT * (MODEL.PACE_BLEND + pace/2);
 
-  // Home edge (Team A = home)
-  const homeEdgeMap = { nba:1.5, ncaa:2.0 };
-  const hAdj = homeEdgeMap[league] || 1.5;
+  const hAdj = league==='nba' ? 1.5 : 2.0;
   bAFT += hAdj; bBFT -= hAdj * 0.5;
 
-  // FIX 3: Apply DFR only to total — not to individual team projections
   const dfr = aA < eb * 0.42 && bA < eb * 0.42;
   let ftP = bAFT + bBFT;
-  const pgr = Math.abs(aS - bS) > eb * 0.10;
   if (dfr) ftP *= 0.97;
-  if (Math.abs(bAFT - bBFT) > 18) ftP *= MODEL.MULTI_GOAL_SUPPRESS;
-  if (pgr) ftP *= MODEL.PACE_SUPPRESS;
-  const paceGap = Math.abs(aS - bS) / eb;
-  if (paceGap > 0.14) ftP *= 0.97;
+  if (Math.abs(bAFT-bBFT) > 18) ftP *= MODEL.MULTI_GOAL_SUPPRESS;
+  if (Math.abs(aS-bS) > eb*0.10) ftP *= MODEL.PACE_SUPPRESS;
+  if (Math.abs(aS-bS)/eb > 0.14) ftP *= 0.97;
   if (pace > 1.12) ftP *= 0.98;
 
+  // FIX #8: Store projections ONCE — they never change when user types a line
   result.ftProj = ftP;
-
-  // Lines: use passed-in values (from per-row inputs), fallback to league baseline
-  const L = lines || {};
-  result.ftLine  = (L.ft  > 0) ? L.ft  : eb;
-  const h1Line   = (L.h1  > 0) ? L.h1  : eb / 2;
-  const aLine    = (L.a   > 0) ? L.a   : eb / 2;
-  const bLine    = (L.b   > 0) ? L.b   : eb / 2;
-
-  result.ftEdge  = ftP - result.ftLine;
-
-  // Approximate 1H projection as 47% of FT total (standard split)
-  const h1Proj = ftP * 0.47;
-  result.h1Proj = h1Proj;
-  result.h1Line = h1Line;
-  result.h1Edge = h1Proj - h1Line;
-
+  result.h1Proj = ftP * 0.47;
   result.aProj  = bAFT;
   result.bProj  = bBFT;
-  result.aLine  = aLine;
-  result.bLine  = bLine;
-  result.aEdge  = bAFT - aLine;
-  result.bEdge  = bBFT - bLine;
 
-  // Decision helper (no DOM)
-  function scanDecision(edge, line) {
-    if (isNaN(edge) || isNaN(line) || line <= 0) return '—';
-    const minE = minEdgeForLine(line);
-    const useMin = Math.max(minE, minEdgePct);
-    if (Math.abs(edge / line) < useMin) return 'NO PLAY';
-    return edge > 0 ? 'OVER ' + displayLine(line) : 'UNDER ' + displayLine(line);
-  }
+  // FIX #3: Parse range or single value for lines
+  const L = lines || {};
+  const parsedFT = parseLineRange(String(L.ft||''));
+  const parsedH1 = parseLineRange(String(L.h1||''));
+  const parsedA  = parseLineRange(String(L.a||''));
+  const parsedB  = parseLineRange(String(L.b||''));
+  const ftLine = parsedFT || NaN;
+  const h1Line = parsedH1 || NaN;
+  const aLine  = parsedA  || NaN;
+  const bLine  = parsedB  || NaN;
+  result.ftLine = ftLine;
 
-  result.ftPick = scanDecision(result.ftEdge, result.ftLine);
-  result.h1Pick = scanDecision(result.h1Edge, h1Line);
-  result.aPick  = scanDecision(result.aEdge, aLine);
-  result.bPick  = scanDecision(result.bEdge, bLine);
+  // FIX #7+#8: Edge only — projection never changes
+  result.ftEdge = !isNaN(ftLine) ? ftP - ftLine : NaN;
+  result.h1Edge = !isNaN(h1Line) ? result.h1Proj - h1Line : NaN;
+  result.aEdge  = !isNaN(aLine)  ? bAFT - aLine : NaN;
+  result.bEdge  = !isNaN(bLine)  ? bBFT - bLine : NaN;
 
-  // FIX 2: Track which pick is strongest and assign lock to correct column
-  const edges = [
-    { pick: result.ftPick, st: Math.abs(result.ftEdge / result.ftLine) },
-    { pick: result.h1Pick, st: Math.abs(result.h1Edge / h1Line) },
-    { pick: result.aPick,  st: Math.abs(result.aEdge / aLine) },
-    { pick: result.bPick,  st: Math.abs(result.bEdge / bLine) },
+  // FIX #4+#7: getPick includes line value e.g. "OVER 228.5"
+  result.ftPick = getPick(result.ftEdge, ftLine);
+  result.h1Pick = getPick(result.h1Edge, h1Line);
+  result.aPick  = getPick(result.aEdge,  aLine);
+  result.bPick  = getPick(result.bEdge,  bLine);
+
+  // FIX #5: One lock only — strongest valid pick
+  const markets = [
+    { pick: result.ftPick, edge: result.ftEdge, line: ftLine },
+    { pick: result.h1Pick, edge: result.h1Edge, line: h1Line },
+    { pick: result.aPick,  edge: result.aEdge,  line: aLine  },
+    { pick: result.bPick,  edge: result.bEdge,  line: bLine  },
   ];
-  const validEdges = edges.filter(e => e.pick !== 'NO PLAY' && e.pick !== '—');
-  if (validEdges.length > 0) {
-    const maxSt = Math.max(...validEdges.map(e => e.st));
-    const lockIndex = edges.findIndex(e => e.st === maxSt);  // track which column
-    result.bestLock = maxSt >= 0.045;
-    result.lockIdx = lockIndex;  // 0=FT, 1=1H, 2=Team A, 3=Team B
-  }
+  const lockIdx = selectLock(markets);
+  result.bestLock = lockIdx >= 0;
+  result.lockIdx  = lockIdx;
 
   return result;
 }
 
-// ── Per-row live recalc when user types a line ────────────────
-function parseMid(val) {
-  // Accepts "220.5-228.5" or "224.5" — returns midpoint
-  if (!val || !val.trim()) return NaN;
-  val = val.trim();
-  if (val.includes('-')) {
-    const parts = val.split('-').map(x => parseFloat(x.trim()));
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      return (parts[0] + parts[1]) / 2;
-    }
-  }
-  const single = parseFloat(val);
-  return isFinite(single) ? single : NaN;
-}
-
+// ── FIX #2: recalcScanRow — edge & picks ONLY ────────────────
+// Projection stays FIXED. No model re-run. No crashes.
 function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const row = document.getElementById(rowId);
   if (!row) return;
 
-  const getRaw = suffix => {
-    const el = document.getElementById(`${rowId}-${suffix}`);
-    return el ? el.value : '';
-  };
-
-  const ftRaw = getRaw('ft'); const ftParsed = parseMid(ftRaw);
-  const h1Raw = getRaw('h1'); const h1Parsed = parseMid(h1Raw);
-  const aRaw  = getRaw('a');  const aParsed  = parseMid(aRaw);
-  const bRaw  = getRaw('b');  const bParsed  = parseMid(bRaw);
-
-  // Update midpoint display labels
-  const setMid = (suffix, val) => {
-    const el = document.getElementById(`${rowId}-${suffix}mid`);
-    if (el) el.textContent = isNaN(val) ? '—' : val.toFixed(1);
-  };
-  if (!isNaN(ftParsed)) setMid('ft', ftParsed);
-  if (!isNaN(h1Parsed)) setMid('h1', h1Parsed);
-  if (!isNaN(aParsed))  setMid('a',  aParsed);
-  if (!isNaN(bParsed))  setMid('b',  bParsed);
-
-  const ftLine = ftParsed > 0 ? ftParsed : eb;
-  const h1Line = h1Parsed > 0 ? h1Parsed : eb / 2;
-  const aLine  = aParsed  > 0 ? aParsed  : eb / 2;
-  const bLine  = bParsed  > 0 ? bParsed  : eb / 2;
-
-  const ftProj = row._ftProj;
-  const aProj  = row._aProj;
-  const bProj  = row._bProj;
+  // FIX #8: Read stored fixed projections — never recompute model
+  const ftProj = row._ftProj, h1Proj = row._h1Proj;
+  const aProj = row._aProj, bProj = row._bProj;
   if (isNaN(ftProj)) return;
 
-  const h1Proj = ftProj * 0.47;
+  // FIX #3: Parse range "150.5-160.5" or single "155.5"
+  const getRaw = s => { const el = document.getElementById(`${rowId}-${s}`); return el ? el.value : ''; };
+  const ftLine = parseLineRange(getRaw('ft')) || NaN;
+  const h1Line = parseLineRange(getRaw('h1')) || NaN;
+  const aLine  = parseLineRange(getRaw('a'))  || NaN;
+  const bLine  = parseLineRange(getRaw('b'))  || NaN;
 
-  function scanDecision(edge, line) {
-    if (isNaN(edge) || isNaN(line) || line <= 0) return '—';
-    const minE = minEdgeForLine(line);
-    const useMin = Math.max(minE, minEdgePct);
-    if (Math.abs(edge / line) < useMin) return 'NO PLAY';
-    return edge > 0 ? 'OVER ' + displayLine(line) : 'UNDER ' + displayLine(line);
-  }
+  // Update midpoint display
+  const setMidEl = (s, v) => { const el = document.getElementById(`${rowId}-${s}mid`); if (el) el.textContent = isNaN(v) ? '—' : v.toFixed(1); };
+  setMidEl('ft', ftLine); setMidEl('h1', h1Line); setMidEl('a', aLine); setMidEl('b', bLine);
 
-  const ftEdge = ftProj - ftLine;
-  const h1Edge = h1Proj - h1Line;
-  const aEdge  = aProj  - aLine;
-  const bEdge  = bProj  - bLine;
+  // FIX #7+#8: Edge = proj - line. Projection never changes.
+  const ftEdge = !isNaN(ftLine) ? ftProj - ftLine : NaN;
+  const h1Edge = !isNaN(h1Line) ? h1Proj - h1Line : NaN;
+  const aEdge  = !isNaN(aLine)  ? aProj  - aLine  : NaN;
+  const bEdge  = !isNaN(bLine)  ? bProj  - bLine  : NaN;
 
-  const ftPick = scanDecision(ftEdge, ftLine);
-  const h1Pick = scanDecision(h1Edge, h1Line);
-  const aPick  = scanDecision(aEdge,  aLine);
-  const bPick  = scanDecision(bEdge,  bLine);
+  // FIX #4+#7: getPick includes line value in label
+  const ftPick = getPick(ftEdge, ftLine);
+  const h1Pick = getPick(h1Edge, h1Line);
+  const aPick  = getPick(aEdge,  aLine);
+  const bPick  = getPick(bEdge,  bLine);
 
+  // FIX #5: One lock only
+  const markets = [
+    { pick: ftPick, edge: ftEdge, line: ftLine },
+    { pick: h1Pick, edge: h1Edge, line: h1Line },
+    { pick: aPick,  edge: aEdge,  line: aLine  },
+    { pick: bPick,  edge: bEdge,  line: bLine  },
+  ];
+  const lockIdx = selectLock(markets);
+  const lockFor = i => lockIdx === i ? ' 🔒' : '';
   const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
 
-  // Determine lock
-  const edges = [
-    { pick: ftPick, st: Math.abs(ftEdge / ftLine) },
-    { pick: h1Pick, st: Math.abs(h1Edge / h1Line) },
-    { pick: aPick,  st: Math.abs(aEdge  / aLine)  },
-    { pick: bPick,  st: Math.abs(bEdge  / bLine)  },
-  ];
-  const valid = edges.filter(e => e.pick !== 'NO PLAY' && e.pick !== '—');
-  let lockIdx = -1;
-  if (valid.length > 0) {
-    const maxSt = Math.max(...valid.map(e => e.st));
-    lockIdx = edges.findIndex(e => e.st === maxSt);
-  }
-  const lockFor = i => lockIdx === i ? ' 🔒' : '';
+  const setPick = (suffix, pick, i) => {
+    const el = document.getElementById(`${rowId}-${suffix}`);
+    if (!el) return;
+    el.textContent = pick + lockFor(i);
+    el.className = pickClass(pick);
+  };
+  setPick('ftpick', ftPick, 0);
+  setPick('h1pick', h1Pick, 1);
+  setPick('apick',  aPick,  2);
+  setPick('bpick',  bPick,  3);
 
-  const allEdgesMkt = [
-    {edge: ftEdge, line: ftLine},
-    {edge: h1Edge, line: h1Line},
-    {edge: aEdge,  line: aLine},
-    {edge: bEdge,  line: bLine},
-  ];
-  const validMktEdges = allEdgesMkt.filter(e => !isNaN(e.edge) && e.line > 0);
-  const maxMktEdge = validMktEdges.length
-    ? Math.max(...validMktEdges.map(e => Math.abs(e.edge / e.line)))
-    : NaN;
-  const strPct = isNaN(maxMktEdge) ? '—' : (maxMktEdge * 100).toFixed(1) + '%';
-
-  // Update cells
   const edgeEl = document.getElementById(`${rowId}-edge`);
   if (edgeEl) {
     edgeEl.textContent = isNaN(ftEdge) ? '—' : (ftEdge > 0 ? '+' : '') + ftEdge.toFixed(1);
     edgeEl.style.color = ftEdge > 0 ? '#2ecc71' : ftEdge < 0 ? '#ff6b6b' : '#aaa';
   }
 
-  const setPick = (suffix, pick, lockI) => {
-    const el = document.getElementById(`${rowId}-${suffix}`);
-    if (!el) return;
-    el.textContent = pick + lockFor(lockI);
-    el.className = pickClass(pick);
-  };
-
-  setPick('ftpick', ftPick, 0);
-  setPick('h1pick', h1Pick, 1);
-  setPick('apick',  aPick,  2);
-  setPick('bpick',  bPick,  3);
-
+  const validEdges = markets.filter(m => m.pick !== 'NO PLAY' && m.pick !== '—' && !isNaN(m.edge) && m.line > 0);
+  const maxSt = validEdges.length ? Math.max(...validEdges.map(m => Math.abs(m.edge / m.line))) : NaN;
   const strEl = document.getElementById(`${rowId}-str`);
-  if (strEl) strEl.textContent = strPct;
+  if (strEl) strEl.textContent = isNaN(maxSt) ? '—' : (maxSt * 100).toFixed(1) + '%';
 
-  // Update row class
   const hasPlay = ftPick !== 'NO PLAY' && ftPick !== '—';
-  const isLock = lockIdx >= 0 && edges[lockIdx].st >= 0.045;
-  row.className = isLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
+  row.className = lockIdx >= 0 ? 'is-lock' : (hasPlay ? 'has-play' : '');
 }
 
-// ── God Mode — consensus prediction from external sources ─────
+// ── God Mode ──────────────────────────────────────────────────
 async function fetchGodMode(rowId, teamA, teamB, league, ftProj, h1Proj, aProj, bProj) {
   const box = document.getElementById(`${rowId}-godbox`);
-  const btn = box.previousElementSibling;
+  const btn = box ? box.previousElementSibling : null;
   if (!box) return;
-
   box.style.display = 'block';
   box.innerHTML = '<div style="color:#aaa;font-size:10px;">⏳ Fetching consensus...</div>';
   if (btn) btn.disabled = true;
-
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -2518,68 +2144,26 @@ async function fetchGodMode(rowId, teamA, teamB, league, ftProj, h1Proj, aProj, 
         model: "claude-sonnet-4-20250514",
         max_tokens: 1000,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
-        messages: [{
-          role: "user",
-          content: `You are a sports betting analyst. Search the web for expert predictions for this basketball game: ${teamA} vs ${teamB} (${league.toUpperCase()}).
-
-Find today's predictions from sites like ESPN, Covers, BetQL, OddsShark, Action Network, or any reputable sports prediction source.
-
-Our engine projects:
-- FT Total: ${ftProj}
-- 1H Total: ${h1Proj}
-- Team A (${teamA}) total: ${aProj}
-- Team B (${teamB}) total: ${bProj}
-
-Return ONLY a JSON object (no markdown, no extra text):
-{
-  "sources": [
-    {"name": "Source Name", "pick": "OVER/UNDER X", "confidence": "high/medium/low"},
-    ...
-  ],
-  "consensus": "OVER X.X" or "UNDER X.X" or "NO CONSENSUS",
-  "consensusStrength": "strong/split/weak",
-  "alignsWithEngine": true or false,
-  "godModePick": "OVER X.X" or "UNDER X.X" or "SKIP",
-  "reasoning": "One sentence max"
-}`
-        }]
+        messages: [{ role: "user", content: `You are a sports betting analyst. Search for expert predictions for: ${teamA} vs ${teamB} (${league.toUpperCase()}). Our engine projects FT Total: ${ftProj}, 1H: ${h1Proj}, Team A: ${aProj}, Team B: ${bProj}. Return ONLY a JSON object (no markdown): {"sources":[{"name":"Source","pick":"OVER/UNDER X","confidence":"high/medium/low"}],"consensus":"OVER X.X or UNDER X.X or NO CONSENSUS","consensusStrength":"strong/split/weak","alignsWithEngine":true,"godModePick":"OVER X.X or UNDER X.X or SKIP","reasoning":"one sentence"}` }]
       })
     });
-
     const data = await response.json();
-    const fullText = (data.content || [])
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
-
+    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     let parsed;
-    try {
-      const clean = fullText.replace(/```json|```/g, '').trim();
-      const jsonMatch = clean.match(/\{[\s\S]*\}/);
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-    } catch(e) { parsed = null; }
-
-    if (!parsed) {
-      box.innerHTML = '<div style="color:#ff6b6b;font-size:10px;">⚠ Could not parse consensus data.</div>';
-      return;
-    }
-
+    try { const m = fullText.replace(/```json|```/g,'').trim().match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; } catch(e) { parsed = null; }
+    if (!parsed) { box.innerHTML = '<div style="color:#ff6b6b;font-size:10px;">⚠ Could not parse response.</div>'; return; }
     const alignIcon = parsed.alignsWithEngine ? '✅' : '⚠️';
-    const godClass  = parsed.godModePick.startsWith('OVER')  ? 'color:#2ecc71' :
-                      parsed.godModePick.startsWith('UNDER') ? 'color:#ff6b6b' : 'color:#aaa';
-
-    const sourcesHtml = (parsed.sources || []).map(s => {
+    const godClass = parsed.godModePick.startsWith('OVER') ? 'color:#2ecc71' : parsed.godModePick.startsWith('UNDER') ? 'color:#ff6b6b' : 'color:#aaa';
+    const sourcesHtml = (parsed.sources||[]).map(s => {
       const cls = s.pick.startsWith('OVER') ? 'color:#2ecc71' : s.pick.startsWith('UNDER') ? 'color:#ff6b6b' : 'color:#aaa';
       return `<div class="god-source">• <b>${s.name}</b>: <span style="${cls}">${s.pick}</span> <span style="color:#555">(${s.confidence})</span></div>`;
     }).join('');
-
     box.innerHTML = `
       <div class="god-title">☯ God Mode — ${teamA} vs ${teamB}</div>
       ${sourcesHtml}
       <div style="margin-top:5px;color:#aaa;font-size:10px;">Consensus: <b style="color:#d4af37">${parsed.consensus}</b> (${parsed.consensusStrength}) ${alignIcon} Engine aligned</div>
       <div class="god-consensus" style="${godClass}">🏆 GOD PICK: ${parsed.godModePick}</div>
       <div style="color:#888;font-size:10px;margin-top:3px;font-style:italic">${parsed.reasoning}</div>`;
-
   } catch(e) {
     box.innerHTML = `<div style="color:#ff6b6b;font-size:10px;">❌ ${e.message}</div>`;
   } finally {
