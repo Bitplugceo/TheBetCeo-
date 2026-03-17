@@ -46,6 +46,12 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 .autofill-indicator {font-size:10px;color:#2ecc71;display:none;}
 .spinner {display:inline-block;width:10px;height:10px;border:2px solid #d4af37;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:4px;}
 @keyframes spin {to{transform:rotate(360deg);}}
+/* ── Scan Line Inputs ── */
+.scan-line-input {
+  width:54px;padding:3px 4px;font-size:11px;background:#1a1a1a;
+  color:#d4af37;border:1px solid #444;text-align:center;
+}
+.scan-line-input:focus { border-color:#d4af37; outline:none; }
 
 /* ── Autocomplete ── */
 .autocomplete-wrap {position:relative;width:100%;max-width:260px;margin-bottom:4px;}
@@ -306,6 +312,12 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <option value="picks">Picks Only</option>
     <option value="locks">Locks Only</option>
   </select>
+  <label style="font-size:12px;margin:0;">Day</label>
+  <select id="scanDay" class="league-box" style="margin:0;width:auto;">
+    <option value="0">Today</option>
+    <option value="1">Tomorrow</option>
+  </select>
+
 </div>
 
 <button class="scan-btn" id="scanBtn" onclick="startAutoScan()">▶ Scan Today's Games</button>
@@ -325,12 +337,16 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
       <thead>
         <tr>
           <th>Matchup</th>
-          <th>FT Total</th>
+          <th>FT Line</th>
+          <th>1H Line</th>
           <th>Proj</th>
           <th>Edge</th>
           <th>Pick</th>
-          <th>Team A Total</th>
-          <th>Team B Total</th>
+          <th>Str%</th>
+          <th>Team A Line</th>
+          <th>Team A Pick</th>
+          <th>Team B Line</th>
+          <th>Team B Pick</th>
         </tr>
       </thead>
       <tbody id="scanBody"></tbody>
@@ -1169,8 +1185,8 @@ function validateTeamId(id, league) {
   if (isNaN(n)) return false;
   // NBA IDs are 1-30 — reject anything outside that range
   if (league === "nba" && (n < 1 || n > 30)) return false;
-  // NCAA IDs are 2-9999 — reject anything too small or absurdly large
-  if (league === "ncaa" && (n < 2 || n > 9999)) return false;
+  // FIX 5: NCAA IDs only need a lower bound — no artificial upper cap
+  if (league === "ncaa" && n < 2) return false;
   return true;
 }
 
@@ -1730,10 +1746,18 @@ function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).
 function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
 function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.05*Math.min(1,(std-limit)/limit));}
 
+// ── Shared Edge Threshold ─────────────────────────────────────
+// Single source of truth used by both manual engine and scan engine
+function minEdgeForLine(line) {
+  if (line < 135) return 0.052;
+  if (line < 150) return 0.048;
+  return 0.045;
+}
+
 function decision(edge,line,type,teamSc,aSc,bSc){
   if(isNaN(edge)||isNaN(line))return"NaN";
   // Dynamic min edge: tighter threshold for low-scoring leagues
-  const minEdgePct = line < 140 ? 0.050 : line < 160 ? 0.047 : 0.045;
+  const minEdgePct = minEdgeForLine(line);
   if(Math.abs(edge/line)<minEdgePct)return"NO PLAY";
   const isTotalType=type==="ft_total"||type==="1h_total";
   if(edge<0){
@@ -1830,6 +1854,7 @@ function runEngine(){
   let aVolRaw=(stdDev(safeArr(aSA)||[])+stdDev(safeArr(aAA)||[]))/2;
   let bVolRaw=(stdDev(safeArr(bSA)||[])+stdDev(safeArr(bAA)||[]))/2;
   let aVol=aVolRaw*0.6+bVolRaw*0.4; let bVol=bVolRaw*0.6+aVolRaw*0.4;
+  // FIX 4: Only compute dfr once — remove duplicate team-level suppression below
   let dfr=(!isNaN(aA)&&aA<eb*0.40)||(!isNaN(bA)&&bA<eb*0.40);
   const vlMap={
     "nba":14,"ncaa":11,"lnb":11,"nbb":12,"cebl":11,"bal":11,"nigeria":10,"rwanda":10,
@@ -1884,10 +1909,10 @@ function runEngine(){
   const injMultB=g_injB.restMult*g_injB.scoringMult;
   if(!isNaN(bAFT)&&injMultA!==1) bAFT*=injMultA;
   if(!isNaN(bBFT)&&injMultB!==1) bBFT*=injMultB;
-  // DFR: apply once here, not per-pick inside loop
-  if(dfr&&!isNaN(bAFT)&&!isNaN(bBFT)){ bAFT*=0.97; bBFT*=0.97; }
+  // FIX 4: Apply DFR only to total — not to individual team projections
   let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
   if(!isNaN(ftP)){
+    if(dfr) ftP*=0.97;
     if(Math.abs(bAFT-bBFT)>18) ftP*=MODEL.MULTI_GOAL_SUPPRESS;
     if(pgr) ftP*=MODEL.PACE_SUPPRESS;
     // Pace gap filter: large scoring gap between teams suppresses total
@@ -1897,8 +1922,7 @@ function runEngine(){
     }
     // Extreme pace cap: runaway pace estimate gets pulled back
     if(!isNaN(pace)&&pace>1.12) ftP*=0.98;
-    // Defensive floor filter: both teams allowing very little → suppress OVER
-    if(fma&&!isNaN(aA)&&!isNaN(bA)&&aA<eb*0.42&&bA<eb*0.42) ftP*=0.97;
+    // FIX 4: Removed duplicate defensive floor filter (was double-penalising with dfr above)
     if(!isNaN(ftLine)){
       const ftDiff=ftP-ftLine;
       if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_NBA;
@@ -2071,7 +2095,10 @@ async function startAutoScan() {
 
   try {
     // Fetch today's scoreboard
-    const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const dayOffset = parseInt(document.getElementById('scanDay').value || '0');
+    const scanDate = new Date();
+    scanDate.setDate(scanDate.getDate() + dayOffset);
+    const today = scanDate.toISOString().slice(0,10).replace(/-/g,'');
     const sbData = await proxyFetch(`${espnBase}/scoreboard?dates=${today}&limit=100`).catch(() => ({}));
     const events = sbData?.events || [];
 
@@ -2112,7 +2139,7 @@ async function startAutoScan() {
       placeholderRow.id = `scan-row-${gi}`;
       placeholderRow.innerHTML = `
         <td style="text-align:left;color:#888">${teamAName} vs ${teamBName}</td>
-        <td colspan="6" style="color:#555">⏳ scanning...</td>`;
+        <td colspan="10" style="color:#555">⏳ scanning...</td>`;
       tbody.appendChild(placeholderRow);
 
       try {
@@ -2127,16 +2154,23 @@ async function startAutoScan() {
         if (!aStats || !bStats || aStats.scored.length < 2 || bStats.scored.length < 2) {
           placeholderRow.innerHTML = `
             <td style="text-align:left;color:#555">${teamAName} vs ${teamBName}</td>
-            <td colspan="6" style="color:#444">Insufficient data</td>`;
+            <td colspan="10" style="color:#444">Insufficient data</td>`;
           continue;
         }
 
         // Run V4 engine core
-        const result = runScanEngine(aStats, bStats, league, eb, minEdgePct);
+        // Read per-row line inputs (populated after initial render)
+        const rowId = `scan-row-${gi}`;
+        const getLine = suffix => {
+          const el = document.getElementById(`${rowId}-${suffix}`);
+          return el ? parseFloat(el.value) : NaN;
+        };
+        const lines = { ft: getLine('ft'), h1: getLine('h1'), a: getLine('a'), b: getLine('b') };
+        const result = runScanEngine(aStats, bStats, league, eb, minEdgePct, lines);
         gamesScanned++;
 
         const hasPlay = result.ftPick !== 'NO PLAY' && result.ftPick !== '—';
-        const isLock = result.lockIdx === 0; // FT Total is strongest
+        const isLock = result.bestLock;
 
         if (filterMode === 'picks' && !hasPlay) {
           placeholderRow.remove();
@@ -2150,25 +2184,45 @@ async function startAutoScan() {
         if (hasPlay) totalPicks++;
         if (result.bestLock) totalLocks++;
 
-        // Build row
+        // Build row — highlight the strongest pick column
         const ftClass = result.ftPick.startsWith('OVER') ? 'scan-over' :
                         result.ftPick.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
-        const lockIcon = result.bestLock ? ' <span class="scan-lock-icon">🔒</span>' : '';
+
+        const strengthPct = isNaN(result.ftEdge) || !result.ftLine ? '—' : (Math.abs(result.ftEdge / result.ftLine) * 100).toFixed(1) + '%';
+        placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
+
+        // Lock icons — now 4 columns: 0=FT,1=1H,2=TeamA,3=TeamB
+        const ftLockIcon2 = result.bestLock && result.lockIdx === 0 ? ' 🔒' : '';
+        const h1LockIcon  = result.bestLock && result.lockIdx === 1 ? ' 🔒' : '';
+        const aLockIcon2  = result.bestLock && result.lockIdx === 2 ? ' 🔒' : '';
+        const bLockIcon2  = result.bestLock && result.lockIdx === 3 ? ' 🔒' : '';
+
+        const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
+        const rowIdStr = `scan-row-${gi}`;
 
         placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
         placeholderRow.innerHTML = `
-          <td style="text-align:left;font-size:11px;color:#ddd">${teamAName}<br><span style="color:#888">vs ${teamBName}</span></td>
-          <td style="color:#aaa">${result.ftLine > 0 ? result.ftLine.toFixed(1) : '—'}</td>
-          <td style="color:#d4af37">${isNaN(result.ftProj) ? '—' : result.ftProj.toFixed(1)}</td>
-          <td style="color:${result.ftEdge > 0 ? '#2ecc71' : result.ftEdge < 0 ? '#ff6b6b' : '#aaa'}">${isNaN(result.ftEdge) ? '—' : (result.ftEdge > 0 ? '+' : '') + result.ftEdge.toFixed(1)}</td>
-          <td class="${ftClass}">${result.ftPick}${lockIcon}</td>
-          <td class="${result.aPick.startsWith('OVER') ? 'scan-over' : result.aPick.startsWith('UNDER') ? 'scan-under' : 'scan-noplay'}">${result.aPick}</td>
-          <td class="${result.bPick.startsWith('OVER') ? 'scan-over' : result.bPick.startsWith('UNDER') ? 'scan-under' : 'scan-noplay'}">${result.bPick}</td>`;
+          <td style="text-align:left;font-size:11px;color:#ddd">${teamAName}<br><span style="color:#777;font-size:10px;">vs ${teamBName}</span></td>
+          <td><input id="${rowIdStr}-ft" class="scan-line-input" placeholder="${eb}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
+          <td><input id="${rowIdStr}-h1" class="scan-line-input" placeholder="${(eb/2).toFixed(1)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
+          <td style="color:#d4af37" id="${rowIdStr}-proj">${isNaN(result.ftProj) ? '—' : result.ftProj.toFixed(1)}</td>
+          <td id="${rowIdStr}-edge" style="color:${result.ftEdge > 0 ? '#2ecc71' : result.ftEdge < 0 ? '#ff6b6b' : '#aaa'}">${isNaN(result.ftEdge) ? '—' : (result.ftEdge > 0 ? '+' : '') + result.ftEdge.toFixed(1)}</td>
+          <td class="${pickClass(result.ftPick)}" id="${rowIdStr}-ftpick">${result.ftPick}${ftLockIcon2}</td>
+          <td style="color:#d4af37;font-size:10px;" id="${rowIdStr}-str">${strengthPct}</td>
+          <td><input id="${rowIdStr}-a" class="scan-line-input" placeholder="${(eb/2).toFixed(1)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
+          <td class="${pickClass(result.aPick)}" id="${rowIdStr}-apick">${result.aPick}${aLockIcon2}</td>
+          <td><input id="${rowIdStr}-b" class="scan-line-input" placeholder="${(eb/2).toFixed(1)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
+          <td class="${pickClass(result.bPick)}" id="${rowIdStr}-bpick">${result.bPick}${bLockIcon2}</td>`;
+
+        // Store projections on the row element for live recalc
+        placeholderRow._ftProj = result.ftProj;
+        placeholderRow._aProj  = result.aProj;
+        placeholderRow._bProj  = result.bProj;
 
       } catch(e) {
         placeholderRow.innerHTML = `
           <td style="text-align:left;color:#555">${teamAName} vs ${teamBName}</td>
-          <td colspan="6" style="color:#444">Error: ${safeText(e.message || 'fetch failed')}</td>`;
+          <td colspan="10" style="color:#444">Error: ${safeText(e.message || 'fetch failed')}</td>`;
       }
     }
 
@@ -2187,7 +2241,7 @@ async function startAutoScan() {
 }
 
 // ── Scan Engine Core (V4 logic, no DOM reads) ─────────────────
-function runScanEngine(aStats, bStats, league, eb, minEdgePct) {
+function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   const result = { ftPick:'—', ftProj:NaN, ftLine:NaN, ftEdge:NaN, aPick:'—', bPick:'—', bestLock:false, lockIdx:-1 };
 
   const cl = { min:0.85, max:league==='nba'?1.15:1.12 };
@@ -2201,7 +2255,6 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct) {
 
   if (isNaN(aS)||isNaN(aA)||isNaN(bS)||isNaN(bA)) return result;
 
-  const fma = true;
   let bAFT = aS * MODEL.TEAM_WEIGHT + bA * MODEL.OPP_WEIGHT;
   let bBFT = bS * MODEL.TEAM_WEIGHT + aA * MODEL.OPP_WEIGHT;
 
@@ -2230,53 +2283,157 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct) {
   const hAdj = homeEdgeMap[league] || 1.5;
   bAFT += hAdj; bBFT -= hAdj * 0.5;
 
-  // Filters
+  // FIX 3: Apply DFR only to total — not to individual team projections
+  const dfr = aA < eb * 0.42 && bA < eb * 0.42;
   let ftP = bAFT + bBFT;
   const pgr = Math.abs(aS - bS) > eb * 0.10;
-  const dfr = aA < eb * 0.42 && bA < eb * 0.42;
+  if (dfr) ftP *= 0.97;
   if (Math.abs(bAFT - bBFT) > 18) ftP *= MODEL.MULTI_GOAL_SUPPRESS;
   if (pgr) ftP *= MODEL.PACE_SUPPRESS;
   const paceGap = Math.abs(aS - bS) / eb;
   if (paceGap > 0.14) ftP *= 0.97;
-  if (dfr) { ftP *= 0.97; bAFT *= 0.97; bBFT *= 0.97; }
   if (pace > 1.12) ftP *= 0.98;
 
   result.ftProj = ftP;
 
+  // Lines: use passed-in values (from per-row inputs), fallback to league baseline
+  const L = lines || {};
+  result.ftLine  = (L.ft  > 0) ? L.ft  : eb;
+  const h1Line   = (L.h1  > 0) ? L.h1  : eb / 2;
+  const aLine    = (L.a   > 0) ? L.a   : eb / 2;
+  const bLine    = (L.b   > 0) ? L.b   : eb / 2;
+
+  result.ftEdge  = ftP - result.ftLine;
+
+  // Approximate 1H projection as 47% of FT total (standard split)
+  const h1Proj = ftP * 0.47;
+  result.h1Proj = h1Proj;
+  result.h1Line = h1Line;
+  result.h1Edge = h1Proj - h1Line;
+
+  result.aProj  = bAFT;
+  result.bProj  = bBFT;
+  result.aLine  = aLine;
+  result.bLine  = bLine;
+  result.aEdge  = bAFT - aLine;
+  result.bEdge  = bBFT - bLine;
+
   // Decision helper (no DOM)
   function scanDecision(edge, line) {
     if (isNaN(edge) || isNaN(line) || line <= 0) return '—';
-    const minE = line < 140 ? 0.052 : line < 160 ? 0.047 : 0.045;
+    const minE = minEdgeForLine(line);
     const useMin = Math.max(minE, minEdgePct);
     if (Math.abs(edge / line) < useMin) return 'NO PLAY';
     return edge > 0 ? 'OVER ' + displayLine(line) : 'UNDER ' + displayLine(line);
   }
 
-  // We don't have market lines in auto-scan — use projection as self-reference
-  // Show raw projection and flag edge vs typical league baseline
-  result.ftLine = eb; // use league baseline as reference line
-  result.ftEdge = ftP - eb;
-  result.ftPick = scanDecision(result.ftEdge, eb);
+  result.ftPick = scanDecision(result.ftEdge, result.ftLine);
+  result.h1Pick = scanDecision(result.h1Edge, h1Line);
+  result.aPick  = scanDecision(result.aEdge, aLine);
+  result.bPick  = scanDecision(result.bEdge, bLine);
 
-  // Team totals
-  const aEdge = bAFT - eb/2;
-  const bEdge = bBFT - eb/2;
-  result.aPick = scanDecision(aEdge, eb/2);
-  result.bPick = scanDecision(bEdge, eb/2);
-
-  // Lock = strongest pick
+  // FIX 2: Track which pick is strongest and assign lock to correct column
   const edges = [
-    { pick: result.ftPick, st: Math.abs(result.ftEdge / eb) },
-    { pick: result.aPick,  st: Math.abs(aEdge / (eb/2)) },
-    { pick: result.bPick,  st: Math.abs(bEdge / (eb/2)) },
+    { pick: result.ftPick, st: Math.abs(result.ftEdge / result.ftLine) },
+    { pick: result.h1Pick, st: Math.abs(result.h1Edge / h1Line) },
+    { pick: result.aPick,  st: Math.abs(result.aEdge / aLine) },
+    { pick: result.bPick,  st: Math.abs(result.bEdge / bLine) },
   ];
   const validEdges = edges.filter(e => e.pick !== 'NO PLAY' && e.pick !== '—');
   if (validEdges.length > 0) {
     const maxSt = Math.max(...validEdges.map(e => e.st));
+    const lockIndex = edges.findIndex(e => e.st === maxSt);  // track which column
     result.bestLock = maxSt >= 0.045;
+    result.lockIdx = lockIndex;  // 0=FT, 1=1H, 2=Team A, 3=Team B
   }
 
   return result;
+}
+
+// ── Per-row live recalc when user types a line ────────────────
+function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+
+  const getVal = suffix => {
+    const el = document.getElementById(`${rowId}-${suffix}`);
+    return el ? parseFloat(el.value) : NaN;
+  };
+
+  const ftLine = getVal('ft') > 0 ? getVal('ft') : eb;
+  const h1Line = getVal('h1') > 0 ? getVal('h1') : eb / 2;
+  const aLine  = getVal('a')  > 0 ? getVal('a')  : eb / 2;
+  const bLine  = getVal('b')  > 0 ? getVal('b')  : eb / 2;
+
+  const ftProj = row._ftProj;
+  const aProj  = row._aProj;
+  const bProj  = row._bProj;
+  if (isNaN(ftProj)) return;
+
+  const h1Proj = ftProj * 0.47;
+
+  function scanDecision(edge, line) {
+    if (isNaN(edge) || isNaN(line) || line <= 0) return '—';
+    const minE = minEdgeForLine(line);
+    const useMin = Math.max(minE, minEdgePct);
+    if (Math.abs(edge / line) < useMin) return 'NO PLAY';
+    return edge > 0 ? 'OVER ' + displayLine(line) : 'UNDER ' + displayLine(line);
+  }
+
+  const ftEdge = ftProj - ftLine;
+  const h1Edge = h1Proj - h1Line;
+  const aEdge  = aProj  - aLine;
+  const bEdge  = bProj  - bLine;
+
+  const ftPick = scanDecision(ftEdge, ftLine);
+  const h1Pick = scanDecision(h1Edge, h1Line);
+  const aPick  = scanDecision(aEdge,  aLine);
+  const bPick  = scanDecision(bEdge,  bLine);
+
+  const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
+
+  // Determine lock
+  const edges = [
+    { pick: ftPick, st: Math.abs(ftEdge / ftLine) },
+    { pick: h1Pick, st: Math.abs(h1Edge / h1Line) },
+    { pick: aPick,  st: Math.abs(aEdge  / aLine)  },
+    { pick: bPick,  st: Math.abs(bEdge  / bLine)  },
+  ];
+  const valid = edges.filter(e => e.pick !== 'NO PLAY' && e.pick !== '—');
+  let lockIdx = -1;
+  if (valid.length > 0) {
+    const maxSt = Math.max(...valid.map(e => e.st));
+    lockIdx = edges.findIndex(e => e.st === maxSt);
+  }
+  const lockFor = i => lockIdx === i ? ' 🔒' : '';
+
+  const strPct = isNaN(ftEdge) ? '—' : (Math.abs(ftEdge / ftLine) * 100).toFixed(1) + '%';
+
+  // Update cells
+  const edgeEl = document.getElementById(`${rowId}-edge`);
+  if (edgeEl) {
+    edgeEl.textContent = isNaN(ftEdge) ? '—' : (ftEdge > 0 ? '+' : '') + ftEdge.toFixed(1);
+    edgeEl.style.color = ftEdge > 0 ? '#2ecc71' : ftEdge < 0 ? '#ff6b6b' : '#aaa';
+  }
+
+  const setPick = (suffix, pick, lockI) => {
+    const el = document.getElementById(`${rowId}-${suffix}`);
+    if (!el) return;
+    el.textContent = pick + lockFor(lockI);
+    el.className = pickClass(pick);
+  };
+
+  setPick('ftpick', ftPick, 0);
+  setPick('apick',  aPick,  2);
+  setPick('bpick',  bPick,  3);
+
+  const strEl = document.getElementById(`${rowId}-str`);
+  if (strEl) strEl.textContent = strPct;
+
+  // Update row class
+  const hasPlay = ftPick !== 'NO PLAY' && ftPick !== '—';
+  const isLock = lockIdx >= 0 && edges[lockIdx].st >= 0.045;
+  row.className = isLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
 }
 </script>
 
