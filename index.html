@@ -1094,7 +1094,7 @@ const NCAA_TEAM_MAP = {
   "texas state":2642,"texas state bobcats":2642,
   "texas tech":2641,"texas tech red raiders":2641,
   "toledo":2649,"toledo rockets":2649,
-  "towson":231,"towson tigers":231,
+  "towson":2650,"towson tigers":2650,
   "troy":2653,"troy trojans":2653,
   "tulane":2655,"tulane green wave":2655,
   "tulsa":202,"tulsa golden hurricane":202,
@@ -1167,10 +1167,10 @@ function validateTeamId(id, league) {
   if (!id) return false;
   const n = parseInt(id);
   if (isNaN(n)) return false;
-  // NBA IDs are all <= 30; reject if suspiciously large
-  if (league === "nba" && n > 100) return false;
-  // NCAA IDs are all >= 2; reject if too small
-  if (league === "ncaa" && n < 2) return false;
+  // NBA IDs are 1-30 — reject anything outside that range
+  if (league === "nba" && (n < 1 || n > 30)) return false;
+  // NCAA IDs are 2-9999 — reject anything too small or absurdly large
+  if (league === "ncaa" && (n < 2 || n > 9999)) return false;
   return true;
 }
 
@@ -1822,7 +1822,7 @@ function runEngine(){
   if(fma&&h2ha&&h2hb&&h2ha.length>=2&&h2hb.length>=2){
     let w=Math.min(MODEL.H2H_MAX_WEIGHT,dynamicWeight(h2ha)+dynamicWeight(h2hb));
     // Stability penalty: small H2H samples get 30% weight reduction
-    if(h2ha.length < 3) w*=0.70;
+    if(h2ha.length < 3) w*=0.60;
     let h2hAvgA=avg(h2ha),h2hAvgB=avg(h2hb);
     if(!isNaN(bAFT)&&bAFT>0&&!isNaN(h2hAvgA)){let divA=Math.abs(h2hAvgA-bAFT)/bAFT;let wA=divA>MODEL.H2H_DIVERGE_THRESHOLD?w*0.5:w;bAFT=bAFT*(1-wA)+h2hAvgA*wA;}
     if(!isNaN(bBFT)&&bBFT>0&&!isNaN(h2hAvgB)){let divB=Math.abs(h2hAvgB-bBFT)/bBFT;let wB=divB>MODEL.H2H_DIVERGE_THRESHOLD?w*0.5:w;bBFT=bBFT*(1-wB)+h2hAvgB*wB;}
@@ -1884,6 +1884,8 @@ function runEngine(){
   const injMultB=g_injB.restMult*g_injB.scoringMult;
   if(!isNaN(bAFT)&&injMultA!==1) bAFT*=injMultA;
   if(!isNaN(bBFT)&&injMultB!==1) bBFT*=injMultB;
+  // DFR: apply once here, not per-pick inside loop
+  if(dfr&&!isNaN(bAFT)&&!isNaN(bBFT)){ bAFT*=0.97; bBFT*=0.97; }
   let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
   if(!isNaN(ftP)){
     if(Math.abs(bAFT-bBFT)>18) ftP*=MODEL.MULTI_GOAL_SUPPRESS;
@@ -1891,7 +1893,7 @@ function runEngine(){
     // Pace gap filter: large scoring gap between teams suppresses total
     if(fma){
       const paceGap=Math.abs(aS-bS)/eb;
-      if(paceGap>0.12) ftP*=0.96;
+      if(paceGap>0.14) ftP*=0.97;
     }
     // Extreme pace cap: runaway pace estimate gets pulled back
     if(!isNaN(pace)&&pace>1.12) ftP*=0.98;
@@ -1969,7 +1971,6 @@ function runEngine(){
     else{
       edge=p.proj-p.line;pt=decision(edge,p.line,p.type,p.teamSc,p.aSc,p.bSc);
       if(p.type==="ft_total"&&pt.startsWith("OVER")){if(pgr||dfr)pt="NO PLAY";if(Math.abs(bAFT-bBFT)>20)pt="NO PLAY";if(aVol>vl&&bVol>vl)pt="NO PLAY";}
-      if(p.type==="team"&&dfr){bAFT*=0.97;bBFT*=0.97;} // soften instead of kill
       if(p.type==="team"&&pt.startsWith("OVER")&&dfr)pt="NO PLAY";
       if(p.type==="1h_total"&&pt.startsWith("OVER")){if(pgr1)pt="NO PLAY";if(dfr1)pt="NO PLAY";if(aVol1>vl1&&bVol1>vl1)pt="NO PLAY";}
     }
@@ -2066,7 +2067,7 @@ async function startAutoScan() {
   const eb = isNcaa ? 150 : 228;
   const league = scanLeague;
 
-  setScanStatus('<span class="spinner"></span>Fetching today's schedule...', 'loading');
+  setScanStatus('<span class="spinner"></span>Fetching today\'s schedule...', 'loading');
 
   try {
     // Fetch today's scoreboard
@@ -2236,7 +2237,7 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct) {
   if (Math.abs(bAFT - bBFT) > 18) ftP *= MODEL.MULTI_GOAL_SUPPRESS;
   if (pgr) ftP *= MODEL.PACE_SUPPRESS;
   const paceGap = Math.abs(aS - bS) / eb;
-  if (paceGap > 0.12) ftP *= 0.96;
+  if (paceGap > 0.14) ftP *= 0.97;
   if (dfr) { ftP *= 0.97; bAFT *= 0.97; bBFT *= 0.97; }
   if (pace > 1.12) ftP *= 0.98;
 
