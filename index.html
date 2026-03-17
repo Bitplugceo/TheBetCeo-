@@ -911,7 +911,11 @@ function lookupTeamId(name, leagueHint) {
   const PRIMARY = isNba ? NBA_TEAM_MAP : NCAA_TEAM_MAP;
   const SECONDARY = isNba ? NCAA_TEAM_MAP : NBA_TEAM_MAP;
   if (PRIMARY[n] !== undefined) return PRIMARY[n];
-  if (SECONDARY[n] !== undefined) return SECONDARY[n];
+  // Safety: prevent NBA ID 6 (south alabama=6 in NCAA map) from colliding
+  if (SECONDARY[n] !== undefined) {
+    if (isNba && SECONDARY[n] === 6) return null;
+    return SECONDARY[n];
+  }
   let bestKey=null, bestLen=0;
   for (let key of Object.keys(PRIMARY)) { if (n.includes(key)&&key.length>bestLen){bestKey=key;bestLen=key.length;} }
   if (bestKey) return PRIMARY[bestKey];
@@ -1480,16 +1484,12 @@ function selectLock(markets) {
     Math.abs(m.edge / m.line) >= 0.045
   );
   if (!valid.length) return -1;
-  const max = Math.max(...valid.map(m => Math.abs(m.edge / m.line)));
-  return markets.findIndex(m =>
-    m.pick !== "NO PLAY" &&
-    m.pick !== "—" &&
-    !isNaN(m.edge) &&
-    m.line !== null &&
-    !isNaN(m.line) &&
-    m.line > 0 &&
-    Math.abs(Math.abs(m.edge / m.line) - max) < 0.0001
-  );
+  const best = [...valid].sort((a, b) => {
+    const ea = Math.abs(a.edge / a.line), eb2 = Math.abs(b.edge / b.line);
+    if (Math.abs(eb2 - ea) > 0.0005) return eb2 - ea;
+    return Math.abs(b.edge) - Math.abs(a.edge);
+  })[0];
+  return markets.findIndex(m => m === best);
 }
 
 // ── Shared Edge Threshold ─────────────────────────────────────
@@ -1837,16 +1837,23 @@ async function startAutoScan() {
 
     // ── FIX #1: Strict date filtering ────────────────────────
     const sbData = await proxyFetch(`${espnBase}/scoreboard`).catch(() => ({}));
-    const games = (sbData?.events || []).filter(event => {
+    let _events = sbData?.events || [];
+    // FIX 1: NCAA fallback — scoreboard sometimes empty
+    if (!_events.length && scanLeague === 'ncaa') {
+      const alt = await proxyFetch(`${espnBase}/teams/1/schedule`).catch(() => ({}));
+      _events = alt?.events || [];
+    }
+    const games = _events.filter(event => {
       if (!event || !event.date || !event.competitions?.length) return false;
       const gameDate = new Date(event.date);
-      const eventDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
-      // FIX 6: Shift midnight/early-AM games (before 3AM) to next day to match SportyBet
-      if (gameDate.getHours() < 3) eventDay.setDate(eventDay.getDate() + 1);
+      const local = new Date(gameDate.toLocaleString());
+      const eventDay = new Date(local.getFullYear(), local.getMonth(), local.getDate());
+      // Shift early-AM games (<3AM local) to next day to match SportyBet
+      if (local.getHours() < 3) eventDay.setDate(eventDay.getDate() + 1);
       const targetDay = new Date(scanDate.getFullYear(), scanDate.getMonth(), scanDate.getDate());
       return (
         eventDay.getTime() === targetDay.getTime() &&
-        ["pre","scheduled","created","in"].includes(event.status?.type?.state) &&
+        ["pre","scheduled","created"].includes(event.status?.type?.state) &&
         event.competitions?.[0]?.competitors?.length === 2 &&
       event.competitions?.[0]?.competitors?.every(c => c.team?.id)
       );
@@ -1894,14 +1901,14 @@ async function startAutoScan() {
       tbody.appendChild(placeholderRow);
 
       try {
-        await new Promise(r => setTimeout(r, 80));
+        await new Promise(r => setTimeout(r, 30));
 
         // FIX 5: NBA uses scoreboard fetch; NCAA uses schedule fetch
         let aStats, bStats;
         if (scanLeague === 'nba') {
           const [gA, gB] = await Promise.all([
-            fetchNbaScoreboard(espnBase, 60, teamAId, teamAId).catch(() => []),
-            fetchNbaScoreboard(espnBase, 60, teamBId, teamBId).catch(() => [])
+            fetchNbaScoreboard(espnBase, 60, teamAId, teamBId).catch(() => []),
+            fetchNbaScoreboard(espnBase, 60, teamBId, teamAId).catch(() => [])
           ]);
           aStats = extractLastFive(gA, String(teamAId));
           bStats = extractLastFive(gB, String(teamBId));
@@ -1963,7 +1970,7 @@ async function startAutoScan() {
         placeholderRow._minEdgePct = minEdgePct;
 
         placeholderRow.innerHTML = `
-          <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span><br><span style="font-size:10px;color:#aaa;">${(() => { const pe = Math.abs((result.ftProj - eb) / eb); return pe >= 0.06 ? '💣 strong model' : pe >= 0.045 ? '👀 watch' : ''; })()}</span></td>
+          <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span><br><span style="font-size:10px;color:#aaa;">${(() => { const pe = Math.abs((result.ftProj - eb) / eb); return pe >= 0.06 ? '💣 model bias' : pe >= 0.045 ? '👀 model bias' : ''; })()}</span></td>
           <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
           <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${(isNaN(result.h1Proj) || isNaN(result.h1Line) || result.h1Pick === 'NO PLAY') ? '—' : result.h1Pick + h1Lock}</td>
           <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
@@ -1984,9 +1991,8 @@ async function startAutoScan() {
           <td id="${rowId}-edge" style="color:${result.ftEdge>0?'#2ecc71':result.ftEdge<0?'#ff6b6b':'#aaa'}">${isNaN(result.ftEdge)?'—':(result.ftEdge>0?'+':'')+result.ftEdge.toFixed(1)}</td>
           <td style="color:#d4af37;font-size:10px;font-weight:bold" id="${rowId}-str">${strengthPct}</td>
           <td id="${rowId}-god" style="text-align:center;">
-            <button onclick="fetchGodMode('${rowId}','${teamAName}','${teamBName}','${league}',${result.ftProj.toFixed(1)},${result.h1Proj.toFixed(1)},${result.aProj.toFixed(1)},${result.bProj.toFixed(1)})"
-              style="background:#1a2a1a;color:#2ecc71;border:1px solid #2ecc71;padding:3px 7px;font-size:10px;font-weight:bold;cursor:pointer;">
-              ☯ Analyse
+            <button disabled style="background:#111;color:#555;border:1px solid #333;padding:3px 7px;font-size:10px;font-weight:bold;cursor:not-allowed;">
+              ☯ Coming Soon
             </button>
             <div id="${rowId}-godbox" class="god-panel"></div>
           </td>`;
@@ -2056,6 +2062,18 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   if (Math.abs(aS-bS)/eb > 0.14) ftP *= 0.97;
   if (pace > 1.12) ftP *= 0.98;
 
+  // FIX 4: Confidence weighting — adjusts edge strength without changing projection
+  let confidence = 1;
+  const paceGap = Math.abs(aS - bS) / eb;
+  if (paceGap > 0.14) confidence *= 0.94;
+  if (paceGap > 0.18) confidence *= 0.90;
+  if (aA > eb * 0.60 || bA > eb * 0.60) confidence *= 0.93;
+  const aVolRaw2 = (stdDev(aStats.scored) + stdDev(aStats.allowed)) / 2;
+  const bVolRaw2 = (stdDev(bStats.scored) + stdDev(bStats.allowed)) / 2;
+  const aVol2 = aVolRaw2*0.6 + bVolRaw2*0.4, bVol2 = bVolRaw2*0.6 + aVolRaw2*0.4;
+  const vl2 = league === 'nba' ? 14 : 11;
+  if (aVol2 > vl2 || bVol2 > vl2) confidence *= 0.92;
+
   // Projections stored once — never change on line input
   result.ftProj = ftP;
   // FIX 1: Real 1H — NaN if no data (no fake fallback)
@@ -2113,10 +2131,10 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   const aBase  = !isNaN(aLine)  ? aLine  : eb / 2;
   const bBase  = !isNaN(bLine)  ? bLine  : eb / 2;
 
-  result.ftEdge = ftP    - ftBase;
-  result.h1Edge = !isNaN(result.h1Proj) ? result.h1Proj - h1Base : NaN;
-  result.aEdge  = bAFT   - aBase;
-  result.bEdge  = bBFT   - bBase;
+  result.ftEdge = (ftP    - ftBase) * confidence;
+  result.h1Edge = !isNaN(result.h1Proj) ? (result.h1Proj - h1Base) * confidence : NaN;
+  result.aEdge  = (bAFT   - aBase) * confidence;
+  result.bEdge  = (bBFT   - bBase) * confidence;
 
   // FIX 3: Picks only when real line entered — otherwise show '—'
   result.ftPick = !isNaN(ftLine) ? getPickWithThreshold(result.ftEdge, ftLine, minEdgePct) : '—';
@@ -2263,7 +2281,10 @@ function sortScanTable() {
     if (bHasPlay !== aHasPlay) return bHasPlay - aHasPlay;
     const aStr = cleanPct(a.querySelector('[id$="-str"]')?.textContent);
     const bStr = cleanPct(b.querySelector('[id$="-str"]')?.textContent);
-    return bStr - aStr;
+    if (bStr !== aStr) return bStr - aStr;
+    const aPre = (a._ftProj && a._eb) ? Math.abs((a._ftProj - a._eb) / a._eb) : 0;
+    const bPre = (b._ftProj && b._eb) ? Math.abs((b._ftProj - b._eb) / b._eb) : 0;
+    return bPre - aPre;
   });
   rows.forEach(r => tbody.appendChild(r));
 }
