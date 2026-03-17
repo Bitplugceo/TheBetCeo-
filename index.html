@@ -48,10 +48,11 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 @keyframes spin {to{transform:rotate(360deg);}}
 /* ── Scan Line Inputs ── */
 .scan-line-input {
-  width:54px;padding:3px 4px;font-size:11px;background:#1a1a1a;
-  color:#d4af37;border:1px solid #444;text-align:center;
+  width:70px;padding:3px 4px;font-size:11px;background:#222;
+  color:#d4af37;border:1px solid #d4af37;text-align:center;
 }
-.scan-line-input:focus { border-color:#d4af37; outline:none; }
+.scan-line-input:focus { border-color:#fff; outline:none; }
+.scan-line-input::placeholder { color:rgba(212,175,55,0.4); }
 
 /* ── Autocomplete ── */
 .autocomplete-wrap {position:relative;width:100%;max-width:260px;margin-bottom:4px;}
@@ -78,15 +79,21 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 #scanStatus.err {color:#ff6b6b;}
 #scanStatus.loading {color:#d4af37;}
 .scan-results-wrap {overflow-x:auto;}
-#scanTable {width:100%;border-collapse:collapse;font-size:11px;display:none;}
+#scanTable {width:100%;border-collapse:collapse;font-size:11px;display:none;margin-top:10px;}
 #scanTable th {background:#1a1a1a;color:#d4af37;border:1px solid #d4af37;padding:6px;text-align:center;position:sticky;top:0;}
-#scanTable td {border:1px solid #333;padding:5px 6px;text-align:center;color:#ccc;}
-#scanTable tr.has-play td {color:#fff;}
+#scanTable td {border:1px solid #d4af37;padding:5px 6px;text-align:center;color:#d4af37;}
+#scanTable tr.has-play td {color:#d4af37;}
 #scanTable tr.is-lock {background:#1a2a1a;}
-.scan-over {color:#2ecc71;font-weight:bold;}
-.scan-under {color:#ff6b6b;font-weight:bold;}
-.scan-noplay {color:#555;}
+#scanTable tr:hover td {background:#1e1e1e;}
+.scan-over {background:#1e7d3a;color:#fff !important;font-weight:bold;padding:3px 5px;}
+.scan-under {background:#8b1e1e;color:#fff !important;font-weight:bold;padding:3px 5px;}
+.scan-noplay {background:#333;color:#888 !important;font-weight:bold;padding:3px 5px;}
 .scan-lock-icon {margin-left:3px;}
+/* God Mode panel */
+.god-panel {background:#0d1a0d;border:1px solid #2ecc71;padding:8px;margin-top:6px;font-size:11px;display:none;}
+.god-panel .god-title {color:#2ecc71;font-weight:bold;margin-bottom:4px;font-size:12px;}
+.god-consensus {color:#d4af37;font-size:13px;font-weight:bold;margin-top:4px;}
+.god-source {color:#aaa;margin:2px 0;}
 .progress-bar-wrap {background:#222;border:1px solid #444;height:6px;border-radius:3px;margin-bottom:6px;display:none;}
 .progress-bar {height:6px;background:#d4af37;border-radius:3px;width:0%;transition:width 0.3s;}
 .scan-summary {font-size:11px;color:#aaa;margin-top:6px;display:none;}
@@ -341,12 +348,14 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
           <th>1H Line</th>
           <th>Proj</th>
           <th>Edge</th>
-          <th>Pick</th>
+          <th>FT Pick</th>
+          <th>1H Pick</th>
           <th>Str%</th>
-          <th>Team A Line</th>
-          <th>Team A Pick</th>
-          <th>Team B Line</th>
-          <th>Team B Pick</th>
+          <th>A Line</th>
+          <th>A Pick</th>
+          <th>B Line</th>
+          <th>B Pick</th>
+          <th>☯ God Mode</th>
         </tr>
       </thead>
       <tbody id="scanBody"></tbody>
@@ -2139,7 +2148,7 @@ async function startAutoScan() {
       placeholderRow.id = `scan-row-${gi}`;
       placeholderRow.innerHTML = `
         <td style="text-align:left;color:#888">${teamAName} vs ${teamBName}</td>
-        <td colspan="10" style="color:#555">⏳ scanning...</td>`;
+        <td colspan="12" style="color:#555">⏳ scanning...</td>`;
       tbody.appendChild(placeholderRow);
 
       try {
@@ -2154,7 +2163,7 @@ async function startAutoScan() {
         if (!aStats || !bStats || aStats.scored.length < 2 || bStats.scored.length < 2) {
           placeholderRow.innerHTML = `
             <td style="text-align:left;color:#555">${teamAName} vs ${teamBName}</td>
-            <td colspan="10" style="color:#444">Insufficient data</td>`;
+            <td colspan="12" style="color:#444">Insufficient data</td>`;
           continue;
         }
 
@@ -2201,28 +2210,43 @@ async function startAutoScan() {
         const rowIdStr = `scan-row-${gi}`;
 
         placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
+
+        // Helper: format range placeholder  e.g. "226.5 - 228.5"
+        const rangePh = (mid, half) => half
+          ? `${(mid - 1).toFixed(1)}-${(mid + 1).toFixed(1)}`
+          : `${(mid - 1.5).toFixed(1)}-${(mid + 1.5).toFixed(1)}`;
+
         placeholderRow.innerHTML = `
-          <td style="text-align:left;font-size:11px;color:#ddd">${teamAName}<br><span style="color:#777;font-size:10px;">vs ${teamBName}</span></td>
-          <td><input id="${rowIdStr}-ft" class="scan-line-input" placeholder="${eb}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
-          <td><input id="${rowIdStr}-h1" class="scan-line-input" placeholder="${(eb/2).toFixed(1)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
+          <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span></td>
+          <td><input id="${rowIdStr}-ft" class="scan-line-input" placeholder="${rangePh(result.ftProj, false)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-ftmid">${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</span></div></td>
+          <td><input id="${rowIdStr}-h1" class="scan-line-input" placeholder="${rangePh(result.h1Proj, true)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-h1mid">${isNaN(result.h1Proj)?'—':result.h1Proj.toFixed(1)}</span></div></td>
           <td style="color:#d4af37" id="${rowIdStr}-proj">${isNaN(result.ftProj) ? '—' : result.ftProj.toFixed(1)}</td>
           <td id="${rowIdStr}-edge" style="color:${result.ftEdge > 0 ? '#2ecc71' : result.ftEdge < 0 ? '#ff6b6b' : '#aaa'}">${isNaN(result.ftEdge) ? '—' : (result.ftEdge > 0 ? '+' : '') + result.ftEdge.toFixed(1)}</td>
           <td class="${pickClass(result.ftPick)}" id="${rowIdStr}-ftpick">${result.ftPick}${ftLockIcon2}</td>
-          <td style="color:#d4af37;font-size:10px;" id="${rowIdStr}-str">${strengthPct}</td>
-          <td><input id="${rowIdStr}-a" class="scan-line-input" placeholder="${(eb/2).toFixed(1)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
+          <td class="${pickClass(result.h1Pick)}" id="${rowIdStr}-h1pick">${result.h1Pick}${h1LockIcon}</td>
+          <td style="color:#d4af37;font-size:10px;font-weight:bold;" id="${rowIdStr}-str">${strengthPct}</td>
+          <td><input id="${rowIdStr}-a" class="scan-line-input" placeholder="${rangePh(result.aProj, true)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-amid">${isNaN(result.aProj)?'—':result.aProj.toFixed(1)}</span></div></td>
           <td class="${pickClass(result.aPick)}" id="${rowIdStr}-apick">${result.aPick}${aLockIcon2}</td>
-          <td><input id="${rowIdStr}-b" class="scan-line-input" placeholder="${(eb/2).toFixed(1)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"></td>
-          <td class="${pickClass(result.bPick)}" id="${rowIdStr}-bpick">${result.bPick}${bLockIcon2}</td>`;
+          <td><input id="${rowIdStr}-b" class="scan-line-input" placeholder="${rangePh(result.bProj, true)}" value="" oninput="recalcScanRow(this, '${rowIdStr}', '${league}', ${eb}, ${minEdgePct})"><div style="font-size:9px;color:#888;margin-top:2px">mid: <span id="${rowIdStr}-bmid">${isNaN(result.bProj)?'—':result.bProj.toFixed(1)}</span></div></td>
+          <td class="${pickClass(result.bPick)}" id="${rowIdStr}-bpick">${result.bPick}${bLockIcon2}</td>
+          <td id="${rowIdStr}-god" style="text-align:center;">
+            <button onclick="fetchGodMode('${rowIdStr}','${teamAName}','${teamBName}','${league}',${result.ftProj.toFixed(1)},${result.h1Proj.toFixed(1)},${result.aProj.toFixed(1)},${result.bProj.toFixed(1)})"
+              style="background:#1a2a1a;color:#2ecc71;border:1px solid #2ecc71;padding:3px 7px;font-size:10px;font-weight:bold;cursor:pointer;">
+              ☯ Analyse
+            </button>
+            <div id="${rowIdStr}-godbox" class="god-panel"></div>
+          </td>`;
 
         // Store projections on the row element for live recalc
         placeholderRow._ftProj = result.ftProj;
+        placeholderRow._h1Proj = result.h1Proj;
         placeholderRow._aProj  = result.aProj;
         placeholderRow._bProj  = result.bProj;
 
       } catch(e) {
         placeholderRow.innerHTML = `
           <td style="text-align:left;color:#555">${teamAName} vs ${teamBName}</td>
-          <td colspan="10" style="color:#444">Error: ${safeText(e.message || 'fetch failed')}</td>`;
+          <td colspan="12" style="color:#444">Error: ${safeText(e.message || 'fetch failed')}</td>`;
       }
     }
 
@@ -2351,19 +2375,48 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
 }
 
 // ── Per-row live recalc when user types a line ────────────────
+function parseMid(val) {
+  // Accepts "220.5-228.5" or "224.5" — returns midpoint
+  if (!val || !val.trim()) return NaN;
+  val = val.trim();
+  if (val.includes('-')) {
+    const parts = val.split('-').map(x => parseFloat(x.trim()));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return (parts[0] + parts[1]) / 2;
+    }
+  }
+  const single = parseFloat(val);
+  return isFinite(single) ? single : NaN;
+}
+
 function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const row = document.getElementById(rowId);
   if (!row) return;
 
-  const getVal = suffix => {
+  const getRaw = suffix => {
     const el = document.getElementById(`${rowId}-${suffix}`);
-    return el ? parseFloat(el.value) : NaN;
+    return el ? el.value : '';
   };
 
-  const ftLine = getVal('ft') > 0 ? getVal('ft') : eb;
-  const h1Line = getVal('h1') > 0 ? getVal('h1') : eb / 2;
-  const aLine  = getVal('a')  > 0 ? getVal('a')  : eb / 2;
-  const bLine  = getVal('b')  > 0 ? getVal('b')  : eb / 2;
+  const ftRaw = getRaw('ft'); const ftParsed = parseMid(ftRaw);
+  const h1Raw = getRaw('h1'); const h1Parsed = parseMid(h1Raw);
+  const aRaw  = getRaw('a');  const aParsed  = parseMid(aRaw);
+  const bRaw  = getRaw('b');  const bParsed  = parseMid(bRaw);
+
+  // Update midpoint display labels
+  const setMid = (suffix, val) => {
+    const el = document.getElementById(`${rowId}-${suffix}mid`);
+    if (el) el.textContent = isNaN(val) ? '—' : val.toFixed(1);
+  };
+  if (!isNaN(ftParsed)) setMid('ft', ftParsed);
+  if (!isNaN(h1Parsed)) setMid('h1', h1Parsed);
+  if (!isNaN(aParsed))  setMid('a',  aParsed);
+  if (!isNaN(bParsed))  setMid('b',  bParsed);
+
+  const ftLine = ftParsed > 0 ? ftParsed : eb;
+  const h1Line = h1Parsed > 0 ? h1Parsed : eb / 2;
+  const aLine  = aParsed  > 0 ? aParsed  : eb / 2;
+  const bLine  = bParsed  > 0 ? bParsed  : eb / 2;
 
   const ftProj = row._ftProj;
   const aProj  = row._aProj;
@@ -2407,7 +2460,17 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   }
   const lockFor = i => lockIdx === i ? ' 🔒' : '';
 
-  const strPct = isNaN(ftEdge) ? '—' : (Math.abs(ftEdge / ftLine) * 100).toFixed(1) + '%';
+  const allEdgesMkt = [
+    {edge: ftEdge, line: ftLine},
+    {edge: h1Edge, line: h1Line},
+    {edge: aEdge,  line: aLine},
+    {edge: bEdge,  line: bLine},
+  ];
+  const validMktEdges = allEdgesMkt.filter(e => !isNaN(e.edge) && e.line > 0);
+  const maxMktEdge = validMktEdges.length
+    ? Math.max(...validMktEdges.map(e => Math.abs(e.edge / e.line)))
+    : NaN;
+  const strPct = isNaN(maxMktEdge) ? '—' : (maxMktEdge * 100).toFixed(1) + '%';
 
   // Update cells
   const edgeEl = document.getElementById(`${rowId}-edge`);
@@ -2424,6 +2487,7 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   };
 
   setPick('ftpick', ftPick, 0);
+  setPick('h1pick', h1Pick, 1);
   setPick('apick',  aPick,  2);
   setPick('bpick',  bPick,  3);
 
@@ -2434,6 +2498,93 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const hasPlay = ftPick !== 'NO PLAY' && ftPick !== '—';
   const isLock = lockIdx >= 0 && edges[lockIdx].st >= 0.045;
   row.className = isLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
+}
+
+// ── God Mode — consensus prediction from external sources ─────
+async function fetchGodMode(rowId, teamA, teamB, league, ftProj, h1Proj, aProj, bProj) {
+  const box = document.getElementById(`${rowId}-godbox`);
+  const btn = box.previousElementSibling;
+  if (!box) return;
+
+  box.style.display = 'block';
+  box.innerHTML = '<div style="color:#aaa;font-size:10px;">⏳ Fetching consensus...</div>';
+  if (btn) btn.disabled = true;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        messages: [{
+          role: "user",
+          content: `You are a sports betting analyst. Search the web for expert predictions for this basketball game: ${teamA} vs ${teamB} (${league.toUpperCase()}).
+
+Find today's predictions from sites like ESPN, Covers, BetQL, OddsShark, Action Network, or any reputable sports prediction source.
+
+Our engine projects:
+- FT Total: ${ftProj}
+- 1H Total: ${h1Proj}
+- Team A (${teamA}) total: ${aProj}
+- Team B (${teamB}) total: ${bProj}
+
+Return ONLY a JSON object (no markdown, no extra text):
+{
+  "sources": [
+    {"name": "Source Name", "pick": "OVER/UNDER X", "confidence": "high/medium/low"},
+    ...
+  ],
+  "consensus": "OVER X.X" or "UNDER X.X" or "NO CONSENSUS",
+  "consensusStrength": "strong/split/weak",
+  "alignsWithEngine": true or false,
+  "godModePick": "OVER X.X" or "UNDER X.X" or "SKIP",
+  "reasoning": "One sentence max"
+}`
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const fullText = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+
+    let parsed;
+    try {
+      const clean = fullText.replace(/```json|```/g, '').trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } catch(e) { parsed = null; }
+
+    if (!parsed) {
+      box.innerHTML = '<div style="color:#ff6b6b;font-size:10px;">⚠ Could not parse consensus data.</div>';
+      return;
+    }
+
+    const alignIcon = parsed.alignsWithEngine ? '✅' : '⚠️';
+    const godClass  = parsed.godModePick.startsWith('OVER')  ? 'color:#2ecc71' :
+                      parsed.godModePick.startsWith('UNDER') ? 'color:#ff6b6b' : 'color:#aaa';
+
+    const sourcesHtml = (parsed.sources || []).map(s => {
+      const cls = s.pick.startsWith('OVER') ? 'color:#2ecc71' : s.pick.startsWith('UNDER') ? 'color:#ff6b6b' : 'color:#aaa';
+      return `<div class="god-source">• <b>${s.name}</b>: <span style="${cls}">${s.pick}</span> <span style="color:#555">(${s.confidence})</span></div>`;
+    }).join('');
+
+    box.innerHTML = `
+      <div class="god-title">☯ God Mode — ${teamA} vs ${teamB}</div>
+      ${sourcesHtml}
+      <div style="margin-top:5px;color:#aaa;font-size:10px;">Consensus: <b style="color:#d4af37">${parsed.consensus}</b> (${parsed.consensusStrength}) ${alignIcon} Engine aligned</div>
+      <div class="god-consensus" style="${godClass}">🏆 GOD PICK: ${parsed.godModePick}</div>
+      <div style="color:#888;font-size:10px;margin-top:3px;font-style:italic">${parsed.reasoning}</div>`;
+
+  } catch(e) {
+    box.innerHTML = `<div style="color:#ff6b6b;font-size:10px;">❌ ${e.message}</div>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 </script>
 
