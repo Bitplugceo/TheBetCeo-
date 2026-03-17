@@ -373,8 +373,8 @@ const AUTH_TOKEN = "YOUR_SECRET_TOKEN_HERE";
 const MODEL = {
   TEAM_WEIGHT: 0.60,
   OPP_WEIGHT: 0.40,
-  REGRESSION_WEIGHT: 0.85,
-  BASELINE_WEIGHT: 0.15,
+  REGRESSION_WEIGHT: 0.82,
+  BASELINE_WEIGHT: 0.18,
   PACE_BLEND: 0.5,
   H2H_MAX_WEIGHT: 0.25,
   H2H_DIVERGE_THRESHOLD: 0.20,
@@ -385,6 +385,8 @@ const MODEL = {
 };
 
 const _sbCache = new Map();
+const _CACHE_MAX = 120; // max entries to prevent unbounded growth
+function cacheSet(map, key, val) { if (map.size >= _CACHE_MAX) map.delete(map.keys().next().value); map.set(key, val); }
 const _schedCache = new Map();
 const _summaryCache = new Map();
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
@@ -397,9 +399,11 @@ function parseLineRange(val) {
   val = String(val).trim();
   if (val.includes('-')) {
     const parts = val.split('-').map(v => parseFloat(v.trim()));
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+    // ISSUE 13: reject incomplete ranges like "150.5 -"
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[1] > 0) {
       return (parts[0] + parts[1]) / 2;
     }
+    return null; // incomplete range → null, not NaN
   }
   const single = parseFloat(val);
   return isNaN(single) ? null : single;
@@ -579,7 +583,7 @@ function onTeamInput(side) {
   if (!matches.length) { closeDrop(dropId); return; }
   drop.innerHTML = `<div class="group-label">${list.label}</div>` +
     matches.map(t =>
-      `<div onmousedown="selectTeam('${side}','${t.replace(/'/g,"\\'")}')">${highlight(t, val)}</div>`
+      `<div onmousedown="selectTeam('${side}','${t.replace(/'/g,"\\'")}')">${highlight(safeText(t), val)}</div>`
     ).join("");
   drop.style.display = "block";
   activeDropTeam = side;
@@ -1290,7 +1294,7 @@ async function fetchNbaScoreboard(base, daysBack, teamAId, teamBId) {
     } else {
       p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`)
         .catch(() => { _sbCache.delete(cacheKey); return {}; });
-      _sbCache.set(cacheKey, p);
+      cacheSet(_sbCache, cacheKey, p);
     }
     try {
       const data = await p;
@@ -1614,7 +1618,7 @@ function runEngine(){
     rawFTPace=((aS+bS)/2)/(eb/2);
   } else if(!isNaN(bAFT)&&!isNaN(bBFT)){rawFTPace=(bAFT+bBFT)/eb;}
   else{rawFTPace=1.0;}
-  let pace=Math.max(cl.min,Math.min(cl.max,rawFTPace));
+  let pace=Math.max(Math.max(cl.min,0.92),Math.min(Math.min(cl.max,1.08),rawFTPace));
   bAFT=bAFT*(MODEL.PACE_BLEND+pace/2); bBFT=bBFT*(MODEL.PACE_BLEND+pace/2);
   const homeEdge={
     "nba":1.5,"ncaa":2.0,"lnb":1.6,"nbb":1.6,"cebl":1.4,
@@ -1631,8 +1635,8 @@ function runEngine(){
     "ausnbl":1.5,"nznbl":1.4,"fiba_wc":1.2,"fiba_eb":1.3,"fiba_ac":1.3,"unknown":1.5
   };
   const hAdj = homeEdge[league]||1.5;
-  if(!isNaN(bAFT)) bAFT+=hAdj;
-  if(!isNaN(bBFT)) bBFT-=hAdj*0.5;
+  if(!isNaN(bAFT)) bAFT+=hAdj*0.75;
+  if(!isNaN(bBFT)) bBFT-=hAdj*0.75;
   const injMultA=g_injA.restMult*g_injA.scoringMult;
   const injMultB=g_injB.restMult*g_injB.scoringMult;
   if(!isNaN(bAFT)&&injMultA!==1) bAFT*=injMultA;
@@ -1687,8 +1691,8 @@ function runEngine(){
       bA1H=(bA1H*MODEL.REGRESSION_WEIGHT)+((eb1H/2)*MODEL.BASELINE_WEIGHT);
       bB1H=(bB1H*MODEL.REGRESSION_WEIGHT)+((eb1H/2)*MODEL.BASELINE_WEIGHT);
       bA1H=bA1H*(MODEL.PACE_BLEND+pace1/2); bB1H=bB1H*(MODEL.PACE_BLEND+pace1/2);
-      if(!isNaN(bA1H)) bA1H+=hAdj*0.5;
-      if(!isNaN(bB1H)) bB1H-=hAdj*0.25;
+      if(!isNaN(bA1H)) bA1H+=hAdj*0.375;
+      if(!isNaN(bB1H)) bB1H-=hAdj*0.375;
       if(!isNaN(bA1H)&&injMultA!==1)bA1H*=injMultA;
       if(!isNaN(bB1H)&&injMultB!==1)bB1H*=injMultB;
       h1P=bA1H+bB1H;
@@ -1782,8 +1786,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b => {
-    if (b.textContent.toLowerCase().includes(tab === 'manual' ? 'manual' : 'scan'))
-      b.classList.add('active');
+    if (b.getAttribute('onclick') === `switchTab('${tab}')`) b.classList.add('active');
   });
 }
 
@@ -1954,7 +1957,8 @@ async function startAutoScan() {
           const vm=mkts.filter(m=>m.pick!=='NO PLAY'&&m.pick!=='—'&&!isNaN(m.edge)&&m.line>0&&Math.abs(m.edge/m.line)>=0.045);
           const best=vm.length?Math.max(...vm.map(m=>Math.abs(m.edge/m.line))):NaN;
           const sp=isNaN(best)?0:best*100;
-          return isNaN(best)?'—':(sp>=6?'💣 ':sp>=4?'👀 ':'')+sp.toFixed(1)+'%';
+          const tier=sp>=6.5?'🔥 ELITE ':sp>=5.5?'💣 STRONG ':sp>=4.5?'👀 STD ':'';
+          return isNaN(best)?'—':tier+sp.toFixed(1)+'%';
         })();
 
         placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
@@ -2046,12 +2050,12 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   bBFT = bBFT * MODEL.REGRESSION_WEIGHT + (eb/2) * MODEL.BASELINE_WEIGHT;
 
   let rawPace = (aA+bA) > 0 ? (aS+bS)/(aA+bA) : ((aS+bS)/2)/(eb/2);
-  let pace = Math.max(cl.min, Math.min(cl.max, rawPace));
+  let pace = Math.max(Math.max(cl.min,0.92), Math.min(Math.min(cl.max,1.08), rawPace));
   bAFT = bAFT * (MODEL.PACE_BLEND + pace/2);
   bBFT = bBFT * (MODEL.PACE_BLEND + pace/2);
 
   const hAdj = league==='nba' ? 1.5 : 2.0;
-  bAFT += hAdj; bBFT -= hAdj * 0.5;
+  bAFT += hAdj * 0.75; bBFT -= hAdj * 0.75;
 
   const dfr = aA < eb * 0.42 && bA < eb * 0.42;
   let ftP = bAFT + bBFT;
@@ -2060,18 +2064,6 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   if (Math.abs(aS-bS) > eb*0.10) ftP *= MODEL.PACE_SUPPRESS;
   if (Math.abs(aS-bS)/eb > 0.14) ftP *= 0.97;
   if (pace > 1.12) ftP *= 0.98;
-
-  // FIX 4: Confidence weighting — adjusts edge strength without changing projection
-  let confidence = 1;
-  const paceGap = Math.abs(aS - bS) / eb;
-  if (paceGap > 0.14) confidence *= 0.94;
-  if (paceGap > 0.18) confidence *= 0.90;
-  if (aA > eb * 0.60 || bA > eb * 0.60) confidence *= 0.93;
-  const aVolRaw2 = (stdDev(aStats.scored) + stdDev(aStats.allowed)) / 2;
-  const bVolRaw2 = (stdDev(bStats.scored) + stdDev(bStats.allowed)) / 2;
-  const aVol2 = aVolRaw2*0.6 + bVolRaw2*0.4, bVol2 = bVolRaw2*0.6 + aVolRaw2*0.4;
-  const vl2 = league === 'nba' ? 14 : 11;
-  if (aVol2 > vl2 || bVol2 > vl2) confidence *= 0.92;
 
   // Projections stored once — never change on line input
   result.ftProj = ftP;
@@ -2097,8 +2089,8 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
     bA1H *= (MODEL.PACE_BLEND + pace1H/2);
     bB1H *= (MODEL.PACE_BLEND + pace1H/2);
     const hAdj1H = league === 'nba' ? 1.5 : 2.0;
-    bA1H += hAdj1H * 0.5;
-    bB1H -= hAdj1H * 0.25;
+    bA1H += hAdj1H * 0.375;
+    bB1H -= hAdj1H * 0.375;
     h1Proj = bA1H + bB1H;
     // FIX 6: Pace-adjust 1H — fast teams boosted, slow teams reduced
     if (!isNaN(h1Proj)) {
@@ -2125,15 +2117,14 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   result.ftLine = ftLine;
 
   // FIX 1+3: Edge always exists using eb fallback; picks only when real line entered
-  const ftBase = !isNaN(ftLine) ? ftLine : eb;
-  const h1Base = !isNaN(h1Line) ? h1Line : eb / 2;
-  const aBase  = !isNaN(aLine)  ? aLine  : eb / 2;
-  const bBase  = !isNaN(bLine)  ? bLine  : eb / 2;
+  // (bases removed — edge requires real line per FIX 2)
 
-  result.ftEdge = (ftP    - ftBase) * confidence;
-  result.h1Edge = !isNaN(result.h1Proj) ? (result.h1Proj - h1Base) * confidence : NaN;
-  result.aEdge  = (bAFT   - aBase) * confidence;
-  result.bEdge  = (bBFT   - bBase) * confidence;
+  // FIX 2: Edge only exists when real line entered — no fake edges from fallback
+  // FIX 3: Confidence removed — keep manual and scan models identical
+  result.ftEdge = !isNaN(ftLine) ? ftP - ftLine : NaN;
+  result.h1Edge = (!isNaN(h1Line) && !isNaN(result.h1Proj)) ? result.h1Proj - h1Line : NaN;
+  result.aEdge  = !isNaN(aLine)  ? bAFT - aLine : NaN;
+  result.bEdge  = !isNaN(bLine)  ? bBFT - bLine : NaN;
 
   // FIX 3: Picks only when real line entered — otherwise show '—'
   result.ftPick = !isNaN(ftLine) ? getPickWithThreshold(result.ftEdge, ftLine, minEdgePct) : '—';
@@ -2187,17 +2178,13 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   setMidEl('a',  aLine,  getRaw('a'));
   setMidEl('b',  bLine,  getRaw('b'));
 
-  // FIX 1: Edge uses eb fallback so strength shows even without line
-  const row_eb = row._eb || 228;
-  const ftBase = !isNaN(ftLine) ? ftLine : row_eb;
-  const h1Base = !isNaN(h1Line) ? h1Line : row_eb / 2;
-  const aBase  = !isNaN(aLine)  ? aLine  : row_eb / 2;
-  const bBase  = !isNaN(bLine)  ? bLine  : row_eb / 2;
+  // (bases removed — edge requires real line)
 
-  const ftEdge = ftProj - ftBase;
-  const h1Edge = !isNaN(h1Proj) ? h1Proj - h1Base : NaN;
-  const aEdge  = aProj  - aBase;
-  const bEdge  = bProj  - bBase;
+  // FIX 2: Edge only when real line entered — no fake pre-line edges
+  const ftEdge = !isNaN(ftLine) ? ftProj - ftLine : NaN;
+  const h1Edge = (!isNaN(h1Line) && !isNaN(h1Proj)) ? h1Proj - h1Line : NaN;
+  const aEdge  = !isNaN(aLine)  ? aProj  - aLine  : NaN;
+  const bEdge  = !isNaN(bLine)  ? bProj  - bLine  : NaN;
 
   // FIX 3: Picks only when real line entered
   const ftPick = !isNaN(ftLine) ? getPickWithThreshold(ftEdge, ftLine, minEdgePct) : '—';
@@ -2217,13 +2204,8 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
     { pick: aSafe,  edge: aEdge,  line: aLine  },
     { pick: bSafe,  edge: bEdge,  line: bLine  },
   ];
-  // Lock built on safe picks — no hidden lock bugs
-  const valid = markets.filter(m => m.pick !== '—' && !isNaN(m.edge) && m.line > 0 && Math.abs(m.edge/m.line) >= 0.045);
-  let lockIdx = -1;
-  if (valid.length) {
-    const max = Math.max(...valid.map(m => Math.abs(m.edge/m.line)));
-    lockIdx = markets.findIndex(m => m.pick !== '—' && !isNaN(m.edge) && m.line > 0 && Math.abs(Math.abs(m.edge/m.line) - max) < 0.0005);
-  }
+  // FIX 1: Use same selectLock() as manual engine — one universal lock system
+  const lockIdx = selectLock(markets);
   const lockFor = (i) => lockIdx === i ? ' 🔒' : '';
   const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
 
@@ -2249,7 +2231,7 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const strEl = document.getElementById(`${rowId}-str`);
   if (strEl) {
     const stPct = isNaN(maxSt) ? 0 : maxSt * 100;
-    const rank = stPct >= 6 ? '💣 ' : stPct >= 4 ? '👀 ' : '';
+    const rank = stPct >= 6.5 ? '🔥 ELITE ' : stPct >= 5.5 ? '💣 STRONG ' : stPct >= 4.5 ? '👀 STD ' : '';
     strEl.textContent = isNaN(maxSt) ? '—' : rank + stPct.toFixed(1) + '%';
   }
 
