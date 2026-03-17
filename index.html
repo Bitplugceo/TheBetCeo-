@@ -1839,13 +1839,16 @@ async function startAutoScan() {
     const sbData = await proxyFetch(`${espnBase}/scoreboard`).catch(() => ({}));
     const games = (sbData?.events || []).filter(event => {
       if (!event || !event.date || !event.competitions?.length) return false;
-      const eventDay = new Date(event.date);
-      const eventLocal = new Date(eventDay.getFullYear(), eventDay.getMonth(), eventDay.getDate());
-      const targetLocal = new Date(scanDate.getFullYear(), scanDate.getMonth(), scanDate.getDate());
+      const gameDate = new Date(event.date);
+      const eventDay = new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate());
+      // FIX 6: Shift midnight/early-AM games (before 3AM) to next day to match SportyBet
+      if (gameDate.getHours() < 3) eventDay.setDate(eventDay.getDate() + 1);
+      const targetDay = new Date(scanDate.getFullYear(), scanDate.getMonth(), scanDate.getDate());
       return (
-        eventLocal.getTime() === targetLocal.getTime() &&
-        event.status?.type?.state !== 'post' &&
-        event.competitions?.[0]?.competitors?.length === 2
+        eventDay.getTime() === targetDay.getTime() &&
+        ["pre","scheduled","created","in"].includes(event.status?.type?.state) &&
+        event.competitions?.[0]?.competitors?.length === 2 &&
+      event.competitions?.[0]?.competitors?.every(c => c.team?.id)
       );
     });
 
@@ -1960,23 +1963,23 @@ async function startAutoScan() {
         placeholderRow._minEdgePct = minEdgePct;
 
         placeholderRow.innerHTML = `
-          <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span></td>
+          <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span><br><span style="font-size:10px;color:#aaa;">${(() => { const pe = Math.abs((result.ftProj - eb) / eb); return pe >= 0.06 ? '💣 strong model' : pe >= 0.045 ? '👀 watch' : ''; })()}</span></td>
           <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
           <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${(isNaN(result.h1Proj) || isNaN(result.h1Line) || result.h1Pick === 'NO PLAY') ? '—' : result.h1Pick + h1Lock}</td>
           <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
           <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>
           <td><input id="${rowId}-ft" class="scan-line-input" placeholder="e.g. 226.5" value=""
-            oninput="recalcScanRow(this,'${rowId}')">
-            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</div></td>
+            oninput="debounceRecalc(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">model: ${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</div></td>
           <td><input id="${rowId}-h1" class="scan-line-input" placeholder="e.g. 113.5" value=""
-            oninput="recalcScanRow(this,'${rowId}')">
-            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.h1Proj)?'—':result.h1Proj.toFixed(1)}</div></td>
+            oninput="debounceRecalc(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">model: ${isNaN(result.h1Proj)?'—':result.h1Proj.toFixed(1)}</div></td>
           <td><input id="${rowId}-a" class="scan-line-input" placeholder="e.g. 113.5" value=""
-            oninput="recalcScanRow(this,'${rowId}')">
-            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.aProj)?'—':result.aProj.toFixed(1)}</div></td>
+            oninput="debounceRecalc(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">model: ${isNaN(result.aProj)?'—':result.aProj.toFixed(1)}</div></td>
           <td><input id="${rowId}-b" class="scan-line-input" placeholder="e.g. 113.5" value=""
-            oninput="recalcScanRow(this,'${rowId}')">
-            <div style="font-size:9px;color:#888;margin-top:2px">proj: ${isNaN(result.bProj)?'—':result.bProj.toFixed(1)}</div></td>
+            oninput="debounceRecalc(this,'${rowId}')">
+            <div style="font-size:9px;color:#888;margin-top:2px">model: ${isNaN(result.bProj)?'—':result.bProj.toFixed(1)}</div></td>
           <td style="color:#d4af37" id="${rowId}-proj">${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</td>
           <td id="${rowId}-edge" style="color:${result.ftEdge>0?'#2ecc71':result.ftEdge<0?'#ff6b6b':'#aaa'}">${isNaN(result.ftEdge)?'—':(result.ftEdge>0?'+':'')+result.ftEdge.toFixed(1)}</td>
           <td style="color:#d4af37;font-size:10px;font-weight:bold" id="${rowId}-str">${strengthPct}</td>
@@ -2073,7 +2076,7 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
     bA1H = bA1H * MODEL.REGRESSION_WEIGHT + (eb/4) * MODEL.BASELINE_WEIGHT;
     bB1H = bB1H * MODEL.REGRESSION_WEIGHT + (eb/4) * MODEL.BASELINE_WEIGHT;
     const rawPace1H = (a1HScored + a1HAllowed + b1HScored + b1HAllowed) / (2 * (eb/2));
-    const pace1H = Math.max(0.90, Math.min(1.10, rawPace1H));
+    const pace1H = Math.max(0.85, Math.min(1.12, rawPace1H));
     bA1H *= (MODEL.PACE_BLEND + pace1H/2);
     bB1H *= (MODEL.PACE_BLEND + pace1H/2);
     const hAdj1H = league === 'nba' ? 1.5 : 2.0;
@@ -2097,23 +2100,29 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   const parsedH1 = parseLineRange(String(L.h1||''));
   const parsedA  = parseLineRange(String(L.a||''));
   const parsedB  = parseLineRange(String(L.b||''));
-  const ftLine = parsedFT || NaN;
-  const h1Line = parsedH1 || NaN;
-  const aLine  = parsedA  || NaN;
-  const bLine  = parsedB  || NaN;
+  // FIX 2: Use ?? not || to avoid hiding 0-values
+  const ftLine = parsedFT ?? NaN;
+  const h1Line = parsedH1 ?? NaN;
+  const aLine  = parsedA  ?? NaN;
+  const bLine  = parsedB  ?? NaN;
   result.ftLine = ftLine;
 
-  // FIX #7+#8: Edge only — projection never changes
-  result.ftEdge = !isNaN(ftLine) ? ftP - ftLine : NaN;
-  result.h1Edge = !isNaN(h1Line) ? result.h1Proj - h1Line : NaN;
-  result.aEdge  = !isNaN(aLine)  ? bAFT - aLine : NaN;
-  result.bEdge  = !isNaN(bLine)  ? bBFT - bLine : NaN;
+  // FIX 1+3: Edge always exists using eb fallback; picks only when real line entered
+  const ftBase = !isNaN(ftLine) ? ftLine : eb;
+  const h1Base = !isNaN(h1Line) ? h1Line : eb / 2;
+  const aBase  = !isNaN(aLine)  ? aLine  : eb / 2;
+  const bBase  = !isNaN(bLine)  ? bLine  : eb / 2;
 
-  // FIX 6: Use getPickWithThreshold — respects user-selected min edge
-  result.ftPick = getPickWithThreshold(result.ftEdge, ftLine, minEdgePct);
-  result.h1Pick = getPickWithThreshold(result.h1Edge, h1Line, minEdgePct);
-  result.aPick  = getPickWithThreshold(result.aEdge,  aLine,  minEdgePct);
-  result.bPick  = getPickWithThreshold(result.bEdge,  bLine,  minEdgePct);
+  result.ftEdge = ftP    - ftBase;
+  result.h1Edge = !isNaN(result.h1Proj) ? result.h1Proj - h1Base : NaN;
+  result.aEdge  = bAFT   - aBase;
+  result.bEdge  = bBFT   - bBase;
+
+  // FIX 3: Picks only when real line entered — otherwise show '—'
+  result.ftPick = !isNaN(ftLine) ? getPickWithThreshold(result.ftEdge, ftLine, minEdgePct) : '—';
+  result.h1Pick = (!isNaN(h1Line) && !isNaN(result.h1Proj)) ? getPickWithThreshold(result.h1Edge, h1Line, minEdgePct) : '—';
+  result.aPick  = !isNaN(aLine)  ? getPickWithThreshold(result.aEdge,  aLine,  minEdgePct) : '—';
+  result.bPick  = !isNaN(bLine)  ? getPickWithThreshold(result.bEdge,  bLine,  minEdgePct) : '—';
 
   // FIX #5: One lock only — strongest valid pick
   const markets = [
@@ -2142,10 +2151,11 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
 
   // FIX #3: Parse range "150.5-160.5" or single "155.5"
   const getRaw = s => { const el = document.getElementById(`${rowId}-${s}`); return el ? el.value : ''; };
-  const ftLine = parseLineRange(getRaw('ft')) || NaN;
-  const h1Line = parseLineRange(getRaw('h1')) || NaN;
-  const aLine  = parseLineRange(getRaw('a'))  || NaN;
-  const bLine  = parseLineRange(getRaw('b'))  || NaN;
+  // FIX 2: ?? not || to avoid hiding falsy values
+  const ftLine = parseLineRange(getRaw('ft')) ?? NaN;
+  const h1Line = parseLineRange(getRaw('h1')) ?? NaN;
+  const aLine  = parseLineRange(getRaw('a'))  ?? NaN;
+  const bLine  = parseLineRange(getRaw('b'))  ?? NaN;
 
   // Update midpoint display
   const setMidEl = (s, v, raw) => {
@@ -2160,17 +2170,23 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   setMidEl('a',  aLine,  getRaw('a'));
   setMidEl('b',  bLine,  getRaw('b'));
 
-  // FIX #7+#8: Edge = proj - line. Projection never changes.
-  const ftEdge = !isNaN(ftLine) ? ftProj - ftLine : NaN;
-  const h1Edge = !isNaN(h1Line) ? h1Proj - h1Line : NaN;
-  const aEdge  = !isNaN(aLine)  ? aProj  - aLine  : NaN;
-  const bEdge  = !isNaN(bLine)  ? bProj  - bLine  : NaN;
+  // FIX 1: Edge uses eb fallback so strength shows even without line
+  const row_eb = row._eb || 228;
+  const ftBase = !isNaN(ftLine) ? ftLine : row_eb;
+  const h1Base = !isNaN(h1Line) ? h1Line : row_eb / 2;
+  const aBase  = !isNaN(aLine)  ? aLine  : row_eb / 2;
+  const bBase  = !isNaN(bLine)  ? bLine  : row_eb / 2;
 
-  // FIX #4+#7: getPick includes line value in label
-  const ftPick = getPickWithThreshold(ftEdge, ftLine, minEdgePct);
-  const h1Pick = getPickWithThreshold(h1Edge, h1Line, minEdgePct);
-  const aPick  = getPickWithThreshold(aEdge,  aLine,  minEdgePct);
-  const bPick  = getPickWithThreshold(bEdge,  bLine,  minEdgePct);
+  const ftEdge = ftProj - ftBase;
+  const h1Edge = !isNaN(h1Proj) ? h1Proj - h1Base : NaN;
+  const aEdge  = aProj  - aBase;
+  const bEdge  = bProj  - bBase;
+
+  // FIX 3: Picks only when real line entered
+  const ftPick = !isNaN(ftLine) ? getPickWithThreshold(ftEdge, ftLine, minEdgePct) : '—';
+  const h1Pick = (!isNaN(h1Line) && !isNaN(h1Proj)) ? getPickWithThreshold(h1Edge, h1Line, minEdgePct) : '—';
+  const aPick  = !isNaN(aLine)  ? getPickWithThreshold(aEdge,  aLine,  minEdgePct) : '—';
+  const bPick  = !isNaN(bLine)  ? getPickWithThreshold(bEdge,  bLine,  minEdgePct) : '—';
 
   // Sanitize picks before lock calculation — calc layer matches display layer
   const ftSafe = sanitizePick(ftPick, ftProj, ftLine);
@@ -2189,7 +2205,7 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   let lockIdx = -1;
   if (valid.length) {
     const max = Math.max(...valid.map(m => Math.abs(m.edge/m.line)));
-    lockIdx = markets.findIndex(m => m.pick !== '—' && !isNaN(m.edge) && m.line > 0 && Math.abs(Math.abs(m.edge/m.line) - max) < 0.0001);
+    lockIdx = markets.findIndex(m => m.pick !== '—' && !isNaN(m.edge) && m.line > 0 && Math.abs(Math.abs(m.edge/m.line) - max) < 0.0005);
   }
   const lockFor = (i) => lockIdx === i ? ' 🔒' : '';
   const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
@@ -2225,6 +2241,13 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
 }
 
 
+// ── FIX 8: Debounce input recalc ────────────────────────────
+const _debounceTimers = {};
+function debounceRecalc(el, rowId) {
+  clearTimeout(_debounceTimers[rowId]);
+  _debounceTimers[rowId] = setTimeout(() => recalcScanRow(el, rowId), 250);
+}
+
 // ── FIX 8: Sort scan results by strength (strongest first) ───
 function sortScanTable() {
   const tbody = document.getElementById('scanBody');
@@ -2235,6 +2258,9 @@ function sortScanTable() {
     const aLock = a.classList.contains('is-lock') ? 1 : 0;
     const bLock = b.classList.contains('is-lock') ? 1 : 0;
     if (bLock !== aLock) return bLock - aLock;
+    const aHasPlay = a.classList.contains('has-play') ? 1 : 0;
+    const bHasPlay = b.classList.contains('has-play') ? 1 : 0;
+    if (bHasPlay !== aHasPlay) return bHasPlay - aHasPlay;
     const aStr = cleanPct(a.querySelector('[id$="-str"]')?.textContent);
     const bStr = cleanPct(b.querySelector('[id$="-str"]')?.textContent);
     return bStr - aStr;
