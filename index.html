@@ -1452,6 +1452,21 @@ function getPick(edge, line) {
     : `UNDER ${displayLine(line)}`;
 }
 
+// ── getPickWithThreshold — scan uses user-selected min edge ──
+function getPickWithThreshold(edge, line, minEdge) {
+  if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
+  const pct = Math.abs(edge / line);
+  if (pct < minEdge) return "NO PLAY";
+  return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
+}
+
+// ── sanitizePick — unify pick validity for lock + display ────
+function sanitizePick(pick, proj, line) {
+  if (isNaN(proj) || isNaN(line)) return '—';
+  if (pick === 'NO PLAY') return '—';
+  return pick;
+}
+
 // ── FIX #5: Single lock selector ─────────────────────────────
 // Takes array of {edge, line, pick} → returns index of strongest valid pick, or -1
 function selectLock(markets) {
@@ -1459,6 +1474,8 @@ function selectLock(markets) {
     m.pick !== "NO PLAY" &&
     m.pick !== "—" &&
     !isNaN(m.edge) &&
+    m.line !== null &&
+    !isNaN(m.line) &&
     m.line > 0 &&
     Math.abs(m.edge / m.line) >= 0.045
   );
@@ -1468,8 +1485,10 @@ function selectLock(markets) {
     m.pick !== "NO PLAY" &&
     m.pick !== "—" &&
     !isNaN(m.edge) &&
+    m.line !== null &&
+    !isNaN(m.line) &&
     m.line > 0 &&
-    Math.abs(m.edge / m.line) === max
+    Math.abs(Math.abs(m.edge / m.line) - max) < 0.0001
   );
 }
 
@@ -1821,11 +1840,7 @@ async function startAutoScan() {
     const games = (sbData?.events || []).filter(event => {
       if (!event || !event.date || !event.competitions?.length) return false;
       const gameDate = new Date(event.date);
-      const localStr = new Date(
-        gameDate.getFullYear(),
-        gameDate.getMonth(),
-        gameDate.getDate()
-      ).toISOString().slice(0,10).replace(/-/g,'');
+      const localStr = gameDate.toISOString().slice(0,10).replace(/-/g,'');
       return (
         localStr === today &&
         event.status?.type?.state !== 'post' &&
@@ -1833,7 +1848,7 @@ async function startAutoScan() {
       );
     });
 
-    if (games.length === 0) {
+    if (!games || games.length === 0 || !games.some(g => g.competitions?.[0]?.competitors?.length === 2)) {
       setScanStatus('No games found for selected day.', 'err');
       btn.disabled = false;
       document.getElementById('scanStopBtn').style.display = 'none';
@@ -1877,10 +1892,21 @@ async function startAutoScan() {
       try {
         await new Promise(r => setTimeout(r, 80));
 
-        const [aStats, bStats] = await Promise.all([
-          fetchNcaaSchedule(espnBase, teamAId, leagueSlug).catch(() => null),
-          fetchNcaaSchedule(espnBase, teamBId, leagueSlug).catch(() => null)
-        ]);
+        // FIX 5: NBA uses scoreboard fetch; NCAA uses schedule fetch
+        let aStats, bStats;
+        if (scanLeague === 'nba') {
+          const [gA, gB] = await Promise.all([
+            fetchNbaScoreboard(espnBase, 60, teamAId, teamAId).catch(() => []),
+            fetchNbaScoreboard(espnBase, 60, teamBId, teamBId).catch(() => [])
+          ]);
+          aStats = extractLastFive(gA, String(teamAId));
+          bStats = extractLastFive(gB, String(teamBId));
+        } else {
+          [aStats, bStats] = await Promise.all([
+            fetchNcaaSchedule(espnBase, teamAId, leagueSlug).catch(() => null),
+            fetchNcaaSchedule(espnBase, teamBId, leagueSlug).catch(() => null)
+          ]);
+        }
 
         if (!aStats || !bStats || aStats.scored.length < 2 || bStats.scored.length < 2) {
           placeholderRow.innerHTML = `
@@ -1908,14 +1934,14 @@ async function startAutoScan() {
         const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
 
         // FIX #5: Lock icon on exactly ONE column
-        const ftLock = result.lockIdx === 0 ? ' 🔒' : '';
-        const h1Lock = result.lockIdx === 1 ? ' 🔒' : '';
-        const aLock  = result.lockIdx === 2 ? ' 🔒' : '';
-        const bLock  = result.lockIdx === 3 ? ' 🔒' : '';
+        const ftLock = (result.lockIdx === 0 && result.ftPick !== 'NO PLAY' && result.ftPick !== '—') ? ' 🔒' : '';
+        const h1Lock = (result.lockIdx === 1 && result.h1Pick !== 'NO PLAY' && result.h1Pick !== '—') ? ' 🔒' : '';
+        const aLock  = (result.lockIdx === 2 && result.aPick  !== 'NO PLAY' && result.aPick  !== '—') ? ' 🔒' : '';
+        const bLock  = (result.lockIdx === 3 && result.bPick  !== 'NO PLAY' && result.bPick  !== '—') ? ' 🔒' : '';
 
         const strengthPct = (() => {
           const mkts=[{edge:result.ftEdge,line:result.ftLine,pick:result.ftPick},{edge:result.h1Edge,line:result.h1Line,pick:result.h1Pick},{edge:result.aEdge,line:result.aLine,pick:result.aPick},{edge:result.bEdge,line:result.bLine,pick:result.bPick}];
-          const vm=mkts.filter(m=>m.pick!=='NO PLAY'&&m.pick!=='—'&&!isNaN(m.edge)&&m.line>0);
+          const vm=mkts.filter(m=>m.pick!=='NO PLAY'&&m.pick!=='—'&&!isNaN(m.edge)&&m.line>0&&Math.abs(m.edge/m.line)>=0.045);
           const best=vm.length?Math.max(...vm.map(m=>Math.abs(m.edge/m.line))):NaN;
           const sp=isNaN(best)?0:best*100;
           return isNaN(best)?'—':(sp>=6?'💣 ':sp>=4?'👀 ':'')+sp.toFixed(1)+'%';
@@ -1935,7 +1961,7 @@ async function startAutoScan() {
         placeholderRow.innerHTML = `
           <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span></td>
           <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
-          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${isNaN(result.h1Proj) ? '—' : result.h1Pick}${h1Lock}</td>
+          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${(isNaN(result.h1Proj) || isNaN(result.h1Line) || result.h1Pick === 'NO PLAY') ? '—' : result.h1Pick + h1Lock}</td>
           <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
           <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>
           <td><input id="${rowId}-ft" class="scan-line-input" placeholder="e.g. 226.5" value=""
@@ -2040,10 +2066,23 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
     const a1HAllowed = avg(aStats.h1Allowed);
     const b1HScored  = avg(bStats.h1Scored);
     const b1HAllowed = avg(bStats.h1Allowed);
-    h1Proj = (a1HScored + b1HScored + a1HAllowed + b1HAllowed) / 2;
-    // FIX 6: Pace-adjust 1H
+    // FIX 1: Full manual-equivalent 1H model (matches manual tab exactly)
+    let bA1H = a1HScored * MODEL.TEAM_WEIGHT + b1HAllowed * MODEL.OPP_WEIGHT;
+    let bB1H = b1HScored * MODEL.TEAM_WEIGHT + a1HAllowed * MODEL.OPP_WEIGHT;
+    bA1H = bA1H * MODEL.REGRESSION_WEIGHT + (eb/4) * MODEL.BASELINE_WEIGHT;
+    bB1H = bB1H * MODEL.REGRESSION_WEIGHT + (eb/4) * MODEL.BASELINE_WEIGHT;
+    const rawPace1H = (a1HScored + a1HAllowed + b1HScored + b1HAllowed) / (2 * (eb/2));
+    const pace1H = Math.max(0.90, Math.min(1.10, rawPace1H));
+    bA1H *= (MODEL.PACE_BLEND + pace1H/2);
+    bB1H *= (MODEL.PACE_BLEND + pace1H/2);
+    const hAdj1H = league === 'nba' ? 1.5 : 2.0;
+    bA1H += hAdj1H * 0.5;
+    bB1H -= hAdj1H * 0.25;
+    h1Proj = bA1H + bB1H;
+    // FIX 6: Pace-adjust 1H — fast teams boosted, slow teams reduced
     if (!isNaN(h1Proj)) {
-      const paceFactor = (aS + aA + bS + bA) / 2 / eb;
+      const gamePace = (aS + aA + bS + bA) / 2;
+      const paceFactor = gamePace / eb;
       h1Proj *= Math.max(0.90, Math.min(1.10, paceFactor));
     }
   }
@@ -2069,11 +2108,11 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   result.aEdge  = !isNaN(aLine)  ? bAFT - aLine : NaN;
   result.bEdge  = !isNaN(bLine)  ? bBFT - bLine : NaN;
 
-  // FIX #4+#7: getPick includes line value e.g. "OVER 228.5"
-  result.ftPick = getPick(result.ftEdge, ftLine);
-  result.h1Pick = getPick(result.h1Edge, h1Line);
-  result.aPick  = getPick(result.aEdge,  aLine);
-  result.bPick  = getPick(result.bEdge,  bLine);
+  // FIX 6: Use getPickWithThreshold — respects user-selected min edge
+  result.ftPick = getPickWithThreshold(result.ftEdge, ftLine, minEdgePct);
+  result.h1Pick = getPickWithThreshold(result.h1Edge, h1Line, minEdgePct);
+  result.aPick  = getPickWithThreshold(result.aEdge,  aLine,  minEdgePct);
+  result.bPick  = getPickWithThreshold(result.bEdge,  bLine,  minEdgePct);
 
   // FIX #5: One lock only — strongest valid pick
   const markets = [
@@ -2108,8 +2147,17 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const bLine  = parseLineRange(getRaw('b'))  || NaN;
 
   // Update midpoint display
-  const setMidEl = (s, v) => { const el = document.getElementById(`${rowId}-${s}mid`); if (el) el.textContent = isNaN(v) ? '—' : v.toFixed(1); };
-  setMidEl('ft', ftLine); setMidEl('h1', h1Line); setMidEl('a', aLine); setMidEl('b', bLine);
+  const setMidEl = (s, v, raw) => {
+    const el = document.getElementById(`${rowId}-${s}mid`);
+    if (!el) return;
+    if (isNaN(v)) { el.textContent = '—'; return; }
+    const hasRange = raw && raw.includes('-') && raw.split('-').length === 2;
+    el.textContent = hasRange ? `${raw.trim()} (${v.toFixed(1)})` : v.toFixed(1);
+  };
+  setMidEl('ft', ftLine, getRaw('ft'));
+  setMidEl('h1', h1Line, getRaw('h1'));
+  setMidEl('a',  aLine,  getRaw('a'));
+  setMidEl('b',  bLine,  getRaw('b'));
 
   // FIX #7+#8: Edge = proj - line. Projection never changes.
   const ftEdge = !isNaN(ftLine) ? ftProj - ftLine : NaN;
@@ -2118,20 +2166,31 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const bEdge  = !isNaN(bLine)  ? bProj  - bLine  : NaN;
 
   // FIX #4+#7: getPick includes line value in label
-  const ftPick = getPick(ftEdge, ftLine);
-  const h1Pick = getPick(h1Edge, h1Line);
-  const aPick  = getPick(aEdge,  aLine);
-  const bPick  = getPick(bEdge,  bLine);
+  const ftPick = getPickWithThreshold(ftEdge, ftLine, minEdgePct);
+  const h1Pick = getPickWithThreshold(h1Edge, h1Line, minEdgePct);
+  const aPick  = getPickWithThreshold(aEdge,  aLine,  minEdgePct);
+  const bPick  = getPickWithThreshold(bEdge,  bLine,  minEdgePct);
 
-  // FIX #5: One lock only
+  // Sanitize picks before lock calculation — calc layer matches display layer
+  const ftSafe = sanitizePick(ftPick, ftProj, ftLine);
+  const h1Safe = sanitizePick(h1Pick, h1Proj, h1Line);
+  const aSafe  = sanitizePick(aPick,  aProj,  aLine);
+  const bSafe  = sanitizePick(bPick,  bProj,  bLine);
+
   const markets = [
-    { pick: ftPick, edge: ftEdge, line: ftLine },
-    { pick: h1Pick, edge: h1Edge, line: h1Line },
-    { pick: aPick,  edge: aEdge,  line: aLine  },
-    { pick: bPick,  edge: bEdge,  line: bLine  },
+    { pick: ftSafe, edge: ftEdge, line: ftLine },
+    { pick: h1Safe, edge: h1Edge, line: h1Line },
+    { pick: aSafe,  edge: aEdge,  line: aLine  },
+    { pick: bSafe,  edge: bEdge,  line: bLine  },
   ];
-  const lockIdx = selectLock(markets);
-  const lockFor = i => lockIdx === i ? ' 🔒' : '';
+  // Lock built on safe picks — no hidden lock bugs
+  const valid = markets.filter(m => m.pick !== '—' && !isNaN(m.edge) && m.line > 0 && Math.abs(m.edge/m.line) >= 0.045);
+  let lockIdx = -1;
+  if (valid.length) {
+    const max = Math.max(...valid.map(m => Math.abs(m.edge/m.line)));
+    lockIdx = markets.findIndex(m => m.pick !== '—' && !isNaN(m.edge) && m.line > 0 && Math.abs(Math.abs(m.edge/m.line) - max) < 0.0001);
+  }
+  const lockFor = (i) => lockIdx === i ? ' 🔒' : '';
   const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
 
   const setPick = (suffix, pick, i) => {
@@ -2151,7 +2210,7 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
     edgeEl.style.color = ftEdge > 0 ? '#2ecc71' : ftEdge < 0 ? '#ff6b6b' : '#aaa';
   }
 
-  const validEdges = markets.filter(m => m.pick !== 'NO PLAY' && m.pick !== '—' && !isNaN(m.edge) && m.line > 0);
+  const validEdges = markets.filter(m => m.pick !== 'NO PLAY' && m.pick !== '—' && !isNaN(m.edge) && m.line > 0 && Math.abs(m.edge / m.line) >= 0.045);
   const maxSt = validEdges.length ? Math.max(...validEdges.map(m => Math.abs(m.edge / m.line))) : NaN;
   const strEl = document.getElementById(`${rowId}-str`);
   if (strEl) {
@@ -2172,6 +2231,9 @@ function sortScanTable() {
   const rows = Array.from(tbody.children);
   const cleanPct = str => parseFloat((str || '').replace(/[^\d.]/g, '')) || 0;
   rows.sort((a, b) => {
+    const aLock = a.classList.contains('is-lock') ? 1 : 0;
+    const bLock = b.classList.contains('is-lock') ? 1 : 0;
+    if (bLock !== aLock) return bLock - aLock;
     const aStr = cleanPct(a.querySelector('[id$="-str"]')?.textContent);
     const bStr = cleanPct(b.querySelector('[id$="-str"]')?.textContent);
     return bStr - aStr;
