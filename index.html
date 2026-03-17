@@ -1456,12 +1456,19 @@ function getPick(edge, line) {
 // Takes array of {edge, line, pick} → returns index of strongest valid pick, or -1
 function selectLock(markets) {
   const valid = markets.filter(m =>
-    m.pick !== "NO PLAY" && m.pick !== "—" && !isNaN(m.edge) && m.line > 0
+    m.pick !== "NO PLAY" &&
+    m.pick !== "—" &&
+    !isNaN(m.edge) &&
+    m.line > 0 &&
+    Math.abs(m.edge / m.line) >= 0.045
   );
   if (!valid.length) return -1;
   const max = Math.max(...valid.map(m => Math.abs(m.edge / m.line)));
   return markets.findIndex(m =>
-    m.pick !== "NO PLAY" && m.pick !== "—" && !isNaN(m.edge) && m.line > 0 &&
+    m.pick !== "NO PLAY" &&
+    m.pick !== "—" &&
+    !isNaN(m.edge) &&
+    m.line > 0 &&
     Math.abs(m.edge / m.line) === max
   );
 }
@@ -1811,18 +1818,19 @@ async function startAutoScan() {
 
     // ── FIX #1: Strict date filtering ────────────────────────
     const sbData = await proxyFetch(`${espnBase}/scoreboard?dates=${today}&limit=100`).catch(() => ({}));
-    const selectedDate = today;
-
     const games = (sbData?.events || []).filter(event => {
       if (!event || !event.date || !event.competitions?.length) return false;
       const gameDate = new Date(event.date);
-      const localDate = new Date(
+      const localStr = new Date(
         gameDate.getFullYear(),
         gameDate.getMonth(),
         gameDate.getDate()
+      ).toISOString().slice(0,10).replace(/-/g,'');
+      return (
+        localStr === today &&
+        event.status?.type?.state !== 'post' &&
+        event.competitions?.[0]?.competitors?.length === 2
       );
-      const localStr = localDate.toISOString().slice(0,10).replace(/-/g,'');
-      return localStr === selectedDate;
     });
 
     if (games.length === 0) {
@@ -1905,9 +1913,13 @@ async function startAutoScan() {
         const aLock  = result.lockIdx === 2 ? ' 🔒' : '';
         const bLock  = result.lockIdx === 3 ? ' 🔒' : '';
 
-        const strengthPct = isNaN(result.ftEdge) || !result.ftLine
-          ? '—'
-          : (Math.abs(result.ftEdge / result.ftLine) * 100).toFixed(1) + '%';
+        const strengthPct = (() => {
+          const mkts=[{edge:result.ftEdge,line:result.ftLine,pick:result.ftPick},{edge:result.h1Edge,line:result.h1Line,pick:result.h1Pick},{edge:result.aEdge,line:result.aLine,pick:result.aPick},{edge:result.bEdge,line:result.bLine,pick:result.bPick}];
+          const vm=mkts.filter(m=>m.pick!=='NO PLAY'&&m.pick!=='—'&&!isNaN(m.edge)&&m.line>0);
+          const best=vm.length?Math.max(...vm.map(m=>Math.abs(m.edge/m.line))):NaN;
+          const sp=isNaN(best)?0:best*100;
+          return isNaN(best)?'—':(sp>=6?'💣 ':sp>=4?'👀 ':'')+sp.toFixed(1)+'%';
+        })();
 
         placeholderRow.className = result.bestLock ? 'is-lock' : (hasPlay ? 'has-play' : '');
 
@@ -1923,7 +1935,7 @@ async function startAutoScan() {
         placeholderRow.innerHTML = `
           <td style="text-align:left;font-size:11px;color:#d4af37;font-weight:bold">${teamAName}<br><span style="color:#888;font-weight:normal;">vs ${teamBName}</span></td>
           <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
-          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${result.h1Pick}${h1Lock}</td>
+          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${isNaN(result.h1Proj) ? '—' : result.h1Pick}${h1Lock}</td>
           <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
           <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>
           <td><input id="${rowId}-ft" class="scan-line-input" placeholder="e.g. 226.5" value=""
@@ -1960,6 +1972,7 @@ async function startAutoScan() {
     document.getElementById('scanSummary').style.display = 'block';
     document.getElementById('scanSummary').innerHTML =
       `Scanned <b>${gamesScanned}</b> games &nbsp;|&nbsp; <b>${totalPicks}</b> picks found &nbsp;|&nbsp; <b>${totalLocks}</b> 🔒 locks`;
+    sortScanTable();
     setScanStatus(_scanAbort ? 'Scan stopped early.' : `✅ Scan complete — ${games.length} games processed.`, 'ok');
 
   } catch(e) {
@@ -2013,9 +2026,28 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   if (Math.abs(aS-bS)/eb > 0.14) ftP *= 0.97;
   if (pace > 1.12) ftP *= 0.98;
 
-  // FIX #8: Store projections ONCE — they never change when user types a line
+  // Projections stored once — never change on line input
   result.ftProj = ftP;
-  result.h1Proj = ftP * 0.47;
+  // FIX 1: Real 1H — NaN if no data (no fake fallback)
+  let h1Proj = NaN;
+  if (
+    aStats.h1Scored?.length >= 2 &&
+    aStats.h1Allowed?.length >= 2 &&
+    bStats.h1Scored?.length >= 2 &&
+    bStats.h1Allowed?.length >= 2
+  ) {
+    const a1HScored  = avg(aStats.h1Scored);
+    const a1HAllowed = avg(aStats.h1Allowed);
+    const b1HScored  = avg(bStats.h1Scored);
+    const b1HAllowed = avg(bStats.h1Allowed);
+    h1Proj = (a1HScored + b1HScored + a1HAllowed + b1HAllowed) / 2;
+    // FIX 6: Pace-adjust 1H
+    if (!isNaN(h1Proj)) {
+      const paceFactor = (aS + aA + bS + bA) / 2 / eb;
+      h1Proj *= Math.max(0.90, Math.min(1.10, paceFactor));
+    }
+  }
+  result.h1Proj = h1Proj;
   result.aProj  = bAFT;
   result.bProj  = bBFT;
 
@@ -2122,53 +2154,37 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const validEdges = markets.filter(m => m.pick !== 'NO PLAY' && m.pick !== '—' && !isNaN(m.edge) && m.line > 0);
   const maxSt = validEdges.length ? Math.max(...validEdges.map(m => Math.abs(m.edge / m.line))) : NaN;
   const strEl = document.getElementById(`${rowId}-str`);
-  if (strEl) strEl.textContent = isNaN(maxSt) ? '—' : (maxSt * 100).toFixed(1) + '%';
+  if (strEl) {
+    const stPct = isNaN(maxSt) ? 0 : maxSt * 100;
+    const rank = stPct >= 6 ? '💣 ' : stPct >= 4 ? '👀 ' : '';
+    strEl.textContent = isNaN(maxSt) ? '—' : rank + stPct.toFixed(1) + '%';
+  }
 
   const hasPlay = ftPick !== 'NO PLAY' && ftPick !== '—';
   row.className = lockIdx >= 0 ? 'is-lock' : (hasPlay ? 'has-play' : '');
 }
 
+
+// ── FIX 8: Sort scan results by strength (strongest first) ───
+function sortScanTable() {
+  const tbody = document.getElementById('scanBody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.children);
+  const cleanPct = str => parseFloat((str || '').replace(/[^\d.]/g, '')) || 0;
+  rows.sort((a, b) => {
+    const aStr = cleanPct(a.querySelector('[id$="-str"]')?.textContent);
+    const bStr = cleanPct(b.querySelector('[id$="-str"]')?.textContent);
+    return bStr - aStr;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
 // ── God Mode ──────────────────────────────────────────────────
 async function fetchGodMode(rowId, teamA, teamB, league, ftProj, h1Proj, aProj, bProj) {
   const box = document.getElementById(`${rowId}-godbox`);
-  const btn = box ? box.previousElementSibling : null;
   if (!box) return;
   box.style.display = 'block';
-  box.innerHTML = '<div style="color:#aaa;font-size:10px;">⏳ Fetching consensus...</div>';
-  if (btn) btn.disabled = true;
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        messages: [{ role: "user", content: `You are a sports betting analyst. Search for expert predictions for: ${teamA} vs ${teamB} (${league.toUpperCase()}). Our engine projects FT Total: ${ftProj}, 1H: ${h1Proj}, Team A: ${aProj}, Team B: ${bProj}. Return ONLY a JSON object (no markdown): {"sources":[{"name":"Source","pick":"OVER/UNDER X","confidence":"high/medium/low"}],"consensus":"OVER X.X or UNDER X.X or NO CONSENSUS","consensusStrength":"strong/split/weak","alignsWithEngine":true,"godModePick":"OVER X.X or UNDER X.X or SKIP","reasoning":"one sentence"}` }]
-      })
-    });
-    const data = await response.json();
-    const fullText = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    let parsed;
-    try { const m = fullText.replace(/```json|```/g,'').trim().match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; } catch(e) { parsed = null; }
-    if (!parsed) { box.innerHTML = '<div style="color:#ff6b6b;font-size:10px;">⚠ Could not parse response.</div>'; return; }
-    const alignIcon = parsed.alignsWithEngine ? '✅' : '⚠️';
-    const godClass = parsed.godModePick.startsWith('OVER') ? 'color:#2ecc71' : parsed.godModePick.startsWith('UNDER') ? 'color:#ff6b6b' : 'color:#aaa';
-    const sourcesHtml = (parsed.sources||[]).map(s => {
-      const cls = s.pick.startsWith('OVER') ? 'color:#2ecc71' : s.pick.startsWith('UNDER') ? 'color:#ff6b6b' : 'color:#aaa';
-      return `<div class="god-source">• <b>${s.name}</b>: <span style="${cls}">${s.pick}</span> <span style="color:#555">(${s.confidence})</span></div>`;
-    }).join('');
-    box.innerHTML = `
-      <div class="god-title">☯ God Mode — ${teamA} vs ${teamB}</div>
-      ${sourcesHtml}
-      <div style="margin-top:5px;color:#aaa;font-size:10px;">Consensus: <b style="color:#d4af37">${parsed.consensus}</b> (${parsed.consensusStrength}) ${alignIcon} Engine aligned</div>
-      <div class="god-consensus" style="${godClass}">🏆 GOD PICK: ${parsed.godModePick}</div>
-      <div style="color:#888;font-size:10px;margin-top:3px;font-style:italic">${parsed.reasoning}</div>`;
-  } catch(e) {
-    box.innerHTML = `<div style="color:#ff6b6b;font-size:10px;">❌ ${e.message}</div>`;
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+  box.innerHTML = '<div style="color:#aaa;font-size:11px;padding:4px;">☯ God Mode requires backend API key. Coming soon.</div>';
 }
 </script>
 
