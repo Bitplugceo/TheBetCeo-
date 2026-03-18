@@ -1755,7 +1755,7 @@ function runEngine(){
     let predText = p.pick;
     if (p.note) { predText = "—"; }
     else if (markets[picks.indexOf(p)] && markets[picks.indexOf(p)].line === null) { predText = "—"; }
-    if (isLock && predText !== "—" && predText !== "NO PLAY") predText += ' <span style="font-size:9px;vertical-align:middle;">🔒</span>';
+    if (isLock && predText !== "—" && predText !== "NO PLAY") predText += ' <span class="lock">🔒</span>';
     const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
     const ed = isNaN(p.edge) ? "—" : (p.edge > 0 ? "+" : "") + p.edge.toFixed(2);
     const cn = predText.includes("OVER") ? "pred-over" : predText.includes("UNDER") ? "pred-under" : "pred-noplay";
