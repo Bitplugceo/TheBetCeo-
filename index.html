@@ -1755,7 +1755,7 @@ function runEngine(){
     let predText = p.pick;
     if (p.note) { predText = "—"; }
     else if (markets[picks.indexOf(p)] && markets[picks.indexOf(p)].line === null) { predText = "—"; }
-    if (isLock && predText !== "—" && predText !== "NO PLAY") predText += " 🔒";
+    if (isLock && predText !== "—" && predText !== "NO PLAY") predText += ' <span style="font-size:9px;vertical-align:middle;">🔒</span>';
     const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
     const ed = isNaN(p.edge) ? "—" : (p.edge > 0 ? "+" : "") + p.edge.toFixed(2);
     const cn = predText.includes("OVER") ? "pred-over" : predText.includes("UNDER") ? "pred-under" : "pred-noplay";
@@ -1954,10 +1954,10 @@ async function startAutoScan() {
         const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
 
         // FIX #5: Lock icon on exactly ONE column
-        const ftLock = (result.lockIdx === 0 && result.ftPick !== 'NO PLAY' && result.ftPick !== '—') ? ' 🔒' : '';
-        const h1Lock = (result.lockIdx === 1 && result.h1Pick !== 'NO PLAY' && result.h1Pick !== '—') ? ' 🔒' : '';
-        const aLock  = (result.lockIdx === 2 && result.aPick  !== 'NO PLAY' && result.aPick  !== '—') ? ' 🔒' : '';
-        const bLock  = (result.lockIdx === 3 && result.bPick  !== 'NO PLAY' && result.bPick  !== '—') ? ' 🔒' : '';
+        const ftLock = (result.lockIdx === 0 && result.ftPick !== 'NO PLAY' && result.ftPick !== '—') ? ' <span style="font-size:9px;vertical-align:middle;">🔒</span>' : '';
+        const h1Lock = (result.lockIdx === 1 && result.h1Pick !== 'NO PLAY' && result.h1Pick !== '—') ? ' <span style="font-size:9px;vertical-align:middle;">🔒</span>' : '';
+        const aLock  = (result.lockIdx === 2 && result.aPick  !== 'NO PLAY' && result.aPick  !== '—') ? ' <span style="font-size:9px;vertical-align:middle;">🔒</span>' : '';
+        const bLock  = (result.lockIdx === 3 && result.bPick  !== 'NO PLAY' && result.bPick  !== '—') ? ' <span style="font-size:9px;vertical-align:middle;">🔒</span>' : '';
 
         const strengthPct = (() => {
           const mkts=[{edge:result.ftEdge,line:result.ftLine,pick:result.ftPick},{edge:result.h1Edge,line:result.h1Line,pick:result.h1Pick},{edge:result.aEdge,line:result.aLine,pick:result.aPick},{edge:result.bEdge,line:result.bLine,pick:result.bPick}];
@@ -2207,7 +2207,7 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   ];
   // FIX 1: Use same selectLock() as manual engine — one universal lock system
   const lockIdx = selectLock(markets);
-  const lockFor = (i) => lockIdx === i ? ' 🔒' : '';
+  const lockFor = (i) => lockIdx === i ? ' <span style="font-size:9px;vertical-align:middle;">🔒</span>' : '';
   const pickClass = p => p.startsWith('OVER') ? 'scan-over' : p.startsWith('UNDER') ? 'scan-under' : 'scan-noplay';
 
   const setPick = (suffix, pick, i) => {
