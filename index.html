@@ -300,33 +300,41 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     </p>
 
 ```
-<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-  <label style="font-size:12px;margin:0;">League</label>
-  <select id="scanLeague" class="league-box" style="margin:0;width:auto;">
-    <option value="nba">NBA</option>
-    <option value="ncaa">NCAA</option>
-  </select>
-  <label style="font-size:12px;margin:0;">Min Edge %</label>
-  <select id="scanMinEdge" class="league-box" style="margin:0;width:auto;">
-    <option value="0.045">4.5%</option>
-    <option value="0.050">5.0%</option>
-    <option value="0.055">5.5%</option>
-    <option value="0.060">6.0%</option>
-  </select>
-  <label style="font-size:12px;margin:0;">Show</label>
-  <select id="scanFilter" class="league-box" style="margin:0;width:auto;">
-    <option value="all">All Games</option>
-    <option value="picks">Picks Only</option>
-    <option value="locks">Locks Only</option>
-  </select>
-  <label style="font-size:12px;margin:0;">Day</label>
-  <select id="scanDay" class="league-box" style="margin:0;width:auto;">
-    <option value="0">Today</option>
-    <option value="1">Tomorrow</option>
-  </select>
+<div style="display:grid;grid-template-columns:repeat(2, minmax(120px,160px));gap:12px;margin-bottom:8px;justify-content:center;">
+  <div>
+    <label style="font-size:10px;color:#aaa;margin-bottom:2px;display:block;">League</label>
+    <select id="scanLeague" class="league-box" style="margin:0;width:100%;padding:3px 5px;font-size:11px;">
+      <option value="nba">NBA</option>
+      <option value="ncaa">NCAA</option>
+    </select>
+  </div>
+  <div>
+    <label style="font-size:10px;color:#aaa;margin-bottom:2px;display:block;">Min Edge %</label>
+    <select id="scanMinEdge" class="league-box" style="margin:0;width:100%;padding:3px 5px;font-size:11px;">
+      <option value="0.045">4.5%</option>
+      <option value="0.050">5.0%</option>
+      <option value="0.055">5.5%</option>
+      <option value="0.060">6.0%</option>
+    </select>
+  </div>
+  <div>
+    <label style="font-size:10px;color:#aaa;margin-bottom:2px;display:block;">Show</label>
+    <select id="scanFilter" class="league-box" style="margin:0;width:100%;padding:3px 5px;font-size:11px;">
+      <option value="all">All Games</option>
+      <option value="picks">Picks Only</option>
+      <option value="locks">Locks Only</option>
+    </select>
+  </div>
+  <div>
+    <label style="font-size:10px;color:#aaa;margin-bottom:2px;display:block;">Day</label>
+    <select id="scanDay" class="league-box" style="margin:0;width:100%;padding:3px 5px;font-size:11px;">
+      <option value="0">Today</option>
+      <option value="1">Tomorrow</option>
+    </select>
+  </div>
 </div>
 
-<button class="scan-btn" id="scanBtn" onclick="startAutoScan()">▶ Scan Today's Games</button>
+<button class="scan-btn" id="scanBtn" onclick="startAutoScan()">▶ Scan Games</button>
 <button class="scan-btn stop" id="scanStopBtn" onclick="stopAutoScan()" style="display:none;">■ Stop</button>
 
 <div class="progress-bar-wrap" id="scanProgressWrap">
@@ -348,14 +356,13 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
           <th>1H Line</th>
           <th>A Line</th>
           <th>B Line</th>
+          <th>Projection</th>
+          <th>Edge</th>
+          <th>Str%</th>
           <th>FT Pick</th>
           <th>1H Pick</th>
           <th>Team A Pick</th>
           <th>Team B Pick</th>
-          <th>Projection</th>
-          <th>Edge</th>
-          <th>Str%</th>
-          <th>☯ God Mode</th>
         </tr>
       </thead>
       <tbody id="scanBody"></tbody>
@@ -1986,19 +1993,13 @@ async function startAutoScan() {
           <td><input id="${rowId}-b" class="scan-line-input" placeholder="e.g. 113.5" value=""
             oninput="debounceRecalc(this,'${rowId}')">
             <div style="font-size:9px;color:#888;margin-top:2px">model: ${isNaN(result.bProj)?'—':result.bProj.toFixed(1)}</div></td>
-          <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
-          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${(isNaN(result.h1Proj) || isNaN(result.h1Line) || result.h1Pick === 'NO PLAY') ? '—' : result.h1Pick + h1Lock}</td>
-          <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
-          <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>
           <td style="color:#d4af37" id="${rowId}-proj">${isNaN(result.ftProj)?'—':result.ftProj.toFixed(1)}</td>
           <td id="${rowId}-edge" style="color:${result.ftEdge>0?'#2ecc71':result.ftEdge<0?'#ff6b6b':'#aaa'}">${isNaN(result.ftEdge)?'—':(result.ftEdge>0?'+':'')+result.ftEdge.toFixed(1)}</td>
           <td style="color:#d4af37;font-size:10px;font-weight:bold" id="${rowId}-str">${strengthPct}</td>
-          <td id="${rowId}-god" style="text-align:center;">
-            <button disabled style="background:#111;color:#555;border:1px solid #333;padding:3px 7px;font-size:10px;font-weight:bold;cursor:not-allowed;">
-              ☯ Coming Soon
-            </button>
-            <div id="${rowId}-godbox" class="god-panel"></div>
-          </td>`;
+          <td class="${pickClass(result.ftPick)}" id="${rowId}-ftpick">${result.ftPick}${ftLock}</td>
+          <td class="${pickClass(result.h1Pick)}" id="${rowId}-h1pick">${(isNaN(result.h1Proj) || isNaN(result.h1Line) || result.h1Pick === 'NO PLAY') ? '—' : result.h1Pick + h1Lock}</td>
+          <td class="${pickClass(result.aPick)}"  id="${rowId}-apick">${result.aPick}${aLock}</td>
+          <td class="${pickClass(result.bPick)}"  id="${rowId}-bpick">${result.bPick}${bLock}</td>`;
 
       } catch(e) {
         placeholderRow.innerHTML = `
