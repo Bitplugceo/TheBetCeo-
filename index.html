@@ -1456,22 +1456,49 @@ function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).
 function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
 function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.05*Math.min(1,(std-limit)/limit));}
 
+// ── League-aware edge thresholds ─────────────────────────────
+function getLeagueEdgeThresholds(league) {
+  if (league === 'nba')
+    return { ft: 0.050, h1: 0.055, team: 0.080 };
+  if (league === 'ncaa')
+    return { ft: 0.060, h1: 0.065, team: 0.100 };
+  // Europe
+  if (['euroleague','eurocup','acb','lba','bbl','bcl','lkl','proa','prob',
+       'bsl','isl','aba','plk','serbia_kls','croatia_premier','elbl',
+       'georgia_super','hungary_nb1','romania_ln','austria_zweite',
+       'belgium_top','bih_1st','bulgaria_nbl','nbl_cz','denmark_bliga',
+       'england_slb','finland_koris','finland_koris_w','germany_proa',
+       'germany_prob','a2','italy_a2','italy_serb','lkl','lithuania_nkl',
+       'poland_1liga','portugal_lpb','portugal_proliga','serbia_2mls',
+       'spain_primera','spain_segunda','sweden_super','sweden_sbl',
+       'swiss_nlb','swiss_sbl','turkey_tbl','turkey_tb2l','turkey_tkbl_w',
+       'united_league'].includes(league))
+    return { ft: 0.060, h1: 0.065, team: 0.090 };
+  // Asia
+  if (['cba','china_nbl','taipei_pleague','taipei_sbl','taipei_tpbl',
+       'bleague','pba','korea_kbl'].includes(league))
+    return { ft: 0.065, h1: 0.070, team: 0.110 };
+  // Africa / small leagues / default
+  return { ft: 0.070, h1: 0.075, team: 0.120 };
+}
+
 // ── FIX #4: Single pick logic function ───────────────────────
 // Returns "OVER X.X", "UNDER X.X", or "NO PLAY"
-function getPick(edge, line) {
+function getPick(edge, line, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
-  const pct = Math.abs(edge / line);
-  if (pct < 0.045) return "NO PLAY";
-  return edge > 0
-    ? `OVER ${displayLine(line)}`
-    : `UNDER ${displayLine(line)}`;
+  const thr = getLeagueEdgeThresholds(league || 'unknown');
+  const minPct = marketType === 'h1' ? thr.h1 : marketType === 'team' ? thr.team : thr.ft;
+  if (Math.abs(edge / line) < minPct) return "NO PLAY";
+  return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
 }
 
 // ── getPickWithThreshold — scan uses user-selected min edge ──
-function getPickWithThreshold(edge, line, minEdge) {
+function getPickWithThreshold(edge, line, minEdge, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
-  const pct = Math.abs(edge / line);
-  if (pct < minEdge) return "NO PLAY";
+  const thr = getLeagueEdgeThresholds(league || 'unknown');
+  const leaguePct = marketType === 'h1' ? thr.h1 : marketType === 'team' ? thr.team : thr.ft;
+  const useMin = Math.max(minEdge, leaguePct);
+  if (Math.abs(edge / line) < useMin) return "NO PLAY";
   return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
 }
 
@@ -1722,10 +1749,10 @@ function runEngine(){
   const aEdge   = (aLine  !== null && !isNaN(bAFT)) ? bAFT - aLine   : NaN;
   const bEdge   = (bLine  !== null && !isNaN(bBFT)) ? bBFT - bLine   : NaN;
 
-  const ftPick  = getPick(ftEdge,  ftLine);
-  const h1Pick  = getPick(h1Edge,  h1Line);
-  const aPick   = getPick(aEdge,   aLine);
-  const bPick   = getPick(bEdge,   bLine);
+  const ftPick  = getPick(ftEdge,  ftLine,  league, 'ft');
+  const h1Pick  = getPick(h1Edge,  h1Line,  league, 'h1');
+  const aPick   = getPick(aEdge,   aLine,   league, 'team');
+  const bPick   = getPick(bEdge,   bLine,   league, 'team');
 
   // FIX #5: One lock only
   const markets = [
@@ -1848,10 +1875,15 @@ async function startAutoScan() {
     // ── FIX #1: Strict date filtering ────────────────────────
     const sbData = await proxyFetch(`${espnBase}/scoreboard`).catch(() => ({}));
     let _events = sbData?.events || [];
-    // FIX 1: NCAA fallback — scoreboard sometimes empty
+    // NCAA fallback: if scoreboard empty, try with groups param (returns all D1 games)
     if (!_events.length && scanLeague === 'ncaa') {
-      const alt = await proxyFetch(`${espnBase}/teams/1/schedule`).catch(() => ({}));
+      const alt = await proxyFetch(`${espnBase}/scoreboard?groups=50&limit=200`).catch(() => ({}));
       _events = alt?.events || [];
+    }
+    // Second fallback: try with date param
+    if (!_events.length && scanLeague === 'ncaa') {
+      const alt2 = await proxyFetch(`${espnBase}/scoreboard?dates=${today}&groups=50&limit=200`).catch(() => ({}));
+      _events = alt2?.events || [];
     }
     const games = _events.filter(event => {
       if (!event || !event.date || !event.competitions?.length) return false;
@@ -2128,10 +2160,10 @@ function runScanEngine(aStats, bStats, league, eb, minEdgePct, lines) {
   result.bEdge  = !isNaN(bLine)  ? bBFT - bLine : NaN;
 
   // FIX 3: Picks only when real line entered — otherwise show '—'
-  result.ftPick = !isNaN(ftLine) ? getPickWithThreshold(result.ftEdge, ftLine, minEdgePct) : '—';
-  result.h1Pick = (!isNaN(h1Line) && !isNaN(result.h1Proj)) ? getPickWithThreshold(result.h1Edge, h1Line, minEdgePct) : '—';
-  result.aPick  = !isNaN(aLine)  ? getPickWithThreshold(result.aEdge,  aLine,  minEdgePct) : '—';
-  result.bPick  = !isNaN(bLine)  ? getPickWithThreshold(result.bEdge,  bLine,  minEdgePct) : '—';
+  result.ftPick = !isNaN(ftLine) ? getPickWithThreshold(result.ftEdge, ftLine, minEdgePct, league, 'ft')   : '—';
+  result.h1Pick = (!isNaN(h1Line) && !isNaN(result.h1Proj)) ? getPickWithThreshold(result.h1Edge, h1Line, minEdgePct, league, 'h1') : '—';
+  result.aPick  = !isNaN(aLine)  ? getPickWithThreshold(result.aEdge,  aLine,  minEdgePct, league, 'team') : '—';
+  result.bPick  = !isNaN(bLine)  ? getPickWithThreshold(result.bEdge,  bLine,  minEdgePct, league, 'team') : '—';
 
   // FIX #5: One lock only — strongest valid pick
   const markets = [
@@ -2188,10 +2220,11 @@ function recalcScanRow(inputEl, rowId, league, eb, minEdgePct) {
   const bEdge  = !isNaN(bLine)  ? bProj  - bLine  : NaN;
 
   // FIX 3: Picks only when real line entered
-  const ftPick = !isNaN(ftLine) ? getPickWithThreshold(ftEdge, ftLine, minEdgePct) : '—';
-  const h1Pick = (!isNaN(h1Line) && !isNaN(h1Proj)) ? getPickWithThreshold(h1Edge, h1Line, minEdgePct) : '—';
-  const aPick  = !isNaN(aLine)  ? getPickWithThreshold(aEdge,  aLine,  minEdgePct) : '—';
-  const bPick  = !isNaN(bLine)  ? getPickWithThreshold(bEdge,  bLine,  minEdgePct) : '—';
+  const _league = row._league || 'unknown';
+  const ftPick = !isNaN(ftLine) ? getPickWithThreshold(ftEdge, ftLine, minEdgePct, _league, 'ft')   : '—';
+  const h1Pick = (!isNaN(h1Line) && !isNaN(h1Proj)) ? getPickWithThreshold(h1Edge, h1Line, minEdgePct, _league, 'h1') : '—';
+  const aPick  = !isNaN(aLine)  ? getPickWithThreshold(aEdge,  aLine,  minEdgePct, _league, 'team') : '—';
+  const bPick  = !isNaN(bLine)  ? getPickWithThreshold(bEdge,  bLine,  minEdgePct, _league, 'team') : '—';
 
   // Sanitize picks before lock calculation — calc layer matches display layer
   const ftSafe = sanitizePick(ftPick, ftProj, ftLine);
