@@ -1364,6 +1364,35 @@ function detectTrap(edge, line, pick, league, marketType) {
   return false;
 }
 
+// ── Market Intelligence ───────────────────────────────────────
+function detectMarketSignal(proj, line, pick) {
+  if (!line || isNaN(proj)) return "neutral";
+
+  const diff = proj - line;
+  const pct = Math.abs(diff / line);
+
+  // 🔴 Strong edge but suspicious (market not agreeing)
+  if (pct > 0.10 && Math.abs(proj - line) > 5) {
+    return "resistance";
+  }
+
+  // 🔴 Reverse signal
+  if (pick.includes("OVER") && diff > 0 && line < proj - 5) {
+    return "trap";
+  }
+
+  if (pick.includes("UNDER") && diff < 0 && line > proj + 5) {
+    return "trap";
+  }
+
+  // 🟢 Normal value
+  if (pct >= 0.05) {
+    return "value";
+  }
+
+  return "neutral";
+}
+
 // ── Single pick logic function ────────────────────────────────
 function getPick(edge, line, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
@@ -1637,6 +1666,17 @@ function runEngine(){
   if (h1Trap) h1Pick = "NO PLAY";
   if (aTrap)  aPick  = "NO PLAY";
   if (bTrap)  bPick  = "NO PLAY";
+
+  // ── Market Intelligence ───────────────────────────────────
+  const ftMarket = ftPick !== "NO PLAY" && detectMarketSignal(ftP,  ftLine, ftPick);
+  const h1Market = h1Pick !== "NO PLAY" && detectMarketSignal(h1P,  h1Line, h1Pick);
+  const aMarket  = aPick  !== "NO PLAY" && detectMarketSignal(bAFT, aLine,  aPick);
+  const bMarket  = bPick  !== "NO PLAY" && detectMarketSignal(bBFT, bLine,  bPick);
+
+  if (ftMarket === "trap") ftPick = "NO PLAY";
+  if (h1Market === "trap") h1Pick = "NO PLAY";
+  if (aMarket  === "trap") aPick  = "NO PLAY";
+  if (bMarket  === "trap") bPick  = "NO PLAY";
   // ─────────────────────────────────────────────────────────────
 
   const markets = [
