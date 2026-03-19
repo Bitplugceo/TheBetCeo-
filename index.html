@@ -260,31 +260,27 @@ const MODEL = {
 };
 
 const _sbCache = new Map();
-const _CACHE_MAX = 120; // max entries to prevent unbounded growth
+const _CACHE_MAX = 120;
 function cacheSet(map, key, val) { if (map.size >= _CACHE_MAX) map.delete(map.keys().next().value); map.set(key, val); }
 const _schedCache = new Map();
 const _summaryCache = new Map();
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
 let g_injB = {restMult:1, scoringMult:1, notes:[]};
 
-// ── FIX #3: Universal range/single line parser ────────────────
-// Accepts "150.5 - 160.5", "150.5-160.5", or "155.5" → returns midpoint or null
 function parseLineRange(val) {
   if (!val || !String(val).trim()) return null;
   val = String(val).trim();
   if (val.includes('-')) {
     const parts = val.split('-').map(v => parseFloat(v.trim()));
-    // ISSUE 13: reject incomplete ranges like "150.5 -"
     if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[1] > 0) {
       return (parts[0] + parts[1]) / 2;
     }
-    return null; // incomplete range → null, not NaN
+    return null;
   }
   const single = parseFloat(val);
   return isNaN(single) ? null : single;
 }
 
-// ── Helpers ──────────────────────────────────────────────────
 function safeText(str) {
   const d = document.createElement("div");
   d.textContent = str;
@@ -790,7 +786,6 @@ function lookupTeamId(name, leagueHint) {
   const PRIMARY = isNba ? NBA_TEAM_MAP : NCAA_TEAM_MAP;
   const SECONDARY = isNba ? NCAA_TEAM_MAP : NBA_TEAM_MAP;
   if (PRIMARY[n] !== undefined) return PRIMARY[n];
-  // Safety: prevent NBA ID 6 (south alabama=6 in NCAA map) from colliding
   if (SECONDARY[n] !== undefined) {
     if (isNba && SECONDARY[n] === 6) return null;
     return SECONDARY[n];
@@ -1330,7 +1325,6 @@ function getLeagueEdgeThresholds(league) {
     return { ft: 0.050, h1: 0.055, team: 0.080 };
   if (league === 'ncaa')
     return { ft: 0.060, h1: 0.065, team: 0.100 };
-  // Europe
   if (['euroleague','eurocup','acb','lba','bbl','bcl','lkl','proa','prob',
        'bsl','isl','aba','plk','serbia_kls','croatia_premier','elbl',
        'georgia_super','hungary_nb1','romania_ln','austria_zweite',
@@ -1342,16 +1336,35 @@ function getLeagueEdgeThresholds(league) {
        'swiss_nlb','swiss_sbl','turkey_tbl','turkey_tb2l','turkey_tkbl_w',
        'united_league'].includes(league))
     return { ft: 0.060, h1: 0.065, team: 0.090 };
-  // Asia
   if (['cba','china_nbl','taipei_pleague','taipei_sbl','taipei_tpbl',
        'bleague','pba','korea_kbl'].includes(league))
     return { ft: 0.065, h1: 0.070, team: 0.110 };
-  // Africa / small leagues / default
   return { ft: 0.070, h1: 0.075, team: 0.120 };
 }
 
-// ── FIX #4: Single pick logic function ───────────────────────
-// Returns "OVER X.X", "UNDER X.X", or "NO PLAY"
+// ── detectTrap ────────────────────────────────────────────────
+function detectTrap(edge, line, pick, league, marketType) {
+  if (!line || isNaN(edge) || line <= 0) return false;
+
+  const pct = Math.abs(edge / line);
+
+  // 🔴 1. Extreme edge
+  if (pct > 0.10) return true;
+
+  // 🔴 2. NBA high total instability
+  if (league === "nba" && marketType === "ft" && line > 235) return true;
+
+  // 🔴 3. UNDER trap (LEAGUE-SPECIFIC)
+  if (pick.includes("UNDER")) {
+    if (league === "nba" && line < 210) return true;
+    else if (league === "ncaa" && line < 130) return true;
+    else if (line < 140) return true; // covers Europe, Asia, Africa
+  }
+
+  return false;
+}
+
+// ── Single pick logic function ────────────────────────────────
 function getPick(edge, line, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
   const thr = getLeagueEdgeThresholds(league || 'unknown');
@@ -1360,7 +1373,6 @@ function getPick(edge, line, league, marketType) {
   return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
 }
 
-// ── getPickWithThreshold — scan uses user-selected min edge ──
 function getPickWithThreshold(edge, line, minEdge, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
   const thr = getLeagueEdgeThresholds(league || 'unknown');
@@ -1370,15 +1382,12 @@ function getPickWithThreshold(edge, line, minEdge, league, marketType) {
   return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
 }
 
-// ── sanitizePick — unify pick validity for lock + display ────
 function sanitizePick(pick, proj, line) {
   if (isNaN(proj) || isNaN(line)) return '—';
   if (pick === 'NO PLAY') return '—';
   return pick;
 }
 
-// ── FIX #5: Single lock selector ─────────────────────────────
-// Takes array of {edge, line, pick} → returns index of strongest valid pick, or -1
 function selectLock(markets) {
   const valid = markets.filter(m =>
     m.pick !== "NO PLAY" &&
@@ -1398,14 +1407,13 @@ function selectLock(markets) {
   return markets.findIndex(m => m === best);
 }
 
-// ── Shared Edge Threshold ─────────────────────────────────────
 function minEdgeForLine(line) {
   if (line < 135) return 0.052;
   if (line < 150) return 0.048;
   return 0.045;
 }
 
-// ── Run Engine (Manual Tab) ───────────────────────────────────
+// ── Run Engine ────────────────────────────────────────────────
 function runEngine(){
   const table = document.getElementById("results");
   table.style.display="table";
@@ -1451,7 +1459,6 @@ function runEngine(){
   let eb = bases[league]||160;
   const cl = paceClamps[league]||{min:0.90,max:1.12};
 
-  // FIX #3: Use parseLineRange everywhere for market line parsing
   let ftLine = parseLineRange(document.getElementById("ftMarket").value);
   let aLine  = parseLineRange(document.getElementById("teamAMarket").value);
   let bLine  = parseLineRange(document.getElementById("teamBMarket").value);
@@ -1610,19 +1617,28 @@ function runEngine(){
     }
   }
 
-  // FIX #7+#8: Projections are FIXED. Only edge changes when lines are entered.
-  // Build picks using getPick (includes line in label)
   const ftEdge  = (ftLine !== null && !isNaN(ftP))  ? ftP  - ftLine  : NaN;
   const h1Edge  = (h1Line !== null && !isNaN(h1P))  ? h1P  - h1Line  : NaN;
   const aEdge   = (aLine  !== null && !isNaN(bAFT)) ? bAFT - aLine   : NaN;
   const bEdge   = (bLine  !== null && !isNaN(bBFT)) ? bBFT - bLine   : NaN;
 
-  const ftPick  = getPick(ftEdge,  ftLine,  league, 'ft');
-  const h1Pick  = getPick(h1Edge,  h1Line,  league, 'h1');
-  const aPick   = getPick(aEdge,   aLine,   league, 'team');
-  const bPick   = getPick(bEdge,   bLine,   league, 'team');
+  // ── PATCHED: let + trap detection ────────────────────────────
+  let ftPick  = getPick(ftEdge,  ftLine,  league, 'ft');
+  let h1Pick  = getPick(h1Edge,  h1Line,  league, 'h1');
+  let aPick   = getPick(aEdge,   aLine,   league, 'team');
+  let bPick   = getPick(bEdge,   bLine,   league, 'team');
 
-  // FIX #5: One lock only
+  const ftTrap = ftPick !== "NO PLAY" && detectTrap(ftEdge, ftLine, ftPick, league, 'ft');
+  const h1Trap = h1Pick !== "NO PLAY" && detectTrap(h1Edge, h1Line, h1Pick, league, 'h1');
+  const aTrap  = aPick  !== "NO PLAY" && detectTrap(aEdge,  aLine,  aPick,  league, 'team');
+  const bTrap  = bPick  !== "NO PLAY" && detectTrap(bEdge,  bLine,  bPick,  league, 'team');
+
+  if (ftTrap) ftPick = "NO PLAY";
+  if (h1Trap) h1Pick = "NO PLAY";
+  if (aTrap)  aPick  = "NO PLAY";
+  if (bTrap)  bPick  = "NO PLAY";
+  // ─────────────────────────────────────────────────────────────
+
   const markets = [
     { edge: ftEdge,  line: ftLine,  pick: ftPick  },
     { edge: h1Edge,  line: h1Line,  pick: h1Pick  },
@@ -1632,13 +1648,12 @@ function runEngine(){
   const lockIdx = selectLock(markets);
 
   const picks = [
-    { name:"FT Total",   proj:aFTReady&&bFTReady?ftP:NaN, edge:ftEdge,  pick:ftPick,  note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null },
-    { name:"1H Total",   proj:h1P,                          edge:h1Edge,  pick:h1Pick,  note:null },
-    { name:"Team A Total",proj:aFTReady?bAFT:NaN,           edge:aEdge,   pick:aPick,   note:!aFTReady?"Team A FT Scored + Allowed required":null },
-    { name:"Team B Total",proj:bFTReady?bBFT:NaN,           edge:bEdge,   pick:bPick,   note:!bFTReady?"Team B FT Scored + Allowed required":null },
+    { name:"FT Total",    proj:aFTReady&&bFTReady?ftP:NaN, edge:ftEdge, pick:ftPick, note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null },
+    { name:"1H Total",    proj:h1P,                         edge:h1Edge, pick:h1Pick, note:null },
+    { name:"Team A Total",proj:aFTReady?bAFT:NaN,           edge:aEdge,  pick:aPick,  note:!aFTReady?"Team A FT Scored + Allowed required":null },
+    { name:"Team B Total",proj:bFTReady?bBFT:NaN,           edge:bEdge,  pick:bPick,  note:!bFTReady?"Team B FT Scored + Allowed required":null },
   ];
 
-  // Filter out 1H if not applicable
   const finalPicks = picks.filter(p => {
     if (p.name === "1H Total" && (!isNbaOrNcaa || isNaN(h1P))) return false;
     return true;
@@ -1681,17 +1696,6 @@ function clearAll(){
 }
 
 document.addEventListener("DOMContentLoaded",()=>{ onLeagueChange(); });
-
-// ── Tab System ────────────────────────────────────────────────
-
-
-
-
-
-
-
-// ── Scan Engine Core ──────────────────────────────────────────
-
 </script>
 
 </body>
