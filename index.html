@@ -252,6 +252,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 <script>
 // ── Constants ────────────────────────────────────────────────
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+let _fetchToken = 0; // incremented on each new fetch/team-edit to invalidate stale responses
 // Auth handled server-side in Worker
 
 const MODEL = {
@@ -494,6 +495,7 @@ function selectTeam(side, name) {
 function closeDrop(dropId) {
   const drop = document.getElementById(dropId);
   if (drop) { drop.style.display = "none"; drop.innerHTML = ""; }
+  if (activeDropTeam === (dropId === "dropA" ? "A" : "B")) activeDropTeam = null;
 }
 
 document.addEventListener("click", e => {
@@ -592,7 +594,7 @@ async function findMatchupDate(base, teamAId, teamBId) {
   for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear()-1)]) {
     for (const stype of ["2","3"]) {
       try {
-        const _sk = `sched:${teamAId}:${season}:${stype}`;
+        const _sk = `${base}:sched:${teamAId}:${season}:${stype}`;
         const r = await (_schedCache.has(_sk) ? _schedCache.get(_sk) : (()=>{const p=proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=${stype}`).catch(()=>({}));cacheSet(_schedCache,_sk,p);return p;})());
         const events = (r?.events || r?.team?.schedule?.events || []).slice().sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
         for (const ev of events) {
@@ -613,7 +615,7 @@ async function findNextGameDate(base, teamId) {
   for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear()-1)]) {
     for (const stype of ["2","3"]) {
       try {
-        const _sk = `sched:${teamId}:${season}:${stype}`;
+        const _sk = `${base}:sched:${teamId}:${season}:${stype}`;
         const r = await (_schedCache.has(_sk) ? _schedCache.get(_sk) : (()=>{const p=proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(()=>({}));cacheSet(_schedCache,_sk,p);return p;})());
         const events = (r?.events || r?.team?.schedule?.events || []).slice().sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
         for (const ev of events) {
@@ -859,6 +861,8 @@ function matchesTeam(competitor, teamId) {
 function onLeagueChange() {
   closeDrop("dropA");
   closeDrop("dropB");
+  unlockFetchBtn();
+  setStatus("","");
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
   document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
@@ -871,6 +875,11 @@ function onLeagueChange() {
     const el = document.getElementById(id);
     if (el) el.style.display = isNba ? "block" : "none";
   });
+  if (!isNba) {
+    ["aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed","q1Market"].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = "";
+    });
+  }
   if (!isNbaOrNcaa) {
     ["a1HScored","a1HAllowed","b1HScored","b1HAllowed","a1HH2H","b1HH2H","h1Market","aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed","q1Market"].forEach(id => {
       document.getElementById(id).value = "";
@@ -880,7 +889,11 @@ function onLeagueChange() {
     });
     document.getElementById("use1HH2H").checked = false;
   }
-  // FIX 1+2: Always reset injury globals and FT H2H on league change
+  _fetchToken++; // invalidate any in-flight fetch on league change
+  // Clear caches on league change to prevent cross-league contamination
+  _schedCache.clear();
+  _summaryCache.clear();
+  // Reset injury globals and FT H2H on league change
   g_injA = {restMult:1, scoringMult:1, notes:[]};
   g_injB = {restMult:1, scoringMult:1, notes:[]};
   ["injuryBoxA","injuryBoxB"].forEach(id => document.getElementById(id).style.display = "none");
@@ -890,7 +903,9 @@ function onLeagueChange() {
 }
 
 function clearAutoFill() {
-  // FIX 3: Team name edit invalidates all previously fetched data
+  _fetchToken++;
+  unlockFetchBtn();
+  // Team name edit invalidates all previously fetched data
   ["aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
    "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
    "aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
@@ -908,6 +923,11 @@ function clearAutoFill() {
 function setStatus(msg, type) {
   const el = document.getElementById("fetchStatus");
   el.className = type; el.innerHTML = msg;
+}
+
+function unlockFetchBtn() {
+  const btn = document.getElementById("fetchBtn");
+  if (btn) btn.disabled = false;
 }
 
 function getDateString(daysAgo) {
@@ -939,6 +959,7 @@ async function fetchESPN() {
     document.getElementById(id).style.display = "none"
   );
   setStatus('<span class="spinner"></span>Fetching from ESPN...',"loading");
+  const _myToken = ++_fetchToken;
   try {
     const isNcaa = league === "ncaa";
     const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
@@ -964,6 +985,7 @@ async function fetchESPN() {
       aStats = extractLastFive(allGames,String(teamAId),'home');
       bStats = extractLastFive(allGames,String(teamBId),'away');
     }
+    if (_myToken !== _fetchToken) return; // stale fetch — newer request in flight
     const messages = [];
     if (aStats?.scored?.length>0) {
       document.getElementById("aFTScored").value = aStats.scored.join(",");
@@ -1000,6 +1022,9 @@ async function fetchESPN() {
         ? await fetchNcaaH2H(espnBase,teamAId,teamBId,leagueSlug)
         : await fetchNbaH2H(espnBase,teamAId,teamBId);
     } catch(e) { h2hGames = []; }
+
+    if (_myToken !== _fetchToken) return; // FIX 1a: stale-fetch guard after H2H
+
     if (h2hGames?.length>=2) {
       const tA = String(teamAId);
       const h2hA=[], h2hB=[];
@@ -1042,6 +1067,9 @@ async function fetchESPN() {
       fetchInjuryAndRest(espnBase,teamAId,aAvg,aStats?.lastGameDate||null,nextGameDateA,league),
       fetchInjuryAndRest(espnBase,teamBId,bAvg,bStats?.lastGameDate||null,nextGameDateB,league)
     ]);
+
+    if (_myToken !== _fetchToken) return; // FIX 1b: stale-fetch guard after injuries
+
     function renderInjBox(boxId,contentId,inj) {
       if (!inj.notes.length) return;
       document.getElementById(contentId).innerHTML = inj.notes.map(n => {
@@ -1054,8 +1082,12 @@ async function fetchESPN() {
     renderInjBox("injuryBoxB","injuryContentB",g_injB);
     const allGood = aStats?.scored?.length>0 && bStats?.scored?.length>0;
     setStatus(messages.map(m=>`<div>${m}</div>`).join(""), allGood?"ok":"err");
-  } catch(e) { setStatus("&#10060; " + safeText(e.message), "err"); }
-  finally { btn.disabled = false; }
+  } catch(e) {
+    if (_myToken === _fetchToken) setStatus("&#10060; " + safeText(e.message), "err"); // FIX 1c: token-safe catch
+  }
+  finally {
+    if (_myToken === _fetchToken) btn.disabled = false; // FIX 1d: token-safe finally
+  }
 }
 
 // ── NCAA Schedule ─────────────────────────────────────────────
@@ -1099,7 +1131,7 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug, requiredVenue) {
     let ms=ref.rawS, os=ref.rawA, h1m=0, h1o=0, gotLS=false;
     try {
       await new Promise(r=>setTimeout(r,80));
-      const _sumK = `sum:${ref.id}`;
+      const _sumK = `${base}:sum:${ref.id}`;
       const data = await (_summaryCache.has(_sumK) ? _summaryCache.get(_sumK) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);cacheSet(_summaryCache,_sumK,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
@@ -1174,7 +1206,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId, leagueSlug) {
     let added = false;
     try {
       await new Promise(r=>setTimeout(r,80));
-      const _sumK2 = `sum:${ref.id}`;
+      const _sumK2 = `${base}:sum:${ref.id}`;
       const data = await (_summaryCache.has(_sumK2) ? _summaryCache.get(_sumK2) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);cacheSet(_summaryCache,_sumK2,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
@@ -1244,7 +1276,7 @@ async function fetchNbaScoreboard(base, daysBack, teamAId, teamBId) {
   const tA = String(teamAId), tB = String(teamBId);
   let aHomeCount = 0, bAwayCount = 0;
   for (let d = 1; d <= daysBack; d++) {
-    if (aHomeCount >= 5 && bAwayCount >= 5) break; // stop when we have 5 venue-qualified games each
+    if (aHomeCount >= 5 && bAwayCount >= 5) break;
     const dateStr = getDateString(d);
     const cacheKey = `sb:${dateStr}`;
     let p;
@@ -1259,7 +1291,6 @@ async function fetchNbaScoreboard(base, daysBack, teamAId, teamBId) {
       const data = await p;
       const games = parseNbaEvents(data);
       for (const g of games) {
-        // Count venue-qualified games
         if (g.teamAId===tA && g.venueA==='home') aHomeCount++;
         if (g.teamBId===tA && g.venueB==='home') aHomeCount++;
         if (g.teamAId===tB && g.venueA==='away') bAwayCount++;
@@ -1305,7 +1336,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
     let gameAdded = false;
     try {
       await new Promise(r=>setTimeout(r,80));
-      const _h2hKey = `sum:${ref.id}`;
+      const _h2hKey = `${base}:sum:${ref.id}`;
       const data = await (_summaryCache.has(_h2hKey) ? _summaryCache.get(_h2hKey) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);cacheSet(_summaryCache,_h2hKey,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
@@ -1348,23 +1379,20 @@ function extractLastFive(games, teamId, requiredVenue) {
   for (const g of sorted) {
     const isA = g.teamAId===teamId, isB = g.teamBId===teamId;
     if (!isA && !isB) continue;
-    // Track overall last game date for rest calc (regardless of venue)
     if (!lastOverallGameDate && g.date) lastOverallGameDate = g.date;
-    if (scored.length>=5) continue; // keep scanning for lastOverallGameDate
+    if (scored.length>=5) continue;
     const venueMatch = isA ? g.venueA : g.venueB;
-    if (requiredVenue && venueMatch !== requiredVenue) continue; // null venue excluded (strict)
+    if (requiredVenue && venueMatch !== requiredVenue) continue;
     if (!lastVenueGameDate && g.date) lastVenueGameDate = g.date;
     if (isA) { scored.push(g.scoreA);allowed.push(g.scoreB);if(g.h1A>0){h1Scored.push(g.h1A);h1Allowed.push(g.h1B);}if(g.q1A>0){q1Scored.push(g.q1A);q1Allowed.push(g.q1B);}
     } else    { scored.push(g.scoreB);allowed.push(g.scoreA);if(g.h1B>0){h1Scored.push(g.h1B);h1Allowed.push(g.h1A);}if(g.q1B>0){q1Scored.push(g.q1B);q1Allowed.push(g.q1A);} }
   }
   if (scored.length < 2) return null;
-  // Use overall last game for rest — venue-specific last game for context
   return {scored,allowed,h1Scored,h1Allowed,q1Scored,q1Allowed,lastGameDate:lastOverallGameDate||lastVenueGameDate};
 }
 
 async function searchTeamFromAPI(base, name, league) {
   const n = name.toLowerCase().trim();
-  // Search league-specific teams endpoint first (most reliable)
   try {
     const data = await proxyFetch(`${base}/teams?limit=500`);
     const leagues = data?.sports?.[0]?.leagues||[]; let teams=[];
@@ -1379,7 +1407,6 @@ async function searchTeamFromAPI(base, name, league) {
       const nickname    = (team.nickname||"").toLowerCase();
       const location    = (team.location||"").toLowerCase();
       const abbrev      = (team.abbreviation||"").toLowerCase();
-      // Exact full name match → return immediately
       if (displayName === n || shortName === n) return String(team.id);
       let score = 0;
       if (displayName.includes(n) || n.includes(displayName)) score += 3;
@@ -1392,7 +1419,6 @@ async function searchTeamFromAPI(base, name, league) {
     }
     if (bestScore >= 3) return best;
   } catch(e) {}
-  // Fallback: common search API (less reliable, use only if league search failed)
   try {
     const data = await proxyFetch(`https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(name)}&limit=10&type=team&sport=basketball`);
     let bestId=null, bestScore=0;
@@ -1401,7 +1427,6 @@ async function searchTeamFromAPI(base, name, league) {
       const mUid = uid.match(/t:(\d+)/);
       const id = mUid ? mUid[1] : (r?.id||r?.team?.id ? String(r?.id||r?.team?.id) : null);
       if (!id) continue;
-      // Score this result
       const rName = (r?.displayName||r?.team?.displayName||r?.name||"").toLowerCase();
       let score = 0;
       if (rName === n) score += 5;
@@ -1455,14 +1480,12 @@ function detectTrap(edge, line, pick, league, marketType, vol) {
   return bad >= 2;
 }
 
-
 // ── League-aware edge thresholds ─────────────────────────────
 function getLeagueEdgeThresholds(league) {
   if (league === 'nba')
     return { ft: 0.050, h1: 0.055, team: 0.080 };
   if (league === 'ncaa')
     return { ft: 0.060, h1: 0.065, team: 0.100 };
-  // Europe
   if (['euroleague','eurocup','acb','lba','bbl','bcl','lkl','proa','prob',
        'bsl','isl','aba','plk','serbia_kls','croatia_premier','elbl',
        'georgia_super','hungary_nb1','romania_ln','austria_zweite',
@@ -1474,16 +1497,13 @@ function getLeagueEdgeThresholds(league) {
        'swiss_nlb','swiss_sbl','turkey_tbl','turkey_tb2l','turkey_tkbl_w',
        'united_league'].includes(league))
     return { ft: 0.060, h1: 0.065, team: 0.090 };
-  // Asia
   if (['cba','china_nbl','taipei_pleague','taipei_sbl','taipei_tpbl',
        'bleague','pba','korea_kbl'].includes(league))
     return { ft: 0.065, h1: 0.070, team: 0.110 };
-  // Africa / small leagues / default
   return { ft: 0.070, h1: 0.075, team: 0.120 };
 }
 
 // ── Pick logic ───────────────────────────────────────────────
-// Returns "OVER X.X", "UNDER X.X", or "NO PLAY"
 function getPick(edge, line, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
   const thr = getLeagueEdgeThresholds(league || 'unknown');
@@ -1496,7 +1516,6 @@ function getPick(edge, line, league, marketType) {
   return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
 }
 
-// ── getPickWithThreshold — scan uses user-selected min edge ──
 function getPickWithThreshold(edge, line, minEdge, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
   const thr = getLeagueEdgeThresholds(league || 'unknown');
@@ -1506,15 +1525,12 @@ function getPickWithThreshold(edge, line, minEdge, league, marketType) {
   return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
 }
 
-// ── sanitizePick — unify pick validity for lock + display ────
 function sanitizePick(pick, proj, line) {
   if (isNaN(proj) || isNaN(line)) return '—';
   if (pick === 'NO PLAY') return '—';
   return pick;
 }
 
-// ── FIX #5: Single lock selector ─────────────────────────────
-// Takes array of {edge, line, pick} → returns index of strongest valid pick, or -1
 function selectLock(markets) {
   const valid = markets.filter(m =>
     m.pick !== "NO PLAY" &&
@@ -1524,7 +1540,7 @@ function selectLock(markets) {
     !isNaN(m.line) &&
     m.line > 0 &&
     Math.abs(m.edge / m.line) >= 0.045 &&
-    (m.fullModel !== false) // lock only when full model is active
+    (m.fullModel !== false)
   );
   if (!valid.length) return -1;
   const best = [...valid].sort((a, b) => {
@@ -1534,8 +1550,6 @@ function selectLock(markets) {
   })[0];
   return markets.findIndex(m => m === best);
 }
-
-// ── Shared Edge Threshold ─────────────────────────────────────
 
 // ── Run Engine (Manual Tab) ───────────────────────────────────
 function runEngine(){
@@ -1583,7 +1597,6 @@ function runEngine(){
   let eb = bases[league]||160;
   const cl = paceClamps[league]||{min:0.90,max:1.12};
 
-  // FIX #3: Use parseLineRange everywhere for market line parsing
   const snapLine = v => v === null ? null : Math.round(v * 2) / 2;
   let ftLine = snapLine(parseLineRange(document.getElementById("ftMarket").value));
   let aLine  = snapLine(parseLineRange(document.getElementById("teamAMarket").value));
@@ -1732,6 +1745,7 @@ function runEngine(){
       if(!isNaN(bB1H)&&injMultB!==1)bB1H*=injMultB;
       h1P=bA1H+bB1H;
       if(!isNaN(h1P)){
+        if(dfr1) h1P*=0.97;
         if(Math.abs(bA1H-bB1H)>9) h1P*=MODEL.MULTI_GOAL_SUPPRESS;
         if(pgr1) h1P*=MODEL.PACE_SUPPRESS;
         if(h1Line !== null){
@@ -1761,7 +1775,7 @@ function runEngine(){
       let bBQ1 = bS1Q * MODEL.TEAM_WEIGHT + aA1Q * MODEL.OPP_WEIGHT;
       bAQ1 = applyVolatility(bAQ1, (stdDev(safeArr(aQ1S)||[])+stdDev(safeArr(aQ1A)||[]))/2, 4.5);
       bBQ1 = applyVolatility(bBQ1, (stdDev(safeArr(bQ1S)||[])+stdDev(safeArr(bQ1A)||[]))/2, 4.5);
-      bAQ1 = bAQ1 * 0.85 + (eb1Q/2) * 0.15;  // Q1 regression slightly tighter
+      bAQ1 = bAQ1 * 0.85 + (eb1Q/2) * 0.15;
       bBQ1 = bBQ1 * 0.85 + (eb1Q/2) * 0.15;
       const rawPaceQ1 = (aS1Q+aA1Q+bS1Q+bA1Q) / (2*(eb1Q));
       const paceQ1 = Math.max(0.90, Math.min(1.10, rawPaceQ1));
@@ -1771,13 +1785,10 @@ function runEngine(){
       if (!isNaN(bAQ1) && injMultA !== 1) bAQ1 *= injMultA;
       if (!isNaN(bBQ1) && injMultB !== 1) bBQ1 *= injMultB;
       q1P = bAQ1 + bBQ1;
-      // FIX 3: Pace suppression
       const pgrQ1 = Math.abs(aS1Q - bS1Q) > eb1Q * 0.10;
       if (pgrQ1) q1P *= MODEL.PACE_SUPPRESS;
-      // FIX 4: Defensive floor filter
       const dfrQ1 = (aA1Q < eb1Q * 0.40) || (bA1Q < eb1Q * 0.40);
       if (dfrQ1) q1P *= 0.97;
-      // FIX 5: Line anchor
       if (q1Line !== null) {
         const q1Diff = q1P - q1Line;
         if (Math.abs(q1Diff) > 6) q1P = q1Line + q1Diff * MODEL.LINE_ANCHOR_NBA;
@@ -1785,12 +1796,9 @@ function runEngine(){
     }
   }
 
-  // Projections fixed — only edge updates when line changes
-  // Build picks using getPick (includes line in label)
   const ftEdge  = (ftLine !== null && !isNaN(ftP))  ? ftP  - ftLine  : NaN;
   const h1Edge  = (h1Line !== null && !isNaN(h1P))  ? h1P  - h1Line  : NaN;
   const q1Edge  = (q1Line !== null && !isNaN(q1P))  ? q1P  - q1Line  : NaN;
-  // Team total edges blank when full model not active
   const aEdge   = (aLine !== null && !isNaN(bAFT) && aFTReady && bFTReady) ? bAFT - aLine : NaN;
   const bEdge   = (bLine !== null && !isNaN(bBFT) && aFTReady && bFTReady) ? bBFT - bLine : NaN;
 
@@ -1800,18 +1808,33 @@ function runEngine(){
   let aPick   = getPick(aEdge,   aLine,   league, 'team');
   let bPick   = getPick(bEdge,   bLine,   league, 'team');
 
-  // Lock: strongest valid pick
-  // Trap + market signal filters
+  const ftFullModel  = !!(aSA && aAA && bSA && bAA &&
+    aSA.length>=2 && aAA.length>=2 && bSA.length>=2 && bAA.length>=2);
+
+  const _a1HS = safeArr(parseGames("a1HScored")), _a1HA = safeArr(parseGames("a1HAllowed"));
+  const _b1HS = safeArr(parseGames("b1HScored")), _b1HA = safeArr(parseGames("b1HAllowed"));
+  const h1FullModel = !!(_a1HS && _a1HA && _b1HS && _b1HA &&
+    _a1HS.length >= 2 && _a1HA.length >= 2 && _b1HS.length >= 2 && _b1HA.length >= 2 && !isNaN(h1P));
+
+  const _aQ1S2 = safeArr(parseGames("aQ1Scored"));
+  const _aQ1A2 = safeArr(parseGames("aQ1Allowed"));
+  const _bQ1S2 = safeArr(parseGames("bQ1Scored"));
+  const _bQ1A2 = safeArr(parseGames("bQ1Allowed"));
+
+  const aVolQ1 = !isNaN(q1P) ? (stdDev(_aQ1S2 || []) + stdDev(_aQ1A2 || [])) / 2 : 0;
+  const bVolQ1 = !isNaN(q1P) ? (stdDev(_bQ1S2 || []) + stdDev(_bQ1A2 || [])) / 2 : 0;
+
+  const q1FullModel = !!(_aQ1S2 && _aQ1A2 && _bQ1S2 && _bQ1A2 &&
+    _aQ1S2.length >= 2 && _aQ1A2.length >= 2 &&
+    _bQ1S2.length >= 2 && _bQ1A2.length >= 2 && !isNaN(q1P));
+
   if (ftPick !== "NO PLAY" && detectTrap(ftEdge, ftLine, ftPick, league, 'ft', aVol+bVol)) ftPick = "NO PLAY";
   if (h1Pick !== "NO PLAY" && detectTrap(h1Edge, h1Line, h1Pick, league, 'h1', aVol1+bVol1)) h1Pick = "NO PLAY";
-  if (q1Pick !== "NO PLAY" && detectTrap(q1Edge, q1Line, q1Pick, league, 'q1', aVol+bVol)) q1Pick = "NO PLAY";
+  if (q1Pick !== "NO PLAY" && detectTrap(q1Edge, q1Line, q1Pick, league, 'q1', aVolQ1+bVolQ1)) q1Pick = "NO PLAY";
   if (aPick  !== "NO PLAY" && detectTrap(aEdge,  aLine,  aPick,  league, 'team', aVol)) aPick = "NO PLAY";
   if (bPick  !== "NO PLAY" && detectTrap(bEdge,  bLine,  bPick,  league, 'team', bVol)) bPick = "NO PLAY";
-  // Full model flags — lock only fires when projection is from complete data
-  const ftFullModel  = aFTReady && bFTReady;
-  const h1FullModel  = !isNaN(h1P);
-  const q1FullModel  = !isNaN(q1P);
-  const teamFullModel = aFTReady && bFTReady;
+
+  const teamFullModel = ftFullModel;
 
   const markets = [
     { edge: ftEdge,  line: ftLine,  pick: ftPick,  fullModel: ftFullModel   },
@@ -1830,7 +1853,6 @@ function runEngine(){
     { name:"Team B Total",proj:(aFTReady&&bFTReady)?bBFT:NaN, edge:bEdge,   pick:bPick,   note:(!aFTReady||!bFTReady)?"Both team stats required for accurate total":null },
   ];
 
-  // Filter out 1H/Q1 if not applicable
   const finalPicks = picks.filter(p => {
     if (p.name === "1H Total" && (!isNbaOrNcaa || isNaN(h1P))) return false;
     if (p.name === "Q1 Total" && (league !== "nba" || isNaN(q1P))) return false;
@@ -1857,6 +1879,8 @@ function runEngine(){
 
 // ── Clear All ─────────────────────────────────────────────────
 function clearAll(){
+  _fetchToken++; // FIX 2: invalidate in-flight fetches on clear
+  unlockFetchBtn();
   document.querySelectorAll("input").forEach(i=>{if(i.type!=="checkbox")i.value="";else i.checked=false;});
   document.querySelectorAll("input").forEach(i=>i.style.borderColor="");
   ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id=>document.getElementById(id).style.display="none");
@@ -1878,16 +1902,6 @@ function clearAll(){
 }
 
 document.addEventListener("DOMContentLoaded",()=>{ onLeagueChange(); });
-
-// ── Tab System ────────────────────────────────────────────────
-
-
-
-
-
-
-
-// ── Scan Engine Core ──────────────────────────────────────────
 
 </script>
 
