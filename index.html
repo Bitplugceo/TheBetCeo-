@@ -166,8 +166,6 @@ align-items:center;
 justify-content:space-between;
 text-align:left;
 cursor:pointer;
-font-size:15px;
-font-weight:700;
 }
 
 .section-toggle .toggle-title{
@@ -307,9 +305,10 @@ transform:rotate(-90deg);
   <button type="button" class="fixture-day" id="fixturesTomorrowBtn" onclick="loadFixtures(1)">Tomorrow</button>
 </div>
 
-<div id="fixtureListWrap" class="fixture-list-wrap">
-  <div id="fixtureList" class="fixture-list"></div>
-</div>
+<label style="font-size:12px;">Select match</label>
+<select id="fixtureSelect" class="league-box" onchange="onFixtureSelect()">
+  <option value="">— Select match —</option>
+</select>
 
 <label style="font-size:12px;">Team A Name (Home)</label>
 <div class="autocomplete-wrap">
@@ -549,20 +548,19 @@ function escJs(str) {
 async function loadFixtures(offset = 0) {
   const league = document.getElementById("leagueSelect").value;
   const toolbar = document.getElementById("fixtureToolbar");
-  const wrap = document.getElementById("fixtureListWrap");
-  const list = document.getElementById("fixtureList");
-  if (!toolbar || !list) return;
+  const sel = document.getElementById("fixtureSelect");
+  if (!toolbar || !sel) return;
 
   const supported = league === "nba" || league === "ncaa";
   if (!supported) {
     toolbar.style.display = "none";
-    if (wrap) wrap.style.display = "none";
-    list.innerHTML = "";
+    sel.style.display = "none";
+    sel.innerHTML = `<option value="">— Select match —</option>`;
     return;
   }
 
   toolbar.style.display = "flex";
-  if (wrap) wrap.style.display = "block";
+  sel.style.display = "block";
   setFixtureDay(offset);
 
   const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
@@ -570,7 +568,7 @@ async function loadFixtures(offset = 0) {
   const targetLocalKey = getLocalDateKey(offset);
   const queryDates = [getLocalDateKey(0), getLocalDateKey(1), getLocalDateKey(2)];
 
-  list.innerHTML = `<div class="fixture-empty">Loading matches...</div>`;
+  const select = document.getElementById("fixtureSelect"); if (select) select.innerHTML = `<option value="">Loading matches...</option>`;
 
   try {
     const payloads = await Promise.all(
@@ -603,12 +601,15 @@ async function loadFixtures(offset = 0) {
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (!events.length) {
-      list.innerHTML = `<div class="fixture-empty">No matches found.</div>`;
+      if (select) select.innerHTML = `<option value="">No matches found</option>`; return;
       return;
     }
 
-    const headerText = formatFixtureHeaderDate(events[0].date);
-    const rows = events.map(ev => {
+    const select = document.getElementById("fixtureSelect");
+    if (!select) return;
+    select.innerHTML = `<option value="">— Select match —</option>`;
+
+    events.forEach(ev => {
       const comp = ev.competitions[0];
       const competitors = comp.competitors || [];
       const home = competitors.find(c => c.homeAway === "home") || competitors[0];
@@ -619,17 +620,32 @@ async function loadFixtures(offset = 0) {
       const awayId = away?.team?.id || "";
       const tipoff = formatFixtureTime(ev.date);
       const eventId = String(ev.id || "");
-      const safeHome = homeName.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      const safeAway = awayName.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      const jsHome = homeName.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
-      const jsAway = awayName.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
-      const activeCls = _activeFixtureId === eventId ? " active" : "";
-      return `<button type="button" class="fixture-item${activeCls}" data-event-id="${eventId}" onclick="pickFixture('${eventId}','${jsHome}','${homeId}','${jsAway}','${awayId}')"><span class="fixture-time">${tipoff}</span><span class="fixture-team">${safeHome}</span><span class="fixture-team">${safeAway}</span></button>`;
+      const label = `${tipoff}\n${homeName}\n${awayName}`;
+      const opt = document.createElement("option");
+      opt.value = eventId;
+      opt.textContent = label;
+      opt.dataset.home = homeName;
+      opt.dataset.away = awayName;
+      opt.dataset.homeId = homeId;
+      opt.dataset.awayId = awayId;
+      select.appendChild(opt);
     });
-    list.innerHTML = `<div class="fixture-date-head">${headerText}</div>` + rows.join("");
   } catch(e) {
-    list.innerHTML = `<div class="fixture-empty">Unable to load matches.</div>`;
+    if (select) select.innerHTML = `<option value="">Unable to load matches</option>`;
   }
+}
+
+function onFixtureSelect() {
+  const select = document.getElementById("fixtureSelect");
+  const opt = select.options[select.selectedIndex];
+  if (!opt || !opt.value) return;
+  pickFixture(
+    opt.value,
+    opt.dataset.home || "",
+    opt.dataset.homeId || "",
+    opt.dataset.away || "",
+    opt.dataset.awayId || ""
+  );
 }
 
 function pickFixture(eventId, homeName, homeId, awayName, awayId) {
