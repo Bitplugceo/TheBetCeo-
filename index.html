@@ -185,15 +185,15 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 
   <div class="section">
     <h3>Market Lines</h3>
-    <label>FT Total</label><input id="ftMarket" placeholder="150.5 - 160.5">
+    <label>FT Total</label><input id="ftMarket" placeholder="150.5 - 160.5" oninput="resetResultsTable()">
     <div id="h1MarketSection" style="display:none;">
-      <label>1H Total</label><input id="h1Market" placeholder="105.5 - 110.5">
+      <label>1H Total</label><input id="h1Market" placeholder="105.5 - 110.5" oninput="resetResultsTable()">
       <div id="q1MarketSection" style="display:none;">
-        <label>Q1 Total</label><input id="q1Market" placeholder="55.5 - 58.5">
+        <label>Q1 Total</label><input id="q1Market" placeholder="55.5 - 58.5" oninput="resetResultsTable()">
       </div>
     </div>
-    <label>Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5">
-    <label>Team B Total</label><input id="teamBMarket" placeholder="75.5 - 79.5">
+    <label>Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5" oninput="resetResultsTable()">
+    <label>Team B Total</label><input id="teamBMarket" placeholder="75.5 - 79.5" oninput="resetResultsTable()">
   </div>
 
   <div class="section">
@@ -276,6 +276,26 @@ const _schedCache = new Map();
 const _summaryCache = new Map();
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
 let g_injB = {restMult:1, scoringMult:1, notes:[]};
+const _defaultFetchMeta = () => ({
+  A: { ft:{source:"manual",venueReliable:true}, h1:{source:"manual",venueReliable:true}, q1:{source:"manual",venueReliable:true} },
+  B: { ft:{source:"manual",venueReliable:true}, h1:{source:"manual",venueReliable:true}, q1:{source:"manual",venueReliable:true} }
+});
+let g_fetchMeta = _defaultFetchMeta();
+
+function setManualSource(side, bucket) {
+  if (bucket) {
+    g_fetchMeta[side][bucket] = { source: "manual", venueReliable: true };
+  } else {
+    g_fetchMeta[side] = { ft:{source:"manual",venueReliable:true}, h1:{source:"manual",venueReliable:true}, q1:{source:"manual",venueReliable:true} };
+  }
+}
+
+function resetResultsTable() {
+  const t = document.getElementById("results");
+  if (!t) return;
+  t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+  t.style.display = "none";
+}
 
 // ── Line range parser ────────────────────────────────────────
 // Accepts "150.5 - 160.5", "150.5-160.5", or "155.5" → returns midpoint or null
@@ -449,6 +469,7 @@ const TEAM_LISTS = {
 };
 
 let activeDropTeam = null;
+let selectedTeamIds = { A: null, B: null };
 
 function getTeamList() {
   const league = document.getElementById("leagueSelect").value;
@@ -458,7 +479,8 @@ function getTeamList() {
 }
 
 function onTeamInput(side) {
-  clearAutoFill();
+  clearAutoFill(side);
+  selectedTeamIds[side] = null; // clear stored ID on manual edit
   const inputId = side === "A" ? "teamAName" : "teamBName";
   const dropId  = side === "A" ? "dropA" : "dropB";
   const val = document.getElementById(inputId).value.trim().toLowerCase();
@@ -469,9 +491,10 @@ function onTeamInput(side) {
   const matches = list.teams.filter(t => t.toLowerCase().includes(val));
   if (!matches.length) { closeDrop(dropId); return; }
   drop.innerHTML = `<div class="group-label">${list.label}</div>` +
-    matches.map(t =>
-      `<div onmousedown="selectTeam('${side}','${t.replace(/'/g,"\\'")}')">${highlight(safeText(t), val)}</div>`
-    ).join("");
+    matches.map(t => {
+      const tid = lookupTeamId(t, document.getElementById("leagueSelect").value) || "";
+      return `<div onmousedown="selectTeam('${side}','${t.replace(/'/g,"\\'")}','${tid}')">${highlight(safeText(t), val)}</div>`;
+    }).join("");
   drop.style.display = "block";
   activeDropTeam = side;
 }
@@ -484,10 +507,11 @@ function highlight(name, query) {
     name.slice(i + query.length);
 }
 
-function selectTeam(side, name) {
+function selectTeam(side, name, id) {
   const inputId = side === "A" ? "teamAName" : "teamBName";
   const dropId  = side === "A" ? "dropA" : "dropB";
   document.getElementById(inputId).value = name;
+  selectedTeamIds[side] = id || null;
   closeDrop(dropId);
   activeDropTeam = null;
 }
@@ -631,15 +655,17 @@ async function findNextGameDate(base, teamId) {
 
 async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nextGameDate, league) {
   const result = {restMult:1, scoringMult:1, notes:[]};
-  if (lastGameDate) {
+  if (lastGameDate && nextGameDate) {
     const last = new Date(lastGameDate);
-    const gameDate = nextGameDate ? new Date(nextGameDate) : (()=>{const d=new Date();d.setDate(d.getDate()+1);return d;})();
+    const gameDate = new Date(nextGameDate);
     gameDate.setHours(0,0,0,0); last.setHours(0,0,0,0);
     const restDays = Math.max(0, Math.round((gameDate-last)/86400000)-1);
     result.restMult = restMultiplier(restDays, league);
     const label = restDays===0?"Back-to-back ⚠️":restDays===1?"1 day rest":restDays===2?"2 days rest ✓":`${restDays} days rest`;
     const adj = result.restMult!==1?` (${((result.restMult-1)*100).toFixed(1)}% scoring adj)`:"";
     result.notes.push({type:"rest", text:label+adj});
+  } else if (lastGameDate) {
+    result.notes.push({type:"rest", text:"Rest unknown"});
   }
   try {
     const data = await proxyFetch(`${base}/teams/${teamId}/injuries`).catch(()=>null);
@@ -863,6 +889,7 @@ function onLeagueChange() {
   closeDrop("dropB");
   unlockFetchBtn();
   setStatus("","");
+  resetResultsTable();
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
   document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
@@ -890,6 +917,21 @@ function onLeagueChange() {
     document.getElementById("use1HH2H").checked = false;
   }
   _fetchToken++; // invalidate any in-flight fetch on league change
+  selectedTeamIds = { A: null, B: null };
+  ["teamAName","teamBName"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = "";
+  });
+  g_fetchMeta = _defaultFetchMeta();
+  ["aFTScored","aFTAllowed","bFTScored","bFTAllowed",
+    "a1HScored","a1HAllowed","b1HScored","b1HAllowed",
+    "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed",
+    "aFTH2H","bFTH2H","a1HH2H","b1HH2H"
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  document.getElementById("useFTH2H").checked = false;
+  document.getElementById("use1HH2H").checked = false;
+  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = "none";
+  });
   // Clear caches on league change to prevent cross-league contamination
   _schedCache.clear();
   _summaryCache.clear();
@@ -902,9 +944,13 @@ function onLeagueChange() {
   document.getElementById("useFTH2H").checked = false;
 }
 
-function clearAutoFill() {
+function clearAutoFill(changedSide=null) {
   _fetchToken++;
   unlockFetchBtn();
+
+  if (changedSide === "A") { selectedTeamIds.A = null; g_fetchMeta.A = { ft:{source:"manual",venueReliable:true}, h1:{source:"manual",venueReliable:true}, q1:{source:"manual",venueReliable:true} }; }
+  else if (changedSide === "B") { selectedTeamIds.B = null; g_fetchMeta.B = { ft:{source:"manual",venueReliable:true}, h1:{source:"manual",venueReliable:true}, q1:{source:"manual",venueReliable:true} }; }
+  else { selectedTeamIds = { A: null, B: null }; g_fetchMeta = _defaultFetchMeta(); }
   // Team name edit invalidates all previously fetched data
   ["aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
    "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
@@ -918,6 +964,7 @@ function clearAutoFill() {
   g_injA = {restMult:1, scoringMult:1, notes:[]};
   g_injB = {restMult:1, scoringMult:1, notes:[]};
   setStatus("","");
+  resetResultsTable();
 }
 
 function setStatus(msg, type) {
@@ -945,6 +992,7 @@ async function fetchESPN() {
   btn.disabled = true;
   g_injA = {restMult:1,scoringMult:1,notes:[]};
   g_injB = {restMult:1,scoringMult:1,notes:[]};
+  g_fetchMeta = _defaultFetchMeta();
   document.getElementById("injuryBoxA").style.display = "none";
   document.getElementById("injuryBoxB").style.display = "none";
   // Reset all auto-filled fields and checkboxes before applying new fetch data
@@ -964,14 +1012,15 @@ async function fetchESPN() {
     const isNcaa = league === "ncaa";
     const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
     const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
-    let teamAId = lookupTeamId(teamAName,league);
+    let teamAId = selectedTeamIds.A || lookupTeamId(teamAName,league);
     if (!validateTeamId(teamAId, league)) teamAId = await searchTeamFromAPI(espnBase, teamAName, league);
     if (!validateTeamId(teamAId, league)) teamAId = null;
-    let teamBId = lookupTeamId(teamBName,league);
+    let teamBId = selectedTeamIds.B || lookupTeamId(teamBName,league);
     if (!validateTeamId(teamBId, league)) teamBId = await searchTeamFromAPI(espnBase, teamBName, league);
     if (!validateTeamId(teamBId, league)) teamBId = null;
     if (!teamAId) throw new Error(`Can't find "${teamAName}". Try just the nickname.`);
     if (!teamBId) throw new Error(`Can't find "${teamBName}". Try just the nickname.`);
+    if (String(teamAId) === String(teamBId)) throw new Error("Team A and Team B cannot be the same team.");
     setStatus('<span class="spinner"></span>Loading game stats...',"loading");
     let aStats, bStats;
     if (isNcaa) {
@@ -1015,6 +1064,25 @@ async function fetchESPN() {
       document.getElementById("bAutoTag").style.display = "inline";
       messages.push(`${safeText(teamBName)}: ${bStats.scored.length} games &#9989;`);
     } else { messages.push(`${safeText(teamBName)}: no data &#10060;`); }
+    const aVR = aStats?.venueReliable !== false;
+    const bVR = bStats?.venueReliable !== false;
+    g_fetchMeta.A = {
+      ft:  { source: "espn", venueReliable: aVR },
+      h1:  { source: "espn", venueReliable: aVR },
+      q1:  { source: "espn", venueReliable: true }
+    };
+    g_fetchMeta.B = {
+      ft:  { source: "espn", venueReliable: bVR },
+      h1:  { source: "espn", venueReliable: bVR },
+      q1:  { source: "espn", venueReliable: true }
+    };
+
+    if (isNcaa && aStats?.usedVenueFallback) {
+      messages.push(`${safeText(teamAName)}: venue fallback used — projection only ⚠️`);
+    }
+    if (isNcaa && bStats?.usedVenueFallback) {
+      messages.push(`${safeText(teamBName)}: venue fallback used — projection only ⚠️`);
+    }
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...',"loading");
     let h2hGames = [];
     try {
@@ -1124,7 +1192,9 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug, requiredVenue) {
   // Now filter by venue for the sample
   // Soft venue filter — fall back to all games if fewer than 2 venue-matched
   const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
-  const venueFiltered = strictFiltered.length >= 2 ? strictFiltered : unique;
+  const venueReliable = strictFiltered.length >= 2;
+  const usedVenueFallback = !venueReliable && !!requiredVenue;
+  const venueFiltered = venueReliable ? strictFiltered : unique;
   const top5 = venueFiltered.slice(0,5);
   const scored=[], allowed=[], h1Scored=[], h1Allowed=[], q1Scored=[], q1Allowed=[];
   for (const ref of top5) {
@@ -1163,7 +1233,9 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug, requiredVenue) {
     scored.push(Math.round(ms)); allowed.push(Math.round(os));
     if (gotLS&&h1m>0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
   }
-  return scored.length>=2 ? {scored,allowed,h1Scored,h1Allowed,q1Scored,q1Allowed,lastGameDate:lastOverallGameDateNcaa} : null;
+  return scored.length>=2
+    ? {scored,allowed,h1Scored,h1Allowed,q1Scored,q1Allowed,lastGameDate:lastOverallGameDateNcaa,venueReliable,usedVenueFallback}
+    : null;
 }
 
 // ── NCAA H2H ──────────────────────────────────────────────────
@@ -1466,6 +1538,15 @@ function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).
 function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
 function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.05*Math.min(1,(std-limit)/limit));}
 
+// ── Sample Tier ───────────────────────────────────────────────
+function getSampleTier(...arrays) {
+  const lens = arrays.map(a => Array.isArray(a) ? a.length : 0);
+  const minLen = Math.min(...lens);
+  if (minLen >= 5) return "full";
+  if (minLen >= 2) return "thin";
+  return "insufficient";
+}
+
 // ── Trap Detection ──────────────────────────────────────────────
 function detectTrap(edge, line, pick, league, marketType, vol) {
   if (!line || isNaN(edge) || line <= 0) return false;
@@ -1556,6 +1637,13 @@ function runEngine(){
   const table = document.getElementById("results");
   table.style.display="table";
   table.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+  const teamANameRaw = document.getElementById("teamAName")?.value.trim().toLowerCase();
+  const teamBNameRaw = document.getElementById("teamBName")?.value.trim().toLowerCase();
+  if (teamANameRaw && teamBNameRaw && teamANameRaw === teamBNameRaw) {
+    let row = table.insertRow();
+    row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">&#9888; Team A and Team B cannot be the same.</td>`;
+    return;
+  }
   const league = document.getElementById("leagueSelect").value;
   const bases={
     "nba":228,"ncaa":150,"lnb":157,"nbb":160,"cebl":154,
@@ -1683,12 +1771,12 @@ function runEngine(){
     "ausnbl":1.5,"nznbl":1.4,"fiba_wc":1.2,"fiba_eb":1.3,"fiba_ac":1.3,"unknown":1.5
   };
   const hAdj = homeEdge[league]||1.5;
-  if(!isNaN(bAFT)) bAFT+=hAdj*0.75;
-  if(!isNaN(bBFT)) bBFT-=hAdj*0.75;
   const injMultA=g_injA.restMult*g_injA.scoringMult;
   const injMultB=g_injB.restMult*g_injB.scoringMult;
   if(!isNaN(bAFT)&&injMultA!==1) bAFT*=injMultA;
   if(!isNaN(bBFT)&&injMultB!==1) bBFT*=injMultB;
+  if(!isNaN(bAFT)) bAFT+=hAdj*0.75;
+  if(!isNaN(bBFT)) bBFT-=hAdj*0.75;
   let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
   if(!isNaN(ftP)){
     if(dfr) ftP*=0.97;
@@ -1739,10 +1827,10 @@ function runEngine(){
       bA1H=(bA1H*MODEL.REGRESSION_WEIGHT)+((eb1H/2)*MODEL.BASELINE_WEIGHT);
       bB1H=(bB1H*MODEL.REGRESSION_WEIGHT)+((eb1H/2)*MODEL.BASELINE_WEIGHT);
       bA1H=bA1H*(MODEL.PACE_BLEND+pace1/2); bB1H=bB1H*(MODEL.PACE_BLEND+pace1/2);
-      if(!isNaN(bA1H)) bA1H+=hAdj*0.375;
-      if(!isNaN(bB1H)) bB1H-=hAdj*0.375;
       if(!isNaN(bA1H)&&injMultA!==1)bA1H*=injMultA;
       if(!isNaN(bB1H)&&injMultB!==1)bB1H*=injMultB;
+      if(!isNaN(bA1H)) bA1H+=hAdj*0.375;
+      if(!isNaN(bB1H)) bB1H-=hAdj*0.375;
       h1P=bA1H+bB1H;
       if(!isNaN(h1P)){
         if(dfr1) h1P*=0.97;
@@ -1781,9 +1869,9 @@ function runEngine(){
       const paceQ1 = Math.max(0.90, Math.min(1.10, rawPaceQ1));
       bAQ1 *= (MODEL.PACE_BLEND + paceQ1/2);
       bBQ1 *= (MODEL.PACE_BLEND + paceQ1/2);
-      bAQ1 += hAdj * 0.25; bBQ1 -= hAdj * 0.25;
       if (!isNaN(bAQ1) && injMultA !== 1) bAQ1 *= injMultA;
       if (!isNaN(bBQ1) && injMultB !== 1) bBQ1 *= injMultB;
+      bAQ1 += hAdj * 0.25; bBQ1 -= hAdj * 0.25;
       q1P = bAQ1 + bBQ1;
       const pgrQ1 = Math.abs(aS1Q - bS1Q) > eb1Q * 0.10;
       if (pgrQ1) q1P *= MODEL.PACE_SUPPRESS;
@@ -1802,19 +1890,61 @@ function runEngine(){
   const aEdge   = (aLine !== null && !isNaN(bAFT) && aFTReady && bFTReady) ? bAFT - aLine : NaN;
   const bEdge   = (bLine !== null && !isNaN(bBFT) && aFTReady && bFTReady) ? bBFT - bLine : NaN;
 
+  const ftSampleTier = getSampleTier(aSA, aAA, bSA, bAA);
+  const h1SampleTier = getSampleTier(
+    safeArr(parseGames("a1HScored")),
+    safeArr(parseGames("a1HAllowed")),
+    safeArr(parseGames("b1HScored")),
+    safeArr(parseGames("b1HAllowed"))
+  );
+  const q1SampleTier = getSampleTier(
+    safeArr(parseGames("aQ1Scored")),
+    safeArr(parseGames("aQ1Allowed")),
+    safeArr(parseGames("bQ1Scored")),
+    safeArr(parseGames("bQ1Allowed"))
+  );
+
+  const ftNote =
+    ftSampleTier === "insufficient" ? "Insufficient FT sample — need 2+ games" :
+    ftSampleTier === "thin" ? "Thin FT sample — projection only" :
+    null;
+  const h1Note =
+    h1SampleTier === "insufficient" ? "Insufficient 1H sample — need 2+ games" :
+    h1SampleTier === "thin" ? "Thin 1H sample — projection only" :
+    null;
+  const q1Note =
+    q1SampleTier === "insufficient" ? "Insufficient Q1 sample — need 2+ games" :
+    q1SampleTier === "thin" ? "Thin Q1 sample — projection only" :
+    null;
+
+  const ftNcaaProjectionOnly =
+    league === "ncaa" &&
+    (
+      (g_fetchMeta.A.ft.source === "espn" && !g_fetchMeta.A.ft.venueReliable) ||
+      (g_fetchMeta.B.ft.source === "espn" && !g_fetchMeta.B.ft.venueReliable)
+    );
+
+  const h1NcaaProjectionOnly =
+    league === "ncaa" &&
+    (
+      (g_fetchMeta.A.h1.source === "espn" && !g_fetchMeta.A.h1.venueReliable) ||
+      (g_fetchMeta.B.h1.source === "espn" && !g_fetchMeta.B.h1.venueReliable)
+    );
+
+  const ftNcaaNote = ftNcaaProjectionOnly ? "Weak NCAA home/away venue sample — projection only" : null;
+  const h1NcaaNote = h1NcaaProjectionOnly ? "Weak NCAA home/away venue sample — projection only" : null;
+
   let ftPick  = getPick(ftEdge,  ftLine,  league, 'ft');
   let h1Pick  = getPick(h1Edge,  h1Line,  league, 'h1');
   let q1Pick  = getPick(q1Edge,  q1Line,  league, 'q1');
   let aPick   = getPick(aEdge,   aLine,   league, 'team');
   let bPick   = getPick(bEdge,   bLine,   league, 'team');
 
-  const ftFullModel  = !!(aSA && aAA && bSA && bAA &&
-    aSA.length>=2 && aAA.length>=2 && bSA.length>=2 && bAA.length>=2);
+  const ftFullModel = ftSampleTier === "full" && !ftNcaaProjectionOnly;
 
   const _a1HS = safeArr(parseGames("a1HScored")), _a1HA = safeArr(parseGames("a1HAllowed"));
   const _b1HS = safeArr(parseGames("b1HScored")), _b1HA = safeArr(parseGames("b1HAllowed"));
-  const h1FullModel = !!(_a1HS && _a1HA && _b1HS && _b1HA &&
-    _a1HS.length >= 2 && _a1HA.length >= 2 && _b1HS.length >= 2 && _b1HA.length >= 2 && !isNaN(h1P));
+  const h1FullModel = h1SampleTier === "full" && !h1NcaaProjectionOnly && !isNaN(h1P);
 
   const _aQ1S2 = safeArr(parseGames("aQ1Scored"));
   const _aQ1A2 = safeArr(parseGames("aQ1Allowed"));
@@ -1824,15 +1954,22 @@ function runEngine(){
   const aVolQ1 = !isNaN(q1P) ? (stdDev(_aQ1S2 || []) + stdDev(_aQ1A2 || [])) / 2 : 0;
   const bVolQ1 = !isNaN(q1P) ? (stdDev(_bQ1S2 || []) + stdDev(_bQ1A2 || [])) / 2 : 0;
 
-  const q1FullModel = !!(_aQ1S2 && _aQ1A2 && _bQ1S2 && _bQ1A2 &&
-    _aQ1S2.length >= 2 && _aQ1A2.length >= 2 &&
-    _bQ1S2.length >= 2 && _bQ1A2.length >= 2 && !isNaN(q1P));
+  const q1FullModel = q1SampleTier === "full" && !isNaN(q1P);
 
   if (ftPick !== "NO PLAY" && detectTrap(ftEdge, ftLine, ftPick, league, 'ft', aVol+bVol)) ftPick = "NO PLAY";
   if (h1Pick !== "NO PLAY" && detectTrap(h1Edge, h1Line, h1Pick, league, 'h1', aVol1+bVol1)) h1Pick = "NO PLAY";
   if (q1Pick !== "NO PLAY" && detectTrap(q1Edge, q1Line, q1Pick, league, 'q1', aVolQ1+bVolQ1)) q1Pick = "NO PLAY";
   if (aPick  !== "NO PLAY" && detectTrap(aEdge,  aLine,  aPick,  league, 'team', aVol)) aPick = "NO PLAY";
   if (bPick  !== "NO PLAY" && detectTrap(bEdge,  bLine,  bPick,  league, 'team', bVol)) bPick = "NO PLAY";
+
+  // Hard sample gate — thin data suppresses picks
+  if (ftSampleTier !== "full") { ftPick = "NO PLAY"; aPick = "NO PLAY"; bPick = "NO PLAY"; }
+  if (h1SampleTier !== "full") h1Pick = "NO PLAY";
+  if (q1SampleTier !== "full") q1Pick = "NO PLAY";
+
+  // NCAA bucket-level venue fallback gate
+  if (ftNcaaProjectionOnly) { ftPick = "NO PLAY"; aPick = "NO PLAY"; bPick = "NO PLAY"; }
+  if (h1NcaaProjectionOnly) h1Pick = "NO PLAY";
 
   const teamFullModel = ftFullModel;
 
@@ -1846,18 +1983,22 @@ function runEngine(){
   const lockIdx = selectLock(markets);
 
   const picks = [
-    { name:"FT Total",    proj:aFTReady&&bFTReady?ftP:NaN, edge:ftEdge,  pick:ftPick,  note:(!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null },
-    { name:"1H Total",    proj:h1P,                          edge:h1Edge,  pick:h1Pick,  note:null },
-    { name:"Q1 Total",    proj:q1P,                          edge:q1Edge,  pick:q1Pick,  note:null },
-    { name:"Team A Total",proj:(aFTReady&&bFTReady)?bAFT:NaN, edge:aEdge,   pick:aPick,   note:(!aFTReady||!bFTReady)?"Both team stats required for accurate total":null },
-    { name:"Team B Total",proj:(aFTReady&&bFTReady)?bBFT:NaN, edge:bEdge,   pick:bPick,   note:(!aFTReady||!bFTReady)?"Both team stats required for accurate total":null },
+    { name:"FT Total",    proj:aFTReady&&bFTReady?ftP:NaN, edge:ftEdge,  pick:ftPick,  note:ftNote || ftNcaaNote || ((!aFTReady||!bFTReady)?"Both Team A and Team B FT stats required":null) },
+    { name:"1H Total",    proj:h1P,                          edge:h1Edge,  pick:h1Pick,  note:h1Note || h1NcaaNote },
+    { name:"Q1 Total",    proj:q1P,                          edge:q1Edge,  pick:q1Pick,  note:q1Note },
+    { name:"Team A Total",proj:(aFTReady&&bFTReady)?bAFT:NaN, edge:aEdge,   pick:aPick,   note:ftNote || ftNcaaNote || ((!aFTReady||!bFTReady)?"Both team stats required for accurate total":null) },
+    { name:"Team B Total",proj:(aFTReady&&bFTReady)?bBFT:NaN, edge:bEdge,   pick:bPick,   note:ftNote || ftNcaaNote || ((!aFTReady||!bFTReady)?"Both team stats required for accurate total":null) },
   ];
 
-  const finalPicks = picks.filter(p => {
-    if (p.name === "1H Total" && (!isNbaOrNcaa || isNaN(h1P))) return false;
-    if (p.name === "Q1 Total" && (league !== "nba" || isNaN(q1P))) return false;
-    return true;
+  // Assign notes for unavailable markets instead of hiding rows
+  picks.forEach(p => {
+    if (p.name === "1H Total" && !isNbaOrNcaa) p.note = "1H market not available for this league";
+    if (p.name === "1H Total" && isNbaOrNcaa && isNaN(h1P) && !p.note) p.note = "Insufficient 1H sample";
+    if (p.name === "Q1 Total" && league !== "nba") p.note = "Q1 available for NBA only";
+    if (p.name === "Q1 Total" && league === "nba" && isNaN(q1P) && !p.note) p.note = "Insufficient Q1 sample";
   });
+
+  const finalPicks = picks;
 
   finalPicks.forEach((p, i) => {
     const originalIndex = picks.indexOf(p);
@@ -1881,6 +2022,8 @@ function runEngine(){
 function clearAll(){
   _fetchToken++; // FIX 2: invalidate in-flight fetches on clear
   unlockFetchBtn();
+  selectedTeamIds = { A: null, B: null };
+  g_fetchMeta = _defaultFetchMeta();
   document.querySelectorAll("input").forEach(i=>{if(i.type!=="checkbox")i.value="";else i.checked=false;});
   document.querySelectorAll("input").forEach(i=>i.style.borderColor="");
   ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id=>document.getElementById(id).style.display="none");
@@ -1901,7 +2044,37 @@ function clearAll(){
   t.style.display="none";
 }
 
-document.addEventListener("DOMContentLoaded",()=>{ onLeagueChange(); });
+document.addEventListener("DOMContentLoaded", () => {
+  onLeagueChange();
+
+  ["aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", () => {
+      const tag = document.getElementById("h2hAutoTag");
+      if (tag) tag.style.display = "none";
+      resetResultsTable();
+    });
+  });
+
+  const bucketMap = {
+    "aFTScored":  ["A","ft"], "aFTAllowed":  ["A","ft"],
+    "a1HScored":  ["A","h1"], "a1HAllowed":  ["A","h1"],
+    "aQ1Scored":  ["A","q1"], "aQ1Allowed":  ["A","q1"],
+    "bFTScored":  ["B","ft"], "bFTAllowed":  ["B","ft"],
+    "b1HScored":  ["B","h1"], "b1HAllowed":  ["B","h1"],
+    "bQ1Scored":  ["B","q1"], "bQ1Allowed":  ["B","q1"],
+  };
+  Object.entries(bucketMap).forEach(([id, [side, bucket]]) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", () => {
+      setManualSource(side, bucket);
+      const tag = side === "A" ? "aAutoTag" : "bAutoTag";
+      const tagEl = document.getElementById(tag);
+      if (tagEl) tagEl.style.display = "none";
+      resetResultsTable();
+    });
+  });
+});
 
 </script>
 
