@@ -2037,11 +2037,12 @@ function runEngine(){
   picks.forEach(p => {
     if (p.name === "1H Total" && !isNbaOrNcaa) p.note = "1H market not available for this league";
     if (p.name === "1H Total" && isNbaOrNcaa && isNaN(h1P) && !p.note) p.note = "Insufficient 1H sample";
-    if (p.name === "Q1 Total" && league !== "nba") p.note = "Q1 available for NBA only";
     if (p.name === "Q1 Total" && league === "nba" && isNaN(q1P) && !p.note) p.note = "Insufficient Q1 sample";
   });
 
-  const finalPicks = picks;
+  const finalPicks = league === "nba"
+    ? picks
+    : picks.filter(p => p.name !== "Q1 Total");
 
   finalPicks.forEach((p, i) => {
     const originalIndex = picks.indexOf(p);
