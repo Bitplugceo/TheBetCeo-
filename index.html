@@ -44,7 +44,6 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 .autofill-indicator {font-size:10px;color:#2ecc71;display:none;}
 .spinner {display:inline-block;width:10px;height:10px;border:2px solid #d4af37;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:4px;}
 @keyframes spin {to{transform:rotate(360deg);}}
-/* ── Scan Line Inputs ── */
 
 /* ── Autocomplete ── */
 .autocomplete-wrap {position:relative;width:100%;max-width:260px;margin-bottom:4px;}
@@ -54,11 +53,123 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 .autocomplete-list div:hover,.autocomplete-list div.active {background:#d4af37;color:#111;}
 .autocomplete-list div.group-label {color:#888;font-size:10px;padding:4px 8px;cursor:default;background:#111;pointer-events:none;}
 
-/* ── Auto-Scan ── */
+/* ── Fixture Picker ───────────────────────────── */
+.fixture-toolbar{
+display:flex;
+gap:8px;
+margin:10px 0 8px;
+flex-wrap:wrap;
+}
 
-.scan-btn:disabled {opacity:0.5;cursor:not-allowed;}
+.fixture-day{
+background:#222;
+color:#d4af37;
+border:1px solid #d4af37;
+padding:7px 12px;
+border-radius:999px;
+font-size:12px;
+font-weight:700;
+margin:0;
+}
 
-/* God Mode panel */
+.fixture-day.active{
+background:#d4af37;
+color:#111;
+}
+
+.fixture-list{
+display:grid;
+gap:8px;
+margin-top:8px;
+}
+
+.fixture-card{
+width:100%;
+background:#161616;
+border:1px solid rgba(212,175,55,0.55);
+color:#d4af37;
+padding:10px;
+border-radius:12px;
+text-align:left;
+margin:0;
+}
+
+.fixture-card .fixture-top{
+display:flex;
+justify-content:space-between;
+gap:8px;
+font-size:11px;
+color:#aaa;
+margin-bottom:6px;
+}
+
+.fixture-card .fixture-teams{
+display:grid;
+grid-template-columns:1fr auto 1fr;
+gap:8px;
+align-items:center;
+font-size:13px;
+font-weight:700;
+}
+
+.fixture-card .fixture-home{
+text-align:left;
+}
+
+.fixture-card .fixture-away{
+text-align:right;
+}
+
+.fixture-card .fixture-vs{
+font-size:11px;
+color:#888;
+}
+
+.fixture-empty{
+border:1px dashed rgba(212,175,55,0.45);
+color:#999;
+padding:10px;
+border-radius:10px;
+font-size:12px;
+}
+
+/* ── Collapsible Sections ─────────────────────── */
+.section-toggle{
+width:100%;
+background:none;
+border:none;
+padding:0;
+margin:0;
+color:#d4af37;
+display:flex;
+align-items:center;
+justify-content:space-between;
+text-align:left;
+cursor:pointer;
+}
+
+.section-toggle .toggle-title{
+display:block;
+}
+
+.section-toggle .toggle-icon{
+font-size:18px;
+line-height:1;
+transition:transform 0.2s ease;
+color:#d4af37;
+}
+
+.section-body{
+margin-top:10px;
+}
+
+.section.collapsed .section-body{
+display:none;
+}
+
+.section.collapsed .section-toggle .toggle-icon{
+transform:rotate(-90deg);
+}
 
 </style>
 
@@ -167,20 +278,31 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 
   <div class="section" id="espnSection">
     <h3 style="font-size:15px;">&#9889; ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
-    <label style="font-size:12px;">Team A Name (Home)</label>
-    <div class="autocomplete-wrap">
-      <input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" oninput="onTeamInput('A')">
-      <div class="autocomplete-list" id="dropA"></div>
-    </div>
-    <label style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
-    <div class="autocomplete-wrap">
-      <input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" oninput="onTeamInput('B')">
-      <div class="autocomplete-list" id="dropB"></div>
-    </div>
-    <button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">&#128225; Fetch Stats</button>
-    <div id="fetchStatus"></div>
-    <div class="injury-box" id="injuryBoxA"><div class="inj-title">Team A — Injury &amp; Rest</div><div id="injuryContentA"></div></div>
-    <div class="injury-box" id="injuryBoxB"><div class="inj-title">Team B — Injury &amp; Rest</div><div id="injuryContentB"></div></div>
+
+```
+<div id="fixtureToolbar" class="fixture-toolbar">
+  <button type="button" class="fixture-day active" id="fixturesTodayBtn" onclick="loadFixtures(0)">Today</button>
+  <button type="button" class="fixture-day" id="fixturesTomorrowBtn" onclick="loadFixtures(1)">Tomorrow</button>
+</div>
+
+<div id="fixtureList" class="fixture-list"></div>
+
+<label style="font-size:12px;">Team A Name (Home)</label>
+<div class="autocomplete-wrap">
+  <input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" oninput="onTeamInput('A')">
+  <div class="autocomplete-list" id="dropA"></div>
+</div>
+<label style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
+<div class="autocomplete-wrap">
+  <input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" oninput="onTeamInput('B')">
+  <div class="autocomplete-list" id="dropB"></div>
+</div>
+<button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">&#128225; Fetch Stats</button>
+<div id="fetchStatus"></div>
+<div class="injury-box" id="injuryBoxA"><div class="inj-title">Team A — Injury &amp; Rest</div><div id="injuryContentA"></div></div>
+<div class="injury-box" id="injuryBoxB"><div class="inj-title">Team B — Injury &amp; Rest</div><div id="injuryContentB"></div></div>
+```
+
   </div>
 
   <div class="section">
@@ -252,8 +374,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
 <script>
 // ── Constants ────────────────────────────────────────────────
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
-let _fetchToken = 0; // incremented on each new fetch/team-edit to invalidate stale responses
-// Auth handled server-side in Worker
+let _fetchToken = 0;
 
 const MODEL = {
   TEAM_WEIGHT: 0.60,
@@ -270,10 +391,11 @@ const MODEL = {
 };
 
 const _sbCache = new Map();
-const _CACHE_MAX = 120; // max entries to prevent unbounded growth
+const _CACHE_MAX = 120;
 function cacheSet(map, key, val) { if (map.size >= _CACHE_MAX) map.delete(map.keys().next().value); map.set(key, val); }
 const _schedCache = new Map();
 const _summaryCache = new Map();
+const _fixtureCache = new Map();
 let g_injA = {restMult:1, scoringMult:1, notes:[]};
 let g_injB = {restMult:1, scoringMult:1, notes:[]};
 const _defaultFetchMeta = () => ({
@@ -298,7 +420,6 @@ function resetResultsTable() {
 }
 
 // ── Line range parser ────────────────────────────────────────
-// Accepts "150.5 - 160.5", "150.5-160.5", or "155.5" → returns midpoint or null
 function parseLineRange(val, allowSingle = false) {
   if (!val || !String(val).trim()) return null;
   val = String(val).trim();
@@ -337,6 +458,187 @@ function readVal(p) {
   }
   const v = parseFloat(p);
   return isFinite(v) ? v : 0;
+}
+
+// ── Fixture Picker Helpers ────────────────────────────────────
+function getFutureDateString(daysAhead = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  return d.toISOString().slice(0,10).replace(/-/g,"");
+}
+
+function escJs(str) {
+  return String(str)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
+}
+
+function setFixtureDay(offset) {
+  const todayBtn = document.getElementById("fixturesTodayBtn");
+  const tomorrowBtn = document.getElementById("fixturesTomorrowBtn");
+  if (!todayBtn || !tomorrowBtn) return;
+  todayBtn.classList.toggle("active", offset === 0);
+  tomorrowBtn.classList.toggle("active", offset === 1);
+}
+
+function formatFixtureTime(dateStr) {
+  if (!dateStr) return "--:--";
+  try {
+    return new Date(dateStr).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit"
+    });
+  } catch {
+    return "--:--";
+  }
+}
+
+async function loadFixtures(offset = 0) {
+  const league = document.getElementById("leagueSelect").value;
+  const toolbar = document.getElementById("fixtureToolbar");
+  const list = document.getElementById("fixtureList");
+
+  if (!toolbar || !list) return;
+
+  const supported = league === "nba" || league === "ncaa";
+
+  if (!supported) {
+    toolbar.style.display = "none";
+    list.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+
+  toolbar.style.display = "flex";
+  list.style.display = "grid";
+  setFixtureDay(offset);
+
+  const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
+  const base = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
+  const dateStr = getFutureDateString(offset);
+  const cacheKey = `fixtures:${league}:${dateStr}`;
+
+  list.innerHTML = `<div class="fixture-empty">Loading ${offset === 0 ? "today" : "tomorrow"} matches...</div>`;
+
+  try {
+    let data;
+    if (_fixtureCache.has(cacheKey)) {
+      data = await _fixtureCache.get(cacheKey);
+    } else {
+      const p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`).catch(err => {
+        _fixtureCache.delete(cacheKey);
+        throw err;
+      });
+      cacheSet(_fixtureCache, cacheKey, p);
+      data = await p;
+    }
+
+    const events = (data?.events || []).filter(ev => {
+      const comp = ev?.competitions?.[0];
+      return comp && (comp?.competitors || []).length >= 2;
+    });
+
+    if (!events.length) {
+      list.innerHTML = `<div class="fixture-empty">No ${offset === 0 ? "today" : "tomorrow"} matches found.</div>`;
+      return;
+    }
+
+    list.innerHTML = events.map(ev => {
+      const comp = ev.competitions[0];
+      const competitors = comp.competitors || [];
+      const home = competitors.find(c => c.homeAway === "home") || competitors[0];
+      const away = competitors.find(c => c.homeAway === "away") || competitors[1];
+
+      const homeName = home?.team?.displayName || home?.team?.shortDisplayName || "Home";
+      const awayName = away?.team?.displayName || away?.team?.shortDisplayName || "Away";
+      const homeId = home?.team?.id || "";
+      const awayId = away?.team?.id || "";
+      const tipoff = formatFixtureTime(ev?.date);
+
+      return `
+        <button
+          type="button"
+          class="fixture-card"
+          onclick="pickFixture('${escJs(homeName)}','${homeId}','${escJs(awayName)}','${awayId}')"
+        >
+          <div class="fixture-top">
+            <span>${offset === 0 ? "Today" : "Tomorrow"}</span>
+            <span>${tipoff}</span>
+          </div>
+          <div class="fixture-teams">
+            <div class="fixture-home">${safeText(homeName)}</div>
+            <div class="fixture-vs">vs</div>
+            <div class="fixture-away">${safeText(awayName)}</div>
+          </div>
+        </button>
+      `;
+    }).join("");
+  } catch (e) {
+    list.innerHTML = `<div class="fixture-empty">Unable to load matches.</div>`;
+  }
+}
+
+function pickFixture(homeName, homeId, awayName, awayId) {
+  closeDrop("dropA");
+  closeDrop("dropB");
+
+  document.getElementById("teamAName").value = homeName;
+  document.getElementById("teamBName").value = awayName;
+
+  selectedTeamIds.A = String(homeId || "");
+  selectedTeamIds.B = String(awayId || "");
+
+  setStatus('<span class="spinner"></span>Match selected. Fetching stats...', "loading");
+  fetchESPN();
+}
+
+function makeSectionsCollapsible() {
+  document.querySelectorAll(".section").forEach(section => {
+    if (section.dataset.collapsibleReady === "1") return;
+
+    const heading = section.querySelector("h3");
+    if (!heading) return;
+
+    const titleHTML = heading.innerHTML;
+    const titleText = heading.textContent.trim().toLowerCase();
+    const headingStyle = heading.getAttribute("style") || "";
+
+    const shouldStayOpen =
+      titleText.includes("league tier") ||
+      titleText.includes("espn auto-fetch") ||
+      titleText.includes("market lines");
+
+    const body = document.createElement("div");
+    body.className = "section-body";
+
+    const children = [...section.childNodes];
+    children.forEach(node => {
+      if (node !== heading) body.appendChild(node);
+    });
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "section-toggle";
+    if (headingStyle) btn.style.cssText = headingStyle;
+    btn.innerHTML = `
+      <span class="toggle-title">${titleHTML}</span>
+      <span class="toggle-icon">⌄</span>
+    `;
+
+    btn.addEventListener("click", () => {
+      section.classList.toggle("collapsed");
+    });
+
+    section.innerHTML = "";
+    section.appendChild(btn);
+    section.appendChild(body);
+
+    if (!shouldStayOpen) {
+      section.classList.add("collapsed");
+    }
+
+    section.dataset.collapsibleReady = "1";
+  });
 }
 
 // ── Autocomplete ─────────────────────────────────────────────
@@ -479,7 +781,7 @@ function getTeamList() {
 
 function onTeamInput(side) {
   clearAutoFill(side);
-  selectedTeamIds[side] = null; // clear stored ID on manual edit
+  selectedTeamIds[side] = null;
   const inputId = side === "A" ? "teamAName" : "teamBName";
   const dropId  = side === "A" ? "dropA" : "dropB";
   const val = document.getElementById(inputId).value.trim().toLowerCase();
@@ -613,7 +915,6 @@ async function proxyFetch(url, timeoutMs=12000) {
 
 // ── Injury & Rest ─────────────────────────────────────────────
 async function findMatchupDate(base, teamAId, teamBId) {
-  // Returns the scheduled date of the actual A vs B matchup, or null if not found
   for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear()-1)]) {
     for (const stype of ["2","3"]) {
       try {
@@ -630,11 +931,10 @@ async function findMatchupDate(base, teamAId, teamBId) {
       } catch(e) {}
     }
   }
-  return null; // matchup not found — do not fall back here
+  return null;
 }
 
 async function findNextGameDate(base, teamId) {
-  // Returns the team's own next scheduled game date
   for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear()-1)]) {
     for (const stype of ["2","3"]) {
       try {
@@ -659,7 +959,6 @@ async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nex
     const gameDate = new Date(nextGameDate);
     gameDate.setHours(0,0,0,0); last.setHours(0,0,0,0);
     const restDays = Math.max(0, Math.round((gameDate - last) / 86400000) - 1);
-
     if (restDays > 7) {
       result.restMult = 1;
       result.notes.push({ type: "rest", text: "Rest unavailable" });
@@ -910,7 +1209,6 @@ function onLeagueChange() {
   ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
     document.getElementById(id).style.display = isNbaOrNcaa ? "block" : "none";
   });
-  // Q1 is NBA-only
   const isNba = league === "nba";
   ["aQ1Section","bQ1Section","q1MarketSection"].forEach(id => {
     const el = document.getElementById(id);
@@ -930,7 +1228,7 @@ function onLeagueChange() {
     });
     document.getElementById("use1HH2H").checked = false;
   }
-  _fetchToken++; // invalidate any in-flight fetch on league change
+  _fetchToken++;
   selectedTeamIds = { A: null, B: null };
   ["teamAName","teamBName"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
@@ -946,26 +1244,23 @@ function onLeagueChange() {
   ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = "none";
   });
-  // Clear caches on league change to prevent cross-league contamination
   _schedCache.clear();
   _summaryCache.clear();
-  // Reset injury globals and FT H2H on league change
   g_injA = {restMult:1, scoringMult:1, notes:[]};
   g_injB = {restMult:1, scoringMult:1, notes:[]};
   ["injuryBoxA","injuryBoxB"].forEach(id => document.getElementById(id).style.display = "none");
-  // FIX 2: Clear FT H2H regardless of league
   ["aFTH2H","bFTH2H"].forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
   document.getElementById("useFTH2H").checked = false;
+
+  loadFixtures(0);
 }
 
 function clearAutoFill(changedSide=null) {
   _fetchToken++;
   unlockFetchBtn();
-
   if (changedSide === "A") { selectedTeamIds.A = null; g_fetchMeta.A = { ft:{source:"manual",venueReliable:true}, h1:{source:"manual",venueReliable:true}, q1:{source:"manual",venueReliable:true} }; }
   else if (changedSide === "B") { selectedTeamIds.B = null; g_fetchMeta.B = { ft:{source:"manual",venueReliable:true}, h1:{source:"manual",venueReliable:true}, q1:{source:"manual",venueReliable:true} }; }
   else { selectedTeamIds = { A: null, B: null }; g_fetchMeta = _defaultFetchMeta(); }
-  // Team name edit invalidates all previously fetched data
   ["aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
    "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
    "aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
@@ -1010,7 +1305,6 @@ async function fetchESPN() {
   g_fetchMeta = _defaultFetchMeta();
   document.getElementById("injuryBoxA").style.display = "none";
   document.getElementById("injuryBoxB").style.display = "none";
-  // Reset all auto-filled fields and checkboxes before applying new fetch data
   ["aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
    "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
    "aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
@@ -1050,7 +1344,7 @@ async function fetchESPN() {
       ]);
       if (!aStats && !bStats) throw new Error("No recent NBA team schedule data from ESPN.");
     }
-    if (_myToken !== _fetchToken) return; // stale fetch — newer request in flight
+    if (_myToken !== _fetchToken) return;
     const messages = [];
     if (aStats?.scored?.length>0) {
       document.getElementById("aFTScored").value = aStats.scored.join(",");
@@ -1090,7 +1384,6 @@ async function fetchESPN() {
       h1: { source: "espn", venueReliable: bStats.venueReliable !== false },
       q1: { source: "espn", venueReliable: Array.isArray(bStats.q1Scored) && bStats.q1Scored.length >= 2 }
     } : _defaultFetchMeta().B;
-
     if (isNcaa && aStats?.usedVenueFallback) {
       messages.push(`${safeText(teamAName)}: venue fallback used — projection only ⚠️`);
     }
@@ -1104,9 +1397,7 @@ async function fetchESPN() {
         ? await fetchNcaaH2H(espnBase,teamAId,teamBId,leagueSlug)
         : await fetchNbaH2H(espnBase,teamAId,teamBId);
     } catch(e) { h2hGames = []; }
-
-    if (_myToken !== _fetchToken) return; // FIX 1a: stale-fetch guard after H2H
-
+    if (_myToken !== _fetchToken) return;
     if (h2hGames?.length>=2) {
       const tA = String(teamAId);
       const h2hA=[], h2hB=[];
@@ -1141,7 +1432,6 @@ async function fetchESPN() {
     setStatus('<span class="spinner"></span>Checking injuries &amp; rest days...',"loading");
     const aAvg = aStats?.scored?.length ? aStats.scored.reduce((a,b)=>a+b,0)/aStats.scored.length : 75;
     const bAvg = bStats?.scored?.length ? bStats.scored.reduce((a,b)=>a+b,0)/bStats.scored.length : 75;
-    // Find actual matchup date first; if not found, each team uses their own next game
     const matchupDate = await findMatchupDate(espnBase, teamAId, teamBId);
     const nextGameDateA = matchupDate || await findNextGameDate(espnBase, teamAId);
     const nextGameDateB = matchupDate || await findNextGameDate(espnBase, teamBId);
@@ -1149,9 +1439,7 @@ async function fetchESPN() {
       fetchInjuryAndRest(espnBase,teamAId,aAvg,aStats?.lastGameDate||null,nextGameDateA,league),
       fetchInjuryAndRest(espnBase,teamBId,bAvg,bStats?.lastGameDate||null,nextGameDateB,league)
     ]);
-
-    if (_myToken !== _fetchToken) return; // FIX 1b: stale-fetch guard after injuries
-
+    if (_myToken !== _fetchToken) return;
     function renderInjBox(boxId,contentId,inj) {
       if (!inj.notes.length) return;
       document.getElementById(contentId).innerHTML = inj.notes.map(n => {
@@ -1165,19 +1453,17 @@ async function fetchESPN() {
     const allGood = aStats?.scored?.length>0 && bStats?.scored?.length>0;
     setStatus(messages.map(m=>`<div>${m}</div>`).join(""), allGood?"ok":"err");
   } catch(e) {
-    if (_myToken === _fetchToken) setStatus("&#10060; " + safeText(e.message), "err"); // FIX 1c: token-safe catch
+    if (_myToken === _fetchToken) setStatus("&#10060; " + safeText(e.message), "err");
   }
   finally {
-    if (_myToken === _fetchToken) btn.disabled = false; // FIX 1d: token-safe finally
+    if (_myToken === _fetchToken) btn.disabled = false;
   }
 }
 
 // ── NCAA Schedule ─────────────────────────────────────────────
-// ── NBA Schedule (replaces scoreboard crawl) ──────────────────
 async function fetchNbaSchedule(base, teamId, requiredVenue) {
   const tId = String(teamId);
   const gameRefs = [];
-
   for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear()-1)]) {
     for (const stype of ["2", "3"]) {
       try {
@@ -1198,19 +1484,14 @@ async function fetchNbaSchedule(base, teamId, requiredVenue) {
     }
     if (gameRefs.length >= 10) break;
   }
-
   if (!gameRefs.length) return null;
-
   const seen = new Set();
   const unique = gameRefs.filter(g => { if (seen.has(g.id)) return false; seen.add(g.id); return true; });
   unique.sort((a, b) => { const da = a.date ? new Date(a.date).getTime() : 0; const db = b.date ? new Date(b.date).getTime() : 0; return db - da; });
-
   const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
   if (strictFiltered.length < 2) return null;
-
   const top5 = strictFiltered.slice(0, 5);
   const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
-
   for (const ref of top5) {
     let ms = ref.rawS, os = ref.rawA, h1m = 0, h1o = 0, q1m = 0, q1o = 0, gotLS = false;
     try {
@@ -1252,7 +1533,6 @@ async function fetchNbaSchedule(base, teamId, requiredVenue) {
     if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
     if (gotLS && q1m > 0) { q1Scored.push(Math.round(q1m)); q1Allowed.push(Math.round(q1o)); }
   }
-
   return scored.length >= 2 ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed, lastGameDate: unique[0]?.date || null, venueReliable: true } : null;
 }
 
@@ -1284,16 +1564,12 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug, requiredVenue) {
   const seen = new Set();
   const unique = gameRefs.filter(g=>{if(seen.has(g.id))return false;seen.add(g.id);return true;});
   unique.sort((a,b)=>{const da=a.date?new Date(a.date).getTime():0;const db=b.date?new Date(b.date).getTime():0;return db-da;});
-  // Capture last overall game date BEFORE any venue filtering (for accurate rest calc)
   const lastOverallGameDateNcaa = unique[0]?.date || null;
-  // Now filter by venue for the sample
-  // Soft venue filter — fall back to all games if fewer than 2 venue-matched
   const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
   const venueReliable = strictFiltered.length >= 2;
   const usedVenueFallback = false;
   const venueFiltered = strictFiltered;
   const top5 = venueFiltered.slice(0, 5);
-
   if (!venueFiltered.length) return null;
   const scored=[], allowed=[], h1Scored=[], h1Allowed=[], q1Scored=[], q1Allowed=[];
   for (const ref of top5) {
@@ -1637,7 +1913,6 @@ function displayLine(val){if(isNaN(val))return"NaN";return(Math.round(val*2)/2).
 function dynamicWeight(s){if(!s||s.length<2)return 0;return s.length<=3?0.20:0.30;}
 function applyVolatility(proj,std,limit){if(isNaN(proj)||isNaN(std))return NaN;if(std<=limit)return proj;return proj*(1-0.05*Math.min(1,(std-limit)/limit));}
 
-// ── Sample Tier ───────────────────────────────────────────────
 function getSampleTier(...arrays) {
   const lens = arrays.map(a => Array.isArray(a) ? a.length : 0);
   const minLen = Math.min(...lens);
@@ -1646,7 +1921,6 @@ function getSampleTier(...arrays) {
   return "insufficient";
 }
 
-// ── Trap Detection ──────────────────────────────────────────────
 function detectTrap(edge, line, pick, league, marketType, vol) {
   if (!line || isNaN(edge) || line <= 0) return false;
   const pct = Math.abs(edge / line);
@@ -1660,14 +1934,11 @@ function detectTrap(edge, line, pick, league, marketType, vol) {
   return bad >= 2;
 }
 
-// ── League-aware edge thresholds ─────────────────────────────
 function getLeagueEdgeThresholds(league) {
   if (league === 'nba')
     return { ft: 0.047, h1: 0.050, q1: 0.055, team: 0.072 };
-
   if (league === 'ncaa')
     return { ft: 0.053, h1: 0.058, team: 0.088 };
-
   if ([
     'euroleague','eurocup','acb','lba','bbl','bcl','lkl','proa','prob',
     'bsl','isl','aba','plk','serbia_kls','croatia_premier','elbl',
@@ -1681,17 +1952,14 @@ function getLeagueEdgeThresholds(league) {
     'united_league'
   ].includes(league))
     return { ft: 0.054, h1: 0.059, team: 0.082 };
-
   if ([
     'cba','china_nbl','taipei_pleague','taipei_sbl','taipei_tpbl',
     'bleague','pba','korea_kbl'
   ].includes(league))
     return { ft: 0.058, h1: 0.063, team: 0.095 };
-
   return { ft: 0.062, h1: 0.067, team: 0.105 };
 }
 
-// ── Market Line Sanity Bands ──────────────────────────────────
 function getLineSanityBands(league) {
   if (league === 'nba')    return { ft:[190,260], h1:[90,135], q1:[44,70], team:[85,140] };
   if (league === 'ncaa')   return { ft:[110,175], h1:[52,90],  q1:null,    team:[50,95]  };
@@ -1699,7 +1967,6 @@ function getLineSanityBands(league) {
                            return { ft:[130,185], h1:[62,95],  q1:null,    team:[60,100] };
   if (['cba','pba'].includes(league))
                            return { ft:[165,225], h1:[80,115], q1:null,    team:[75,120] };
-  // default / other
                            return { ft:[110,220], h1:[52,115], q1:null,    team:[48,120] };
 }
 
@@ -1719,7 +1986,6 @@ function validateLines(league, ftLine, h1Line, q1Line, aLine, bLine) {
   return errs;
 }
 
-// ── Pick logic ───────────────────────────────────────────────
 function getPick(edge, line, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
   const thr = getLeagueEdgeThresholds(league || 'unknown');
@@ -1771,7 +2037,7 @@ function selectLock(markets) {
   return markets.findIndex(m => m === best);
 }
 
-// ── Run Engine (Manual Tab) ───────────────────────────────────
+// ── Run Engine ────────────────────────────────────────────────
 function runEngine(){
   const table = document.getElementById("results");
   table.style.display="table";
@@ -1939,7 +2205,6 @@ function runEngine(){
       if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_NBA;
       else if(Math.abs(ftDiff)>25) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_OTHER;
     }
-    // Propagate suppression ratio back to team totals so A+B stays consistent with FT
     if(ftPraw > 0 && ftP !== ftPraw) {
       const ratio = ftP / ftPraw;
       bAFT *= ratio;
@@ -1998,7 +2263,6 @@ function runEngine(){
     }
   }
 
-  // ── Q1 Engine (NBA only) ─────────────────────────────────
   let q1P = NaN;
   if (league === "nba") {
     const eb1Q = eb / 4;
@@ -2114,12 +2378,10 @@ function runEngine(){
   if (aPick  !== "NO PLAY" && detectTrap(aEdge,  aLine,  aPick,  league, 'team', aVol)) aPick = "NO PLAY";
   if (bPick  !== "NO PLAY" && detectTrap(bEdge,  bLine,  bPick,  league, 'team', bVol)) bPick = "NO PLAY";
 
-  // Hard sample gate — thin data suppresses picks
   if (ftSampleTier !== "full") { ftPick = "NO PLAY"; aPick = "NO PLAY"; bPick = "NO PLAY"; }
   if (h1SampleTier !== "full") h1Pick = "NO PLAY";
   if (q1SampleTier !== "full") q1Pick = "NO PLAY";
 
-  // NCAA bucket-level venue fallback gate
   if (ftNcaaProjectionOnly) { ftPick = "NO PLAY"; aPick = "NO PLAY"; bPick = "NO PLAY"; }
   if (h1NcaaProjectionOnly) h1Pick = "NO PLAY";
 
@@ -2142,7 +2404,6 @@ function runEngine(){
     { name:"Team B Total",proj:(aFTReady&&bFTReady)?bBFT:NaN, edge:bEdge,   pick:bPick,   note:ftNote || ftNcaaNote || ((!aFTReady||!bFTReady)?"Both team stats required for accurate total":null) },
   ];
 
-  // Assign notes for unavailable markets instead of hiding rows
   picks.forEach(p => {
     if (p.name === "1H Total" && !isNbaOrNcaa) p.note = "1H market not available for this league";
     if (p.name === "1H Total" && isNbaOrNcaa && isNaN(h1P) && !p.note) p.note = "Insufficient 1H sample";
@@ -2177,7 +2438,7 @@ function runEngine(){
 
 // ── Clear All ─────────────────────────────────────────────────
 function clearAll(){
-  _fetchToken++; // FIX 2: invalidate in-flight fetches on clear
+  _fetchToken++;
   unlockFetchBtn();
   selectedTeamIds = { A: null, B: null };
   g_fetchMeta = _defaultFetchMeta();
@@ -2202,6 +2463,7 @@ function clearAll(){
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  makeSectionsCollapsible();
   onLeagueChange();
 
   ["useFTH2H","use1HH2H"].forEach(id => {
@@ -2226,6 +2488,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "b1HScored":  ["B","h1"], "b1HAllowed":  ["B","h1"],
     "bQ1Scored":  ["B","q1"], "bQ1Allowed":  ["B","q1"],
   };
+
   Object.entries(bucketMap).forEach(([id, [side, bucket]]) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("input", () => {
