@@ -658,11 +658,23 @@ async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nex
     const last = new Date(lastGameDate);
     const gameDate = new Date(nextGameDate);
     gameDate.setHours(0,0,0,0); last.setHours(0,0,0,0);
-    const restDays = Math.max(0, Math.round((gameDate-last)/86400000)-1);
-    result.restMult = restMultiplier(restDays, league);
-    const label = restDays===0?"Back-to-back ⚠️":restDays===1?"1 day rest":restDays===2?"2 days rest ✓":`${restDays} days rest`;
-    const adj = result.restMult!==1?` (${((result.restMult-1)*100).toFixed(1)}% scoring adj)`:"";
-    result.notes.push({type:"rest", text:label+adj});
+    const restDays = Math.max(0, Math.round((gameDate - last) / 86400000) - 1);
+
+    if (restDays > 7) {
+      result.restMult = 1;
+      result.notes.push({ type: "rest", text: "Rest unavailable" });
+    } else {
+      result.restMult = restMultiplier(restDays, league);
+      const label =
+        restDays === 0 ? "Back-to-back ⚠️" :
+        restDays === 1 ? "1 day rest" :
+        restDays === 2 ? "2 days rest ✓" :
+        `${restDays} days rest`;
+      const adj = result.restMult !== 1
+        ? ` (${((result.restMult - 1) * 100).toFixed(1)}% scoring adj)`
+        : "";
+      result.notes.push({ type: "rest", text: label + adj });
+    }
   } else if (lastGameDate) {
     result.notes.push({type:"rest", text:"Rest unknown"});
   }
@@ -1032,10 +1044,11 @@ async function fetchESPN() {
         fetchNcaaSchedule(espnBase,teamBId,leagueSlug,'away')
       ]);
     } else {
-      const allGames = await fetchNbaScoreboard(espnBase,60,teamAId,teamBId);
-      if (!allGames.length) throw new Error("No recent game data from ESPN.");
-      aStats = extractLastFive(allGames,String(teamAId),'home');
-      bStats = extractLastFive(allGames,String(teamBId),'away');
+      [aStats, bStats] = await Promise.all([
+        fetchNbaSchedule(espnBase, teamAId, 'home'),
+        fetchNbaSchedule(espnBase, teamBId, 'away')
+      ]);
+      if (!aStats && !bStats) throw new Error("No recent NBA team schedule data from ESPN.");
     }
     if (_myToken !== _fetchToken) return; // stale fetch — newer request in flight
     const messages = [];
@@ -1160,6 +1173,89 @@ async function fetchESPN() {
 }
 
 // ── NCAA Schedule ─────────────────────────────────────────────
+// ── NBA Schedule (replaces scoreboard crawl) ──────────────────
+async function fetchNbaSchedule(base, teamId, requiredVenue) {
+  const tId = String(teamId);
+  const gameRefs = [];
+
+  for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear()-1)]) {
+    for (const stype of ["2", "3"]) {
+      try {
+        const r = await proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+        const events = r?.events || r?.team?.schedule?.events || [];
+        for (const ev of events) {
+          if (!ev.id) continue;
+          const comp = ev?.competitions?.[0]; if (!comp) continue;
+          const done = comp?.status?.type?.completed || comp?.status?.type?.name === "STATUS_FINAL" || comp?.status?.type?.state === "post";
+          if (!done || (comp?.competitors || []).length < 2) continue;
+          const c = comp.competitors;
+          const mine = c.find(x => matchesTeam(x, tId)) || c[0];
+          const opp  = c.find(x => !matchesTeam(x, tId)) || c[1];
+          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+          gameRefs.push({ id: String(ev.id), date: ev.date || "", rawS: ps(mine?.score), rawA: ps(opp?.score), venue: mine?.homeAway || '' });
+        }
+      } catch(e) {}
+    }
+    if (gameRefs.length >= 10) break;
+  }
+
+  if (!gameRefs.length) return null;
+
+  const seen = new Set();
+  const unique = gameRefs.filter(g => { if (seen.has(g.id)) return false; seen.add(g.id); return true; });
+  unique.sort((a, b) => { const da = a.date ? new Date(a.date).getTime() : 0; const db = b.date ? new Date(b.date).getTime() : 0; return db - da; });
+
+  const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
+  if (strictFiltered.length < 2) return null;
+
+  const top5 = strictFiltered.slice(0, 5);
+  const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
+
+  for (const ref of top5) {
+    let ms = ref.rawS, os = ref.rawA, h1m = 0, h1o = 0, q1m = 0, q1o = 0, gotLS = false;
+    try {
+      await new Promise(r => setTimeout(r, 80));
+      const key = `${base}:sum:${ref.id}`;
+      const data = await (_summaryCache.has(key) ? _summaryCache.get(key) : (() => {
+        const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => { _summaryCache.delete(key); throw err; });
+        cacheSet(_summaryCache, key, p); return p;
+      })());
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp  = competitors.find(c => !matchesTeam(c, tId));
+        if (mine && opp) {
+          const lm = mine?.linescores || [], lo = opp?.linescores || [];
+          if (lm.length >= 1) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score) || os;
+            q1m = readVal(lm[0]); q1o = readVal(lo[0]);
+            h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
+            h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
+            if (lm.length > 4) {
+              const sm = lm.reduce((s, p) => s + readVal(p), 0), so = lo.reduce((s, p) => s + readVal(p), 0);
+              if (Math.abs(sm - ms) <= 3 && Math.abs(so - os) <= 3) {
+                let otm = 0, oto = 0;
+                for (let i = 4; i < lm.length; i++) otm += readVal(lm[i]);
+                for (let i = 4; i < lo.length; i++) oto += readVal(lo[i]);
+                if (otm > 0 || oto > 0) { ms -= otm; os -= oto; }
+              }
+            }
+          }
+        }
+      }
+    } catch(e) {}
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+    scored.push(Math.round(ms)); allowed.push(Math.round(os));
+    if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
+    if (gotLS && q1m > 0) { q1Scored.push(Math.round(q1m)); q1Allowed.push(Math.round(q1o)); }
+  }
+
+  return scored.length >= 2 ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed, lastGameDate: unique[0]?.date || null, venueReliable: true } : null;
+}
+
 async function fetchNcaaSchedule(base, teamId, leagueSlug, requiredVenue) {
   const tId = String(teamId); const gameRefs = [];
   const isNcaaLeague = leagueSlug === "mens-college-basketball";
@@ -1194,9 +1290,11 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug, requiredVenue) {
   // Soft venue filter — fall back to all games if fewer than 2 venue-matched
   const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
   const venueReliable = strictFiltered.length >= 2;
-  const usedVenueFallback = !venueReliable && !!requiredVenue;
-  const venueFiltered = venueReliable ? strictFiltered : unique;
-  const top5 = venueFiltered.slice(0,5);
+  const usedVenueFallback = false;
+  const venueFiltered = strictFiltered;
+  const top5 = venueFiltered.slice(0, 5);
+
+  if (!venueFiltered.length) return null;
   const scored=[], allowed=[], h1Scored=[], h1Allowed=[], q1Scored=[], q1Allowed=[];
   for (const ref of top5) {
     let ms=ref.rawS, os=ref.rawA, h1m=0, h1o=0, gotLS=false;
