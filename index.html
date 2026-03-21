@@ -66,10 +66,12 @@ background:#222;
 color:#d4af37;
 border:1px solid #d4af37;
 padding:7px 12px;
-border-radius:999px;
+border-radius:0;
 font-size:12px;
 font-weight:700;
 margin:0;
+min-width:120px;
+text-align:center;
 }
 
 .fixture-day.active{
@@ -555,27 +557,26 @@ async function loadFixtures(offset = 0) {
   if (!supported) {
     toolbar.style.display = "none";
     sel.style.display = "none";
-    sel.innerHTML = `<option value="">— Select match —</option>`;
+    sel.innerHTML = '<option value="">— Select match —</option>';
     return;
   }
 
   toolbar.style.display = "flex";
   sel.style.display = "block";
   setFixtureDay(offset);
+  sel.innerHTML = '<option value="">Loading matches...</option>';
 
   const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
-  const base = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
+  const base = "https://site.api.espn.com/apis/site/v2/sports/basketball/" + leagueSlug;
   const targetLocalKey = getLocalDateKey(offset);
   const queryDates = [getLocalDateKey(0), getLocalDateKey(1), getLocalDateKey(2)];
 
-  const select = document.getElementById("fixtureSelect"); if (select) select.innerHTML = `<option value="">Loading matches...</option>`;
-
   try {
     const payloads = await Promise.all(
-      queryDates.map(dateStr => {
-        const cacheKey = `fixtures:${league}:${dateStr}`;
+      queryDates.map(function(dateStr) {
+        const cacheKey = "fixtures:" + league + ":" + dateStr;
         if (_fixtureCache.has(cacheKey)) return _fixtureCache.get(cacheKey);
-        const p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`).catch(err => {
+        const p = proxyFetch(base + "/scoreboard?dates=" + dateStr + "&limit=200").catch(function(err) {
           _fixtureCache.delete(cacheKey); throw err;
         });
         cacheSet(_fixtureCache, cacheKey, p);
@@ -585,53 +586,55 @@ async function loadFixtures(offset = 0) {
 
     const seen = new Set();
     const merged = [];
-    payloads.forEach(data => {
-      (data?.events || []).forEach(ev => {
-        if (!ev?.id || seen.has(ev.id)) return;
+    payloads.forEach(function(data) {
+      (data && data.events ? data.events : []).forEach(function(ev) {
+        if (!ev || !ev.id || seen.has(ev.id)) return;
         seen.add(ev.id); merged.push(ev);
       });
     });
 
+    const now = new Date();
     const events = merged
-      .filter(ev => {
-        const comp = ev?.competitions?.[0];
-        if (!comp || (comp?.competitors || []).length < 2) return false;
-        return getLocalDateKeyFromISO(ev.date) === targetLocalKey;
+      .filter(function(ev) {
+        const comp = ev && ev.competitions && ev.competitions[0];
+        if (!comp || (comp.competitors || []).length < 2) return false;
+        if (getLocalDateKeyFromISO(ev.date) !== targetLocalKey) return false;
+        const state = (comp.status && comp.status.type && comp.status.type.state) || "";
+        const completed = (comp.status && comp.status.type && comp.status.type.completed) || state === "post";
+        if (completed) return false;
+        if (offset === 0 && new Date(ev.date) <= now) return false;
+        return true;
       })
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
 
     if (!events.length) {
-      if (select) select.innerHTML = `<option value="">No matches found</option>`; return;
+      sel.innerHTML = '<option value="">No upcoming matches</option>';
       return;
     }
 
-    const select = document.getElementById("fixtureSelect");
-    if (!select) return;
-    select.innerHTML = `<option value="">— Select match —</option>`;
-
-    events.forEach(ev => {
+    sel.innerHTML = '<option value="">— Select match —</option>';
+    events.forEach(function(ev) {
       const comp = ev.competitions[0];
       const competitors = comp.competitors || [];
-      const home = competitors.find(c => c.homeAway === "home") || competitors[0];
-      const away = competitors.find(c => c.homeAway === "away") || competitors[1];
-      const homeName = home?.team?.displayName || "Home";
-      const awayName = away?.team?.displayName || "Away";
-      const homeId = home?.team?.id || "";
-      const awayId = away?.team?.id || "";
+      const home = competitors.find(function(c) { return c.homeAway === "home"; }) || competitors[0];
+      const away = competitors.find(function(c) { return c.homeAway === "away"; }) || competitors[1];
+      const homeName = (home && home.team && home.team.displayName) || "Home";
+      const awayName = (away && away.team && away.team.displayName) || "Away";
+      const homeId = (home && home.team && home.team.id) || "";
+      const awayId = (away && away.team && away.team.id) || "";
       const tipoff = formatFixtureTime(ev.date);
       const eventId = String(ev.id || "");
-      const label = `${tipoff}\n${homeName}\n${awayName}`;
       const opt = document.createElement("option");
       opt.value = eventId;
-      opt.textContent = label;
+      opt.textContent = tipoff + " — " + homeName + " vs " + awayName;
       opt.dataset.home = homeName;
       opt.dataset.away = awayName;
       opt.dataset.homeId = homeId;
       opt.dataset.awayId = awayId;
-      select.appendChild(opt);
+      sel.appendChild(opt);
     });
   } catch(e) {
-    if (select) select.innerHTML = `<option value="">Unable to load matches</option>`;
+    sel.innerHTML = '<option value="">Unable to load matches</option>';
   }
 }
 
