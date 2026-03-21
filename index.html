@@ -285,7 +285,11 @@ transform:rotate(-90deg);
   <button type="button" class="fixture-day" id="fixturesTomorrowBtn" onclick="loadFixtures(1)">Tomorrow</button>
 </div>
 
-<div id="fixtureList" class="fixture-list"></div>
+<div id="fixtureSelectWrap" style="margin-bottom:8px;">
+  <select id="fixtureSelect" class="league-box" style="max-width:100%;width:100%;" onchange="onFixtureSelect(this.value)">
+    <option value="">Select match</option>
+  </select>
+</div>
 
 <label style="font-size:12px;">Team A Name (Home)</label>
 <div class="autocomplete-wrap">
@@ -461,16 +465,24 @@ function readVal(p) {
 }
 
 // ── Fixture Picker Helpers ────────────────────────────────────
-function getFutureDateString(daysAhead = 0) {
+const _fixtureOptionMap = new Map();
+
+function getLocalDateKey(daysAhead = 0) {
   const d = new Date();
+  d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + daysAhead);
-  return d.toISOString().slice(0,10).replace(/-/g,"");
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
 }
 
-function escJs(str) {
-  return String(str)
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'");
+function getLocalDateKeyFromISO(iso) {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
 }
 
 function setFixtureDay(offset) {
@@ -484,110 +496,109 @@ function setFixtureDay(offset) {
 function formatFixtureTime(dateStr) {
   if (!dateStr) return "--:--";
   try {
-    return new Date(dateStr).toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit"
-    });
-  } catch {
-    return "--:--";
-  }
+    return new Date(dateStr).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch { return "--:--"; }
 }
 
 async function loadFixtures(offset = 0) {
   const league = document.getElementById("leagueSelect").value;
   const toolbar = document.getElementById("fixtureToolbar");
-  const list = document.getElementById("fixtureList");
+  const select = document.getElementById("fixtureSelect");
+  const wrap = document.getElementById("fixtureSelectWrap");
 
-  if (!toolbar || !list) return;
+  if (!toolbar || !select) return;
 
   const supported = league === "nba" || league === "ncaa";
-
   if (!supported) {
     toolbar.style.display = "none";
-    list.style.display = "none";
-    list.innerHTML = "";
+    if (wrap) wrap.style.display = "none";
+    select.innerHTML = `<option value="">Select match</option>`;
     return;
   }
 
   toolbar.style.display = "flex";
-  list.style.display = "grid";
+  if (wrap) wrap.style.display = "block";
   setFixtureDay(offset);
 
   const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
   const base = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
-  const dateStr = getFutureDateString(offset);
-  const cacheKey = `fixtures:${league}:${dateStr}`;
+  const targetLocalKey = getLocalDateKey(offset);
 
-  list.innerHTML = `<div class="fixture-empty">Loading ${offset === 0 ? "today" : "tomorrow"} matches...</div>`;
+  // Fetch 3 nearby buckets, then re-classify each game by the user's LOCAL date
+  const queryDates = [getLocalDateKey(0), getLocalDateKey(1), getLocalDateKey(2)];
+
+  select.innerHTML = `<option value="">Loading matches...</option>`;
+  _fixtureOptionMap.clear();
 
   try {
-    let data;
-    if (_fixtureCache.has(cacheKey)) {
-      data = await _fixtureCache.get(cacheKey);
-    } else {
-      const p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`).catch(err => {
-        _fixtureCache.delete(cacheKey);
-        throw err;
-      });
-      cacheSet(_fixtureCache, cacheKey, p);
-      data = await p;
-    }
+    const payloads = await Promise.all(
+      queryDates.map(dateStr => {
+        const cacheKey = `fixtures:${league}:${dateStr}`;
+        if (_fixtureCache.has(cacheKey)) return _fixtureCache.get(cacheKey);
+        const p = proxyFetch(`${base}/scoreboard?dates=${dateStr}&limit=200`).catch(err => {
+          _fixtureCache.delete(cacheKey); throw err;
+        });
+        cacheSet(_fixtureCache, cacheKey, p);
+        return p;
+      })
+    );
 
-    const events = (data?.events || []).filter(ev => {
-      const comp = ev?.competitions?.[0];
-      return comp && (comp?.competitors || []).length >= 2;
+    const seen = new Set();
+    const merged = [];
+    payloads.forEach(data => {
+      (data?.events || []).forEach(ev => {
+        if (!ev?.id || seen.has(ev.id)) return;
+        seen.add(ev.id);
+        merged.push(ev);
+      });
     });
 
+    const events = merged
+      .filter(ev => {
+        const comp = ev?.competitions?.[0];
+        if (!comp || (comp?.competitors || []).length < 2) return false;
+        // Classify by user's LOCAL date, not UTC or the button label
+        return getLocalDateKeyFromISO(ev.date) === targetLocalKey;
+      })
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
     if (!events.length) {
-      list.innerHTML = `<div class="fixture-empty">No ${offset === 0 ? "today" : "tomorrow"} matches found.</div>`;
+      select.innerHTML = `<option value="">No matches found</option>`;
       return;
     }
 
-    list.innerHTML = events.map(ev => {
+    const opts = [`<option value="">— Select match —</option>`];
+    events.forEach(ev => {
       const comp = ev.competitions[0];
       const competitors = comp.competitors || [];
       const home = competitors.find(c => c.homeAway === "home") || competitors[0];
       const away = competitors.find(c => c.homeAway === "away") || competitors[1];
-
-      const homeName = home?.team?.displayName || home?.team?.shortDisplayName || "Home";
-      const awayName = away?.team?.displayName || away?.team?.shortDisplayName || "Away";
+      const homeName = home?.team?.displayName || "Home";
+      const awayName = away?.team?.displayName || "Away";
       const homeId = home?.team?.id || "";
       const awayId = away?.team?.id || "";
-      const tipoff = formatFixtureTime(ev?.date);
+      const tipoff = formatFixtureTime(ev.date);
 
-      return `
-        <button
-          type="button"
-          class="fixture-card"
-          onclick="pickFixture('${escJs(homeName)}','${homeId}','${escJs(awayName)}','${awayId}')"
-        >
-          <div class="fixture-top">
-            <span>${offset === 0 ? "Today" : "Tomorrow"}</span>
-            <span>${tipoff}</span>
-          </div>
-          <div class="fixture-teams">
-            <div class="fixture-home">${safeText(homeName)}</div>
-            <div class="fixture-vs">vs</div>
-            <div class="fixture-away">${safeText(awayName)}</div>
-          </div>
-        </button>
-      `;
-    }).join("");
-  } catch (e) {
-    list.innerHTML = `<div class="fixture-empty">Unable to load matches.</div>`;
+      _fixtureOptionMap.set(String(ev.id), { homeName, awayName, homeId, awayId });
+      opts.push(`<option value="${String(ev.id)}">${tipoff} — ${homeName} vs ${awayName}</option>`);
+    });
+
+    select.innerHTML = opts.join("");
+  } catch(e) {
+    select.innerHTML = `<option value="">Unable to load matches</option>`;
   }
 }
 
-function pickFixture(homeName, homeId, awayName, awayId) {
+function onFixtureSelect(eventId) {
+  if (!eventId) return;
+  const picked = _fixtureOptionMap.get(String(eventId));
+  if (!picked) return;
   closeDrop("dropA");
   closeDrop("dropB");
-
-  document.getElementById("teamAName").value = homeName;
-  document.getElementById("teamBName").value = awayName;
-
-  selectedTeamIds.A = String(homeId || "");
-  selectedTeamIds.B = String(awayId || "");
-
+  document.getElementById("teamAName").value = picked.homeName;
+  document.getElementById("teamBName").value = picked.awayName;
+  selectedTeamIds.A = String(picked.homeId || "");
+  selectedTeamIds.B = String(picked.awayId || "");
   setStatus('<span class="spinner"></span>Match selected. Fetching stats...', "loading");
   fetchESPN();
 }
@@ -622,7 +633,7 @@ function makeSectionsCollapsible() {
     if (headingStyle) btn.style.cssText = headingStyle;
     btn.innerHTML = `
       <span class="toggle-title">${titleHTML}</span>
-      <span class="toggle-icon">⌄</span>
+      <span class="toggle-icon">&#9662;</span>
     `;
 
     btn.addEventListener("click", () => {
