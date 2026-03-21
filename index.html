@@ -890,6 +890,9 @@ function onLeagueChange() {
   unlockFetchBtn();
   setStatus("","");
   resetResultsTable();
+  ["ftMarket","h1Market","q1Market","teamAMarket","teamBMarket"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = "";
+  });
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
   document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
@@ -990,6 +993,7 @@ async function fetchESPN() {
   if (!teamAName||!teamBName) { setStatus("&#10060; Enter both team names first.","err"); return; }
   const btn = document.getElementById("fetchBtn");
   btn.disabled = true;
+  resetResultsTable();
   g_injA = {restMult:1,scoringMult:1,notes:[]};
   g_injB = {restMult:1,scoringMult:1,notes:[]};
   g_fetchMeta = _defaultFetchMeta();
@@ -1064,18 +1068,16 @@ async function fetchESPN() {
       document.getElementById("bAutoTag").style.display = "inline";
       messages.push(`${safeText(teamBName)}: ${bStats.scored.length} games &#9989;`);
     } else { messages.push(`${safeText(teamBName)}: no data &#10060;`); }
-    const aVR = aStats?.venueReliable !== false;
-    const bVR = bStats?.venueReliable !== false;
-    g_fetchMeta.A = {
-      ft:  { source: "espn", venueReliable: aVR },
-      h1:  { source: "espn", venueReliable: aVR },
-      q1:  { source: "espn", venueReliable: true }
-    };
-    g_fetchMeta.B = {
-      ft:  { source: "espn", venueReliable: bVR },
-      h1:  { source: "espn", venueReliable: bVR },
-      q1:  { source: "espn", venueReliable: true }
-    };
+    g_fetchMeta.A = aStats ? {
+      ft: { source: "espn", venueReliable: aStats.venueReliable !== false },
+      h1: { source: "espn", venueReliable: aStats.venueReliable !== false },
+      q1: { source: "espn", venueReliable: Array.isArray(aStats.q1Scored) && aStats.q1Scored.length >= 2 }
+    } : _defaultFetchMeta().A;
+    g_fetchMeta.B = bStats ? {
+      ft: { source: "espn", venueReliable: bStats.venueReliable !== false },
+      h1: { source: "espn", venueReliable: bStats.venueReliable !== false },
+      q1: { source: "espn", venueReliable: Array.isArray(bStats.q1Scored) && bStats.q1Scored.length >= 2 }
+    } : _defaultFetchMeta().B;
 
     if (isNcaa && aStats?.usedVenueFallback) {
       messages.push(`${safeText(teamAName)}: venue fallback used — projection only ⚠️`);
@@ -1202,7 +1204,7 @@ async function fetchNcaaSchedule(base, teamId, leagueSlug, requiredVenue) {
     try {
       await new Promise(r=>setTimeout(r,80));
       const _sumK = `${base}:sum:${ref.id}`;
-      const data = await (_summaryCache.has(_sumK) ? _summaryCache.get(_sumK) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);cacheSet(_summaryCache,_sumK,p);return p;})());
+      const data = await (_summaryCache.has(_sumK) ? _summaryCache.get(_sumK) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`).catch(err=>{_summaryCache.delete(_sumK);throw err;});cacheSet(_summaryCache,_sumK,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors||[];
@@ -1279,7 +1281,7 @@ async function fetchNcaaH2H(base, teamAId, teamBId, leagueSlug) {
     try {
       await new Promise(r=>setTimeout(r,80));
       const _sumK2 = `${base}:sum:${ref.id}`;
-      const data = await (_summaryCache.has(_sumK2) ? _summaryCache.get(_sumK2) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);cacheSet(_summaryCache,_sumK2,p);return p;})());
+      const data = await (_summaryCache.has(_sumK2) ? _summaryCache.get(_sumK2) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`).catch(err=>{_summaryCache.delete(_sumK2);throw err;});cacheSet(_summaryCache,_sumK2,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors||[];
@@ -1409,7 +1411,7 @@ async function fetchNbaH2H(base, teamAId, teamBId) {
     try {
       await new Promise(r=>setTimeout(r,80));
       const _h2hKey = `${base}:sum:${ref.id}`;
-      const data = await (_summaryCache.has(_h2hKey) ? _summaryCache.get(_h2hKey) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`);cacheSet(_summaryCache,_h2hKey,p);return p;})());
+      const data = await (_summaryCache.has(_h2hKey) ? _summaryCache.get(_h2hKey) : (()=>{const p=proxyFetch(`${base}/summary?event=${ref.id}`).catch(err=>{_summaryCache.delete(_h2hKey);throw err;});cacheSet(_summaryCache,_h2hKey,p);return p;})());
       const hc = data?.header?.competitions?.[0];
       if (hc) {
         const competitors = hc?.competitors||[];
@@ -1584,6 +1586,34 @@ function getLeagueEdgeThresholds(league) {
   return { ft: 0.070, h1: 0.075, team: 0.120 };
 }
 
+// ── Market Line Sanity Bands ──────────────────────────────────
+function getLineSanityBands(league) {
+  if (league === 'nba')    return { ft:[190,260], h1:[90,135], q1:[44,70], team:[85,140] };
+  if (league === 'ncaa')   return { ft:[110,175], h1:[52,90],  q1:null,    team:[50,95]  };
+  if (['euroleague','eurocup','acb','lba','bbl','bcl','bsl','isl'].includes(league))
+                           return { ft:[130,185], h1:[62,95],  q1:null,    team:[60,100] };
+  if (['cba','pba'].includes(league))
+                           return { ft:[165,225], h1:[80,115], q1:null,    team:[75,120] };
+  // default / other
+                           return { ft:[110,220], h1:[52,115], q1:null,    team:[48,120] };
+}
+
+function validateLines(league, ftLine, h1Line, q1Line, aLine, bLine) {
+  const bands = getLineSanityBands(league);
+  const errs = [];
+  const chk = (val, band, label) => {
+    if (val === null || !band) return;
+    if (val < band[0]) errs.push(`${label} looks too low (${val})`);
+    if (val > band[1]) errs.push(`${label} looks too high (${val})`);
+  };
+  chk(ftLine,  bands.ft,   `${league.toUpperCase()} FT total`);
+  chk(h1Line,  bands.h1,   `${league.toUpperCase()} 1H total`);
+  chk(q1Line,  bands.q1,   `${league.toUpperCase()} Q1 total`);
+  chk(aLine,   bands.team, `${league.toUpperCase()} Team A total`);
+  chk(bLine,   bands.team, `${league.toUpperCase()} Team B total`);
+  return errs;
+}
+
 // ── Pick logic ───────────────────────────────────────────────
 function getPick(edge, line, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
@@ -1690,6 +1720,7 @@ function runEngine(){
   let aLine  = snapLine(parseLineRange(document.getElementById("teamAMarket").value));
   let bLine  = snapLine(parseLineRange(document.getElementById("teamBMarket").value));
   let h1Line = snapLine(parseLineRange(document.getElementById("h1Market").value));
+  let q1Line = snapLine(parseLineRange(document.getElementById("q1Market").value));
 
   let aSA=parseGames("aFTScored"),aAA=parseGames("aFTAllowed"),bSA=parseGames("bFTScored"),bAA=parseGames("bFTAllowed");
   let inputErrors=[];
@@ -1701,6 +1732,12 @@ function runEngine(){
     let row=table.insertRow();
     row.innerHTML=`<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">&#9888; Fix these inputs before running:<br>${inputErrors.map(e=>"&nbsp;&nbsp;• "+safeText(e)).join("<br>")}</td>`;
     table.style.display="table";return;
+  }
+  const lineErrors = validateLines(league, ftLine, h1Line, q1Line, aLine, bLine);
+  if (lineErrors.length) {
+    let row = table.insertRow();
+    row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">&#9888; Market line sanity check failed:<br>${lineErrors.map(e=>"&nbsp;&nbsp;• "+safeText(e)).join("<br>")}</td>`;
+    table.style.display = "table"; return;
   }
   const aFTReady=aSA!==null&&aAA!==null;
   const bFTReady=bSA!==null&&bAA!==null;
@@ -1779,6 +1816,7 @@ function runEngine(){
   if(!isNaN(bBFT)) bBFT-=hAdj*0.75;
   let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
   if(!isNaN(ftP)){
+    const ftPraw = ftP;
     if(dfr) ftP*=0.97;
     if(Math.abs(bAFT-bBFT)>18) ftP*=MODEL.MULTI_GOAL_SUPPRESS;
     if(pgr) ftP*=MODEL.PACE_SUPPRESS;
@@ -1791,6 +1829,12 @@ function runEngine(){
       const ftDiff=ftP-ftLine;
       if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_NBA;
       else if(Math.abs(ftDiff)>25) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_OTHER;
+    }
+    // Propagate suppression ratio back to team totals so A+B stays consistent with FT
+    if(ftPraw > 0 && ftP !== ftPraw) {
+      const ratio = ftP / ftPraw;
+      bAFT *= ratio;
+      bBFT *= ratio;
     }
   }
   let h1P=NaN,aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
@@ -1847,7 +1891,6 @@ function runEngine(){
 
   // ── Q1 Engine (NBA only) ─────────────────────────────────
   let q1P = NaN;
-  const q1Line = snapLine(parseLineRange(document.getElementById("q1Market").value));
   if (league === "nba") {
     const eb1Q = eb / 4;
     let aQ1S = parseGames("aQ1Scored"), aQ1A = parseGames("aQ1Allowed");
@@ -2046,6 +2089,11 @@ function clearAll(){
 
 document.addEventListener("DOMContentLoaded", () => {
   onLeagueChange();
+
+  ["useFTH2H","use1HH2H"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", resetResultsTable);
+  });
 
   ["aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
     const el = document.getElementById(id);
