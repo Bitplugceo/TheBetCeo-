@@ -189,7 +189,7 @@ small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
     <div id="h1MarketSection" style="display:none;">
       <label>1H Total</label><input id="h1Market" placeholder="105.5 - 110.5" oninput="resetResultsTable()">
       <div id="q1MarketSection" style="display:none;">
-        <label>Q1 Total</label><input id="q1Market" placeholder="55.5 - 58.5" oninput="resetResultsTable()">
+        <label>Q1 Total</label><input id="q1Market" placeholder="55.5 or 55.5 - 58.5" oninput="resetResultsTable()">
       </div>
     </div>
     <label>Team A Total</label><input id="teamAMarket" placeholder="75.5 - 79.5" oninput="resetResultsTable()">
@@ -299,19 +299,18 @@ function resetResultsTable() {
 
 // ── Line range parser ────────────────────────────────────────
 // Accepts "150.5 - 160.5", "150.5-160.5", or "155.5" → returns midpoint or null
-function parseLineRange(val) {
+function parseLineRange(val, allowSingle = false) {
   if (!val || !String(val).trim()) return null;
   val = String(val).trim();
   if (val.includes('-')) {
     const parts = val.split('-').map(v => parseFloat(v.trim()));
-    // ISSUE 13: reject incomplete ranges like "150.5 -"
     if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1]) && parts[1] > 0) {
-      // Reject reversed ranges like "160.5 - 150.5" — totals are always ascending
       if (parts[1] < parts[0]) return null;
       return (parts[0] + parts[1]) / 2;
     }
-    return null; // incomplete range → null, not NaN
+    return null;
   }
+  if (!allowSingle) return null;
   const single = parseFloat(val);
   return isNaN(single) ? null : single;
 }
@@ -1566,24 +1565,32 @@ function detectTrap(edge, line, pick, league, marketType, vol) {
 // ── League-aware edge thresholds ─────────────────────────────
 function getLeagueEdgeThresholds(league) {
   if (league === 'nba')
-    return { ft: 0.050, h1: 0.055, team: 0.080 };
+    return { ft: 0.047, h1: 0.050, q1: 0.055, team: 0.072 };
+
   if (league === 'ncaa')
-    return { ft: 0.060, h1: 0.065, team: 0.100 };
-  if (['euroleague','eurocup','acb','lba','bbl','bcl','lkl','proa','prob',
-       'bsl','isl','aba','plk','serbia_kls','croatia_premier','elbl',
-       'georgia_super','hungary_nb1','romania_ln','austria_zweite',
-       'belgium_top','bih_1st','bulgaria_nbl','nbl_cz','denmark_bliga',
-       'england_slb','finland_koris','finland_koris_w','germany_proa',
-       'germany_prob','a2','italy_a2','italy_serb','lkl','lithuania_nkl',
-       'poland_1liga','portugal_lpb','portugal_proliga','serbia_2mls',
-       'spain_primera','spain_segunda','sweden_super','sweden_sbl',
-       'swiss_nlb','swiss_sbl','turkey_tbl','turkey_tb2l','turkey_tkbl_w',
-       'united_league'].includes(league))
-    return { ft: 0.060, h1: 0.065, team: 0.090 };
-  if (['cba','china_nbl','taipei_pleague','taipei_sbl','taipei_tpbl',
-       'bleague','pba','korea_kbl'].includes(league))
-    return { ft: 0.065, h1: 0.070, team: 0.110 };
-  return { ft: 0.070, h1: 0.075, team: 0.120 };
+    return { ft: 0.053, h1: 0.058, team: 0.088 };
+
+  if ([
+    'euroleague','eurocup','acb','lba','bbl','bcl','lkl','proa','prob',
+    'bsl','isl','aba','plk','serbia_kls','croatia_premier','elbl',
+    'georgia_super','hungary_nb1','romania_ln','austria_zweite',
+    'belgium_top','bih_1st','bulgaria_nbl','nbl_cz','denmark_bliga',
+    'england_slb','finland_koris','finland_koris_w','germany_proa',
+    'germany_prob','a2','italy_a2','italy_serb','lithuania_nkl',
+    'poland_1liga','portugal_lpb','portugal_proliga','serbia_2mls',
+    'spain_primera','spain_segunda','sweden_super','sweden_sbl',
+    'swiss_nlb','swiss_sbl','turkey_tbl','turkey_tb2l','turkey_tkbl_w',
+    'united_league'
+  ].includes(league))
+    return { ft: 0.054, h1: 0.059, team: 0.082 };
+
+  if ([
+    'cba','china_nbl','taipei_pleague','taipei_sbl','taipei_tpbl',
+    'bleague','pba','korea_kbl'
+  ].includes(league))
+    return { ft: 0.058, h1: 0.063, team: 0.095 };
+
+  return { ft: 0.062, h1: 0.067, team: 0.105 };
 }
 
 // ── Market Line Sanity Bands ──────────────────────────────────
@@ -1620,7 +1627,7 @@ function getPick(edge, line, league, marketType) {
   const thr = getLeagueEdgeThresholds(league || 'unknown');
   const minPct =
     marketType === 'h1'   ? thr.h1 :
-    marketType === 'q1'   ? (thr.h1 + 0.01) :
+    marketType === 'q1'   ? (thr.q1 ?? (thr.h1 + 0.01)) :
     marketType === 'team' ? thr.team :
     thr.ft;
   if (Math.abs(edge / line) < minPct) return "NO PLAY";
@@ -1630,7 +1637,11 @@ function getPick(edge, line, league, marketType) {
 function getPickWithThreshold(edge, line, minEdge, league, marketType) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
   const thr = getLeagueEdgeThresholds(league || 'unknown');
-  const leaguePct = marketType === 'h1' ? thr.h1 : marketType === 'team' ? thr.team : thr.ft;
+  const leaguePct =
+    marketType === 'h1' ? thr.h1 :
+    marketType === 'q1' ? (thr.q1 ?? (thr.h1 + 0.01)) :
+    marketType === 'team' ? thr.team :
+    thr.ft;
   const useMin = Math.max(minEdge, leaguePct);
   if (Math.abs(edge / line) < useMin) return "NO PLAY";
   return edge > 0 ? `OVER ${displayLine(line)}` : `UNDER ${displayLine(line)}`;
@@ -1716,11 +1727,11 @@ function runEngine(){
   const cl = paceClamps[league]||{min:0.90,max:1.12};
 
   const snapLine = v => v === null ? null : Math.round(v * 2) / 2;
-  let ftLine = snapLine(parseLineRange(document.getElementById("ftMarket").value));
-  let aLine  = snapLine(parseLineRange(document.getElementById("teamAMarket").value));
-  let bLine  = snapLine(parseLineRange(document.getElementById("teamBMarket").value));
-  let h1Line = snapLine(parseLineRange(document.getElementById("h1Market").value));
-  let q1Line = snapLine(parseLineRange(document.getElementById("q1Market").value));
+  let ftLine = snapLine(parseLineRange(document.getElementById("ftMarket").value, false));
+  let aLine  = snapLine(parseLineRange(document.getElementById("teamAMarket").value, false));
+  let bLine  = snapLine(parseLineRange(document.getElementById("teamBMarket").value, false));
+  let h1Line = snapLine(parseLineRange(document.getElementById("h1Market").value, false));
+  let q1Line = snapLine(parseLineRange(document.getElementById("q1Market").value, true));
 
   let aSA=parseGames("aFTScored"),aAA=parseGames("aFTAllowed"),bSA=parseGames("bFTScored"),bAA=parseGames("bFTAllowed");
   let inputErrors=[];
@@ -2053,7 +2064,11 @@ function runEngine(){
     else if (markets[picks.indexOf(p)] && markets[picks.indexOf(p)].line === null) { predText = "—"; }
     if (isLock && predText !== "—" && predText !== "NO PLAY") predText += ' <span class="lock">🔒</span>';
     const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
-    const ed = isNaN(p.edge) ? "—" : (p.edge > 0 ? "+" : "") + p.edge.toFixed(2);
+    const lineRef = markets[originalIndex]?.line;
+    const edgePct = (!isNaN(p.edge) && lineRef && lineRef > 0)
+      ? (p.edge / lineRef) * 100
+      : NaN;
+    const ed = isNaN(edgePct) ? "—" : (edgePct > 0 ? "+" : "") + edgePct.toFixed(2) + "%";
     const cn = predText.includes("OVER") ? "pred-over" : predText.includes("UNDER") ? "pred-under" : "pred-noplay";
     row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
   });
