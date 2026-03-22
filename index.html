@@ -686,6 +686,52 @@ vertical-align:middle !important;
 appearance:checkbox !important;
 }
 
+/* Custom checkbox — hide native, show tiny custom box */
+input[type=“checkbox”] {
+-webkit-appearance:none !important;
+appearance:none !important;
+width:12px !important;
+height:12px !important;
+min-width:12px !important;
+min-height:12px !important;
+max-width:12px !important;
+max-height:12px !important;
+border:1.5px solid #888 !important;
+border-radius:2px !important;
+background:#fff !important;
+vertical-align:middle !important;
+margin-right:6px !important;
+position:relative !important;
+cursor:pointer !important;
+flex-shrink:0 !important;
+}
+
+input[type=“checkbox”]:checked {
+background:#3a9c35 !important;
+border-color:#3a9c35 !important;
+}
+
+input[type=“checkbox”]:checked::after {
+content:“✓” !important;
+position:absolute !important;
+top:-1px !important;
+left:1px !important;
+font-size:9px !important;
+color:#fff !important;
+font-weight:700 !important;
+line-height:12px !important;
+}
+
+body.dark-mode input[type=“checkbox”] {
+border-color:#666 !important;
+background:#222 !important;
+}
+
+body.dark-mode input[type=“checkbox”]:checked {
+background:#3a9c35 !important;
+border-color:#3a9c35 !important;
+}
+
 </style>
 
 </head>
