@@ -13,158 +13,213 @@
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <title>Basketball Prediction Engine</title>
 <style>
+:root{
+  --sb-red:#d92d2a;
+  --sb-red-dark:#b92220;
+  --sb-green:#4aa346;
+  --sb-green-dark:#3e913b;
+  --sb-bg:#ececec;
+  --sb-card:#ffffff;
+  --sb-border:#d9d9d9;
+  --sb-text:#20242c;
+  --sb-muted:#7b8088;
+  --sb-dark:#313744;
+  --sb-dark-2:#424856;
+  --sb-pill:#e9eaef;
+  --sb-under:#7a1d1d;
+  --sb-over:#3e913b;
+  --sb-noplay:#737884;
+}
+
 html{-webkit-text-size-adjust:100%;}
-body {background:#111;color:#d4af37;font-family:Segoe UI,sans-serif;margin:0;-webkit-text-size-adjust:100%;}
-.wrapper {max-width:760px;margin:10px auto;padding:0 10px;}
-h1 {text-align:center;font-size:18px;margin:10px 0;}
-.section {border:1px solid #d4af37;background:#1a1a1a;padding:8px;margin:6px auto;}
-label {display:block;font-size:12px;margin-bottom:3px;}
-input {width:100%;max-width:260px;padding:5px;font-size:12px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
 
-input[type=“checkbox”] {
-width:12px;
-height:12px;
-margin-right:6px;
-vertical-align:middle;
-}
-::placeholder {color:rgba(255,255,255,0.35);}
-button {padding:6px 16px;margin:6px;font-weight:bold;background:#d4af37;color:#111;border:none;cursor:pointer;}
-button:disabled {opacity:0.5;cursor:not-allowed;}
-.fetch-btn {background:#1e7d3a;color:#fff;padding:6px 14px;font-size:12px;font-weight:bold;border:1px solid #2ecc71;cursor:pointer;margin-top:4px;}
-.fetch-btn:disabled {opacity:0.5;cursor:not-allowed;}
-table {width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;}
-th, td {border:1px solid #d4af37;padding:6px;text-align:center;}
-.pred-over {background:#1e7d3a;color:#fff;font-weight:bold;}
-.pred-under {background:#8b1e1e;color:#fff;font-weight:bold;}
-.pred-noplay {background:#444;color:#bbb;font-weight:bold;}
-.lock {font-size:4px;display:inline-block;vertical-align:middle;transform:translateY(-1px);margin-left:4px;}
-small.error-note {color:#ff6b6b;font-size:10px;display:block;margin-top:2px;}
-.injury-box {background:#1a1a2a;border:1px solid #446;padding:6px;margin-top:6px;font-size:11px;line-height:1.8;display:none;}
-.injury-box .inj-title {color:#aac;font-weight:bold;margin-bottom:2px;}
-.inj-out {color:#ff6b6b;}.inj-dtd {color:#f0a500;}.inj-rest {color:#5bc8af;}
-.table-wrap {overflow-x:auto;}
-#fetchStatus {font-size:11px;margin-top:6px;min-height:16px;color:#aaa;}
-#fetchStatus.ok {color:#2ecc71;}
-#fetchStatus.err {color:#ff6b6b;}
-#fetchStatus.loading {color:#d4af37;}
-.autofill-indicator {font-size:10px;color:#2ecc71;display:none;}
-.spinner {display:inline-block;width:10px;height:10px;border:2px solid #d4af37;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:4px;}
-@keyframes spin {to{transform:rotate(360deg);}}
-
-/* ── Autocomplete ── */
-.autocomplete-wrap {position:relative;width:100%;max-width:260px;margin-bottom:4px;}
-.autocomplete-wrap input {width:100%;margin-bottom:0;box-sizing:border-box;}
-.autocomplete-list {position:absolute;top:100%;left:0;right:0;background:#1a1a1a;border:1px solid #d4af37;border-top:none;z-index:999;max-height:180px;overflow-y:auto;display:none;}
-.autocomplete-list div {padding:7px 10px;font-size:12px;cursor:pointer;color:#d4af37;}
-.autocomplete-list div:hover,.autocomplete-list div.active {background:#d4af37;color:#111;}
-.autocomplete-list div.group-label {color:#888;font-size:10px;padding:4px 8px;cursor:default;background:#111;pointer-events:none;}
-
-/* ── Fixture Picker ───────────────────────────── */
-.fixture-toolbar{
-display:flex;
-gap:8px;
-margin:10px 0 8px;
-flex-wrap:wrap;
-}
-
-.fixture-day{
-background:#222;
-color:#d4af37;
-border:1px solid #d4af37;
-padding:7px 12px;
-border-radius:0;
-font-size:12px;
-font-weight:700;
+body{
+background:var(–sb-bg);
+color:var(–sb-text);
+font-family:Segoe UI,sans-serif;
 margin:0;
-min-width:120px;
+-webkit-text-size-adjust:100%;
+}
+
+.wrapper{max-width:760px;margin:10px auto;padding:0 10px;}
+
+h1{
 text-align:center;
+font-size:20px;
+margin:0 0 10px 0;
+padding:16px 12px;
+background:var(–sb-red);
+color:#fff;
+font-weight:700;
+box-shadow:0 2px 8px rgba(0,0,0,0.12);
 }
 
-.fixture-day.active{
-background:#d4af37;
-color:#111;
+.section{
+border:1px solid var(–sb-border);
+background:var(–sb-card);
+padding:10px;
+margin:8px auto;
+border-radius:8px;
+box-shadow:0 1px 4px rgba(0,0,0,0.06);
 }
 
-/* ── Input / select width consistency ── */
+label{display:block;font-size:12px;margin-bottom:4px;color:var(–sb-text);font-weight:600;}
 
-input,
-.league-box,
-.autocomplete-wrap{
+input{
 width:100%;
 max-width:260px;
-box-sizing:border-box;
-}
-.league-box{
-display:block;
-padding:5px;
+padding:8px 10px;
 font-size:12px;
-background:#222;
-color:#d4af37;
-border:1px solid #d4af37;
-margin-bottom:4px;
-border-radius:0;
-appearance:none;
--webkit-appearance:none;
--moz-appearance:none;
+background:#fff;
+color:var(–sb-text);
+border:1px solid #cfd3da;
+margin-bottom:6px;
+border-radius:4px;
 }
 
-/* fixture list styles removed — using native select */
+input:focus,select:focus{
+outline:none;
+border-color:var(–sb-green);
+box-shadow:0 0 0 2px rgba(74,163,70,0.12);
+}
 
-/* ── Collapsible Sections ─────────────────────── */
-.section-toggle{
-width:100%;
-background:none;
+::placeholder{color:#9aa0a8;}
+
+button{
+padding:8px 16px;
+margin:6px;
+font-weight:700;
+background:var(–sb-dark);
+color:#fff;
 border:none;
-padding:0;
-margin:0;
-color:#d4af37;
-display:flex;
-align-items:center;
-justify-content:space-between;
-text-align:left;
+border-radius:4px;
 cursor:pointer;
 }
 
-.section-toggle .toggle-title{
-display:block;
+button:hover{opacity:0.95;}
+button:disabled{opacity:0.5;cursor:not-allowed;}
+
+.fetch-btn{
+background:var(–sb-green);
+color:#fff;
+padding:8px 14px;
+font-size:12px;
+font-weight:700;
+border:none;
+cursor:pointer;
+margin-top:4px;
+border-radius:4px;
 }
 
-.section-toggle .toggle-icon{
-font-size:18px;
-line-height:1;
-transition:transform 0.2s ease;
-color:#d4af37;
-}
+.fetch-btn:disabled{opacity:0.5;cursor:not-allowed;}
 
-.section-body{
-margin-top:10px;
-}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px;background:#fff;}
+th,td{border:1px solid #dfe2e7;padding:8px 6px;text-align:center;}
+th{background:var(–sb-dark);color:#fff;font-weight:700;}
+td{background:#fff;color:var(–sb-text);}
 
-.section.collapsed .section-body{
+.pred-over{background:var(–sb-over);color:#fff;font-weight:bold;}
+.pred-under{background:var(–sb-under);color:#fff;font-weight:bold;}
+.pred-noplay{background:var(–sb-noplay);color:#fff;font-weight:bold;}
+
+.lock{font-size:10px;display:inline-block;vertical-align:middle;transform:translateY(-1px);margin-left:4px;}
+
+small.error-note{color:#d92d2a;font-size:10px;display:block;margin-top:3px;}
+
+.injury-box{
+background:#f5f6f8;
+border:1px solid #d7dbe2;
+padding:8px;
+margin-top:6px;
+font-size:11px;
+line-height:1.8;
 display:none;
+border-radius:4px;
 }
 
-.section.collapsed .section-toggle .toggle-icon{
-transform:rotate(-90deg);
+.injury-box .inj-title{color:var(–sb-dark);font-weight:bold;margin-bottom:2px;}
+.inj-out{color:#d92d2a;}
+.inj-dtd{color:#d98a00;}
+.inj-rest{color:#2f8f4a;}
+
+.table-wrap{overflow-x:auto;}
+
+#fetchStatus{font-size:11px;margin-top:6px;min-height:16px;color:var(–sb-muted);}
+#fetchStatus.ok{color:#2f8f4a;}
+#fetchStatus.err{color:#d92d2a;}
+#fetchStatus.loading{color:#d98a00;}
+
+.autofill-indicator{font-size:10px;color:#2f8f4a;display:none;}
+
+.spinner{
+display:inline-block;width:10px;height:10px;
+border:2px solid var(–sb-green);border-top-color:transparent;
+border-radius:50%;animation:spin 0.6s linear infinite;
+vertical-align:middle;margin-right:4px;
 }
 
-.section.locked .section-body{
-display:none !important;
-}
-.section.locked .section-toggle{
-opacity:0.35;
-cursor:not-allowed;
-pointer-events:none;
-}
-.section.locked .section-toggle .toggle-icon{
-display:none;
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.autocomplete-wrap{position:relative;width:100%;max-width:260px;margin-bottom:4px;}
+.autocomplete-wrap input{width:100%;margin-bottom:0;box-sizing:border-box;}
+
+.autocomplete-list{
+position:absolute;top:100%;left:0;right:0;
+background:#fff;border:1px solid #cfd3da;border-top:none;
+z-index:999;max-height:180px;overflow-y:auto;display:none;
 }
 
+.autocomplete-list div{padding:8px 10px;font-size:12px;cursor:pointer;color:var(–sb-text);}
+.autocomplete-list div:hover,.autocomplete-list div.active{background:var(–sb-green);color:#fff;}
+.autocomplete-list div.group-label{color:var(–sb-muted);font-size:10px;padding:4px 8px;cursor:default;background:#f2f3f5;pointer-events:none;}
+
+.fixture-toolbar{display:flex;gap:8px;margin:10px 0 8px;flex-wrap:wrap;}
+
+.fixture-day{
+background:var(–sb-pill);color:var(–sb-dark);
+border:1px solid #d4d8de;padding:8px 12px;
+border-radius:4px;font-size:12px;font-weight:700;
+margin:0;min-width:120px;text-align:center;
+}
+
+.fixture-day.active{background:var(–sb-green);color:#fff;border-color:var(–sb-green);}
+
+input,
+.league-box,
+.autocomplete-wrap{width:100%;max-width:260px;box-sizing:border-box;}
+
+.league-box{
+display:block;padding:8px 10px;font-size:12px;
+background:#fff;color:var(–sb-text);
+border:1px solid #cfd3da;margin-bottom:6px;border-radius:4px;
+appearance:none;-webkit-appearance:none;-moz-appearance:none;
+}
+
+input[type=“checkbox”]{width:12px;height:12px;margin-right:6px;vertical-align:middle;}
+
+.section-toggle{
+width:100%;background:none;border:none;padding:0;margin:0;
+color:var(–sb-text);display:flex;align-items:center;
+justify-content:space-between;text-align:left;cursor:pointer;
+}
+
+.section-toggle .toggle-title{display:block;font-weight:700;}
+.section-toggle .toggle-icon{font-size:18px;line-height:1;transition:transform 0.2s ease;color:var(–sb-dark);}
+
+.section-body{margin-top:10px;}
+.section.collapsed .section-body{display:none;}
+.section.collapsed .section-toggle .toggle-icon{transform:rotate(-90deg);}
+
+.section.locked .section-body{display:none !important;}
+.section.locked .section-toggle{opacity:0.35;cursor:not-allowed;pointer-events:none;}
+.section.locked .section-toggle .toggle-icon{display:none;}
+
+.fixture-empty{border:1px dashed #d4d8de;color:#9aa0a8;padding:10px;border-radius:4px;font-size:12px;}
 </style>
 
 </head>
 <body>
-<h1>&#127936; Basketball Prediction Engine</h1>
+<h1>🏀 Basketball</h1>
 
 <!-- MANUAL TAB -->
 
@@ -2225,7 +2280,7 @@ function runEngine(){
   const aFTReady=aSA!==null&&aAA!==null;
   const bFTReady=bSA!==null&&bAA!==null;
   const isNbaOrNcaa=league==="nba"||league==="ncaa";
-  const calcAvg=isNbaOrNcaa?weightedAvg:trimmedAvg;
+  const calcAvg=weightedAvg;
   const safeArr=a=>(a&&!a.err)?a:null;
   let aS=safeArr(aSA)?calcAvg(aSA):NaN;
   let aA=safeArr(aAA)?calcAvg(aAA):NaN;
@@ -2297,26 +2352,23 @@ function runEngine(){
   if(!isNaN(bBFT)&&injMultB!==1) bBFT*=injMultB;
   if(!isNaN(bAFT)) bAFT+=hAdj*0.75;
   if(!isNaN(bBFT)) bBFT-=hAdj*0.75;
-  let ftP=(!isNaN(bAFT)&&!isNaN(bBFT))?bAFT+bBFT:NaN;
-  if(!isNaN(ftP)){
-    const ftPraw = ftP;
-    if(dfr) ftP*=0.97;
-    if(Math.abs(bAFT-bBFT)>18) ftP*=MODEL.MULTI_GOAL_SUPPRESS;
-    if(pgr) ftP*=MODEL.PACE_SUPPRESS;
-    if(fma){
-      const paceGap=Math.abs(aS-bS)/eb;
-      if(paceGap>0.14) ftP*=0.97;
+  let ftP = (!isNaN(bAFT) && !isNaN(bBFT)) ? bAFT + bBFT : NaN;
+  if (!isNaN(ftP)) {
+    if (dfr) ftP *= 0.97;
+    if (Math.abs(bAFT - bBFT) > 18) ftP *= MODEL.MULTI_GOAL_SUPPRESS;
+    if (pgr) ftP *= MODEL.PACE_SUPPRESS;
+    if (fma) {
+      const paceGap = Math.abs(aS - bS) / eb;
+      if (paceGap > 0.14) ftP *= 0.97;
     }
-    if(!isNaN(pace)&&pace>1.12) ftP*=0.98;
-    if(ftLine !== null){
-      const ftDiff=ftP-ftLine;
-      if(league==="nba"&&Math.abs(ftDiff)>18) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_NBA;
-      else if(Math.abs(ftDiff)>25) ftP=ftLine+ftDiff*MODEL.LINE_ANCHOR_OTHER;
-    }
-    if(ftPraw > 0 && ftP !== ftPraw) {
-      const ratio = ftP / ftPraw;
-      bAFT *= ratio;
-      bBFT *= ratio;
+    if (!isNaN(pace) && pace > 1.12) ftP *= 0.98;
+    if (ftLine !== null) {
+      const ftDiff = ftP - ftLine;
+      if (league === "nba" && Math.abs(ftDiff) > 18) {
+        ftP = ftLine + ftDiff * MODEL.LINE_ANCHOR_NBA;
+      } else if (Math.abs(ftDiff) > 25) {
+        ftP = ftLine + ftDiff * MODEL.LINE_ANCHOR_OTHER;
+      }
     }
   }
   let h1P=NaN,aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
