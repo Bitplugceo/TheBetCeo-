@@ -225,55 +225,29 @@ color:#1f2430;
 }
 
 .app-header{
-position:relative;
 display:flex;
 align-items:center;
-justify-content:center;
-gap:8px;
-margin:0 0 14px 0;
-padding:20px 16px;
-min-height:74px;
-background:linear-gradient(135deg,#d91f26 0%, #ef2b2b 55%, #c91920 100%);
+justify-content:space-between;
+margin:0 0 10px 0;
+padding:10px 14px;
+background:linear-gradient(90deg,#c91920 0%,#d91f26 50%,#b91520 100%);
 color:#fff;
-font-size:22px;
-font-weight:800;
-letter-spacing:0.3px;
-box-shadow:0 8px 18px rgba(0,0,0,0.15);
-overflow:hidden;
-}
-
-.app-header::before{
-content:””;
-position:absolute;
-inset:0;
-background:
-radial-gradient(circle at 18% 30%, rgba(255,255,255,0.18) 0 28px, transparent 29px),
-radial-gradient(circle at 82% 32%, rgba(255,255,255,0.12) 0 22px, transparent 23px),
-linear-gradient(115deg, transparent 0 62%, rgba(255,255,255,0.08) 63%, transparent 72%);
-pointer-events:none;
-}
-
-.app-header::after{
-content:“🏀 ✦”;
-position:absolute;
-right:18px;
-top:50%;
-transform:translateY(-50%);
-font-size:22px;
-opacity:0.95;
-letter-spacing:4px;
-pointer-events:none;
+box-shadow:0 3px 10px rgba(0,0,0,0.18);
 }
 
 .brand-name{
-position:relative;
-z-index:1;
+font-size:15px;
+font-weight:800;
+letter-spacing:0.3px;
+color:#fff;
 }
 
-.brand-bolt{
-position:relative;
-z-index:1;
-filter:drop-shadow(0 0 6px rgba(255,230,120,0.45));
+.brand-right{
+font-size:11px;
+font-weight:700;
+letter-spacing:1.5px;
+color:rgba(255,255,255,0.85);
+text-transform:uppercase;
 }
 
 .section{
@@ -397,14 +371,53 @@ td{ background:#fff !important; color:#1f2430 !important; }
 .pred-under{ background:#8f2222 !important; color:#fff !important; }
 .pred-noplay{ background:#6f7580 !important; color:#fff !important; }
 
+/* ===== SHARP RECTANGLES + SIZE FIXES ===== */
+
+/* Remove ALL rounded corners */
+.section,
+input,
+.league-box,
+button,
+.fetch-btn,
+.fixture-day,
+.autocomplete-list,
+.injury-box,
+table,
+th, td {
+border-radius:0 !important;
+}
+
+/* Fixture buttons — smaller and sharp */
+.fixture-day {
+padding:6px 10px !important;
+font-size:12px !important;
+min-width:90px !important;
+}
+
+/* Fetch Stats button — smaller */
+.fetch-btn {
+padding:6px 12px !important;
+font-size:12px !important;
+}
+
+/* Remove padding-top that causes home screen gap */
+body {
+padding-top:0 !important;
+}
+
+/* Keep header margin but no body padding */
+.app-header {
+margin-top:0 !important;
+}
+
 </style>
 
 </head>
 <body>
-<h1 class="app-header">
-  <span class="brand-name">TheBetCeo</span>
-  <span class="brand-bolt">⚡️</span>
-</h1>
+<header class="app-header">
+  <span class="brand-name">TheBetCeo ⚡️</span>
+  <span class="brand-right">🏀 PREDICTIONS</span>
+</header>
 
 <!-- MANUAL TAB -->
 
@@ -943,7 +956,11 @@ function makeSectionsCollapsible() {
 
     const children = [...section.childNodes];
     children.forEach(node => {
-      if (node !== heading) body.appendChild(node);
+      if (node !== heading) {
+        // Skip pure whitespace or stray backtick text nodes
+        if (node.nodeType === 3 && !node.textContent.trim().replace(/`/g,'').trim()) return;
+        body.appendChild(node);
+      }
     });
 
     const btn = document.createElement("button");
