@@ -719,7 +719,13 @@ function makeSectionsCollapsible() {
     btn.appendChild(iconSpan);
 
     btn.addEventListener("click", () => {
+      const wasCollapsed = section.classList.contains("collapsed");
       section.classList.toggle("collapsed");
+      // If user just collapsed a section manually, open the next logical step
+      if (!wasCollapsed) {
+        updateSectionLocks();
+        goToNextStep();
+      }
     });
 
     section.innerHTML = "";
@@ -2626,9 +2632,8 @@ function hasValidMarketLine(id, allowSingle) {
   return parseLineRange(val, true) !== null;
 }
 
-function isMarketComplete() {
-  // Every field that has ANY content must be a valid line.
-  // At least one field must have content.
+function marketDone() {
+  // Validate every filled market field before advancing
   const fields = [
     { id: "ftMarket",    allowSingle: false },
     { id: "h1Market",    allowSingle: false },
@@ -2641,11 +2646,36 @@ function isMarketComplete() {
     const el = document.getElementById(f.id);
     if (!el) continue;
     const val = el.value.trim();
-    if (!val) continue;          // empty — skip
+    if (!val) continue;
     anyFilled = true;
-    if (!hasValidMarketLine(f.id, f.allowSingle)) return false;  // filled but invalid
+    if (!hasValidMarketLine(f.id, f.allowSingle)) {
+      el.style.borderColor = "#ff6b6b";
+      el.focus();
+      return;
+    }
+    el.style.borderColor = "";
   }
-  return anyFilled;
+  if (!anyFilled) {
+    const ft = document.getElementById("ftMarket");
+    if (ft) { ft.style.borderColor = "#ff6b6b"; ft.focus(); }
+    return;
+  }
+  updateSectionLocks();
+  closeSection("marketSection");
+  accordionOpen("teamASection");
+}
+
+function isMarketComplete() {
+  // Market is complete when at least one field has a valid value
+  // (used for section-lock state only — actual advance is via Done button)
+  const fields = [
+    { id: "ftMarket",    allowSingle: false },
+    { id: "h1Market",    allowSingle: false },
+    { id: "q1Market",    allowSingle: true  },
+    { id: "teamAMarket", allowSingle: false },
+    { id: "teamBMarket", allowSingle: false },
+  ];
+  return fields.some(f => hasValidMarketLine(f.id, f.allowSingle));
 }
 
 function isTeamAComplete() {
@@ -2731,11 +2761,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ── Market fields ────────────────────────────────────────────────
+  // ── Market fields — reset results on edit, no auto-advance (use Done button) ──
   ["ftMarket","teamAMarket","teamBMarket","h1Market","q1Market"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener("input", () => { resetResultsTable(); updateSectionLocks(); goToNextStep(); });
+    el.addEventListener("input", () => { resetResultsTable(); updateSectionLocks(); });
   });
 
   // ── Team A fields ─────────────────────────────────────────────
