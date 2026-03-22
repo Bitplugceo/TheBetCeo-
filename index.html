@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BB Engine">
@@ -21,7 +21,12 @@ h1 {text-align:center;font-size:18px;margin:10px 0;}
 label {display:block;font-size:12px;margin-bottom:3px;}
 input {width:100%;max-width:260px;padding:5px;font-size:16px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
 
-input[type=“checkbox”] {width:12px;height:12px;margin-right:6px;vertical-align:middle;}
+input[type=“checkbox”] {
+width:12px;
+height:12px;
+margin-right:6px;
+vertical-align:middle;
+}
 ::placeholder {color:rgba(255,255,255,0.35);}
 button {padding:6px 16px;margin:6px;font-weight:bold;background:#d4af37;color:#111;border:none;cursor:pointer;}
 button:disabled {opacity:0.5;cursor:not-allowed;}
@@ -84,10 +89,12 @@ color:#111;
 input,
 select,
 textarea,
-button,
-.league-box,
-.fetch-btn{
+.league-box{
 font-size:16px !important;
+}
+button,
+.fetch-btn{
+font-size:13px !important;
 }
 input,
 .league-box,
@@ -427,6 +434,7 @@ function parseLineRange(val, allowSingle = false) {
     return null;
   }
   if (!allowSingle) return null;
+  if (!/^\d{2,3}\.\d+$/.test(val)) return null;
   const single = parseFloat(val);
   return isNaN(single) ? null : single;
 }
@@ -502,22 +510,13 @@ function updateSectionLocks() {
   if (isNbaOrNcaa) unlockSection("espnSection");
   unlockSection("marketSection");
 
-  const mkt = document.getElementById("ftMarket").value.trim()
-    || document.getElementById("teamAMarket").value.trim()
-    || document.getElementById("teamBMarket").value.trim()
-    || document.getElementById("h1Market").value.trim()
-    || document.getElementById("q1Market").value.trim();
-  if (!mkt) return;
+  if (!isMarketComplete()) return;
   unlockSection("teamASection");
 
-  const aOk = document.getElementById("aFTScored").value.trim()
-            && document.getElementById("aFTAllowed").value.trim();
-  if (!aOk) return;
+  if (!isTeamAComplete()) return;
   unlockSection("teamBSection");
 
-  const bOk = document.getElementById("bFTScored").value.trim()
-            && document.getElementById("bFTAllowed").value.trim();
-  if (!bOk) return;
+  if (!isTeamBComplete()) return;
   unlockSection("h2hSection");
 }
 
@@ -2617,11 +2616,24 @@ function hasValue(id) {
   return !!(el && el.value.trim());
 }
 
+function hasValidMarketLine(id, allowSingle) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  const val = el.value.trim();
+  if (!val) return false;
+  if (val.includes("-")) {
+    return parseLineRange(val, false) !== null;
+  }
+  if (!allowSingle) return false;
+  if (!/^\d{2,3}\.\d+$/.test(val)) return false;
+  return parseLineRange(val, true) !== null;
+}
+
 function isMarketComplete() {
-  if (hasValue("ftMarket")) return true;
-  if (hasValue("teamAMarket") && hasValue("teamBMarket")) return true;
-  if (hasValue("h1Market")) return true;
-  if (hasValue("q1Market")) return true;
+  if (hasValidMarketLine("ftMarket")) return true;
+  if (hasValidMarketLine("teamAMarket") && hasValidMarketLine("teamBMarket")) return true;
+  if (hasValidMarketLine("h1Market")) return true;
+  if (hasValidMarketLine("q1Market", true)) return true;
   return false;
 }
 
