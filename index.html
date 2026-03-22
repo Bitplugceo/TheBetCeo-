@@ -478,6 +478,64 @@ opacity:0.4 !important;
 font-size:4px !important;
 }
 
+/* ===== PWA SAFE AREA + BUTTON FIX ===== */
+
+/* Header safe area for PWA/home screen notch */
+.app-header {
+padding-top:max(10px, env(safe-area-inset-top)) !important;
+padding-left:max(14px, env(safe-area-inset-left)) !important;
+padding-right:max(14px, env(safe-area-inset-right)) !important;
+padding-bottom:10px !important;
+}
+
+/* Run and Clear — solid, fully visible, not faded */
+div[style*=“text-align:center”] button {
+opacity:1 !important;
+border:none !important;
+cursor:pointer !important;
+padding:10px 28px !important;
+font-size:14px !important;
+font-weight:700 !important;
+letter-spacing:0.3px !important;
+}
+
+div[style*=“text-align:center”] button:first-of-type {
+background:#3a9c35 !important;
+color:#fff !important;
+box-shadow:0 2px 8px rgba(58,156,53,0.35) !important;
+}
+
+div[style*=“text-align:center”] button:last-of-type {
+background:#3a404c !important;
+color:#fff !important;
+box-shadow:0 2px 8px rgba(0,0,0,0.2) !important;
+}
+
+/* Run/Clear by ID — guaranteed targeting */
+#runBtn {
+background:#3a9c35 !important;
+color:#fff !important;
+opacity:1 !important;
+padding:10px 28px !important;
+font-size:14px !important;
+font-weight:700 !important;
+border:none !important;
+box-shadow:0 2px 8px rgba(58,156,53,0.35) !important;
+cursor:pointer !important;
+}
+
+#clearBtn {
+background:#3a404c !important;
+color:#fff !important;
+opacity:1 !important;
+padding:10px 28px !important;
+font-size:14px !important;
+font-weight:700 !important;
+border:none !important;
+box-shadow:0 2px 8px rgba(0,0,0,0.2) !important;
+cursor:pointer !important;
+}
+
 </style>
 
 </head>
@@ -675,8 +733,8 @@ font-size:4px !important;
 </div>
 
 <div style="text-align:center;padding-bottom:40px;">
-  <button onclick="runEngine()">Run</button>
-  <button onclick="clearAll()">Clear</button>
+  <button id="runBtn" onclick="runEngine()">Run</button>
+  <button id="clearBtn" onclick="clearAll()">Clear</button>
 </div>
 
 <div class="table-wrap">
