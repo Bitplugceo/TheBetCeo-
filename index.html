@@ -19,7 +19,7 @@ body {background:#111;color:#d4af37;font-family:Segoe UI,sans-serif;margin:0;-we
 h1 {text-align:center;font-size:18px;margin:10px 0;}
 .section {border:1px solid #d4af37;background:#1a1a1a;padding:8px;margin:6px auto;}
 label {display:block;font-size:12px;margin-bottom:3px;}
-input {width:100%;max-width:260px;padding:5px;font-size:16px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
+input {width:100%;max-width:260px;padding:5px;font-size:12px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
 
 input[type=“checkbox”] {
 width:12px;
@@ -86,13 +86,7 @@ color:#111;
 }
 
 /* ── Input / select width consistency ── */
-/* font sizes: inputs stay at 16px to prevent iOS zoom, buttons inherit */
-input,
-select,
-textarea,
-.league-box{
-font-size:16px;
-}
+
 input,
 .league-box,
 .autocomplete-wrap{
@@ -103,7 +97,7 @@ box-sizing:border-box;
 .league-box{
 display:block;
 padding:5px;
-font-size:16px;
+font-size:12px;
 background:#222;
 color:#d4af37;
 border:1px solid #d4af37;
@@ -2619,25 +2613,39 @@ function hasValidMarketLine(id, allowSingle) {
   const val = el.value.trim();
   if (!val) return false;
   if (val.includes("-")) {
-    // Both sides must be present and each must be a valid number with a decimal
+    // Range: both sides must be present, non-empty, and parseable
     const parts = val.split("-").map(s => s.trim());
-    if (parts.length !== 2) return false;
-    if (!/^\d{2,3}\.\d+$/.test(parts[0])) return false;
-    if (!/^\d{2,3}\.\d+$/.test(parts[1])) return false;
+    if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
     const a = parseFloat(parts[0]), b = parseFloat(parts[1]);
-    return !isNaN(a) && !isNaN(b) && b >= a;
+    if (isNaN(a) || isNaN(b)) return false;
+    return b >= a && b > 0;
   }
+  // Single value — only for Q1
   if (!allowSingle) return false;
   if (!/^\d{2,3}\.\d+$/.test(val)) return false;
   return parseLineRange(val, true) !== null;
 }
 
 function isMarketComplete() {
-  if (hasValidMarketLine("ftMarket")) return true;
-  if (hasValidMarketLine("teamAMarket") && hasValidMarketLine("teamBMarket")) return true;
-  if (hasValidMarketLine("h1Market")) return true;
-  if (hasValidMarketLine("q1Market", true)) return true;
-  return false;
+  // Every field that has ANY content must be a valid line.
+  // At least one field must have content.
+  const fields = [
+    { id: "ftMarket",    allowSingle: false },
+    { id: "h1Market",    allowSingle: false },
+    { id: "q1Market",    allowSingle: true  },
+    { id: "teamAMarket", allowSingle: false },
+    { id: "teamBMarket", allowSingle: false },
+  ];
+  let anyFilled = false;
+  for (const f of fields) {
+    const el = document.getElementById(f.id);
+    if (!el) continue;
+    const val = el.value.trim();
+    if (!val) continue;          // empty — skip
+    anyFilled = true;
+    if (!hasValidMarketLine(f.id, f.allowSingle)) return false;  // filled but invalid
+  }
+  return anyFilled;
 }
 
 function isTeamAComplete() {
