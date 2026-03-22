@@ -410,6 +410,74 @@ padding-top:0 !important;
 margin-top:0 !important;
 }
 
+/* ===== BUTTON + TABLE + COLOR FIXES ===== */
+
+/* Run and Clear buttons - fully visible */
+div[style*=“text-align:center”] button,
+div[style*=“text-align:center”] button:first-child,
+div[style*=“text-align:center”] button:last-child {
+opacity:1 !important;
+}
+
+div[style*=“text-align:center”] button:first-child {
+background:#49a443 !important;
+color:#fff !important;
+font-weight:700 !important;
+padding:10px 24px !important;
+}
+
+div[style*=“text-align:center”] button:last-child {
+background:#3a404c !important;
+color:#fff !important;
+font-weight:700 !important;
+padding:10px 24px !important;
+}
+
+/* Table cells - clear white background, dark text */
+td {
+background:#fff !important;
+color:#1f2430 !important;
+font-weight:600 !important;
+}
+
+/* UNDER = red */
+.pred-under {
+background:#c91920 !important;
+color:#fff !important;
+font-weight:800 !important;
+}
+
+/* OVER = green */
+.pred-over {
+background:#3a9c35 !important;
+color:#fff !important;
+font-weight:800 !important;
+}
+
+/* NO PLAY = visible dark grey text on light bg */
+.pred-noplay {
+background:#eaeaea !important;
+color:#5a5f6b !important;
+font-weight:700 !important;
+}
+
+/* Error notes in table - red and visible */
+small.error-note {
+color:#c91920 !important;
+font-size:10px !important;
+font-weight:600 !important;
+}
+
+/* Locked/faded sections - make them more clearly locked not invisible */
+.section.locked .section-toggle {
+opacity:0.4 !important;
+}
+
+/* Lock icon back to original size */
+.lock {
+font-size:4px !important;
+}
+
 </style>
 
 </head>
