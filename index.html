@@ -2695,6 +2695,12 @@ function isH2HComplete() {
 function goToNextStep() {
   const league = document.getElementById("leagueSelect").value;
   if (!league)              { accordionOpen("leagueSection"); return; }
+
+  // Don't auto-navigate into market — user fills it at their own pace and collapses manually
+  const marketOpen = document.getElementById("marketSection") &&
+                     !document.getElementById("marketSection").classList.contains("collapsed");
+  if (marketOpen) return;
+
   if (!isMarketComplete())  { accordionOpen("marketSection"); return; }
   if (!isTeamAComplete())   { accordionOpen("teamASection");  return; }
   if (!isTeamBComplete())   { accordionOpen("teamBSection");  return; }
@@ -2761,11 +2767,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ── Market fields — reset results on edit, no auto-advance (use Done button) ──
+  // ── Market fields — only reset results, never auto-advance ──────────────
   ["ftMarket","teamAMarket","teamBMarket","h1Market","q1Market"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener("input", () => { resetResultsTable(); updateSectionLocks(); });
+    el.addEventListener("input", () => { resetResultsTable(); });
   });
 
   // ── Team A fields ─────────────────────────────────────────────
