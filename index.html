@@ -198,13 +198,13 @@ appearance:none;-webkit-appearance:none;-moz-appearance:none;
 input[type=“checkbox”]{width:12px;height:12px;margin-right:6px;vertical-align:middle;}
 
 .section-toggle{
-width:100%;background:none;border:none;padding:0;margin:0;
-color:var(–sb-text);display:flex;align-items:center;
+width:100%;background:none !important;border:none;padding:0;margin:0 !important;
+color:var(–sb-text) !important;display:flex;align-items:center;
 justify-content:space-between;text-align:left;cursor:pointer;
 }
 
 .section-toggle .toggle-title{display:block;font-weight:700;}
-.section-toggle .toggle-icon{font-size:18px;line-height:1;transition:transform 0.2s ease;color:var(–sb-dark);}
+.section-toggle .toggle-icon{font-size:18px;line-height:1;transition:transform 0.2s ease;color:var(–sb-dark) !important;}
 
 .section-body{margin-top:10px;}
 .section.collapsed .section-body{display:none;}
@@ -219,7 +219,7 @@ justify-content:space-between;text-align:left;cursor:pointer;
 
 </head>
 <body>
-<h1>🏀 Basketball</h1>
+<div style="background:#d92d2a;padding:16px 12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.12);text-align:center;"><span style="font-size:20px;font-weight:700;color:#fff;">🏀 Basketball</span></div>
 
 <!-- MANUAL TAB -->
 
