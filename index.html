@@ -13,12 +13,13 @@
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <title>Basketball Prediction Engine</title>
 <style>
-body {background:#111;color:#d4af37;font-family:Segoe UI,sans-serif;margin:0;}
+html{-webkit-text-size-adjust:100%;}
+body {background:#111;color:#d4af37;font-family:Segoe UI,sans-serif;margin:0;-webkit-text-size-adjust:100%;}
 .wrapper {max-width:760px;margin:10px auto;padding:0 10px;}
 h1 {text-align:center;font-size:18px;margin:10px 0;}
 .section {border:1px solid #d4af37;background:#1a1a1a;padding:8px;margin:6px auto;}
 label {display:block;font-size:12px;margin-bottom:3px;}
-input {width:100%;max-width:260px;padding:5px;font-size:12px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
+input {width:100%;max-width:260px;padding:5px;font-size:16px;background:#222;color:#d4af37;border:1px solid #d4af37;margin-bottom:4px;}
 
 input[type=“checkbox”] {width:12px;height:12px;margin-right:6px;vertical-align:middle;}
 ::placeholder {color:rgba(255,255,255,0.35);}
@@ -81,6 +82,14 @@ color:#111;
 
 /* ── Input / select width consistency ── */
 input,
+select,
+textarea,
+button,
+.league-box,
+.fetch-btn{
+font-size:16px !important;
+}
+input,
 .league-box,
 .autocomplete-wrap{
 width:100%;
@@ -90,7 +99,7 @@ box-sizing:border-box;
 .league-box{
 display:block;
 padding:5px;
-font-size:12px;
+font-size:16px;
 background:#222;
 color:#d4af37;
 border:1px solid #d4af37;
@@ -101,59 +110,7 @@ appearance:none;
 -moz-appearance:none;
 }
 
-/* ── Fixture list ── */
-.fixture-list{
-display:grid;
-gap:10px;
-margin-top:8px;
-}
-.fixture-date-head{
-font-size:12px;
-color:#d4af37;
-margin:4px 0 6px;
-font-weight:700;
-}
-.fixture-item{
-width:100%;
-display:block;
-background:#161616;
-border:1px solid rgba(212,175,55,0.55);
-color:#d4af37;
-padding:10px 12px;
-border-radius:0;
-text-align:left;
-margin:0;
-cursor:pointer;
-}
-.fixture-item.active{
-border-color:#d4af37;
-box-shadow:0 0 0 1px #d4af37 inset;
-}
-.fixture-time{
-display:block;
-font-size:12px;
-color:#d4af37;
-margin-bottom:4px;
-font-weight:700;
-}
-.fixture-team{
-display:block;
-font-size:13px;
-line-height:1.35;
-color:#d4af37;
-}
-.fixture-id,
-.fixture-more,
-.fixture-meta{
-display:none;
-}
-.fixture-empty{
-border:1px dashed rgba(212,175,55,0.45);
-color:#999;
-padding:10px;
-border-radius:10px;
-font-size:12px;
-}
+/* fixture list styles removed — using native select */
 
 /* ── Collapsible Sections ─────────────────────── */
 .section-toggle{
@@ -193,6 +150,18 @@ display:none;
 transform:rotate(-90deg);
 }
 
+.section.locked .section-body{
+display:none !important;
+}
+.section.locked .section-toggle{
+opacity:0.35;
+cursor:not-allowed;
+pointer-events:none;
+}
+.section.locked .section-toggle .toggle-icon{
+display:none;
+}
+
 </style>
 
 </head>
@@ -207,6 +176,7 @@ transform:rotate(-90deg);
     <h3>League Tier</h3>
     <label>Select League</label>
     <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
+      <option value="">— Select League —</option>
       <optgroup label="── USA ──────────────────">
         <option value="nba">USA - NBA</option>
         <option value="ncaa">USA - NCAA</option>
@@ -488,11 +458,67 @@ function readVal(p) {
 // ── Section helpers ──────────────────────────────────────────────────────
 function openSection(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.remove("collapsed");
+  if (!el || el.classList.contains("locked")) return;
+  el.classList.remove("collapsed");
 }
 function closeSection(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add("collapsed");
+}
+function lockSection(id) {
+  const el = document.getElementById(id);
+  if (el) { el.classList.add("locked"); el.classList.add("collapsed"); }
+}
+function unlockSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove("locked");
+}
+// Open one section, close all others (accordion)
+function accordionOpen(id) {
+  ["leagueSection","espnSection","marketSection","teamASection","teamBSection","h2hSection"].forEach(s => {
+    if (s !== id) closeSection(s);
+  });
+  openSection(id);
+}
+// Lock all sections downstream of a given section
+function lockFrom(startId) {
+  const order = ["espnSection","marketSection","teamASection","teamBSection","h2hSection"];
+  let locking = false;
+  order.forEach(id => {
+    if (id === startId) locking = true;
+    if (locking) lockSection(id);
+  });
+}
+// Unlock and set up sections based on current state
+function updateSectionLocks() {
+  const league = document.getElementById("leagueSelect").value;
+  const isNbaOrNcaa = league === "nba" || league === "ncaa";
+
+  // Lock all downstream first
+  ["espnSection","marketSection","teamASection","teamBSection","h2hSection"].forEach(lockSection);
+
+  if (!league) return;
+
+  if (isNbaOrNcaa) unlockSection("espnSection");
+  unlockSection("marketSection");
+
+  const mkt = document.getElementById("ftMarket").value.trim()
+    || document.getElementById("teamAMarket").value.trim()
+    || document.getElementById("teamBMarket").value.trim()
+    || document.getElementById("h1Market").value.trim()
+    || document.getElementById("q1Market").value.trim();
+  if (!mkt) return;
+  unlockSection("teamASection");
+
+  const aOk = document.getElementById("aFTScored").value.trim()
+            && document.getElementById("aFTAllowed").value.trim();
+  if (!aOk) return;
+  unlockSection("teamBSection");
+
+  const bOk = document.getElementById("bFTScored").value.trim()
+            && document.getElementById("bFTAllowed").value.trim();
+  if (!bOk) return;
+  unlockSection("h2hSection");
 }
 
 // ── Fixture Picker Helpers ────────────────────────────────────────────────
@@ -537,11 +563,7 @@ function formatFixtureHeaderDate(dateStr) {
   } catch { return ""; }
 }
 
-function markActiveFixture(eventId) {
-  document.querySelectorAll(".fixture-item").forEach(el => el.classList.remove("active"));
-  const active = document.querySelector(`.fixture-item[data-event-id="${String(eventId)}"]`);
-  if (active) active.classList.add("active");
-}
+
 
 function escJs(str) {
   return String(str).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -569,7 +591,12 @@ async function loadFixtures(offset = 0) {
   const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
   const base = "https://site.api.espn.com/apis/site/v2/sports/basketball/" + leagueSlug;
   const targetLocalKey = getLocalDateKey(offset);
-  const queryDates = [getLocalDateKey(0), getLocalDateKey(1), getLocalDateKey(2)];
+  const queryDates = [
+    getLocalDateKey(-1),
+    getLocalDateKey(0),
+    getLocalDateKey(1),
+    getLocalDateKey(2)
+  ];
 
   try {
     const payloads = await Promise.all(
@@ -593,19 +620,28 @@ async function loadFixtures(offset = 0) {
       });
     });
 
-    const now = new Date();
+    const now = Date.now();
     const events = merged
       .filter(function(ev) {
         const comp = ev && ev.competitions && ev.competitions[0];
         if (!comp || (comp.competitors || []).length < 2) return false;
+
+        const eventTime = new Date(ev.date);
+        if (isNaN(eventTime.getTime())) return false;
+
         if (getLocalDateKeyFromISO(ev.date) !== targetLocalKey) return false;
+
         const state = (comp.status && comp.status.type && comp.status.type.state) || "";
         const completed = (comp.status && comp.status.type && comp.status.type.completed) || state === "post";
         if (completed) return false;
-        if (offset === 0 && new Date(ev.date) <= now) return false;
+
+        if (offset === 0 && eventTime.getTime() <= now) return false;
+
         return true;
       })
-      .sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
+      .sort(function(a, b) {
+        return new Date(a.date) - new Date(b.date);
+      });
 
     if (!events.length) {
       sel.innerHTML = '<option value="">No upcoming matches</option>';
@@ -652,15 +688,13 @@ function onFixtureSelect() {
 }
 
 function pickFixture(eventId, homeName, homeId, awayName, awayId) {
-  _activeFixtureId = String(eventId || "");
-  markActiveFixture(_activeFixtureId);
   closeDrop("dropA");
   closeDrop("dropB");
   document.getElementById("teamAName").value = homeName;
   document.getElementById("teamBName").value = awayName;
   selectedTeamIds.A = String(homeId || "");
   selectedTeamIds.B = String(awayId || "");
-  openSection("espnSection");
+  accordionOpen("espnSection");
   setStatus('<span class="spinner"></span>Match selected. Fetching stats...', "loading");
   fetchESPN();
 }
@@ -685,10 +719,14 @@ function makeSectionsCollapsible() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "section-toggle";
-    btn.innerHTML = `
-      <span class="toggle-title">${titleHTML}</span>
-      <span class="toggle-icon">&#9662;</span>
-    `;
+    const titleSpan = document.createElement("span");
+    titleSpan.className = "toggle-title";
+    titleSpan.innerHTML = titleHTML;
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "toggle-icon";
+    iconSpan.innerHTML = "&#9662;";
+    btn.appendChild(titleSpan);
+    btn.appendChild(iconSpan);
 
     btn.addEventListener("click", () => {
       section.classList.toggle("collapsed");
@@ -1314,6 +1352,17 @@ function onLeagueChange() {
   ["aFTH2H","bFTH2H"].forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
   document.getElementById("useFTH2H").checked = false;
 
+  const fsel = document.getElementById("fixtureSelect");
+  if (fsel) { fsel.innerHTML = '<option value="">— Select match —</option>'; fsel.value = ""; }
+
+  const league2 = document.getElementById("leagueSelect").value;
+  if (!league2) {
+    lockFrom("espnSection");
+    accordionOpen("leagueSection");
+    return;
+  }
+  updateSectionLocks();
+  goToNextStep();
   loadFixtures(0);
 }
 
@@ -1420,7 +1469,6 @@ async function fetchESPN() {
         document.getElementById("aQ1Allowed").value = aStats.q1Allowed.join(",");
       }
       document.getElementById("aAutoTag").style.display = "inline";
-      openSection("teamASection");
       messages.push(`${safeText(teamAName)}: ${aStats.scored.length} games &#9989;`);
     } else { messages.push(`${safeText(teamAName)}: no data &#10060;`); }
     if (bStats?.scored?.length>0) {
@@ -1435,7 +1483,6 @@ async function fetchESPN() {
         document.getElementById("bQ1Allowed").value = bStats.q1Allowed.join(",");
       }
       document.getElementById("bAutoTag").style.display = "inline";
-      openSection("teamBSection");
       messages.push(`${safeText(teamBName)}: ${bStats.scored.length} games &#9989;`);
     } else { messages.push(`${safeText(teamBName)}: no data &#10060;`); }
     g_fetchMeta.A = aStats ? {
@@ -1480,7 +1527,6 @@ async function fetchESPN() {
         document.getElementById("b1HH2H").value = h2hB1H.join(",");
         document.getElementById("use1HH2H").checked = true;
       }
-      openSection("h2hSection");
       messages.push(`H2H: ${Math.min(h2hGames.length,5)} games &#9989;`);
     } else if (h2hGames?.length===1) {
       const tA = String(teamAId); const g = h2hGames[0];
@@ -1516,7 +1562,7 @@ async function fetchESPN() {
     renderInjBox("injuryBoxA","injuryContentA",g_injA);
     renderInjBox("injuryBoxB","injuryContentB",g_injB);
     const allGood = aStats?.scored?.length>0 && bStats?.scored?.length>0;
-    if (allGood) openSection("marketSection");
+    if (allGood) { updateSectionLocks(); goToNextStep(); }
     setStatus(messages.map(m=>`<div>${m}</div>`).join(""), allGood?"ok":"err");
   } catch(e) {
     if (_myToken === _fetchToken) setStatus("&#10060; " + safeText(e.message), "err");
@@ -2508,31 +2554,123 @@ function clearAll(){
   unlockFetchBtn();
   selectedTeamIds = { A: null, B: null };
   g_fetchMeta = _defaultFetchMeta();
+
+  // Reset league select
+  const ls = document.getElementById("leagueSelect");
+  if (ls) ls.value = "";
+
+  // Clear all inputs and checkboxes
   document.querySelectorAll("input").forEach(i=>{if(i.type!=="checkbox")i.value="";else i.checked=false;});
   document.querySelectorAll("input").forEach(i=>i.style.borderColor="");
-  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id=>document.getElementById(id).style.display="none");
-  ["injuryBoxA","injuryBoxB"].forEach(id=>document.getElementById(id).style.display="none");
-  g_injA={restMult:1,scoringMult:1,notes:[]};
-  g_injB={restMult:1,scoringMult:1,notes:[]};
-  ["aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed","q1Market"].forEach(id => {
+
+  // Clear all market/stat fields
+  ["ftMarket","h1Market","q1Market","teamAMarket","teamBMarket",
+   "aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
+   "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
+   "aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
   });
-  _sbCache.clear();
-  _schedCache.clear();
-  _summaryCache.clear();
+
+  // Hide ESPN section (no league selected)
+  const espn = document.getElementById("espnSection");
+  if (espn) espn.style.display = "none";
+
+  // Hide 1H/Q1 subsections
+  ["a1HSection","b1HSection","h2h1HSection","h1MarketSection",
+   "aQ1Section","bQ1Section","q1MarketSection"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = "none";
+  });
+
+  ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.style.display="none";
+  });
+  ["injuryBoxA","injuryBoxB"].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.style.display="none";
+  });
+  g_injA={restMult:1,scoringMult:1,notes:[]};
+  g_injB={restMult:1,scoringMult:1,notes:[]};
+
+  _sbCache.clear(); _schedCache.clear(); _summaryCache.clear();
   setStatus("","");
-  closeDrop("dropA");
-  closeDrop("dropB");
-  const t=document.getElementById("results");
+  closeDrop("dropA"); closeDrop("dropB");
+
+  const t = document.getElementById("results");
   t.innerHTML="<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
   t.style.display="none";
-  document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
+
+  const fixtureSelect = document.getElementById("fixtureSelect");
+  if (fixtureSelect) { fixtureSelect.innerHTML = '<option value="">— Select match —</option>'; fixtureSelect.value = ""; }
+
+  // Collapse all, lock all except league, open league
+  document.querySelectorAll(".section").forEach(s => {
+    s.classList.add("collapsed");
+    s.classList.remove("locked");
+  });
+  lockFrom("espnSection");
+  updateSectionLocks();
+  accordionOpen("leagueSection");
+}
+
+// ── Global completion helpers ─────────────────────────────────────────────
+function hasValue(id) {
+  const el = document.getElementById(id);
+  return !!(el && el.value.trim());
+}
+
+function isMarketComplete() {
+  if (hasValue("ftMarket")) return true;
+  if (hasValue("teamAMarket") && hasValue("teamBMarket")) return true;
+  if (hasValue("h1Market")) return true;
+  if (hasValue("q1Market")) return true;
+  return false;
+}
+
+function isTeamAComplete() {
+  return hasValue("aFTScored") && hasValue("aFTAllowed");
+}
+
+function isTeamBComplete() {
+  return hasValue("bFTScored") && hasValue("bFTAllowed");
+}
+
+function isH2HComplete() {
+  const cb = document.getElementById("useFTH2H");
+  if (cb && cb.checked) return hasValue("aFTH2H") && hasValue("bFTH2H");
+  return true;
+}
+
+function goToNextStep() {
+  const league = document.getElementById("leagueSelect").value;
+  if (!league)              { accordionOpen("leagueSection"); return; }
+  if (!isMarketComplete())  { accordionOpen("marketSection"); return; }
+  if (!isTeamAComplete())   { accordionOpen("teamASection");  return; }
+  if (!isTeamBComplete())   { accordionOpen("teamBSection");  return; }
+  if (!isH2HComplete())     { accordionOpen("h2hSection");    return; }
+  closeSection("h2hSection");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   makeSectionsCollapsible();
-  document.querySelectorAll(".section").forEach(s => s.classList.add("collapsed"));
-  onLeagueChange();
+
+  document.querySelectorAll(".section").forEach(s => {
+    s.classList.add("collapsed");
+    s.classList.remove("locked");
+  });
+
+  const ls0 = document.getElementById("leagueSelect");
+  if (ls0) ls0.value = "";
+
+  const espnEl = document.getElementById("espnSection");
+  if (espnEl) espnEl.style.display = "none";
+
+  ["a1HSection","b1HSection","h2h1HSection","h1MarketSection",
+   "aQ1Section","bQ1Section","q1MarketSection"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+
+  lockFrom("espnSection");
+  openSection("leagueSection");
 
   ["useFTH2H","use1HH2H"].forEach(id => {
     const el = document.getElementById(id);
@@ -2565,7 +2703,39 @@ document.addEventListener("DOMContentLoaded", () => {
       const tagEl = document.getElementById(tag);
       if (tagEl) tagEl.style.display = "none";
       resetResultsTable();
+      // Auto-open next section based on what was just filled
+      updateSectionLocks();
     });
+  });
+
+  // ── Market fields ────────────────────────────────────────────────
+  ["ftMarket","teamAMarket","teamBMarket","h1Market","q1Market"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => { resetResultsTable(); updateSectionLocks(); goToNextStep(); });
+  });
+
+  // ── Team A fields ─────────────────────────────────────────────
+  ["aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => { updateSectionLocks(); goToNextStep(); });
+  });
+
+  // ── Team B fields ─────────────────────────────────────────────
+  ["bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => { updateSectionLocks(); goToNextStep(); });
+  });
+
+  // ── H2H fields ────────────────────────────────────────────────
+  ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","useFTH2H","use1HH2H"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const check = () => { updateSectionLocks(); goToNextStep(); };
+    el.addEventListener("input", check);
+    el.addEventListener("change", check);
   });
 });
 
