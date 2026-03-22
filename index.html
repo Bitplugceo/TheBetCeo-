@@ -86,15 +86,12 @@ color:#111;
 }
 
 /* ── Input / select width consistency ── */
+/* font sizes: inputs stay at 16px to prevent iOS zoom, buttons inherit */
 input,
 select,
 textarea,
 .league-box{
-font-size:16px !important;
-}
-button,
-.fetch-btn{
-font-size:13px !important;
+font-size:16px;
 }
 input,
 .league-box,
@@ -2622,7 +2619,13 @@ function hasValidMarketLine(id, allowSingle) {
   const val = el.value.trim();
   if (!val) return false;
   if (val.includes("-")) {
-    return parseLineRange(val, false) !== null;
+    // Both sides must be present and each must be a valid number with a decimal
+    const parts = val.split("-").map(s => s.trim());
+    if (parts.length !== 2) return false;
+    if (!/^\d{2,3}\.\d+$/.test(parts[0])) return false;
+    if (!/^\d{2,3}\.\d+$/.test(parts[1])) return false;
+    const a = parseFloat(parts[0]), b = parseFloat(parts[1]);
+    return !isNaN(a) && !isNaN(b) && b >= a;
   }
   if (!allowSingle) return false;
   if (!/^\d{2,3}\.\d+$/.test(val)) return false;
