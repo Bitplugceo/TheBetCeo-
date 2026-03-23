@@ -1027,9 +1027,11 @@
     const _teamCatalogCache = new Map();
 
     let _fetchToken = 0;
-    let activeDropTeam = null;
-    let selectedTeamIds = { A: null, B: null };
-    const _teamSearchToken = { A: 0, B: 0 };
+let _fixtureLoadToken = 0;
+let activeDropTeam = null;
+let selectedTeamIds = { A: null, B: null };
+const _teamSearchToken = { A: 0, B: 0 };
+let g_lastFetchedTeams = { A: "", B: "" };
 
     const defaultFetchMeta = () => ({
       A: {
@@ -1559,24 +1561,26 @@
     }
 
     function clearAutoFill(changedSide = null) {
-      _fetchToken++;
-      unlockFetchBtn();
-      setStatus("", "");
-      resetResultsTable();
+  _fetchToken++;
+  unlockFetchBtn();
+  setStatus("", "");
+  resetResultsTable();
 
-      if (changedSide === "A" || changedSide === "B") {
-        selectedTeamIds[changedSide] = null;
-        setManualSource(changedSide);
-        clearSideFields(changedSide);
-        clearH2HFields();
-      } else {
-        selectedTeamIds = { A: null, B: null };
-        g_fetchMeta = defaultFetchMeta();
-        clearSideFields("A");
-        clearSideFields("B");
-        clearH2HFields();
-      }
-    }
+  if (changedSide === "A" || changedSide === "B") {
+    selectedTeamIds[changedSide] = null;
+    g_lastFetchedTeams[changedSide] = "";
+    setManualSource(changedSide);
+    clearSideFields(changedSide);
+    clearH2HFields();
+  } else {
+    selectedTeamIds = { A: null, B: null };
+    g_lastFetchedTeams = { A: "", B: "" };
+    g_fetchMeta = defaultFetchMeta();
+    clearSideFields("A");
+    clearSideFields("B");
+    clearH2HFields();
+  }
+}
 
     function isStatFieldValid(id) {
       const parsed = parseGames(id);
@@ -1863,61 +1867,64 @@
     }
 
     async function onTeamInput(side) {
-      clearAutoFill(side);
-      selectedTeamIds[side] = null;
+  const inputId = side === "A" ? "teamAName" : "teamBName";
+  const dropId = side === "A" ? "dropA" : "dropB";
+  const input = document.getElementById(inputId);
+  const drop = document.getElementById(dropId);
+  const val = input.value.trim();
+  const league = document.getElementById("leagueSelect").value;
+  const normVal = normalizeTeamName(val);
 
-      const inputId = side === "A" ? "teamAName" : "teamBName";
-      const dropId = side === "A" ? "dropA" : "dropB";
-      const input = document.getElementById(inputId);
-      const drop = document.getElementById(dropId);
-      const val = input.value.trim();
-      const league = document.getElementById("leagueSelect").value;
+  if (g_lastFetchedTeams[side] && normVal !== g_lastFetchedTeams[side]) {
+    clearAutoFill(side);
+  }
 
-      if (!val) {
-        closeDrop(dropId);
-        return;
-      }
+  selectedTeamIds[side] = null;
 
-      if (league !== "nba" && league !== "ncaa") {
-        closeDrop(dropId);
-        return;
-      }
+  if (!val) {
+    closeDrop(dropId);
+    return;
+  }
 
-      const myToken = ++_teamSearchToken[side];
-      const teams = await fetchLeagueTeamCatalog(league);
-      if (myToken !== _teamSearchToken[side]) return;
+  if (league !== "nba" && league !== "ncaa") {
+    closeDrop(dropId);
+    return;
+  }
 
-      const q = normalizeTeamName(val);
-      const matches = teams
-        .filter(t => normalizeTeamName(t.name).includes(q))
-        .slice(0, 20);
+  const myToken = ++_teamSearchToken[side];
+  const teams = await fetchLeagueTeamCatalog(league);
+  if (myToken !== _teamSearchToken[side]) return;
 
-      if (!matches.length) {
-        closeDrop(dropId);
-        return;
-      }
+  const matches = teams
+    .filter(t => normalizeTeamName(t.name).includes(normVal))
+    .slice(0, 20);
 
-      drop.innerHTML = "";
+  if (!matches.length) {
+    closeDrop(dropId);
+    return;
+  }
 
-      const group = document.createElement("div");
-      group.className = "group-label";
-      group.textContent = league === "nba" ? "NBA" : "NCAA";
-      drop.appendChild(group);
+  drop.innerHTML = "";
 
-      matches.forEach(team => {
-        const div = document.createElement("div");
-        div.dataset.id = team.id;
-        div.dataset.name = team.name;
-        div.innerHTML = highlight(team.name, val);
-        div.addEventListener("mousedown", () => {
-          selectTeam(side, team.name, team.id);
-        });
-        drop.appendChild(div);
-      });
+  const group = document.createElement("div");
+  group.className = "group-label";
+  group.textContent = league === "nba" ? "NBA" : "NCAA";
+  drop.appendChild(group);
 
-      drop.style.display = "block";
-      activeDropTeam = side;
-    }
+  matches.forEach(team => {
+    const div = document.createElement("div");
+    div.dataset.id = team.id;
+    div.dataset.name = team.name;
+    div.innerHTML = highlight(team.name, val);
+    div.addEventListener("mousedown", () => {
+      selectTeam(side, team.name, team.id);
+    });
+    drop.appendChild(div);
+  });
+
+  drop.style.display = "block";
+  activeDropTeam = side;
+}
 
     document.addEventListener("click", e => {
       if (!e.target.closest(".autocomplete-wrap")) {
@@ -2911,7 +2918,8 @@
     }
 
     async function loadFixtures(offset = 0) {
-      const league = document.getElementById("leagueSelect").value;
+  const myToken = ++_fixtureLoadToken;
+  const league = document.getElementById("leagueSelect").value;
       const toolbar = document.getElementById("fixtureToolbar");
       const sel = document.getElementById("fixtureSelect");
 
@@ -3059,25 +3067,21 @@
       const teamAName = document.getElementById("teamAName").value.trim();
       const teamBName = document.getElementById("teamBName").value.trim();
 
-      if (!teamAName || !teamBName) {
-        setStatus("❌ Enter both team names first.", "err");
-        return;
-      }
+if (!teamAName || !teamBName) {
+  setStatus("❌ Enter both team names first.", "err");
+  return;
+}
+
+if (league !== "nba" && league !== "ncaa") {
+  setStatus("❌ ESPN auto-fetch is NBA & NCAA only.", "err");
+  return;
+}
 
       const btn = document.getElementById("fetchBtn");
       btn.disabled = true;
 
       resetResultsTable();
-      g_injA = { restMult: 1, scoringMult: 1, notes: [] };
-      g_injB = { restMult: 1, scoringMult: 1, notes: [] };
-      g_fetchMeta = defaultFetchMeta();
-      hideInjuryBox("A");
-      hideInjuryBox("B");
-      clearSideFields("A");
-      clearSideFields("B");
-      clearH2HFields();
-
-      setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
+setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
       const myToken = ++_fetchToken;
 
       try {
@@ -3107,11 +3111,20 @@
 
         if (myToken !== _fetchToken) return;
 
-        if (!aStats && !bStats) {
-          throw new Error("No recent schedule data found from ESPN.");
-        }
+if (!aStats && !bStats) {
+  throw new Error("No recent schedule data found from ESPN.");
+}
 
-        const messages = [];
+g_injA = { restMult: 1, scoringMult: 1, notes: [] };
+g_injB = { restMult: 1, scoringMult: 1, notes: [] };
+g_fetchMeta = defaultFetchMeta();
+hideInjuryBox("A");
+hideInjuryBox("B");
+clearSideFields("A");
+clearSideFields("B");
+clearH2HFields();
+
+const messages = [];
 
         if (aStats?.scored?.length > 0) {
           document.getElementById("aFTScored").value = aStats.scored.join(",");
@@ -3277,11 +3290,13 @@
         renderInjuryBox("injuryBoxB", "injuryContentB", g_injB);
 
         const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
-        if (allGood) {
-          updateSectionLocks();
-        }
+if (allGood) {
+  g_lastFetchedTeams.A = normalizeTeamName(teamAName);
+  g_lastFetchedTeams.B = normalizeTeamName(teamBName);
+  updateSectionLocks();
+}
 
-        setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
+setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
       } catch (e) {
         if (myToken === _fetchToken) {
           setStatus("❌ " + safeText(e.message), "err");
