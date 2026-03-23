@@ -3348,14 +3348,34 @@ if (
   aLine === null &&
   bLine === null
 ) {
-  const row = table.insertRow();
-  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Enter at least one valid market line first.</td>`;
+    showRunError(table, "⚠ Enter at least one valid market line first.");
   return;
 }
-      const aSA = parseGames("aFTScored");
-      const aAA = parseGames("aFTAllowed");
-      const bSA = parseGames("bFTScored");
-      const bAA = parseGames("bFTAllowed");
+            const parsed = {
+        aFTScored: parseGames("aFTScored"),
+        aFTAllowed: parseGames("aFTAllowed"),
+        bFTScored: parseGames("bFTScored"),
+        bFTAllowed: parseGames("bFTAllowed"),
+        a1HScored: parseGames("a1HScored"),
+        a1HAllowed: parseGames("a1HAllowed"),
+        b1HScored: parseGames("b1HScored"),
+        b1HAllowed: parseGames("b1HAllowed"),
+        aQ1Scored: parseGames("aQ1Scored"),
+        aQ1Allowed: parseGames("aQ1Allowed"),
+        bQ1Scored: parseGames("bQ1Scored"),
+        bQ1Allowed: parseGames("bQ1Allowed"),
+        aFTH2H: parseGames("aFTH2H"),
+        bFTH2H: parseGames("bFTH2H"),
+        a1HH2H: parseGames("a1HH2H"),
+        b1HH2H: parseGames("b1HH2H"),
+        aQ1H2H: parseGames("aQ1H2H"),
+        bQ1H2H: parseGames("bQ1H2H")
+      };
+
+      const aSA = parsed.aFTScored;
+      const aAA = parsed.aFTAllowed;
+      const bSA = parsed.bFTScored;
+      const bAA = parsed.bFTAllowed;
 
       const inputErrors = [];
 
@@ -3430,9 +3450,8 @@ markError("bFTAllowed", "Team B FT Allowed", bAA, true);
 
       const lineErrors = validateLines(league, ftLine, h1Line, q1Line, aLine, bLine);
 if (lineErrors.length) {
-  const row = table.insertRow();
-  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Market line sanity check failed:<br>${lineErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}</td>`;
-  return;
+        showRunError(table, `⚠ Fix these inputs before running:<br>${inputErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}`);
+        return;
 }
       const calcAvg = isNbaOrNcaa ? weightedAvg : trimmedAvg;
 
