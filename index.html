@@ -1340,9 +1340,9 @@
     }
 
     function displayLine(val) {
-      if (isNaN(val)) return "NaN";
-      return (Math.round(val * 2) / 2).toFixed(1);
-    }
+  if (val === null || val === undefined || isNaN(val)) return "NaN";
+  return (Math.round(val * 2) / 2).toFixed(1);
+}
 
     function getH2HWeight(lenA, lenB) {
       const n = Math.min(lenA || 0, lenB || 0);
@@ -1629,7 +1629,14 @@
 
     function updateSectionLocks() {
       const league = document.getElementById("leagueSelect").value;
-      const isNbaOrNcaa = league === "nba" || league === "ncaa";
+const isNbaOrNcaa = league === "nba" || league === "ncaa";
+const isNba = league === "nba";
+
+if (!league) {
+  const row = table.insertRow();
+  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
+  return;
+}
 
       ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(lockSection);
       if (!league) return;
@@ -3447,11 +3454,22 @@
       addStage("teamB", "League Base", eb / 2, "Team baseline");
 
       const ftLine = snapHalf(parseMarketLine(document.getElementById("ftMarket").value));
-      const h1Line = snapHalf(parseMarketLine(document.getElementById("h1Market").value));
-      const q1Line = snapHalf(parseMarketLine(document.getElementById("q1Market").value));
-      const aLine = snapHalf(parseMarketLine(document.getElementById("teamAMarket").value));
-      const bLine = snapHalf(parseMarketLine(document.getElementById("teamBMarket").value));
+const h1Line = snapHalf(parseMarketLine(document.getElementById("h1Market").value));
+const q1Line = snapHalf(parseMarketLine(document.getElementById("q1Market").value));
+const aLine = snapHalf(parseMarketLine(document.getElementById("teamAMarket").value));
+const bLine = snapHalf(parseMarketLine(document.getElementById("teamBMarket").value));
 
+if (
+  ftLine === null &&
+  h1Line === null &&
+  q1Line === null &&
+  aLine === null &&
+  bLine === null
+) {
+  const row = table.insertRow();
+  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Enter at least one valid market line first.</td>`;
+  return;
+}
       addStage("ft", "Market Line", ftLine, "FT total line");
       addStage("h1", "Market Line", h1Line, "1H total line");
       addStage("q1", "Market Line", q1Line, "Q1 total line");
@@ -4229,7 +4247,15 @@
       });
 
       const league = document.getElementById("leagueSelect").value;
-      const isNbaOrNcaa = league === "nba" || league === "ncaa";
+
+if (!league) {
+  const row = table.insertRow();
+  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
+  return;
+}
+
+const isNbaOrNcaa = league === "nba" || league === "ncaa";
+const isNba = league === "nba";
 
       document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
 
