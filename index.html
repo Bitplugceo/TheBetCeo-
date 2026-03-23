@@ -369,14 +369,14 @@ th, td {
 border-radius:0 !important;
 }
 
-/* Fixture buttons — smaller and sharp */
+/* Fixture buttons - smaller and sharp */
 .fixture-day {
 padding:6px 10px !important;
 font-size:12px !important;
 min-width:90px !important;
 }
 
-/* Fetch Stats button — smaller */
+/* Fetch Stats button - smaller */
 .fetch-btn {
 padding:6px 12px !important;
 font-size:12px !important;
@@ -470,7 +470,7 @@ padding-right:max(14px, env(safe-area-inset-right)) !important;
 padding-bottom:10px !important;
 }
 
-/* Run and Clear — solid, fully visible, not faded */
+/* Run and Clear - solid, fully visible, not faded */
 div[style*=“text-align:center”] button {
 opacity:1 !important;
 border:none !important;
@@ -492,7 +492,7 @@ color:#fff !important;
 box-shadow:0 2px 8px rgba(0,0,0,0.2) !important;
 }
 
-/* Run/Clear by ID — guaranteed targeting */
+/* Run/Clear by ID - guaranteed targeting */
 #runBtn {
 background:#3a9c35 !important;
 color:#fff !important;
@@ -517,7 +517,7 @@ box-shadow:0 2px 8px rgba(0,0,0,0.2) !important;
 cursor:pointer !important;
 }
 
-/* Run/Clear — smaller */
+/* Run/Clear - smaller */
 #runBtn, #clearBtn {
 padding:6px 18px !important;
 font-size:12px !important;
@@ -654,7 +654,7 @@ body.dark-mode td {
 border-color:#333 !important;
 }
 
-/* Checkbox — fixed 12x12 everywhere */
+/* Checkbox - fixed 12x12 everywhere */
 input[type=“checkbox”] {
 width:12px !important;
 height:12px !important;
@@ -668,11 +668,11 @@ vertical-align:middle !important;
 appearance:checkbox !important;
 }
 
-/* checkbox — native iOS default */
+/* checkbox - native iOS default */
 
-/* checkbox — native iOS default */
+/* checkbox - native iOS default */
 
-/* Checkbox — native iOS, just constrain margin */
+/* Checkbox - native iOS, just constrain margin */
 input[type=“checkbox”] {
 width:12px;
 height:12px;
@@ -697,7 +697,7 @@ vertical-align:middle;
     <h3>League Tier</h3>
     <label>Select League</label>
     <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
-      <option value="">&#8212; Select League &#8212;</option>
+      <option value="">- Select League -</option>
       <optgroup label="&#9472;&#9472; USA &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;">
         <option value="nba">USA - NBA</option>
         <option value="ncaa">USA - NCAA</option>
@@ -800,7 +800,7 @@ vertical-align:middle;
 
 <label style="font-size:12px;">Select match</label>
 <select id="fixtureSelect" class="league-box" onchange="onFixtureSelect()">
-  <option value="">&#8212; Select match &#8212;</option>
+  <option value="">- Select match -</option>
 </select>
 
 <label style="font-size:12px;">Team A Name (Home)</label>
@@ -815,8 +815,8 @@ vertical-align:middle;
 </div>
 <button class="fetch-btn" id="fetchBtn" onclick="fetchESPN()">&#128225; Fetch Stats</button>
 <div id="fetchStatus"></div>
-<div class="injury-box" id="injuryBoxA"><div class="inj-title">Team A &#8212; Injury &amp; Rest</div><div id="injuryContentA"></div></div>
-<div class="injury-box" id="injuryBoxB"><div class="inj-title">Team B &#8212; Injury &amp; Rest</div><div id="injuryContentB"></div></div>
+<div class="injury-box" id="injuryBoxA"><div class="inj-title">Team A - Injury &amp; Rest</div><div id="injuryContentA"></div></div>
+<div class="injury-box" id="injuryBoxB"><div class="inj-title">Team B - Injury &amp; Rest</div><div id="injuryContentB"></div></div>
 ```
 
   </div>
@@ -835,7 +835,7 @@ vertical-align:middle;
   </div>
 
   <div class="section" id="teamASection">
-    <h3>Team A &#8212; Home (Last 5) <span class="autofill-indicator" id="aAutoTag">&#9989; Auto-filled</span></h3>
+    <h3>Team A - Home (Last 5) <span class="autofill-indicator" id="aAutoTag">&#9989; Auto-filled</span></h3>
     <label>FT Scored <span style="font-size:10px;color:#888;">(recent &#8594; oldest)</span></label><input id="aFTScored" placeholder="85,79,88,74,82">
     <label>FT Allowed</label><input id="aFTAllowed" placeholder="76,80,72,79,77">
     <div id="a1HSection" style="display:none;">
@@ -849,7 +849,7 @@ vertical-align:middle;
   </div>
 
   <div class="section" id="teamBSection">
-    <h3>Team B &#8212; Away (Last 5) <span class="autofill-indicator" id="bAutoTag">&#9989; Auto-filled</span></h3>
+    <h3>Team B - Away (Last 5) <span class="autofill-indicator" id="bAutoTag">&#9989; Auto-filled</span></h3>
     <label>FT Scored <span style="font-size:10px;color:#888;">(recent &#8594; oldest)</span></label><input id="bFTScored" placeholder="83,77,81,79,80">
     <label>FT Allowed</label><input id="bFTAllowed" placeholder="78,82,74,77,80">
     <div id="b1HSection" style="display:none;">
@@ -1080,7 +1080,7 @@ async function loadFixtures(offset = 0) {
   if (!supported) {
     toolbar.style.display = "none";
     sel.style.display = "none";
-    sel.innerHTML = '<option value="">&#8212; Select match &#8212;</option>';
+    sel.innerHTML = '<option value="">— Select match —</option>';
     return;
   }
 
@@ -1149,7 +1149,7 @@ async function loadFixtures(offset = 0) {
       return;
     }
 
-    sel.innerHTML = '<option value="">&#8212; Select match &#8212;</option>';
+    sel.innerHTML = '<option value="">— Select match —</option>';
     events.forEach(function(ev) {
       const comp = ev.competitions[0];
       const competitors = comp.competitors || [];
@@ -1163,7 +1163,7 @@ async function loadFixtures(offset = 0) {
       const eventId = String(ev.id || "");
       const opt = document.createElement("option");
       opt.value = eventId;
-      opt.textContent = tipoff + " &#8212; " + homeName + " vs " + awayName;
+      opt.textContent = tipoff + " — " + homeName + " vs " + awayName;
       opt.dataset.home = homeName;
       opt.dataset.away = awayName;
       opt.dataset.homeId = homeId;
@@ -1623,7 +1623,7 @@ async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nex
       const tag=isOut?"OUT":"DTD";
       const ppgStr=ppg>0?` (${ppg.toFixed(1)} ppg)`:"";
       const adjStr=impact>0.005?` &#8594; -${(impact*100).toFixed(1)}% offense`:"";
-      result.notes.push({type:isOut?"out":"dtd",text:`${playerName}${ppgStr} &#8212; ${tag}${adjStr}`});
+      result.notes.push({type:isOut?"out":"dtd",text:`${playerName}${ppgStr} — ${tag}${adjStr}`});
     }
     const maxInjCap = league === "nba" ? 0.25 : 0.20;
     result.scoringMult=1-Math.min(totalReduction, maxInjCap);
@@ -1864,7 +1864,7 @@ function onLeagueChange() {
   document.getElementById("useFTH2H").checked = false;
 
   const fsel = document.getElementById("fixtureSelect");
-  if (fsel) { fsel.innerHTML = '<option value="">&#8212; Select match &#8212;</option>'; fsel.value = ""; }
+  if (fsel) { fsel.innerHTML = '<option value="">— Select match —</option>'; fsel.value = ""; }
 
   const league2 = document.getElementById("leagueSelect").value;
   if (!league2) {
@@ -2007,10 +2007,10 @@ async function fetchESPN() {
       q1: { source: "espn", venueReliable: Array.isArray(bStats.q1Scored) && bStats.q1Scored.length >= 2 }
     } : _defaultFetchMeta().B;
     if (isNcaa && aStats?.usedVenueFallback) {
-      messages.push(`${safeText(teamAName)}: venue fallback used &#8212; projection only &#9888;&#65039;`);
+      messages.push(`${safeText(teamAName)}: venue fallback used — projection only &#9888;&#65039;`);
     }
     if (isNcaa && bStats?.usedVenueFallback) {
-      messages.push(`${safeText(teamBName)}: venue fallback used &#8212; projection only &#9888;&#65039;`);
+      messages.push(`${safeText(teamBName)}: venue fallback used — projection only &#9888;&#65039;`);
     }
     setStatus('<span class="spinner"></span>Scanning H2H since 2024...',"loading");
     let h2hGames = [];
@@ -2587,7 +2587,7 @@ function getPick(edge, line, league, marketType) {
 function selectLock(markets) {
   const valid = markets.filter(m =>
     m.pick !== "NO PLAY" &&
-    m.pick !== "&#8212;" &&
+    m.pick !== "—" &&
     !isNaN(m.edge) &&
     m.line !== null &&
     !isNaN(m.line) &&
@@ -2896,16 +2896,16 @@ function runEngine(){
   );
 
   const ftNote =
-    ftSampleTier === "insufficient" ? "Insufficient FT sample &#8212; need 2+ games" :
-    ftSampleTier === "thin" ? "Thin FT sample &#8212; projection only" :
+    ftSampleTier === "insufficient" ? "Insufficient FT sample — need 2+ games" :
+    ftSampleTier === "thin" ? "Thin FT sample — projection only" :
     null;
   const h1Note =
-    h1SampleTier === "insufficient" ? "Insufficient 1H sample &#8212; need 2+ games" :
-    h1SampleTier === "thin" ? "Thin 1H sample &#8212; projection only" :
+    h1SampleTier === "insufficient" ? "Insufficient 1H sample — need 2+ games" :
+    h1SampleTier === "thin" ? "Thin 1H sample — projection only" :
     null;
   const q1Note =
-    q1SampleTier === "insufficient" ? "Insufficient Q1 sample &#8212; need 2+ games" :
-    q1SampleTier === "thin" ? "Thin Q1 sample &#8212; projection only" :
+    q1SampleTier === "insufficient" ? "Insufficient Q1 sample — need 2+ games" :
+    q1SampleTier === "thin" ? "Thin Q1 sample — projection only" :
     null;
 
   const ftNcaaProjectionOnly =
@@ -2922,8 +2922,8 @@ function runEngine(){
       (g_fetchMeta.B.h1.source === "espn" && !g_fetchMeta.B.h1.venueReliable)
     );
 
-  const ftNcaaNote = ftNcaaProjectionOnly ? "Weak NCAA home/away venue sample &#8212; projection only" : null;
-  const h1NcaaNote = h1NcaaProjectionOnly ? "Weak NCAA home/away venue sample &#8212; projection only" : null;
+  const ftNcaaNote = ftNcaaProjectionOnly ? "Weak NCAA home/away venue sample — projection only" : null;
+  const h1NcaaNote = h1NcaaProjectionOnly ? "Weak NCAA home/away venue sample — projection only" : null;
 
   let ftPick  = getPick(ftEdge,  ftLine,  league, 'ft');
   let h1Pick  = getPick(h1Edge,  h1Line,  league, 'h1');
@@ -2994,15 +2994,15 @@ function runEngine(){
     const isLock = lockIdx === originalIndex;
     let row = table.insertRow();
     let predText = p.pick;
-    if (p.note) { predText = "&#8212;"; }
-    else if (markets[picks.indexOf(p)] && markets[picks.indexOf(p)].line === null) { predText = "&#8212;"; }
-    if (isLock && predText !== "&#8212;" && predText !== "NO PLAY") predText += ' <span class="lock">&#128274;</span>';
-    const pd = isNaN(p.proj) ? "&#8212;" : p.proj.toFixed(2);
+    if (p.note) { predText = "—"; }
+    else if (markets[picks.indexOf(p)] && markets[picks.indexOf(p)].line === null) { predText = "—"; }
+    if (isLock && predText !== "—" && predText !== "NO PLAY") predText += ' <span class="lock">&#128274;</span>';
+    const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
     const lineRef = markets[originalIndex]?.line;
     const edgePct = (!isNaN(p.edge) && lineRef && lineRef > 0)
       ? (p.edge / lineRef) * 100
       : NaN;
-    const ed = isNaN(edgePct) ? "&#8212;" : (edgePct > 0 ? "+" : "") + edgePct.toFixed(2) + "%";
+    const ed = isNaN(edgePct) ? "—" : (edgePct > 0 ? "+" : "") + edgePct.toFixed(2) + "%";
     const cn = predText.includes("OVER") ? "pred-over" : predText.includes("UNDER") ? "pred-under" : "pred-noplay";
     row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
   });
@@ -3062,7 +3062,7 @@ function clearAll(){
   t.style.display="none";
 
   const fixtureSelect = document.getElementById("fixtureSelect");
-  if (fixtureSelect) { fixtureSelect.innerHTML = '<option value="">&#8212; Select match &#8212;</option>'; fixtureSelect.value = ""; }
+  if (fixtureSelect) { fixtureSelect.innerHTML = '<option value="">— Select match —</option>'; fixtureSelect.value = ""; }
 
   // Collapse all, lock all except league, open league
   document.querySelectorAll(".section").forEach(s => {
@@ -3093,7 +3093,7 @@ function hasValidMarketLine(id, allowSingle) {
     if (isNaN(a) || isNaN(b)) return false;
     return b >= a && b > 0;
   }
-  // Single value &#8212; only for Q1
+  // Single value — only for Q1
   if (!allowSingle) return false;
   if (!/^\d{2,3}\.\d+$/.test(val)) return false;
   return parseLineRange(val, true) !== null;
@@ -3102,7 +3102,7 @@ function hasValidMarketLine(id, allowSingle) {
 
 function isMarketComplete() {
   // Market is complete when at least one field has a valid value
-  // (used for section-lock state only &#8212; actual advance is via Done button)
+  // (used for section-lock state only — actual advance is via Done button)
   const fields = [
     { id: "ftMarket",    allowSingle: false },
     { id: "h1Market",    allowSingle: false },
@@ -3131,7 +3131,7 @@ function goToNextStep() {
   const league = document.getElementById("leagueSelect").value;
   if (!league)              { accordionOpen("leagueSection"); return; }
 
-  // Don't auto-navigate into market &#8212; user fills it at their own pace and collapses manually
+  // Don't auto-navigate into market — user fills it at their own pace and collapses manually
   const marketOpen = document.getElementById("marketSection") &&
                      !document.getElementById("marketSection").classList.contains("collapsed");
   if (marketOpen) return;
@@ -3202,7 +3202,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // &#9472;&#9472; Market fields &#8212; only reset results, never auto-advance &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
+  // &#9472;&#9472; Market fields — only reset results, never auto-advance &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
   ["ftMarket","teamAMarket","teamBMarket","h1Market","q1Market"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
