@@ -13,29 +13,11 @@
 <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg">
 <title>Basketball Prediction Engine</title>
 <style>
-:root{
-  --sb-red:#d92d2a;
-  --sb-red-dark:#b92220;
-  --sb-green:#4aa346;
-  --sb-green-dark:#3e913b;
-  --sb-bg:#ececec;
-  --sb-card:#ffffff;
-  --sb-border:#d9d9d9;
-  --sb-text:#20242c;
-  --sb-muted:#7b8088;
-  --sb-dark:#313744;
-  --sb-dark-2:#424856;
-  --sb-pill:#e9eaef;
-  --sb-under:#7a1d1d;
-  --sb-over:#3e913b;
-  --sb-noplay:#737884;
-}
-
 html{-webkit-text-size-adjust:100%;}
 
 body{
-background:var(–sb-bg);
-color:var(–sb-text);
+background:#ececec;
+color:#20242c;
 font-family:Segoe UI,sans-serif;
 margin:0;
 -webkit-text-size-adjust:100%;
@@ -48,15 +30,15 @@ text-align:center;
 font-size:20px;
 margin:0 0 10px 0;
 padding:16px 12px;
-background:var(–sb-red);
+background:#d92d2a;
 color:#fff;
 font-weight:700;
 box-shadow:0 2px 8px rgba(0,0,0,0.12);
 }
 
 .section{
-border:1px solid var(–sb-border);
-background:var(–sb-card);
+border:1px solid #d9d9d9;
+background:#ffffff;
 padding:10px;
 margin:8px auto;
 border-radius:8px;
@@ -71,7 +53,7 @@ max-width:260px;
 padding:8px 10px;
 font-size:12px;
 background:#fff;
-color:var(–sb-text);
+color:#20242c;
 border:1px solid #cfd3da;
 margin-bottom:6px;
 border-radius:4px;
@@ -79,7 +61,7 @@ border-radius:4px;
 
 input:focus,select:focus{
 outline:none;
-border-color:var(–sb-green);
+border-color:#4aa346;
 box-shadow:0 0 0 2px rgba(74,163,70,0.12);
 }
 
@@ -89,7 +71,7 @@ button{
 padding:8px 16px;
 margin:6px;
 font-weight:700;
-background:var(–sb-dark);
+background:#313744;
 color:#fff;
 border:none;
 border-radius:4px;
@@ -100,7 +82,7 @@ button:hover{opacity:0.95;}
 button:disabled{opacity:0.5;cursor:not-allowed;}
 
 .fetch-btn{
-background:var(–sb-green);
+background:#4aa346;
 color:#fff;
 padding:8px 14px;
 font-size:12px;
@@ -118,9 +100,9 @@ th,td{border:1px solid #dfe2e7;padding:8px 6px;text-align:center;}
 th{background:#313744;color:#fff;font-weight:700;}
 td{background:#fff;color:#20242c;}
 
-.pred-over{background:var(–sb-over);color:#fff;font-weight:bold;}
-.pred-under{background:var(–sb-under);color:#fff;font-weight:bold;}
-.pred-noplay{background:var(–sb-noplay);color:#fff;font-weight:bold;}
+.pred-over{background:#3e913b;color:#fff;font-weight:bold;}
+.pred-under{background:#7a1d1d;color:#fff;font-weight:bold;}
+.pred-noplay{background:#737884;color:#fff;font-weight:bold;}
 
 .lock{font-size:10px;display:inline-block;vertical-align:middle;transform:translateY(-1px);margin-left:4px;}
 
@@ -137,14 +119,14 @@ display:none;
 border-radius:4px;
 }
 
-.injury-box .inj-title{color:var(–sb-dark);font-weight:bold;margin-bottom:2px;}
+.injury-box .inj-title{color:#313744;font-weight:bold;margin-bottom:2px;}
 .inj-out{color:#d92d2a;}
 .inj-dtd{color:#d98a00;}
 .inj-rest{color:#2f8f4a;}
 
 .table-wrap{overflow-x:auto;}
 
-#fetchStatus{font-size:11px;margin-top:6px;min-height:16px;color:var(–sb-muted);}
+#fetchStatus{font-size:11px;margin-top:6px;min-height:16px;color:#7b8088;}
 #fetchStatus.ok{color:#2f8f4a;}
 #fetchStatus.err{color:#d92d2a;}
 #fetchStatus.loading{color:#d98a00;}
@@ -153,7 +135,7 @@ border-radius:4px;
 
 .spinner{
 display:inline-block;width:10px;height:10px;
-border:2px solid var(–sb-green);border-top-color:transparent;
+border:2px solid #4aa346;border-top-color:transparent;
 border-radius:50%;animation:spin 0.6s linear infinite;
 vertical-align:middle;margin-right:4px;
 }
