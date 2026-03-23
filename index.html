@@ -502,54 +502,6 @@
       margin-left: 4px;
     }
 
-    .protocol-output {
-      display: none;
-      margin: 0 10px 24px;
-    }
-
-    .protocol-card {
-      border: 1px solid #dfe2e7;
-      background: #fff;
-      margin-top: 10px;
-      border-radius: 0 !important;
-      overflow: hidden;
-    }
-
-    .protocol-head {
-      padding: 10px;
-      font-size: 12px;
-      font-weight: 800;
-      background: #f5f7fa;
-      color: #20242c;
-      border-bottom: 1px solid #dfe2e7;
-    }
-
-    .protocol-stage-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 0;
-      font-size: 11px;
-    }
-
-    .protocol-stage-table th,
-    .protocol-stage-table td {
-      border: 1px solid #dfe2e7;
-      padding: 7px 6px;
-      text-align: left;
-      vertical-align: top;
-    }
-
-    .protocol-stage-table th {
-      background: #3a404c !important;
-      color: #fff !important;
-      font-weight: 700;
-    }
-
-    .protocol-stage-table td {
-      background: #fff !important;
-      color: #1f2430 !important;
-      font-weight: 600 !important;
-    }
 
     body.dark-mode {
       background: #111 !important;
@@ -641,28 +593,7 @@
       opacity: 0.3 !important;
     }
 
-    body.dark-mode .protocol-card {
-      background: #1a1a1a !important;
-      border-color: #333 !important;
-    }
-
-    body.dark-mode .protocol-head {
-      background: #111 !important;
-      color: #d4af37 !important;
-      border-color: #333 !important;
-    }
-
-    body.dark-mode .protocol-stage-table th {
-      background: #111 !important;
-      color: #d4af37 !important;
-      border-color: #333 !important;
-    }
-
-    body.dark-mode .protocol-stage-table td {
-      background: #1a1a1a !important;
-      color: #d4af37 !important;
-      border-color: #333 !important;
-    }
+    
   </style>
 </head>
 <body>
@@ -1095,12 +1026,6 @@ let g_lastFetchedTeams = { A: "", B: "" };
       return [readVal(lm[0]), readVal(lo[0])];
     }
 
-    function resetProtocolOutput() {
-      const el = document.getElementById("protocolOutput");
-      if (!el) return;
-      el.innerHTML = "";
-      el.style.display = "none";
-    }
 
     function resetResultsTable() {
       const t = document.getElementById("results");
@@ -1289,7 +1214,7 @@ let g_lastFetchedTeams = { A: "", B: "" };
       for (let i = 0; i < parts.length; i++) {
         const v = parseFloat(parts[i]);
         if (isNaN(v)) return { err: '"' + parts[i] + '" at position ' + (i + 1) + " is not a number" };
-        if (v < 0) return { err: "value at position " + (i + 1) + " is negative (" + v + ")" };
+if (v <= 0) return { err: "value at position " + (i + 1) + " must be greater than 0 (" + v + ")" };
         if (v > 250) return { err: "value at position " + (i + 1) + " is too high (" + v + ")" };
         out.push(v);
       }
@@ -3310,53 +3235,10 @@ setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err")
       }
     }
 
-    function formatProtocolValue(value, type = "number") {
-      if (type === "pick") return safeText(String(value ?? "—"));
-      if (type === "text") return safeText(String(value ?? "—"));
-      if (value === null || value === undefined || (typeof value === "number" && isNaN(value))) return "—";
-      if (typeof value === "number") return value.toFixed(2);
-      return safeText(String(value));
-    }
-
-    function renderProtocolOutput(cards) {
-      const wrap = document.getElementById("protocolOutput");
-      if (!wrap) return;
-
-      const html = cards.map(card => {
-        const rows = card.stages.map(stage => {
-          return `
-            <tr>
-              <td>${safeText(stage.step)}</td>
-              <td>${formatProtocolValue(stage.value, stage.valueType)}</td>
-              <td>${safeText(stage.note || "—")}</td>
-            </tr>
-          `;
-        }).join("");
-
-        return `
-          <div class="protocol-card">
-            <div class="protocol-head">${safeText(card.title)}</div>
-            <table class="protocol-stage-table">
-              <tr>
-                <th>Stage</th>
-                <th>Value</th>
-                <th>Note</th>
-              </tr>
-              ${rows}
-            </table>
-          </div>
-        `;
-      }).join("");
-
-      wrap.innerHTML = html;
-      wrap.style.display = cards.length ? "block" : "none";
-    }
-
     function runEngine() {
       const table = document.getElementById("results");
       table.style.display = "table";
       table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
-      resetProtocolOutput();
 
       document.querySelectorAll("input").forEach(i => {
         i.style.borderColor = "";
@@ -3380,17 +3262,6 @@ if (!league) {
   row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
   return;
 }
-      const protocol = {
-        ft: [],
-        h1: [],
-        q1: [],
-        teamA: [],
-        teamB: []
-      };
-
-      function addStage(bucket, step, value, note = "", valueType = "number") {
-        protocol[bucket].push({ step, value, note, valueType });
-      }
 
       const bases = {
         nba:228,ncaa:150,lnb:157,nbb:160,cebl:154,bal:154,nigeria:148,rwanda:144,aba:158,
@@ -4237,7 +4108,6 @@ g_fetchMeta = defaultFetchMeta();
       const t = document.getElementById("results");
       t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
       t.style.display = "none";
-      resetProtocolOutput();
 
       const fixtureSelect = document.getElementById("fixtureSelect");
       if (fixtureSelect) {
