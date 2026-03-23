@@ -4322,10 +4322,14 @@
         return;
       }
 
-      updateSectionLocks();
-      goToNextStep(true);
-      loadFixtures(0);
-    }
+updateSectionLocks();
+
+if (isNbaOrNcaa) {
+  accordionOpen("espnSection");
+  loadFixtures(0);
+} else {
+  accordionOpen("marketSection");
+}
 
     function toggleTheme() {
       const isDark = document.body.classList.toggle("dark-mode");
