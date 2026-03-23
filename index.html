@@ -2949,7 +2949,9 @@ let g_lastFetchedTeams = { A: "", B: "" };
       ];
 
       try {
-        const payloads = await Promise.all(
+        if (myToken !== _fixtureLoadToken) return;
+
+const payloads = await Promise.all(
           queryDates.map(dateStr => {
             const cacheKey = "fixtures:" + league + ":" + dateStr;
             if (_fixtureCache.has(cacheKey)) return _fixtureCache.get(cacheKey);
@@ -2964,6 +2966,7 @@ let g_lastFetchedTeams = { A: "", B: "" };
           })
         );
 
+if (myToken !== _fixtureLoadToken) return;
         const seen = new Set();
         const merged = [];
 
@@ -2998,10 +3001,12 @@ let g_lastFetchedTeams = { A: "", B: "" };
           })
           .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        if (!events.length) {
-          sel.innerHTML = '<option value="">No upcoming matches</option>';
-          return;
-        }
+        if (myToken !== _fixtureLoadToken) return;
+
+if (!events.length) {
+  sel.innerHTML = '<option value="">No upcoming matches</option>';
+  return;
+}
 
         sel.innerHTML = '<option value="">— Select match —</option>';
 
@@ -3027,10 +3032,11 @@ let g_lastFetchedTeams = { A: "", B: "" };
           opt.dataset.awayId = awayId;
           sel.appendChild(opt);
         });
-      } catch (e) {
-        logDebug("loadFixtures failed", e);
-        sel.innerHTML = '<option value="">Unable to load matches</option>';
-      }
+} catch (e) {
+  if (myToken !== _fixtureLoadToken) return;
+  logDebug("loadFixtures failed", e);
+  sel.innerHTML = '<option value="">Unable to load matches</option>';
+}
     }
 
     function onFixtureSelect() {
@@ -4176,12 +4182,14 @@ if (
     }
 
     function clearAll() {
-      _fetchToken++;
-      _teamSearchToken.A++;
-      _teamSearchToken.B++;
-      unlockFetchBtn();
-      selectedTeamIds = { A: null, B: null };
-      g_fetchMeta = defaultFetchMeta();
+_fetchToken++;
+_fixtureLoadToken++;
+_teamSearchToken.A++;
+_teamSearchToken.B++;
+unlockFetchBtn();
+selectedTeamIds = { A: null, B: null };
+g_lastFetchedTeams = { A: "", B: "" };
+g_fetchMeta = defaultFetchMeta();
 
       const ls = document.getElementById("leagueSelect");
       if (ls) ls.value = "";
@@ -4250,13 +4258,14 @@ if (
     }
 
     function onLeagueChange() {
-  _teamSearchToken.A++;
-  _teamSearchToken.B++;
-  closeDrop("dropA");
-  closeDrop("dropB");
-  unlockFetchBtn();
-  setStatus("", "");
-  resetResultsTable();
+_fixtureLoadToken++;
+_teamSearchToken.A++;
+_teamSearchToken.B++;
+closeDrop("dropA");
+closeDrop("dropB");
+unlockFetchBtn();
+setStatus("", "");
+resetResultsTable();
 
   ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"].forEach(id => {
     const el = document.getElementById(id);
@@ -4308,10 +4317,10 @@ if (
         if (q1Cb) q1Cb.checked = false;
       }
 
-      _fetchToken++;
-      selectedTeamIds = { A: null, B: null };
-      g_fetchMeta = defaultFetchMeta();
-
+_fetchToken++;
+selectedTeamIds = { A: null, B: null };
+g_lastFetchedTeams = { A: "", B: "" };
+g_fetchMeta = defaultFetchMeta();
       ["teamAName", "teamBName"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
