@@ -1628,7 +1628,6 @@
     }
 
     function updateSectionLocks() {
-      function updateSectionLocks() {
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
 
@@ -4227,42 +4226,34 @@ if (
     }
 
     function onLeagueChange() {
-      _teamSearchToken.A++;
-      _teamSearchToken.B++;
-      closeDrop("dropA");
-      closeDrop("dropB");
-      unlockFetchBtn();
-      setStatus("", "");
-      resetResultsTable();
+  _teamSearchToken.A++;
+  _teamSearchToken.B++;
+  closeDrop("dropA");
+  closeDrop("dropB");
+  unlockFetchBtn();
+  setStatus("", "");
+  resetResultsTable();
 
-      ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = "";
-      });
+  ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
 
-      const league = document.getElementById("leagueSelect").value;
-const isNbaOrNcaa = league === "nba" || league === "ncaa";
-const isNba = league === "nba";
-if (!league) {
-  const row = table.insertRow();
-  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
-  return;
-}
-const isNbaOrNcaa = league === "nba" || league === "ncaa";
-const isNba = league === "nba";
+  const league = document.getElementById("leagueSelect").value;
+  const isNbaOrNcaa = league === "nba" || league === "ncaa";
+  const isNba = league === "nba";
 
-      document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
+  document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
 
-      ["a1HSection", "b1HSection", "h2h1HSection", "h1MarketSection"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
-      });
+  ["a1HSection", "b1HSection", "h2h1HSection", "h1MarketSection"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
+  });
 
-      const isNba = league === "nba";
-      ["aQ1Section", "bQ1Section", "q1MarketSection", "h2hQ1Section"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isNba ? "block" : "none";
-      });
+  ["aQ1Section", "bQ1Section", "q1MarketSection", "h2hQ1Section"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isNba ? "block" : "none";
+  });
 
       if (!isNba) {
         ["aQ1Scored", "aQ1Allowed", "bQ1Scored", "bQ1Allowed", "q1Market", "aQ1H2H", "bQ1H2H"].forEach(id => {
