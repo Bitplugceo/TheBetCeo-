@@ -1032,7 +1032,6 @@ let g_lastFetchedTeams = { A: "", B: "" };
       if (!t) return;
       t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
       t.style.display = "none";
-      resetProtocolOutput();
     }
 
     function setStatus(msg, type) {
@@ -3438,17 +3437,6 @@ if (
       if (inputErrors.length) {
         const row = table.insertRow();
         row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Fix these inputs before running:<br>${inputErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}</td>`;
-        addStage("ft", "Validation", "Failed", inputErrors.join(" | "), "text");
-        addStage("h1", "Validation", "Failed", inputErrors.join(" | "), "text");
-        addStage("q1", "Validation", "Failed", inputErrors.join(" | "), "text");
-        addStage("teamA", "Validation", "Failed", inputErrors.join(" | "), "text");
-        addStage("teamB", "Validation", "Failed", inputErrors.join(" | "), "text");
-        renderProtocolOutput([
-          { title: "FT Total Protocol", stages: protocol.ft },
-          { title: "1H Total Protocol", stages: protocol.h1 },
-          ...(isNba ? [{ title: "Q1 Total Protocol", stages: protocol.q1 }] : []),
-          { title: "Team A Total Protocol", stages: protocol.teamA },
-          { title: "Team B Total Protocol", stages: protocol.teamB }
         ]);
         return;
       }
@@ -3457,20 +3445,6 @@ if (
       if (lineErrors.length) {
         const row = table.insertRow();
         row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Market line sanity check failed:<br>${lineErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}</td>`;
-        addStage("ft", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
-        addStage("h1", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
-        addStage("q1", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
-        addStage("teamA", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
-        addStage("teamB", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
-        renderProtocolOutput([
-          { title: "FT Total Protocol", stages: protocol.ft },
-          { title: "1H Total Protocol", stages: protocol.h1 },
-          ...(isNba ? [{ title: "Q1 Total Protocol", stages: protocol.q1 }] : []),
-          { title: "Team A Total Protocol", stages: protocol.teamA },
-          { title: "Team B Total Protocol", stages: protocol.teamB }
-        ]);
-        return;
-      }
 
       const calcAvg = isNbaOrNcaa ? weightedAvg : trimmedAvg;
 
@@ -3479,10 +3453,6 @@ if (
       const bS = safeArr(bSA) ? calcAvg(bSA) : NaN;
       const bA = safeArr(bAA) ? calcAvg(bAA) : NaN;
 
-      addStage("teamA", "Recent Form Blend", aS, "FT scored");
-      addStage("teamA", "Opponent Allowance Blend", bA, "Opponent FT allowed");
-      addStage("teamB", "Recent Form Blend", bS, "FT scored");
-      addStage("teamB", "Opponent Allowance Blend", aA, "Opponent FT allowed");
 
       const fullFTModelInputs = !isNaN(aS) && !isNaN(aA) && !isNaN(bS) && !isNaN(bA);
 
@@ -4037,12 +4007,7 @@ if (
         row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
       });
 
-      renderProtocolOutput([
-        { title: "FT Total Protocol", stages: protocol.ft },
-        { title: "1H Total Protocol", stages: protocol.h1 },
-        ...(isNba ? [{ title: "Q1 Total Protocol", stages: protocol.q1 }] : []),
-        { title: "Team A Total Protocol", stages: protocol.teamA },
-        { title: "Team B Total Protocol", stages: protocol.teamB }
+      
       ]);
 
       setTimeout(() => {
