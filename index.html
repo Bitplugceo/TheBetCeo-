@@ -3045,15 +3045,14 @@ if (!events.length) {
       if (!opt || !opt.value) return;
 
       pickFixture(
-        opt.value,
-        opt.dataset.home || "",
-        opt.dataset.homeId || "",
-        opt.dataset.away || "",
-        opt.dataset.awayId || ""
-      );
+  opt.dataset.home || "",
+  opt.dataset.homeId || "",
+  opt.dataset.away || "",
+  opt.dataset.awayId || ""
+);
     }
 
-    function pickFixture(eventId, homeName, homeId, awayName, awayId) {
+   function pickFixture(homeName, homeId, awayName, awayId) {
       closeDrop("dropA");
       closeDrop("dropB");
 
