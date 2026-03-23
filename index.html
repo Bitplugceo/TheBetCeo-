@@ -3820,9 +3820,6 @@ if (lineErrors.length) {
       if (h1ProjectionOnly) h1Pick = "NO PLAY";
       if (q1ProjectionOnly) q1Pick = "NO PLAY";
 
-      function addDecisionStages(bucket, edge, line, pick, sampleTier, projectionOnly, trap) {
-        const pct = (!isNaN(edge) && line && line > 0) ? Math.abs(edge / line) : NaN;
-      }
 
 
       const markets = [
@@ -3912,7 +3909,6 @@ if (lineErrors.length) {
       });
 
       
-      ]);
 
       setTimeout(() => {
         table.scrollIntoView({ behavior: "smooth", block: "start" });
