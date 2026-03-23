@@ -406,7 +406,7 @@
 
     .actions {
       text-align: center;
-      padding-bottom: 40px;
+      padding-bottom: 20px;
     }
 
     #runBtn,
@@ -495,11 +495,60 @@
     }
 
     .lock {
-      font-size: 4px !important;
+      font-size: 10px !important;
       display: inline-block;
       vertical-align: middle;
       transform: translateY(-1px);
       margin-left: 4px;
+    }
+
+    .protocol-output {
+      display: none;
+      margin: 0 10px 24px;
+    }
+
+    .protocol-card {
+      border: 1px solid #dfe2e7;
+      background: #fff;
+      margin-top: 10px;
+      border-radius: 0 !important;
+      overflow: hidden;
+    }
+
+    .protocol-head {
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      background: #f5f7fa;
+      color: #20242c;
+      border-bottom: 1px solid #dfe2e7;
+    }
+
+    .protocol-stage-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0;
+      font-size: 11px;
+    }
+
+    .protocol-stage-table th,
+    .protocol-stage-table td {
+      border: 1px solid #dfe2e7;
+      padding: 7px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .protocol-stage-table th {
+      background: #3a404c !important;
+      color: #fff !important;
+      font-weight: 700;
+    }
+
+    .protocol-stage-table td {
+      background: #fff !important;
+      color: #1f2430 !important;
+      font-weight: 600 !important;
     }
 
     body.dark-mode {
@@ -590,6 +639,29 @@
 
     body.dark-mode .section.locked .section-toggle {
       opacity: 0.3 !important;
+    }
+
+    body.dark-mode .protocol-card {
+      background: #1a1a1a !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .protocol-head {
+      background: #111 !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .protocol-stage-table th {
+      background: #111 !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .protocol-stage-table td {
+      background: #1a1a1a !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
     }
   </style>
 </head>
@@ -834,6 +906,12 @@
         <input id="a1HH2H" placeholder="41,39,43,38,41" />
         <input id="b1HH2H" placeholder="39,41,38,42,39" />
       </div>
+
+      <div id="h2hQ1Section" style="display:none;">
+        <label><input type="checkbox" id="useQ1H2H" /> Use Q1 H2H (min 2 games)</label>
+        <input id="aQ1H2H" placeholder="27,25,29,24,26" />
+        <input id="bQ1H2H" placeholder="24,26,23,27,25" />
+      </div>
     </div>
   </div>
 
@@ -852,6 +930,8 @@
       </tr>
     </table>
   </div>
+
+  <div id="protocolOutput" class="protocol-output"></div>
 
   <script>
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
@@ -1015,11 +1095,19 @@
       return [readVal(lm[0]), readVal(lo[0])];
     }
 
+    function resetProtocolOutput() {
+      const el = document.getElementById("protocolOutput");
+      if (!el) return;
+      el.innerHTML = "";
+      el.style.display = "none";
+    }
+
     function resetResultsTable() {
       const t = document.getElementById("results");
       if (!t) return;
       t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
       t.style.display = "none";
+      resetProtocolOutput();
     }
 
     function setStatus(msg, type) {
@@ -1454,15 +1542,17 @@
     }
 
     function clearH2HFields() {
-      ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H"].forEach(id => {
+      ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "aQ1H2H", "bQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
 
       const ftCb = document.getElementById("useFTH2H");
       const h1Cb = document.getElementById("use1HH2H");
+      const q1Cb = document.getElementById("useQ1H2H");
       if (ftCb) ftCb.checked = false;
       if (h1Cb) h1Cb.checked = false;
+      if (q1Cb) q1Cb.checked = false;
 
       const h2hTag = document.getElementById("h2hAutoTag");
       if (h2hTag) h2hTag.style.display = "none";
@@ -1478,14 +1568,7 @@
         selectedTeamIds[changedSide] = null;
         setManualSource(changedSide);
         clearSideFields(changedSide);
-
-        const ftCb = document.getElementById("useFTH2H");
-        const h1Cb = document.getElementById("use1HH2H");
-        const h2hTag = document.getElementById("h2hAutoTag");
-
-        if (ftCb) ftCb.checked = false;
-        if (h1Cb) h1Cb.checked = false;
-        if (h2hTag) h2hTag.style.display = "none";
+        clearH2HFields();
       } else {
         selectedTeamIds = { A: null, B: null };
         g_fetchMeta = defaultFetchMeta();
@@ -1515,6 +1598,7 @@
     function isH2HComplete() {
       const ftCb = document.getElementById("useFTH2H");
       const h1Cb = document.getElementById("use1HH2H");
+      const q1Cb = document.getElementById("useQ1H2H");
 
       if (ftCb && ftCb.checked) {
         const aFt = parseGames("aFTH2H");
@@ -1528,6 +1612,14 @@
         const aH1 = parseGames("a1HH2H");
         const bH1 = parseGames("b1HH2H");
         if (!(Array.isArray(aH1) && aH1.length >= 2 && Array.isArray(bH1) && bH1.length >= 2)) {
+          return false;
+        }
+      }
+
+      if (q1Cb && q1Cb.checked) {
+        const aQ1 = parseGames("aQ1H2H");
+        const bQ1 = parseGames("bQ1H2H");
+        if (!(Array.isArray(aQ1) && aQ1.length >= 2 && Array.isArray(bQ1) && bQ1.length >= 2)) {
           return false;
         }
       }
@@ -1555,10 +1647,17 @@
       unlockSection("h2hSection");
     }
 
-    function goToNextStep() {
+    function goToNextStep(autoOpen = false) {
       const league = document.getElementById("leagueSelect").value;
       if (!league) {
-        accordionOpen("leagueSection");
+        if (autoOpen) accordionOpen("leagueSection");
+        return;
+      }
+
+      if (!autoOpen) {
+        if (isMarketComplete() && isTeamAComplete() && isTeamBComplete() && isH2HComplete()) {
+          closeSection("h2hSection");
+        }
         return;
       }
 
@@ -1585,22 +1684,25 @@
       closeSection("h2hSection");
     }
 
-    function getLocalDateKey(daysAhead = 0) {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() + daysAhead);
+    function getDateKeyLocal(dateObj) {
+      const d = new Date(dateObj);
+      if (isNaN(d.getTime())) return "";
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
       const day = String(d.getDate()).padStart(2, "0");
       return "" + y + m + day;
     }
 
+    function getLocalDateKey(daysAhead = 0) {
+      const d = new Date();
+      d.setHours(12, 0, 0, 0);
+      d.setDate(d.getDate() + daysAhead);
+      return getDateKeyLocal(d);
+    }
+
     function getLocalDateKeyFromISO(iso) {
       const d = new Date(iso);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      return "" + y + m + day;
+      return getDateKeyLocal(d);
     }
 
     function setFixtureDay(offset) {
@@ -1678,21 +1780,19 @@
     }
 
     function highlight(name, query) {
-      const lower = normalizeTeamName(name);
-      const q = normalizeTeamName(query);
-      const i = lower.indexOf(q);
-      if (i === -1) return safeText(name);
+      const rawQ = String(query || "").trim();
+      if (!rawQ) return safeText(name);
 
-      const originalLower = name.toLowerCase();
-      const rawQ = String(query || "").toLowerCase();
-      const rawIndex = originalLower.indexOf(rawQ);
+      const originalLower = String(name || "").toLowerCase();
+      const queryLower = rawQ.toLowerCase();
+      const rawIndex = originalLower.indexOf(queryLower);
 
       if (rawIndex === -1) return safeText(name);
 
       return (
         safeText(name.slice(0, rawIndex)) +
-        "<strong>" + safeText(name.slice(rawIndex, rawIndex + query.length)) + "</strong>" +
-        safeText(name.slice(rawIndex + query.length))
+        "<strong>" + safeText(name.slice(rawIndex, rawIndex + rawQ.length)) + "</strong>" +
+        safeText(name.slice(rawIndex + rawQ.length))
       );
     }
 
@@ -1887,12 +1987,8 @@
         btn.appendChild(iconSpan);
 
         btn.addEventListener("click", () => {
-          const wasCollapsed = section.classList.contains("collapsed");
           section.classList.toggle("collapsed");
-          if (!wasCollapsed) {
-            updateSectionLocks();
-            goToNextStep();
-          }
+          updateSectionLocks();
         });
 
         section.innerHTML = "";
@@ -1959,6 +2055,9 @@
       }
 
       try {
+        const catalog = await fetchLeagueTeamCatalog(league);
+        const catalogMap = new Map(catalog.map(t => [String(t.id), normalizeTeamName(t.name)]));
+
         const data = await proxyFetch(
           "https://site.api.espn.com/apis/common/v3/search?query=" +
           encodeURIComponent(name) +
@@ -1973,11 +2072,17 @@
           const mUid = uid.match(/t:(\d+)/);
           const id = mUid ? mUid[1] : (r?.id || r?.team?.id ? String(r?.id || r?.team?.id) : null);
           if (!id) continue;
+          if (!catalogMap.has(String(id))) continue;
 
-          const rName = normalizeTeamName(r?.displayName || r?.team?.displayName || r?.name || "");
+          const resultName = normalizeTeamName(r?.displayName || r?.team?.displayName || r?.name || "");
+          const catalogName = catalogMap.get(String(id)) || "";
           let score = 0;
-          if (rName === n) score += 5;
-          else if (rName.includes(n) || n.includes(rName)) score += 2;
+
+          if (resultName === n || catalogName === n) score += 6;
+          else {
+            if (resultName && (resultName.includes(n) || n.includes(resultName))) score += 2;
+            if (catalogName && (catalogName.includes(n) || n.includes(catalogName))) score += 4;
+          }
 
           if (score > bestScore) {
             bestScore = score;
@@ -2600,6 +2705,8 @@
                 const lB = cB?.linescores || [];
                 const h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
                 const h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
+                const q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
+                const q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
                 [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 4);
 
                 h2h.push({
@@ -2609,6 +2716,8 @@
                   scoreB: Math.round(sB),
                   h1A,
                   h1B,
+                  q1A,
+                  q1B,
                   date: ref.date
                 });
                 added = true;
@@ -2627,6 +2736,8 @@
             scoreB: Math.round(ref.rawScoreB),
             h1A: 0,
             h1B: 0,
+            q1A: 0,
+            q1B: 0,
             date: ref.date
           });
         }
@@ -2750,6 +2861,8 @@
                   scoreB: Math.round(sB),
                   h1A,
                   h1B,
+                  q1A: 0,
+                  q1B: 0,
                   date: ref.date
                 });
                 added = true;
@@ -2768,6 +2881,8 @@
             scoreB: Math.round(ref.rawScoreB),
             h1A: 0,
             h1B: 0,
+            q1A: 0,
+            q1B: 0,
             date: ref.date
           });
         }
@@ -2862,7 +2977,8 @@
             const eventTime = new Date(ev.date);
             if (isNaN(eventTime.getTime())) return false;
 
-            if (getLocalDateKeyFromISO(ev.date) !== targetLocalKey) return false;
+            const eventLocalKey = getLocalDateKeyFromISO(ev.date);
+            if (eventLocalKey !== targetLocalKey) return false;
 
             const state = comp?.status?.type?.state || "";
             const completed = comp?.status?.type?.completed || state === "post";
@@ -2966,6 +3082,7 @@
 
       try {
         const isNcaa = league === "ncaa";
+        const isNba = league === "nba";
         const leagueSlug = isNcaa ? "mens-college-basketball" : "nba";
         const espnBase = `https://site.api.espn.com/apis/site/v2/sports/basketball/${leagueSlug}`;
 
@@ -3101,6 +3218,24 @@
             document.getElementById("use1HH2H").checked = true;
           }
 
+          if (isNba) {
+            const h2hAQ1 = h2hGames
+              .slice(0, 5)
+              .map(g => normalizeId(g.teamAId) === tA ? g.q1A : g.q1B)
+              .filter(v => v > 0);
+
+            const h2hBQ1 = h2hGames
+              .slice(0, 5)
+              .map(g => normalizeId(g.teamAId) === tA ? g.q1B : g.q1A)
+              .filter(v => v > 0);
+
+            if (h2hAQ1.length >= 2 && h2hBQ1.length >= 2) {
+              document.getElementById("aQ1H2H").value = h2hAQ1.join(",");
+              document.getElementById("bQ1H2H").value = h2hBQ1.join(",");
+              document.getElementById("useQ1H2H").checked = true;
+            }
+          }
+
           messages.push(`H2H: ${Math.min(h2hGames.length, 5)} games ✅`);
         } else if (h2hGames.length === 1) {
           const tA = String(teamAId);
@@ -3108,8 +3243,16 @@
 
           document.getElementById("aFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreA : g.scoreB;
           document.getElementById("bFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreB : g.scoreA;
+
+          if (isNba && (g.q1A > 0 || g.q1B > 0)) {
+            document.getElementById("aQ1H2H").value = normalizeId(g.teamAId) === tA ? g.q1A : g.q1B;
+            document.getElementById("bQ1H2H").value = normalizeId(g.teamAId) === tA ? g.q1B : g.q1A;
+          }
+
           document.getElementById("useFTH2H").checked = false;
           document.getElementById("use1HH2H").checked = false;
+          const q1Cb = document.getElementById("useQ1H2H");
+          if (q1Cb) q1Cb.checked = false;
           messages.push("H2H: 1 game found (min 2 to auto-enable)");
         } else {
           messages.push("H2H: none found");
@@ -3136,7 +3279,6 @@
         const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
         if (allGood) {
           updateSectionLocks();
-          goToNextStep();
         }
 
         setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
@@ -3149,10 +3291,57 @@
       }
     }
 
+    function formatProtocolValue(value, type = "number") {
+      if (type === "pick") return safeText(String(value ?? "—"));
+      if (type === "text") return safeText(String(value ?? "—"));
+      if (value === null || value === undefined || (typeof value === "number" && isNaN(value))) return "—";
+      if (typeof value === "number") return value.toFixed(2);
+      return safeText(String(value));
+    }
+
+    function renderProtocolOutput(cards) {
+      const wrap = document.getElementById("protocolOutput");
+      if (!wrap) return;
+
+      const html = cards.map(card => {
+        const rows = card.stages.map(stage => {
+          return `
+            <tr>
+              <td>${safeText(stage.step)}</td>
+              <td>${formatProtocolValue(stage.value, stage.valueType)}</td>
+              <td>${safeText(stage.note || "—")}</td>
+            </tr>
+          `;
+        }).join("");
+
+        return `
+          <div class="protocol-card">
+            <div class="protocol-head">${safeText(card.title)}</div>
+            <table class="protocol-stage-table">
+              <tr>
+                <th>Stage</th>
+                <th>Value</th>
+                <th>Note</th>
+              </tr>
+              ${rows}
+            </table>
+          </div>
+        `;
+      }).join("");
+
+      wrap.innerHTML = html;
+      wrap.style.display = cards.length ? "block" : "none";
+    }
+
     function runEngine() {
       const table = document.getElementById("results");
       table.style.display = "table";
       table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+      resetProtocolOutput();
+
+      document.querySelectorAll("input").forEach(i => {
+        i.style.borderColor = "";
+      });
 
       const teamANameRaw = document.getElementById("teamAName")?.value.trim().toLowerCase();
       const teamBNameRaw = document.getElementById("teamBName")?.value.trim().toLowerCase();
@@ -3166,6 +3355,18 @@
       const league = document.getElementById("leagueSelect").value;
       const isNbaOrNcaa = league === "nba" || league === "ncaa";
       const isNba = league === "nba";
+
+      const protocol = {
+        ft: [],
+        h1: [],
+        q1: [],
+        teamA: [],
+        teamB: []
+      };
+
+      function addStage(bucket, step, value, note = "", valueType = "number") {
+        protocol[bucket].push({ step, value, note, valueType });
+      }
 
       const bases = {
         nba:228,ncaa:150,lnb:157,nbb:160,cebl:154,bal:154,nigeria:148,rwanda:144,aba:158,
@@ -3241,11 +3442,21 @@
       const hAdj = homeEdge[league] || 1.5;
       const vl = volLimits[league] || 12;
 
+      addStage("ft", "League Base", eb, league.toUpperCase());
+      addStage("teamA", "League Base", eb / 2, "Team baseline");
+      addStage("teamB", "League Base", eb / 2, "Team baseline");
+
       const ftLine = snapHalf(parseMarketLine(document.getElementById("ftMarket").value));
       const h1Line = snapHalf(parseMarketLine(document.getElementById("h1Market").value));
       const q1Line = snapHalf(parseMarketLine(document.getElementById("q1Market").value));
       const aLine = snapHalf(parseMarketLine(document.getElementById("teamAMarket").value));
       const bLine = snapHalf(parseMarketLine(document.getElementById("teamBMarket").value));
+
+      addStage("ft", "Market Line", ftLine, "FT total line");
+      addStage("h1", "Market Line", h1Line, "1H total line");
+      addStage("q1", "Market Line", q1Line, "Q1 total line");
+      addStage("teamA", "Market Line", aLine, "Team A total line");
+      addStage("teamB", "Market Line", bLine, "Team B total line");
 
       const aSA = parseGames("aFTScored");
       const aAA = parseGames("aFTAllowed");
@@ -3253,26 +3464,86 @@
       const bAA = parseGames("bFTAllowed");
 
       const inputErrors = [];
-      if (aSA?.err) {
-        document.getElementById("aFTScored").style.borderColor = "#ff6b6b";
-        inputErrors.push("Team A FT Scored: " + aSA.err);
+
+      function markError(id, label, parsed, requireMinTwo = false) {
+        const el = document.getElementById(id);
+        if (!parsed) return;
+        if (parsed.err) {
+          if (el) el.style.borderColor = "#ff6b6b";
+          inputErrors.push(label + ": " + parsed.err);
+          return;
+        }
+        if (requireMinTwo && Array.isArray(parsed) && parsed.length < 2) {
+          if (el) el.style.borderColor = "#ff6b6b";
+          inputErrors.push(label + ": need at least 2 values");
+        }
       }
-      if (aAA?.err) {
-        document.getElementById("aFTAllowed").style.borderColor = "#ff6b6b";
-        inputErrors.push("Team A FT Allowed: " + aAA.err);
+
+      markError("aFTScored", "Team A FT Scored", aSA);
+      markError("aFTAllowed", "Team A FT Allowed", aAA);
+      markError("bFTScored", "Team B FT Scored", bSA);
+      markError("bFTAllowed", "Team B FT Allowed", bAA);
+
+      if (isNbaOrNcaa) {
+        const a1HSRaw = parseGames("a1HScored");
+        const a1HARaw = parseGames("a1HAllowed");
+        const b1HSRaw = parseGames("b1HScored");
+        const b1HARaw = parseGames("b1HAllowed");
+
+        if (hasValue("a1HScored")) markError("a1HScored", "Team A 1H Scored", a1HSRaw, true);
+        if (hasValue("a1HAllowed")) markError("a1HAllowed", "Team A 1H Allowed", a1HARaw, true);
+        if (hasValue("b1HScored")) markError("b1HScored", "Team B 1H Scored", b1HSRaw, true);
+        if (hasValue("b1HAllowed")) markError("b1HAllowed", "Team B 1H Allowed", b1HARaw, true);
       }
-      if (bSA?.err) {
-        document.getElementById("bFTScored").style.borderColor = "#ff6b6b";
-        inputErrors.push("Team B FT Scored: " + bSA.err);
+
+      if (isNba) {
+        const aQ1SRaw = parseGames("aQ1Scored");
+        const aQ1ARaw = parseGames("aQ1Allowed");
+        const bQ1SRaw = parseGames("bQ1Scored");
+        const bQ1ARaw = parseGames("bQ1Allowed");
+
+        if (hasValue("aQ1Scored")) markError("aQ1Scored", "Team A Q1 Scored", aQ1SRaw, true);
+        if (hasValue("aQ1Allowed")) markError("aQ1Allowed", "Team A Q1 Allowed", aQ1ARaw, true);
+        if (hasValue("bQ1Scored")) markError("bQ1Scored", "Team B Q1 Scored", bQ1SRaw, true);
+        if (hasValue("bQ1Allowed")) markError("bQ1Allowed", "Team B Q1 Allowed", bQ1ARaw, true);
       }
-      if (bAA?.err) {
-        document.getElementById("bFTAllowed").style.borderColor = "#ff6b6b";
-        inputErrors.push("Team B FT Allowed: " + bAA.err);
+
+      if (document.getElementById("useFTH2H").checked) {
+        const h2hA = parseGames("aFTH2H");
+        const h2hB = parseGames("bFTH2H");
+        markError("aFTH2H", "FT H2H Team A", h2hA, true);
+        markError("bFTH2H", "FT H2H Team B", h2hB, true);
+      }
+
+      if (document.getElementById("use1HH2H").checked) {
+        const h2h1HA = parseGames("a1HH2H");
+        const h2h1HB = parseGames("b1HH2H");
+        markError("a1HH2H", "1H H2H Team A", h2h1HA, true);
+        markError("b1HH2H", "1H H2H Team B", h2h1HB, true);
+      }
+
+      if (document.getElementById("useQ1H2H").checked) {
+        const h2hQ1A = parseGames("aQ1H2H");
+        const h2hQ1B = parseGames("bQ1H2H");
+        markError("aQ1H2H", "Q1 H2H Team A", h2hQ1A, true);
+        markError("bQ1H2H", "Q1 H2H Team B", h2hQ1B, true);
       }
 
       if (inputErrors.length) {
         const row = table.insertRow();
         row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Fix these inputs before running:<br>${inputErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}</td>`;
+        addStage("ft", "Validation", "Failed", inputErrors.join(" | "), "text");
+        addStage("h1", "Validation", "Failed", inputErrors.join(" | "), "text");
+        addStage("q1", "Validation", "Failed", inputErrors.join(" | "), "text");
+        addStage("teamA", "Validation", "Failed", inputErrors.join(" | "), "text");
+        addStage("teamB", "Validation", "Failed", inputErrors.join(" | "), "text");
+        renderProtocolOutput([
+          { title: "FT Total Protocol", stages: protocol.ft },
+          { title: "1H Total Protocol", stages: protocol.h1 },
+          ...(isNba ? [{ title: "Q1 Total Protocol", stages: protocol.q1 }] : []),
+          { title: "Team A Total Protocol", stages: protocol.teamA },
+          { title: "Team B Total Protocol", stages: protocol.teamB }
+        ]);
         return;
       }
 
@@ -3280,6 +3551,18 @@
       if (lineErrors.length) {
         const row = table.insertRow();
         row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Market line sanity check failed:<br>${lineErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}</td>`;
+        addStage("ft", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
+        addStage("h1", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
+        addStage("q1", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
+        addStage("teamA", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
+        addStage("teamB", "Line Sanity", "Failed", lineErrors.join(" | "), "text");
+        renderProtocolOutput([
+          { title: "FT Total Protocol", stages: protocol.ft },
+          { title: "1H Total Protocol", stages: protocol.h1 },
+          ...(isNba ? [{ title: "Q1 Total Protocol", stages: protocol.q1 }] : []),
+          { title: "Team A Total Protocol", stages: protocol.teamA },
+          { title: "Team B Total Protocol", stages: protocol.teamB }
+        ]);
         return;
       }
 
@@ -3289,6 +3572,11 @@
       const aA = safeArr(aAA) ? calcAvg(aAA) : NaN;
       const bS = safeArr(bSA) ? calcAvg(bSA) : NaN;
       const bA = safeArr(bAA) ? calcAvg(bAA) : NaN;
+
+      addStage("teamA", "Recent Form Blend", aS, "FT scored");
+      addStage("teamA", "Opponent Allowance Blend", bA, "Opponent FT allowed");
+      addStage("teamB", "Recent Form Blend", bS, "FT scored");
+      addStage("teamB", "Opponent Allowance Blend", aA, "Opponent FT allowed");
 
       const fullFTModelInputs = !isNaN(aS) && !isNaN(aA) && !isNaN(bS) && !isNaN(bA);
 
@@ -3300,7 +3588,11 @@
         ? bS * MODEL.TEAM_WEIGHT + aA * MODEL.OPP_WEIGHT
         : NaN;
 
+      addStage("teamA", "Base Projection", projAFT, "0.60 team scored + 0.40 opp allowed");
+      addStage("teamB", "Base Projection", projBFT, "0.60 team scored + 0.40 opp allowed");
+
       const paceRegressionFlag = !isNaN(aS) && !isNaN(bS) && Math.abs(aS - bS) > eb * 0.10;
+      addStage("ft", "Pace Gap Filter", paceRegressionFlag ? 1 : 0, paceRegressionFlag ? "Triggered" : "Not triggered");
 
       let h2ha = null;
       let h2hb = null;
@@ -3317,18 +3609,25 @@
 
         const h2hAvgA = avg(h2ha);
         const h2hAvgB = avg(h2hb);
+        addStage("teamA", "H2H Reference", h2hAvgA, `Weight ${w.toFixed(2)}`);
+        addStage("teamB", "H2H Reference", h2hAvgB, `Weight ${w.toFixed(2)}`);
 
         if (!isNaN(projAFT) && projAFT > 0 && !isNaN(h2hAvgA)) {
           const divA = Math.abs(h2hAvgA - projAFT) / projAFT;
           const wA = divA > MODEL.H2H_DIVERGE_THRESHOLD ? w * 0.5 : w;
           projAFT = projAFT * (1 - wA) + h2hAvgA * wA;
+          addStage("teamA", "H2H Blend", projAFT, divA > MODEL.H2H_DIVERGE_THRESHOLD ? "Divergence cut weight 50%" : "Normal H2H blend");
         }
 
         if (!isNaN(projBFT) && projBFT > 0 && !isNaN(h2hAvgB)) {
           const divB = Math.abs(h2hAvgB - projBFT) / projBFT;
           const wB = divB > MODEL.H2H_DIVERGE_THRESHOLD ? w * 0.5 : w;
           projBFT = projBFT * (1 - wB) + h2hAvgB * wB;
+          addStage("teamB", "H2H Blend", projBFT, divB > MODEL.H2H_DIVERGE_THRESHOLD ? "Divergence cut weight 50%" : "Normal H2H blend");
         }
+      } else {
+        addStage("teamA", "H2H Blend", projAFT, "Skipped");
+        addStage("teamB", "H2H Blend", projBFT, "Skipped");
       }
 
       const aVolRaw = (stdDev(safeArr(aSA) || []) + stdDev(safeArr(aAA) || [])) / 2;
@@ -3336,11 +3635,20 @@
       const aVol = aVolRaw * 0.6 + bVolRaw * 0.4;
       const bVol = bVolRaw * 0.6 + aVolRaw * 0.4;
 
+      addStage("teamA", "Volatility Score", aVol, `Limit ${vl}`);
+      addStage("teamB", "Volatility Score", bVol, `Limit ${vl}`);
+
       projAFT = applyVolatility(projAFT, aVol, vl);
       projBFT = applyVolatility(projBFT, bVol, vl);
 
+      addStage("teamA", "Volatility Filter", projAFT, "Applied");
+      addStage("teamB", "Volatility Filter", projBFT, "Applied");
+
       projAFT = projAFT * MODEL.REGRESSION_WEIGHT + (eb / 2) * MODEL.BASELINE_WEIGHT;
       projBFT = projBFT * MODEL.REGRESSION_WEIGHT + (eb / 2) * MODEL.BASELINE_WEIGHT;
+
+      addStage("teamA", "Regression To Mean", projAFT, `${MODEL.REGRESSION_WEIGHT.toFixed(2)} model + ${MODEL.BASELINE_WEIGHT.toFixed(2)} baseline`);
+      addStage("teamB", "Regression To Mean", projBFT, `${MODEL.REGRESSION_WEIGHT.toFixed(2)} model + ${MODEL.BASELINE_WEIGHT.toFixed(2)} baseline`);
 
       let scoringBalance;
       if (fullFTModelInputs && !isNaN(aA) && !isNaN(bA) && (aA + bA) > 0) {
@@ -3352,8 +3660,12 @@
       }
 
       const pace = Math.max(cl.min, Math.min(cl.max, scoringBalance));
+      addStage("ft", "Pace Blend", pace, `Clamp ${cl.min.toFixed(2)}-${cl.max.toFixed(2)}`);
       projAFT = projAFT * (MODEL.PACE_BLEND + pace / 2);
       projBFT = projBFT * (MODEL.PACE_BLEND + pace / 2);
+
+      addStage("teamA", "Pace Applied", projAFT, "Post pace blend");
+      addStage("teamB", "Pace Applied", projBFT, "Post pace blend");
 
       const injMultA = g_injA.restMult * g_injA.scoringMult;
       const injMultB = g_injB.restMult * g_injB.scoringMult;
@@ -3361,11 +3673,19 @@
       if (!isNaN(projAFT) && injMultA !== 1) projAFT *= injMultA;
       if (!isNaN(projBFT) && injMultB !== 1) projBFT *= injMultB;
 
+      addStage("teamA", "Injury/Rest Adjustment", projAFT, `Multiplier ${injMultA.toFixed(3)}`);
+      addStage("teamB", "Injury/Rest Adjustment", projBFT, `Multiplier ${injMultB.toFixed(3)}`);
+
       if (!isNaN(projAFT)) projAFT += hAdj * 0.75;
       if (!isNaN(projBFT)) projBFT -= hAdj * 0.75;
 
+      addStage("teamA", "Home Edge", projAFT, `+${(hAdj * 0.75).toFixed(2)}`);
+      addStage("teamB", "Away Edge", projBFT, `-${(hAdj * 0.75).toFixed(2)}`);
+
       let ftProj = !isNaN(projAFT) && !isNaN(projBFT) ? projAFT + projBFT : NaN;
+      addStage("ft", "Raw Total", ftProj, "Team A + Team B");
       const defensiveFloorFlag = (!isNaN(aA) && aA < eb * 0.40) || (!isNaN(bA) && bA < eb * 0.40);
+      addStage("ft", "Defensive Floor Filter", defensiveFloorFlag ? 1 : 0, defensiveFloorFlag ? "Triggered" : "Not triggered");
 
       if (!isNaN(ftProj)) {
         if (defensiveFloorFlag) ftProj *= 0.97;
@@ -3378,11 +3698,16 @@
         }
 
         if (!isNaN(pace) && pace > 1.12) ftProj *= 0.98;
+        addStage("ft", "Suppression Filters", ftProj, "Multi-goal / pace / high-tempo suppression");
         ftProj = anchorProjection(ftProj, ftLine, league, "ft");
+        addStage("ft", "Line Anchor", ftProj, "FT anchor applied");
       }
 
       projAFT = anchorProjection(projAFT, aLine, league, "team");
       projBFT = anchorProjection(projBFT, bLine, league, "team");
+
+      addStage("teamA", "Line Anchor", projAFT, "Team total anchor applied");
+      addStage("teamB", "Line Anchor", projBFT, "Team total anchor applied");
 
       let h1Proj = NaN;
       let aVol1 = 0;
@@ -3390,6 +3715,7 @@
 
       if (isNbaOrNcaa) {
         const eb1H = eb / 2;
+        addStage("h1", "League Base", eb1H, "1H baseline");
 
         let a1HS = parseGames("a1HScored");
         let a1HA = parseGames("a1HAllowed");
@@ -3406,13 +3732,18 @@
         const bS1 = safeArr(b1HS) ? weightedAvg(b1HS) : NaN;
         const bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
 
+        addStage("h1", "Sample Inputs", getSampleTier(a1HS, a1HA, b1HS, b1HA), "1H sample tier", "text");
+
         const full1HInputs = !isNaN(aS1) && !isNaN(aA1) && !isNaN(bS1) && !isNaN(bA1);
 
         if (full1HInputs) {
           let projA1H = aS1 * MODEL.TEAM_WEIGHT + bA1 * MODEL.OPP_WEIGHT;
           let projB1H = bS1 * MODEL.TEAM_WEIGHT + aA1 * MODEL.OPP_WEIGHT;
 
+          addStage("h1", "Base Projection", projA1H + projB1H, "Pre-H2H 1H total");
+
           const pgr1 = Math.abs(aS1 - bS1) > eb1H * 0.10;
+          addStage("h1", "Pace Gap Filter", pgr1 ? 1 : 0, pgr1 ? "Triggered" : "Not triggered");
 
           if (document.getElementById("use1HH2H").checked) {
             let h2ha1 = parseGames("a1HH2H");
@@ -3424,6 +3755,7 @@
               let w1 = getH2HWeight(h2ha1.length, h2hb1.length);
               const h2hA1avg = avg(h2ha1);
               const h2hB1avg = avg(h2hb1);
+              addStage("h1", "H2H Reference", h2hA1avg + h2hB1avg, `Weight ${w1.toFixed(2)}`);
 
               if (!isNaN(projA1H) && projA1H > 0 && !isNaN(h2hA1avg)) {
                 const dA1 = Math.abs(h2hA1avg - projA1H) / projA1H;
@@ -3435,11 +3767,17 @@
                 const wB1 = dB1 > MODEL.H2H_DIVERGE_THRESHOLD ? w1 * 0.5 : w1;
                 projB1H = projB1H * (1 - wB1) + h2hB1avg * wB1;
               }
+              addStage("h1", "H2H Blend", projA1H + projB1H, "1H H2H blended");
+            } else {
+              addStage("h1", "H2H Blend", projA1H + projB1H, "Skipped");
             }
+          } else {
+            addStage("h1", "H2H Blend", projA1H + projB1H, "Skipped");
           }
 
           const rawPace1H = (aS1 + aA1 + bS1 + bA1) / (2 * eb1H);
           const pace1 = Math.max(cl.min, Math.min(cl.max, rawPace1H));
+          addStage("h1", "Pace Blend", pace1, `Clamp ${cl.min.toFixed(2)}-${cl.max.toFixed(2)}`);
 
           const vl1 = league === "nba" ? 7 : 6;
           const aVol1Raw = (stdDev(safeArr(a1HS) || []) + stdDev(safeArr(a1HA) || [])) / 2;
@@ -3448,21 +3786,27 @@
           bVol1 = bVol1Raw * 0.6 + aVol1Raw * 0.4;
 
           const dfr1 = (aA1 < eb1H * 0.40) || (bA1 < eb1H * 0.40);
+          addStage("h1", "Defensive Floor Filter", dfr1 ? 1 : 0, dfr1 ? "Triggered" : "Not triggered");
 
           projA1H = applyVolatility(projA1H, aVol1, vl1);
           projB1H = applyVolatility(projB1H, bVol1, vl1);
+          addStage("h1", "Volatility Filter", projA1H + projB1H, `Limit ${vl1}`);
 
           projA1H = projA1H * MODEL.REGRESSION_WEIGHT + (eb1H / 2) * MODEL.BASELINE_WEIGHT;
           projB1H = projB1H * MODEL.REGRESSION_WEIGHT + (eb1H / 2) * MODEL.BASELINE_WEIGHT;
+          addStage("h1", "Regression To Mean", projA1H + projB1H, "1H regression applied");
 
           projA1H = projA1H * (MODEL.PACE_BLEND + pace1 / 2);
           projB1H = projB1H * (MODEL.PACE_BLEND + pace1 / 2);
+          addStage("h1", "Pace Applied", projA1H + projB1H, "Post pace blend");
 
           if (injMultA !== 1) projA1H *= injMultA;
           if (injMultB !== 1) projB1H *= injMultB;
+          addStage("h1", "Injury/Rest Adjustment", projA1H + projB1H, `A ${injMultA.toFixed(3)} / B ${injMultB.toFixed(3)}`);
 
           projA1H += hAdj * 0.375;
           projB1H -= hAdj * 0.375;
+          addStage("h1", "Home Edge", projA1H + projB1H, `±${(hAdj * 0.375).toFixed(2)}`);
 
           h1Proj = projA1H + projB1H;
 
@@ -3470,8 +3814,12 @@
             if (dfr1) h1Proj *= 0.97;
             if (Math.abs(projA1H - projB1H) > 9) h1Proj *= MODEL.MULTI_GOAL_SUPPRESS;
             if (pgr1) h1Proj *= MODEL.PACE_SUPPRESS;
+            addStage("h1", "Suppression Filters", h1Proj, "Multi-goal / pace suppression");
             h1Proj = anchorProjection(h1Proj, h1Line, league, "h1");
+            addStage("h1", "Line Anchor", h1Proj, "1H anchor applied");
           }
+        } else {
+          addStage("h1", "Base Projection", h1Proj, "Insufficient 1H inputs");
         }
       }
 
@@ -3481,6 +3829,7 @@
 
       if (isNba) {
         const ebQ1 = eb / 4;
+        addStage("q1", "League Base", ebQ1, "Q1 baseline");
 
         let aQ1S = parseGames("aQ1Scored");
         let aQ1A = parseGames("aQ1Allowed");
@@ -3497,39 +3846,85 @@
         const bS1Q = safeArr(bQ1S) ? weightedAvg(bQ1S) : NaN;
         const bA1Q = safeArr(bQ1A) ? weightedAvg(bQ1A) : NaN;
 
+        addStage("q1", "Sample Inputs", getSampleTier(aQ1S, aQ1A, bQ1S, bQ1A), "Q1 sample tier", "text");
+
         if (!isNaN(aS1Q) && !isNaN(aA1Q) && !isNaN(bS1Q) && !isNaN(bA1Q)) {
           let projAQ1 = aS1Q * MODEL.TEAM_WEIGHT + bA1Q * MODEL.OPP_WEIGHT;
           let projBQ1 = bS1Q * MODEL.TEAM_WEIGHT + aA1Q * MODEL.OPP_WEIGHT;
+
+          addStage("q1", "Base Projection", projAQ1 + projBQ1, "Pre-H2H Q1 total");
+
+          if (document.getElementById("useQ1H2H").checked) {
+            let h2haQ1 = parseGames("aQ1H2H");
+            let h2hbQ1 = parseGames("bQ1H2H");
+            if (h2haQ1?.err) h2haQ1 = null;
+            if (h2hbQ1?.err) h2hbQ1 = null;
+
+            if (h2haQ1 && h2hbQ1 && h2haQ1.length >= 2 && h2hbQ1.length >= 2) {
+              let wQ1 = getH2HWeight(h2haQ1.length, h2hbQ1.length);
+              const h2hAQ1avg = avg(h2haQ1);
+              const h2hBQ1avg = avg(h2hbQ1);
+              addStage("q1", "H2H Reference", h2hAQ1avg + h2hBQ1avg, `Weight ${wQ1.toFixed(2)}`);
+
+              if (!isNaN(projAQ1) && projAQ1 > 0 && !isNaN(h2hAQ1avg)) {
+                const dAQ1 = Math.abs(h2hAQ1avg - projAQ1) / projAQ1;
+                const wAQ1 = dAQ1 > MODEL.H2H_DIVERGE_THRESHOLD ? wQ1 * 0.5 : wQ1;
+                projAQ1 = projAQ1 * (1 - wAQ1) + h2hAQ1avg * wAQ1;
+              }
+              if (!isNaN(projBQ1) && projBQ1 > 0 && !isNaN(h2hBQ1avg)) {
+                const dBQ1 = Math.abs(h2hBQ1avg - projBQ1) / projBQ1;
+                const wBQ1 = dBQ1 > MODEL.H2H_DIVERGE_THRESHOLD ? wQ1 * 0.5 : wQ1;
+                projBQ1 = projBQ1 * (1 - wBQ1) + h2hBQ1avg * wBQ1;
+              }
+              addStage("q1", "H2H Blend", projAQ1 + projBQ1, "Q1 H2H blended");
+            } else {
+              addStage("q1", "H2H Blend", projAQ1 + projBQ1, "Skipped");
+            }
+          } else {
+            addStage("q1", "H2H Blend", projAQ1 + projBQ1, "Skipped");
+          }
 
           aVolQ1 = (stdDev(safeArr(aQ1S) || []) + stdDev(safeArr(aQ1A) || [])) / 2;
           bVolQ1 = (stdDev(safeArr(bQ1S) || []) + stdDev(safeArr(bQ1A) || [])) / 2;
 
           projAQ1 = applyVolatility(projAQ1, aVolQ1, 4.5);
           projBQ1 = applyVolatility(projBQ1, bVolQ1, 4.5);
+          addStage("q1", "Volatility Filter", projAQ1 + projBQ1, "Q1 volatility applied");
 
           projAQ1 = projAQ1 * 0.85 + (ebQ1 / 2) * 0.15;
           projBQ1 = projBQ1 * 0.85 + (ebQ1 / 2) * 0.15;
+          addStage("q1", "Regression To Mean", projAQ1 + projBQ1, "Q1 regression applied");
 
           const rawPaceQ1 = (aS1Q + aA1Q + bS1Q + bA1Q) / (2 * ebQ1);
           const paceQ1 = Math.max(0.90, Math.min(1.10, rawPaceQ1));
+          addStage("q1", "Pace Blend", paceQ1, "Clamp 0.90-1.10");
 
           projAQ1 *= MODEL.PACE_BLEND + paceQ1 / 2;
           projBQ1 *= MODEL.PACE_BLEND + paceQ1 / 2;
+          addStage("q1", "Pace Applied", projAQ1 + projBQ1, "Post pace blend");
 
           if (injMultA !== 1) projAQ1 *= injMultA;
           if (injMultB !== 1) projBQ1 *= injMultB;
+          addStage("q1", "Injury/Rest Adjustment", projAQ1 + projBQ1, `A ${injMultA.toFixed(3)} / B ${injMultB.toFixed(3)}`);
 
           projAQ1 += hAdj * 0.25;
           projBQ1 -= hAdj * 0.25;
+          addStage("q1", "Home Edge", projAQ1 + projBQ1, `±${(hAdj * 0.25).toFixed(2)}`);
 
           q1Proj = projAQ1 + projBQ1;
 
           const pgrQ1 = Math.abs(aS1Q - bS1Q) > ebQ1 * 0.10;
           const dfrQ1 = (aA1Q < ebQ1 * 0.40) || (bA1Q < ebQ1 * 0.40);
+          addStage("q1", "Pace Gap Filter", pgrQ1 ? 1 : 0, pgrQ1 ? "Triggered" : "Not triggered");
+          addStage("q1", "Defensive Floor Filter", dfrQ1 ? 1 : 0, dfrQ1 ? "Triggered" : "Not triggered");
 
           if (pgrQ1) q1Proj *= MODEL.PACE_SUPPRESS;
           if (dfrQ1) q1Proj *= 0.97;
+          addStage("q1", "Suppression Filters", q1Proj, "Q1 suppression applied");
           q1Proj = anchorProjection(q1Proj, q1Line, league, "q1");
+          addStage("q1", "Line Anchor", q1Proj, "Q1 anchor applied");
+        } else {
+          addStage("q1", "Base Projection", q1Proj, "Insufficient Q1 inputs");
         }
       }
 
@@ -3538,6 +3933,12 @@
       const q1Edge = q1Line !== null && !isNaN(q1Proj) ? q1Proj - q1Line : NaN;
       const aEdge = aLine !== null && !isNaN(projAFT) ? projAFT - aLine : NaN;
       const bEdge = bLine !== null && !isNaN(projBFT) ? projBFT - bLine : NaN;
+
+      addStage("ft", "Edge", ftEdge, "Projection - line");
+      addStage("h1", "Edge", h1Edge, "Projection - line");
+      addStage("q1", "Edge", q1Edge, "Projection - line");
+      addStage("teamA", "Edge", aEdge, "Projection - line");
+      addStage("teamB", "Edge", bEdge, "Projection - line");
 
       const ftSampleTier = getSampleTier(aSA, aAA, bSA, bAA);
       const h1SampleTier = getSampleTier(
@@ -3601,11 +4002,17 @@
       const q1FullModel = q1SampleTier === "full" && !q1ProjectionOnly && !isNaN(q1Proj);
       const teamFullModel = ftFullModel;
 
-      if (ftPick !== "NO PLAY" && detectTrap(ftEdge, ftLine, ftPick, league, "ft", aVol + bVol)) ftPick = "NO PLAY";
-      if (h1Pick !== "NO PLAY" && detectTrap(h1Edge, h1Line, h1Pick, league, "h1", aVol1 + bVol1)) h1Pick = "NO PLAY";
-      if (q1Pick !== "NO PLAY" && detectTrap(q1Edge, q1Line, q1Pick, league, "q1", aVolQ1 + bVolQ1)) q1Pick = "NO PLAY";
-      if (aPick !== "NO PLAY" && detectTrap(aEdge, aLine, aPick, league, "team", aVol)) aPick = "NO PLAY";
-      if (bPick !== "NO PLAY" && detectTrap(bEdge, bLine, bPick, league, "team", bVol)) bPick = "NO PLAY";
+      const ftTrap = ftPick !== "NO PLAY" && detectTrap(ftEdge, ftLine, ftPick, league, "ft", aVol + bVol);
+      const h1Trap = h1Pick !== "NO PLAY" && detectTrap(h1Edge, h1Line, h1Pick, league, "h1", aVol1 + bVol1);
+      const q1Trap = q1Pick !== "NO PLAY" && detectTrap(q1Edge, q1Line, q1Pick, league, "q1", aVolQ1 + bVolQ1);
+      const aTrap = aPick !== "NO PLAY" && detectTrap(aEdge, aLine, aPick, league, "team", aVol);
+      const bTrap = bPick !== "NO PLAY" && detectTrap(bEdge, bLine, bPick, league, "team", bVol);
+
+      if (ftTrap) ftPick = "NO PLAY";
+      if (h1Trap) h1Pick = "NO PLAY";
+      if (q1Trap) q1Pick = "NO PLAY";
+      if (aTrap) aPick = "NO PLAY";
+      if (bTrap) bPick = "NO PLAY";
 
       if (ftSampleTier !== "full") {
         ftPick = "NO PLAY";
@@ -3622,6 +4029,21 @@
       }
       if (h1ProjectionOnly) h1Pick = "NO PLAY";
       if (q1ProjectionOnly) q1Pick = "NO PLAY";
+
+      function addDecisionStages(bucket, edge, line, pick, sampleTier, projectionOnly, trap) {
+        const pct = (!isNaN(edge) && line && line > 0) ? Math.abs(edge / line) : NaN;
+        addStage(bucket, "Strong Edge Filter", pct, isNaN(pct) ? "No valid edge" : `Min ${(bucket === "ft" ? getLeagueEdgeThresholds(league).ft : bucket === "h1" ? getLeagueEdgeThresholds(league).h1 : bucket === "q1" ? getLeagueEdgeThresholds(league).q1 : getLeagueEdgeThresholds(league).team).toFixed(3)}`);
+        addStage(bucket, "Sample Filter", sampleTier, sampleTier === "full" ? "Pass" : "No play", "text");
+        addStage(bucket, "Projection Only Filter", projectionOnly ? "Projection only" : "Full model", projectionOnly ? "No play" : "Pass", "text");
+        addStage(bucket, "Trap Filter", trap ? "Triggered" : "Clear", trap ? "No play" : "Pass", "text");
+        addStage(bucket, "Final Pick", pick, "Final decision", "pick");
+      }
+
+      addDecisionStages("ft", ftEdge, ftLine, ftPick, ftSampleTier, ftProjectionOnly, ftTrap);
+      addDecisionStages("h1", h1Edge, h1Line, h1Pick, h1SampleTier, h1ProjectionOnly, h1Trap);
+      addDecisionStages("q1", q1Edge, q1Line, q1Pick, q1SampleTier, q1ProjectionOnly, q1Trap);
+      addDecisionStages("teamA", aEdge, aLine, aPick, ftSampleTier, ftProjectionOnly, aTrap);
+      addDecisionStages("teamB", bEdge, bLine, bPick, ftSampleTier, ftProjectionOnly, bTrap);
 
       const markets = [
         { edge: ftEdge, line: ftLine, pick: ftPick, fullModel: ftFullModel },
@@ -3705,6 +4127,14 @@
         row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
       });
 
+      renderProtocolOutput([
+        { title: "FT Total Protocol", stages: protocol.ft },
+        { title: "1H Total Protocol", stages: protocol.h1 },
+        ...(isNba ? [{ title: "Q1 Total Protocol", stages: protocol.q1 }] : []),
+        { title: "Team A Total Protocol", stages: protocol.teamA },
+        { title: "Team B Total Protocol", stages: protocol.teamB }
+      ]);
+
       setTimeout(() => {
         table.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
@@ -3731,7 +4161,7 @@
         "ftMarket","h1Market","q1Market","teamAMarket","teamBMarket",
         "aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
         "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
-        "aFTH2H","bFTH2H","a1HH2H","b1HH2H"
+        "aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"
       ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
@@ -3740,7 +4170,7 @@
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
-      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","aQ1Section","bQ1Section","q1MarketSection"].forEach(id => {
+      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
       });
@@ -3766,6 +4196,7 @@
       const t = document.getElementById("results");
       t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
       t.style.display = "none";
+      resetProtocolOutput();
 
       const fixtureSelect = document.getElementById("fixtureSelect");
       if (fixtureSelect) {
@@ -3808,23 +4239,25 @@
       });
 
       const isNba = league === "nba";
-      ["aQ1Section", "bQ1Section", "q1MarketSection"].forEach(id => {
+      ["aQ1Section", "bQ1Section", "q1MarketSection", "h2hQ1Section"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isNba ? "block" : "none";
       });
 
       if (!isNba) {
-        ["aQ1Scored", "aQ1Allowed", "bQ1Scored", "bQ1Allowed", "q1Market"].forEach(id => {
+        ["aQ1Scored", "aQ1Allowed", "bQ1Scored", "bQ1Allowed", "q1Market", "aQ1H2H", "bQ1H2H"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = "";
         });
+        const q1Cb = document.getElementById("useQ1H2H");
+        if (q1Cb) q1Cb.checked = false;
       }
 
       if (!isNbaOrNcaa) {
         [
           "a1HScored","a1HAllowed","b1HScored","b1HAllowed",
           "a1HH2H","b1HH2H","h1Market",
-          "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed","q1Market"
+          "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed","q1Market","aQ1H2H","bQ1H2H"
         ].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = "";
@@ -3836,6 +4269,8 @@
         });
 
         document.getElementById("use1HH2H").checked = false;
+        const q1Cb = document.getElementById("useQ1H2H");
+        if (q1Cb) q1Cb.checked = false;
       }
 
       _fetchToken++;
@@ -3851,7 +4286,7 @@
         "aFTScored","aFTAllowed","bFTScored","bFTAllowed",
         "a1HScored","a1HAllowed","b1HScored","b1HAllowed",
         "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed",
-        "aFTH2H","bFTH2H","a1HH2H","b1HH2H"
+        "aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"
       ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
@@ -3859,6 +4294,8 @@
 
       document.getElementById("useFTH2H").checked = false;
       document.getElementById("use1HH2H").checked = false;
+      const q1Cb = document.getElementById("useQ1H2H");
+      if (q1Cb) q1Cb.checked = false;
 
       ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(id => {
         const el = document.getElementById(id);
@@ -3886,7 +4323,7 @@
       }
 
       updateSectionLocks();
-      goToNextStep();
+      goToNextStep(true);
       loadFixtures(0);
     }
 
@@ -3915,7 +4352,7 @@
       const espnEl = document.getElementById("espnSection");
       if (espnEl) espnEl.style.display = "none";
 
-      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","aQ1Section","bQ1Section","q1MarketSection"].forEach(id => {
+      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
       });
@@ -3923,12 +4360,12 @@
       lockFrom("espnSection");
       openSection("leagueSection");
 
-      ["useFTH2H", "use1HH2H"].forEach(id => {
+      ["useFTH2H", "use1HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("change", resetResultsTable);
       });
 
-      ["aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(id => {
+      ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
           el.addEventListener("input", () => {
@@ -3958,7 +4395,7 @@
             if (tagEl) tagEl.style.display = "none";
             resetResultsTable();
             updateSectionLocks();
-            goToNextStep();
+            goToNextStep(false);
           });
         }
       });
@@ -3969,7 +4406,6 @@
           el.addEventListener("input", () => {
             resetResultsTable();
             updateSectionLocks();
-            goToNextStep();
           });
         }
       });
@@ -3979,7 +4415,6 @@
         if (el) {
           el.addEventListener("input", () => {
             updateSectionLocks();
-            goToNextStep();
           });
         }
       });
@@ -3989,17 +4424,15 @@
         if (el) {
           el.addEventListener("input", () => {
             updateSectionLocks();
-            goToNextStep();
           });
         }
       });
 
-      ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","useFTH2H","use1HH2H"].forEach(id => {
+      ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H","useFTH2H","use1HH2H","useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         const check = () => {
           updateSectionLocks();
-          goToNextStep();
         };
         el.addEventListener("input", check);
         el.addEventListener("change", check);
