@@ -1631,24 +1631,25 @@ let g_lastFetchedTeams = { A: "", B: "" };
       return true;
     }
 
-    function updateSectionLocks() {
+function updateSectionLocks() {
   const league = document.getElementById("leagueSelect").value;
   const isNbaOrNcaa = league === "nba" || league === "ncaa";
 
-  ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(lockSection);
-  if (!league) return;
+  if (!league) {
+    ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(lockSection);
+    return;
+  }
 
-  if (isNbaOrNcaa) unlockSection("espnSection");
   unlockSection("marketSection");
-
-  if (!isMarketComplete()) return;
   unlockSection("teamASection");
-
-  if (!isTeamAComplete()) return;
   unlockSection("teamBSection");
-
-  if (!isTeamBComplete()) return;
   unlockSection("h2hSection");
+
+  if (isNbaOrNcaa) {
+    unlockSection("espnSection");
+  } else {
+    lockSection("espnSection");
+  }
 }
 
     function goToNextStep(autoOpen = false) {
@@ -4434,19 +4435,18 @@ if (isNbaOrNcaa) {
       };
 
       Object.entries(bucketMap).forEach(([id, [side, bucket]]) => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.addEventListener("input", () => {
-            setManualSource(side, bucket);
-            const tagId = side === "A" ? "aAutoTag" : "bAutoTag";
-            const tagEl = document.getElementById(tagId);
-            if (tagEl) tagEl.style.display = "none";
-            resetResultsTable();
-            updateSectionLocks();
-            goToNextStep(false);
-          });
-        }
-      });
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("input", () => {
+      setManualSource(side, bucket);
+      const tagId = side === "A" ? "aAutoTag" : "bAutoTag";
+      const tagEl = document.getElementById(tagId);
+      if (tagEl) tagEl.style.display = "none";
+      resetResultsTable();
+      updateSectionLocks();
+    });
+  }
+});
 
       ["ftMarket","teamAMarket","teamBMarket","h1Market","q1Market"].forEach(id => {
         const el = document.getElementById(id);
