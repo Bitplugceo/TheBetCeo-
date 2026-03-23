@@ -1340,7 +1340,7 @@
     }
 
     function displayLine(val) {
-  if (val === null || val === undefined || isNaN(val)) return "NaN";
+  if (val === null || val === undefined || isNaN(val)) return "—";
   return (Math.round(val * 2) / 2).toFixed(1);
 }
 
@@ -3356,6 +3356,11 @@
       const isNbaOrNcaa = league === "nba" || league === "ncaa";
       const isNba = league === "nba";
 
+if (!league) {
+  const row = table.insertRow();
+  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
+  return;
+}
       const protocol = {
         ft: [],
         h1: [],
@@ -4110,7 +4115,11 @@ if (
         if (p.name === "Q1 Total" && isNba && isNaN(q1Proj) && !p.note) p.note = "Insufficient Q1 sample";
       });
 
-      const finalPicks = isNba ? picks : picks.filter(p => p.name !== "Q1 Total");
+      const finalPicks = isNba
+  ? picks
+  : isNbaOrNcaa
+    ? picks.filter(p => p.name !== "Q1 Total")
+    : picks.filter(p => p.name !== "1H Total" && p.name !== "Q1 Total");
 
       finalPicks.forEach(p => {
         const originalIndex = picks.indexOf(p);
