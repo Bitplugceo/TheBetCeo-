@@ -686,50 +686,16 @@ vertical-align:middle !important;
 appearance:checkbox !important;
 }
 
-/* Custom checkbox — hide native, show tiny custom box */
+/* checkbox — native iOS default */
+
+/* checkbox — native iOS default */
+
+/* Checkbox — native iOS, just constrain margin */
 input[type=“checkbox”] {
--webkit-appearance:none !important;
-appearance:none !important;
-width:12px !important;
-height:12px !important;
-min-width:12px !important;
-min-height:12px !important;
-max-width:12px !important;
-max-height:12px !important;
-border:1.5px solid #888 !important;
-border-radius:2px !important;
-background:#fff !important;
-vertical-align:middle !important;
-margin-right:6px !important;
-position:relative !important;
-cursor:pointer !important;
-flex-shrink:0 !important;
-}
-
-input[type=“checkbox”]:checked {
-background:#3a9c35 !important;
-border-color:#3a9c35 !important;
-}
-
-input[type=“checkbox”]:checked::after {
-content:“✓” !important;
-position:absolute !important;
-top:-1px !important;
-left:1px !important;
-font-size:9px !important;
-color:#fff !important;
-font-weight:700 !important;
-line-height:12px !important;
-}
-
-body.dark-mode input[type=“checkbox”] {
-border-color:#666 !important;
-background:#222 !important;
-}
-
-body.dark-mode input[type=“checkbox”]:checked {
-background:#3a9c35 !important;
-border-color:#3a9c35 !important;
+width:12px;
+height:12px;
+margin-right:6px;
+vertical-align:middle;
 }
 
 </style>
@@ -2804,7 +2770,7 @@ function runEngine(){
   const aFTReady=aSA!==null&&aAA!==null;
   const bFTReady=bSA!==null&&bAA!==null;
   const isNbaOrNcaa=league==="nba"||league==="ncaa";
-  const calcAvg=weightedAvg;
+  const calcAvg = isNbaOrNcaa ? weightedAvg : trimmedAvg;
   const safeArr=a=>(a&&!a.err)?a:null;
   let aS=safeArr(aSA)?calcAvg(aSA):NaN;
   let aA=safeArr(aAA)?calcAvg(aAA):NaN;
@@ -2878,14 +2844,19 @@ function runEngine(){
   if(!isNaN(bBFT)) bBFT-=hAdj*0.75;
   let ftP = (!isNaN(bAFT) && !isNaN(bBFT)) ? bAFT + bBFT : NaN;
   if (!isNaN(ftP)) {
+    const ftPraw = ftP;
+
     if (dfr) ftP *= 0.97;
     if (Math.abs(bAFT - bBFT) > 18) ftP *= MODEL.MULTI_GOAL_SUPPRESS;
     if (pgr) ftP *= MODEL.PACE_SUPPRESS;
+
     if (fma) {
       const paceGap = Math.abs(aS - bS) / eb;
       if (paceGap > 0.14) ftP *= 0.97;
     }
+
     if (!isNaN(pace) && pace > 1.12) ftP *= 0.98;
+
     if (ftLine !== null) {
       const ftDiff = ftP - ftLine;
       if (league === "nba" && Math.abs(ftDiff) > 18) {
@@ -2893,6 +2864,12 @@ function runEngine(){
       } else if (Math.abs(ftDiff) > 25) {
         ftP = ftLine + ftDiff * MODEL.LINE_ANCHOR_OTHER;
       }
+    }
+
+    if (ftPraw > 0 && ftP !== ftPraw) {
+      const ratio = ftP / ftPraw;
+      bAFT *= ratio;
+      bBFT *= ratio;
     }
   }
   let h1P=NaN,aVol1=0,bVol1=0,vl1=7,pgr1=false,dfr1=false;
