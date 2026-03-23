@@ -600,7 +600,7 @@
   <header class="app-header">
     <span class="brand-name">TheBetCeo ⚡️</span>
     <span class="brand-right">
-      <button class="theme-toggle" type="button" onclick="toggleTheme()" title="Toggle dark/light mode">🏀</button>
+<button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
       PREDICTIONS
     </span>
   </header>
@@ -609,7 +609,7 @@
     <div class="section" id="leagueSection">
       <h3>League Tier</h3>
       <label>Select League</label>
-      <select id="leagueSelect" class="league-box" onchange="onLeagueChange()">
+<select id="leagueSelect" class="league-box">
         <option value="">- Select League -</option>
 
         <optgroup label="── USA ─────────────────">
@@ -715,28 +715,28 @@
       <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
 
       <div id="fixtureToolbar" class="fixture-toolbar">
-        <button type="button" class="fixture-day active" id="fixturesTodayBtn" onclick="loadFixtures(0)">Today</button>
-        <button type="button" class="fixture-day" id="fixturesTomorrowBtn" onclick="loadFixtures(1)">Tomorrow</button>
+<button type="button" class="fixture-day active" id="fixturesTodayBtn">Today</button>
+<button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
       </div>
 
       <label style="font-size:12px;">Select match</label>
-      <select id="fixtureSelect" class="league-box" onchange="onFixtureSelect()">
+<select id="fixtureSelect" class="league-box">
         <option value="">- Select match -</option>
       </select>
 
       <label style="font-size:12px;">Team A Name (Home)</label>
       <div class="autocomplete-wrap">
-        <input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" oninput="onTeamInput('A')" />
+<input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" />
         <div class="autocomplete-list" id="dropA"></div>
       </div>
 
       <label style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
       <div class="autocomplete-wrap">
-        <input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" oninput="onTeamInput('B')" />
+<input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" />
         <div class="autocomplete-list" id="dropB"></div>
       </div>
 
-      <button class="fetch-btn" id="fetchBtn" type="button" onclick="fetchESPN()">📡 Fetch Stats</button>
+<button class="fetch-btn" id="fetchBtn" type="button">📡 Fetch Stats</button>
       <div id="fetchStatus"></div>
 
       <div class="injury-box" id="injuryBoxA">
@@ -754,23 +754,23 @@
       <h3>Market Lines</h3>
 
       <label>FT Total</label>
-<input id="ftMarket" placeholder="150.5 - 160.5" oninput="resetResultsTable()" />
+<input id="ftMarket" placeholder="150.5 - 160.5" />
 
       <div id="h1MarketSection" style="display:none;">
         <label>1H Total</label>
-<input id="h1Market" placeholder="105.5 - 110.5" oninput="resetResultsTable()" />
+<input id="h1Market" placeholder="105.5 - 110.5" />
 
         <div id="q1MarketSection" style="display:none;">
           <label>Q1 Total</label>
-<input id="q1Market" placeholder="55.5 or 55.5 - 58.5" oninput="resetResultsTable()" />
+<input id="q1Market" placeholder="55.5 or 55.5 - 58.5" />
         </div>
       </div>
 
       <label>Team A Total</label>
-<input id="teamAMarket" placeholder="75.5 - 79.5" oninput="resetResultsTable()" />
+<input id="teamAMarket" placeholder="75.5 - 79.5" />
 
       <label>Team B Total</label>
-<input id="teamBMarket" placeholder="75.5 - 79.5" oninput="resetResultsTable()" />
+<input id="teamBMarket" placeholder="75.5 - 79.5" />
     </div>
 
     <div class="section" id="teamASection">
@@ -847,8 +847,8 @@
   </div>
 
   <div class="actions">
-    <button id="runBtn" type="button" onclick="runEngine()">Run</button>
-    <button id="clearBtn" type="button" onclick="clearAll()">Clear</button>
+<button id="runBtn" type="button">Run</button>
+<button id="clearBtn" type="button">Clear</button>
   </div>
 
   <div class="table-wrap">
@@ -3247,8 +3247,7 @@ setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err")
       const teamBNameRaw = document.getElementById("teamBName")?.value.trim().toLowerCase();
 
       if (teamANameRaw && teamBNameRaw && teamANameRaw === teamBNameRaw) {
-        const row = table.insertRow();
-        row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Team A and Team B cannot be the same.</td>`;
+        showRunError(table, "⚠ Team A and Team B cannot be the same.");
         return;
       }
 
