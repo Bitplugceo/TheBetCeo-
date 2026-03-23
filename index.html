@@ -1628,31 +1628,25 @@
     }
 
     function updateSectionLocks() {
-      const league = document.getElementById("leagueSelect").value;
-const isNbaOrNcaa = league === "nba" || league === "ncaa";
-const isNba = league === "nba";
+      function updateSectionLocks() {
+  const league = document.getElementById("leagueSelect").value;
+  const isNbaOrNcaa = league === "nba" || league === "ncaa";
 
-if (!league) {
-  const row = table.insertRow();
-  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
-  return;
+  ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(lockSection);
+  if (!league) return;
+
+  if (isNbaOrNcaa) unlockSection("espnSection");
+  unlockSection("marketSection");
+
+  if (!isMarketComplete()) return;
+  unlockSection("teamASection");
+
+  if (!isTeamAComplete()) return;
+  unlockSection("teamBSection");
+
+  if (!isTeamBComplete()) return;
+  unlockSection("h2hSection");
 }
-
-      ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(lockSection);
-      if (!league) return;
-
-      if (isNbaOrNcaa) unlockSection("espnSection");
-      unlockSection("marketSection");
-
-      if (!isMarketComplete()) return;
-      unlockSection("teamASection");
-
-      if (!isTeamAComplete()) return;
-      unlockSection("teamBSection");
-
-      if (!isTeamBComplete()) return;
-      unlockSection("h2hSection");
-    }
 
     function goToNextStep(autoOpen = false) {
       const league = document.getElementById("leagueSelect").value;
@@ -4247,13 +4241,13 @@ if (
       });
 
       const league = document.getElementById("leagueSelect").value;
-
+const isNbaOrNcaa = league === "nba" || league === "ncaa";
+const isNba = league === "nba";
 if (!league) {
   const row = table.insertRow();
   row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
   return;
 }
-
 const isNbaOrNcaa = league === "nba" || league === "ncaa";
 const isNba = league === "nba";
 
