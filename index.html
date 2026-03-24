@@ -494,12 +494,124 @@
       margin-top: 3px;
     }
 
-    .lock {
+       .lock {
       font-size: 4px !important;
       display: inline-block;
       vertical-align: middle;
       transform: translateY(-1px);
       margin-left: 4px;
+    }
+
+    .track-pending {
+      background: #eceff3 !important;
+      color: #2a2f38 !important;
+      font-weight: 800 !important;
+    }
+
+    .track-win {
+      background: #3a9c35 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .track-loss {
+      background: #c91920 !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .track-push {
+      background: #3a404c !important;
+      color: #fff !important;
+      font-weight: 800 !important;
+    }
+
+    .tracker-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: none;
+      align-items: flex-start;
+      justify-content: flex-end;
+      padding-top: max(8px, env(safe-area-inset-top));
+      padding-right: max(8px, env(safe-area-inset-right));
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+      padding-left: max(8px, env(safe-area-inset-left));
+      z-index: 9999;
+    }
+
+    .tracker-modal.open {
+      display: flex;
+    }
+
+    .tracker-panel {
+      width: min(96vw, 520px);
+      height: calc(100vh - 16px);
+      background: #ffffff;
+      color: #1f2430;
+      border: 1px solid #dfe2e7;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 0 !important;
+    }
+
+    .tracker-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: #3a404c;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .tracker-close {
+      background: none !important;
+      border: none !important;
+      box-shadow: none !important;
+      color: #fff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      font-size: 18px !important;
+      font-weight: 800 !important;
+      cursor: pointer !important;
+    }
+
+    .tracker-summary {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border-bottom: 1px solid #dfe2e7;
+      background: #f6f7f9;
+    }
+
+    .tracker-body-scroll {
+      flex: 1;
+      overflow: auto;
+    }
+
+    body.dark-mode .tracker-panel {
+      background: #1a1a1a !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .tracker-head {
+      background: #111 !important;
+      color: #d4af37 !important;
+    }
+
+    body.dark-mode .tracker-close {
+      color: #d4af37 !important;
+    }
+
+    body.dark-mode .tracker-summary {
+      background: #151515 !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
     }
 
 
@@ -599,8 +711,9 @@
 <body>
   <header class="app-header">
     <span class="brand-name">TheBetCeo ⚡️</span>
-    <span class="brand-right">
+      <span class="brand-right">
 <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
+<button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
       PREDICTIONS
     </span>
   </header>
@@ -862,6 +975,40 @@
     </table>
   </div>
 
+  <div id="trackerModal" class="tracker-modal" aria-hidden="true">
+    <div class="tracker-panel">
+      <div class="tracker-head">
+        <span>Tracked Picks</span>
+        <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
+      </div>
+
+      <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+
+      <div id="trackerEmpty" style="padding:12px 14px;font-size:12px;color:#7b8088;">
+        No tracked picks saved yet.
+      </div>
+
+      <div class="tracker-body-scroll" id="trackedPicksWrap" style="display:none;">
+        <div class="table-wrap" style="margin:0;">
+          <table id="trackedPicksTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Match</th>
+                <th>Market</th>
+                <th>Line</th>
+                <th>Pick</th>
+                <th>Edge</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="trackedPicksBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
     const DEBUG = false;
@@ -975,10 +1122,12 @@ let g_lastFetchedTeams = { A: "", B: "" };
       }
     });
 
-    let g_fetchMeta = defaultFetchMeta();
+        let g_fetchMeta = defaultFetchMeta();
     let g_injA = { restMult: 1, scoringMult: 1, notes: [] };
     let g_injB = { restMult: 1, scoringMult: 1, notes: [] };
 
+    const TRACKED_PICKS_KEY = "bbEngineTrackedPicksV1";
+    const TRACKED_PICKS_LIMIT = 500;
     function logDebug(...args) {
       if (DEBUG) console.log("[BB Engine]", ...args);
     }
@@ -1245,10 +1394,170 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
       return Math.round(val * 2) / 2;
     }
 
-    function displayLine(val) {
+       function displayLine(val) {
   if (val === null || val === undefined || isNaN(val)) return "—";
   return (Math.round(val * 2) / 2).toFixed(1);
 }
+
+    function formatTrackedDate(iso) {
+      if (!iso) return "—";
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "—";
+        return d.toLocaleString([], {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit"
+        });
+      } catch (e) {
+        return "—";
+      }
+    }
+
+    function loadTrackedPicks() {
+      try {
+        const raw = localStorage.getItem(TRACKED_PICKS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveTrackedPicks(picks) {
+      try {
+        localStorage.setItem(
+          TRACKED_PICKS_KEY,
+          JSON.stringify((picks || []).slice(0, TRACKED_PICKS_LIMIT))
+        );
+      } catch (e) {
+        logDebug("saveTrackedPicks failed", e);
+      }
+    }
+
+    function makeTrackedSignature(pick) {
+      return [
+        pick.eventId || "",
+        pick.eventDate || "",
+        pick.league || "",
+        normalizeTeamName(pick.homeTeam || ""),
+        normalizeTeamName(pick.awayTeam || ""),
+        pick.marketKey || "",
+        displayLine(pick.line),
+        pick.side || ""
+      ].join("|");
+    }
+
+    function getCurrentFixtureMeta() {
+      const fixtureSelect = document.getElementById("fixtureSelect");
+      const opt =
+        fixtureSelect && fixtureSelect.selectedIndex >= 0
+          ? fixtureSelect.options[fixtureSelect.selectedIndex]
+          : null;
+
+      const teamAName = document.getElementById("teamAName")?.value.trim() || "";
+      const teamBName = document.getElementById("teamBName")?.value.trim() || "";
+
+      return {
+        eventId: opt?.value || "",
+        eventDate: opt?.dataset.eventDate || "",
+        homeTeam: opt?.dataset.home || teamAName,
+        awayTeam: opt?.dataset.away || teamBName,
+        homeId: opt?.dataset.homeId || String(selectedTeamIds.A || ""),
+        awayId: opt?.dataset.awayId || String(selectedTeamIds.B || "")
+      };
+    }
+
+    function openTrackerModal() {
+      const modal = document.getElementById("trackerModal");
+      if (!modal) return;
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeTrackerModal() {
+      const modal = document.getElementById("trackerModal");
+      if (!modal) return;
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    function renderTrackedPicks() {
+      const summaryEl = document.getElementById("trackerSummary");
+      const emptyEl = document.getElementById("trackerEmpty");
+      const wrapEl = document.getElementById("trackedPicksWrap");
+      const bodyEl = document.getElementById("trackedPicksBody");
+
+      if (!summaryEl || !emptyEl || !wrapEl || !bodyEl) return;
+
+      const picks = loadTrackedPicks();
+      const settled = picks.filter(p => p.resultStatus && p.resultStatus !== "pending");
+      const wins = picks.filter(p => p.resultStatus === "win");
+
+      summaryEl.textContent =
+        `${picks.length} saved • ${settled.length} settled • ${wins.length} wins`;
+
+      if (!picks.length) {
+        emptyEl.style.display = "block";
+        wrapEl.style.display = "none";
+        bodyEl.innerHTML = "";
+        return;
+      }
+
+      emptyEl.style.display = "none";
+      wrapEl.style.display = "block";
+
+      bodyEl.innerHTML = picks.map(p => {
+        const status = String(p.resultStatus || "pending").toLowerCase();
+        const statusClass =
+          status === "win" ? "track-win" :
+          status === "loss" ? "track-loss" :
+          status === "push" ? "track-push" :
+          "track-pending";
+
+        const edgeText =
+          p.edgePct === null || p.edgePct === undefined || isNaN(p.edgePct)
+            ? "—"
+            : (p.edgePct > 0 ? "+" : "") + Number(p.edgePct).toFixed(2) + "%";
+
+        return `
+          <tr>
+            <td>${safeText(formatTrackedDate(p.createdAt))}</td>
+            <td>${safeText((p.homeTeam || "—") + " vs " + (p.awayTeam || "—"))}</td>
+            <td>${safeText(p.marketName || "—")}</td>
+            <td>${safeText(displayLine(p.line))}</td>
+            <td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
+            <td>${safeText(edgeText)}</td>
+            <td class="${statusClass}">${safeText(status.toUpperCase())}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function addTrackedPicks(newPicks) {
+      if (!Array.isArray(newPicks) || !newPicks.length) {
+        renderTrackedPicks();
+        return;
+      }
+
+      const current = loadTrackedPicks();
+      const seen = new Set(current.map(p => p.signature));
+      let changed = false;
+
+      newPicks.forEach(p => {
+        if (!p.signature) p.signature = makeTrackedSignature(p);
+        if (seen.has(p.signature)) return;
+        seen.add(p.signature);
+        current.unshift(p);
+        changed = true;
+      });
+
+      if (changed) saveTrackedPicks(current);
+      renderTrackedPicks();
+    }
 
     function getH2HWeight(lenA, lenB) {
       const n = Math.min(lenA || 0, lenB || 0);
@@ -2900,10 +3209,11 @@ if (!events.length) {
           const opt = document.createElement("option");
           opt.value = String(ev.id || "");
           opt.textContent = tipoff + " — " + homeName + " vs " + awayName;
-          opt.dataset.home = homeName;
+                    opt.dataset.home = homeName;
           opt.dataset.away = awayName;
           opt.dataset.homeId = homeId;
           opt.dataset.awayId = awayId;
+          opt.dataset.eventDate = ev.date || "";
           sel.appendChild(opt);
         });
 } catch (e) {
@@ -3843,11 +4153,16 @@ if (
         if (p.name === "Q1 Total" && isNba && isNaN(q1Proj) && !p.note) p.note = "Insufficient Q1 sample";
       });
 
-      const finalPicks = isNba
+       const finalPicks = isNba
   ? picks
   : isNbaOrNcaa
     ? picks.filter(p => p.name !== "Q1 Total")
     : picks.filter(p => p.name !== "1H Total" && p.name !== "Q1 Total");
+
+      const fixtureMeta = getCurrentFixtureMeta();
+      const currentTeamAName = document.getElementById("teamAName")?.value.trim() || "";
+      const currentTeamBName = document.getElementById("teamBName")?.value.trim() || "";
+      const trackedToSave = [];
 
       finalPicks.forEach(p => {
         const originalIndex = picks.indexOf(p);
