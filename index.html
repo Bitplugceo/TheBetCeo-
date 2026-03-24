@@ -2744,11 +2744,17 @@ function getTeamIdentityKey(name, league) {
 
         if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
 
-                scored.push(Math.round(ms));
+                        scored.push(Math.round(ms));
         allowed.push(Math.round(os));
+
         if (gotLS && h1m > 0) {
           h1Scored.push(Math.round(h1m));
           h1Allowed.push(Math.round(h1o));
+        }
+
+        if (gotLS && q1m > 0) {
+          q1Scored.push(Math.round(q1m));
+          q1Allowed.push(Math.round(q1o));
         }
 
         if (scored.length >= 5) break;
@@ -2903,10 +2909,7 @@ function getTeamIdentityKey(name, league) {
           h1Allowed.push(Math.round(h1o));
         }
 
-                if (gotLS && q1m > 0) {
-          q1Scored.push(Math.round(q1m));
-          q1Allowed.push(Math.round(q1o));
-        }
+      
 
         if (scored.length >= 5) break;
       }
