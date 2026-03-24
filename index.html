@@ -2678,14 +2678,13 @@ function getTeamIdentityKey(name, league) {
         return db - da;
       });
 
-      const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
+            const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
       const venueReliable = strictFiltered.length >= 2;
       const usedVenueFallback = !venueReliable && unique.length >= 2;
       const chosen = venueReliable ? strictFiltered : unique;
 
       if (chosen.length < 2) return null;
 
-      const top5 = chosen.slice(0, 5);
       const scored = [];
       const allowed = [];
       const h1Scored = [];
@@ -2693,7 +2692,7 @@ function getTeamIdentityKey(name, league) {
       const q1Scored = [];
       const q1Allowed = [];
 
-      for (const ref of top5) {
+      for (const ref of chosen) {
         let ms = ref.rawS;
         let os = ref.rawA;
         let h1m = 0;
