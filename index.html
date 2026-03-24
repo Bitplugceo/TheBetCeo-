@@ -1555,12 +1555,21 @@ function getCurrentFixtureMeta() {
   const optHome = opt?.dataset.home || "";
   const optAway = opt?.dataset.away || "";
 
-  const sameFixture =
-    !!opt &&
-    !!opt.value &&
-    normalizeTeamName(optHome) === normalizeTeamName(teamAName) &&
-    normalizeTeamName(optAway) === normalizeTeamName(teamBName);
+  const sameByIds =
+  !!opt &&
+  !!opt.value &&
+  String(opt.dataset.homeId || "") !== "" &&
+  String(opt.dataset.awayId || "") !== "" &&
+  String(opt.dataset.homeId || "") === String(selectedTeamIds.A || "") &&
+  String(opt.dataset.awayId || "") === String(selectedTeamIds.B || "");
 
+const sameByNames =
+  !!opt &&
+  !!opt.value &&
+  normalizeTeamName(optHome) === normalizeTeamName(teamAName) &&
+  normalizeTeamName(optAway) === normalizeTeamName(teamBName);
+
+const sameFixture = sameByIds || sameByNames;
   return {
     eventId: sameFixture ? (opt.value || "") : "",
     eventDate: sameFixture ? (opt.dataset.eventDate || "") : "",
@@ -2627,7 +2636,7 @@ function getTeamIdentityKey(name, league) {
 
 
 
-    async function fetchInjuryAndRest(base, teamId, teamAvgScored, league) {
+    async function fetchInjuryMeta(base, teamId, teamAvgScored, league) {
 const result = {
   scoringMult: 1,
   notes: [],
@@ -2724,7 +2733,7 @@ if (result.highUncertainty) {
   result.notes.push({ type: "meta", text: "High injury uncertainty" });
 }
       } catch (e) {
-        logDebug("fetchInjuryAndRest failed", e);
+        logDebug("fetchInjuryMeta failed", e);
       }
 
       return result;
@@ -3166,7 +3175,6 @@ const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasont
       const h2h = [];
 
       for (const ref of unique.slice(0, 5)) {
-        let added = false;
 
         try {
           await new Promise(r => setTimeout(r, 80));
@@ -3211,7 +3219,6 @@ const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasont
                   q1B,
                   date: ref.date
                 });
-                added = true;
               }
             }
           }
@@ -3439,7 +3446,6 @@ if (myToken !== _fixtureLoadToken) return;
   });
 });
 
-const now = Date.now();
 
 const events = merged
           .filter(ev => {
@@ -3743,8 +3749,8 @@ const messages = [];
         const aAvg = aStats?.scored?.length ? avg(aStats.scored) : 75;
         const bAvg = bStats?.scored?.length ? avg(bStats.scored) : 75;
         [g_injA, g_injB] = await Promise.all([
-  fetchInjuryAndRest(espnBase, teamAId, aAvg, league),
-  fetchInjuryAndRest(espnBase, teamBId, bAvg, league)
+  fetchInjuryMeta(espnBase, teamAId, aAvg, league),
+  fetchInjuryMeta(espnBase, teamBId, bAvg, league)
 ]);
 
         if (myToken !== _fetchToken) return;
@@ -3791,7 +3797,21 @@ if (!league) {
   return;
 }
 
+const selectedAId = String(selectedTeamIds.A || "");
+const selectedBId = String(selectedTeamIds.B || "");
+
+if (selectedAId && selectedBId && selectedAId === selectedBId) {
+  showRunError(table, "⚠ Team A and Team B cannot be the same.");
+  return;
+}
+
 const teamAKey = getTeamIdentityKey(document.getElementById("teamAName")?.value || "", league);
+const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
+
+if (teamAKey && teamBKey && teamAKey === teamBKey) {
+  showRunError(table, "⚠ Team A and Team B cannot be the same.");
+  return;
+}
 const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
 
 if (teamAKey && teamBKey && teamAKey === teamBKey) {
