@@ -1575,11 +1575,22 @@ function settleTrackedPickFromCompetition(pick, competition) {
   const home = competitors.find(c => c.homeAway === "home") || competitors[0];
   const away = competitors.find(c => c.homeAway === "away") || competitors[1];
 
-  const homeScore = parseFloat(home?.score);
-  const awayScore = parseFloat(away?.score);
+    let homeScore = parseFloat(home?.score);
+  let awayScore = parseFloat(away?.score);
 
   const homeLines = home?.linescores || [];
   const awayLines = away?.linescores || [];
+  const regulationPeriods = pick.league === "nba" ? 4 : 2;
+
+  if (isFinite(homeScore) && isFinite(awayScore) && homeLines.length && awayLines.length) {
+    [homeScore, awayScore] = stripOTFromScores(
+      homeScore,
+      awayScore,
+      homeLines,
+      awayLines,
+      regulationPeriods
+    );
+  }
 
   let actual = NaN;
 
@@ -1590,7 +1601,12 @@ function settleTrackedPickFromCompetition(pick, competition) {
   } else if (pick.marketKey === "team_b") {
     actual = isNaN(awayScore) ? NaN : awayScore;
   } else if (pick.marketKey === "h1") {
-    actual = sumLineScores(homeLines, 2) + sumLineScores(awayLines, 2);
+    if (pick.league === "ncaa") {
+      const [homeH1, awayH1] = extractFirstHalf(homeLines, awayLines);
+      actual = homeH1 + awayH1;
+    } else {
+      actual = sumLineScores(homeLines, 2) + sumLineScores(awayLines, 2);
+    }
   } else if (pick.marketKey === "q1") {
     actual = sumLineScores(homeLines, 1) + sumLineScores(awayLines, 1);
   }
