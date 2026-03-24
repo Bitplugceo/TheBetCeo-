@@ -1273,7 +1273,29 @@ return MODEL.H2H_MAX_WEIGHT;
       return "insufficient";
     }
 
-    function getLeagueEdgeThresholds(league) {
+    function getLeagueEdgeThresholds(league) 
+    
+    {
+  function getEffectivePaceClamp(league) {
+  if (league === "nba") return { min: 0.90, max: 1.15 };
+  if (league === "ncaa") return { min: 0.90, max: 1.12 };
+
+  if ([
+    "euroleague","eurocup","acb","lba","bbl","bcl","bsl","isl","aba","plk",
+    "serbia_kls","croatia_premier","elbl","georgia_super","hungary_nb1",
+    "romania_ln","austria_zweite","belgium_top","bih_1st","bulgaria_nbl",
+    "nbl_cz","denmark_bliga","england_slb","finland_koris","finland_koris_w",
+    "germany_proa","germany_prob","a2","italy_a2","italy_serb","lkl",
+    "lithuania_nkl","poland_1liga","portugal_lpb","portugal_proliga",
+    "serbia_2mls","spain_primera","spain_segunda","sweden_super","sweden_sbl",
+    "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
+    "united_league"
+  ].includes(league)) {
+    return { min: 0.92, max: 1.10 };
+  }
+
+  return { min: 0.90, max: 1.12 };
+}
   if (league === "nba") return { h1: 0.050, q1: 0.055 };
   if (league === "ncaa") return { h1: 0.058, q1: 0.065 };
 
@@ -2825,15 +2847,16 @@ if (myToken !== _fixtureLoadToken) return;
         const merged = [];
 
         payloads.forEach(data => {
-          (data?.events || []).forEach(ev => {
-            if (!ev?.id || seen.has(ev.id)) return;
-            seen.add(ev.id);
-            merged.push(ev);
-          });
-        });
+  (data?.events || []).forEach(ev => {
+    if (!ev?.id || seen.has(ev.id)) return;
+    seen.add(ev.id);
+    merged.push(ev);
+  });
+});
 
+const now = Date.now();
 
-        const events = merged
+const events = merged
           .filter(ev => {
             const comp = ev?.competitions?.[0];
             if (!comp || (comp.competitors || []).length < 2) return false;
@@ -2847,7 +2870,7 @@ if (myToken !== _fixtureLoadToken) return;
             const state = comp?.status?.type?.state || "";
             const completed = comp?.status?.type?.completed || state === "post";
             if (completed) return false;
-
+if (offset === 0 && eventTime.getTime() <= now) return false;
 
             return true;
           })
