@@ -1687,29 +1687,6 @@ function addTrackedPicks(newPicks) {
   renderTrackedPicks();
 }
 
-  renderTrackedPicks();
-}
-    {
-      if (!Array.isArray(newPicks) || !newPicks.length) {
-        renderTrackedPicks();
-        return;
-      }
-
-      const current = loadTrackedPicks();
-      const seen = new Set(current.map(p => p.signature));
-      let changed = false;
-
-      newPicks.forEach(p => {
-        if (!p.signature) p.signature = makeTrackedSignature(p);
-        if (seen.has(p.signature)) return;
-        seen.add(p.signature);
-        current.unshift(p);
-        changed = true;
-      });
-
-      if (changed) saveTrackedPicks(current);
-      renderTrackedPicks();
-    }
 
     function getH2HWeight(lenA, lenB) {
       const n = Math.min(lenA || 0, lenB || 0);
@@ -4665,6 +4642,7 @@ if (isNbaOrNcaa) {
             lockFrom("espnSection");
       openSection("leagueSection");
       renderTrackedPicks();
+refreshTrackedPickResults();
 
       ["useFTH2H", "use1HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
