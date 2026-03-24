@@ -1908,24 +1908,26 @@ function settleTrackedPickFromCompetition(pick, competition) {
 
   let actual = NaN;
 
-  if (pick.marketKey === "ft") {
+if (pick.marketKey === "ft") {
   if (!isFinite(homeScore) || !isFinite(awayScore)) return "pending";
   actual = homeScore + awayScore;
-}
-  } else if (pick.marketKey === "team_a") {
+} else if (pick.marketKey === "team_a") {
     actual = isNaN(homeScore) ? NaN : homeScore;
   } else if (pick.marketKey === "team_b") {
     actual = isNaN(awayScore) ? NaN : awayScore;
-  } else if (pick.marketKey === "h1") {
-    if (pick.league === "ncaa") {
-      const [homeH1, awayH1] = extractFirstHalf(homeLines, awayLines);
-      actual = homeH1 + awayH1;
-    } else {
-      actual = sumLineScores(homeLines, 2) + sumLineScores(awayLines, 2);
-    }
-  } else if (pick.marketKey === "q1") {
-    actual = sumLineScores(homeLines, 1) + sumLineScores(awayLines, 1);
+ } else if (pick.marketKey === "h1") {
+  if (pick.league === "ncaa") {
+    if (!homeLines.length || !awayLines.length) return "pending";
+    const [homeH1, awayH1] = extractFirstHalf(homeLines, awayLines);
+    actual = homeH1 + awayH1;
+  } else {
+    if (homeLines.length < 2 || awayLines.length < 2) return "pending";
+    actual = sumLineScores(homeLines, 2) + sumLineScores(awayLines, 2);
   }
+} else if (pick.marketKey === "q1") {
+  if (homeLines.length < 1 || awayLines.length < 1) return "pending";
+  actual = sumLineScores(homeLines, 1) + sumLineScores(awayLines, 1);
+}
 
   if (!isFinite(actual)) return "pending";
 
