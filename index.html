@@ -5149,12 +5149,7 @@ function runSelfTests() {
     }
   });
   console.log(`Finished: ${passed} passed, ${failed} failed`);
-  console.groupEnd();
-
-    const summary = { passed, failed, results };
-  renderSelfTestResults(summary);
-  return summary;
-}
+    console.groupEnd();
 
   const summary = { passed, failed, results };
   renderSelfTestResults(summary);
