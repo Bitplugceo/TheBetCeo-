@@ -1451,25 +1451,34 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
       ].join("|");
     }
 
-    function getCurrentFixtureMeta() {
-      const fixtureSelect = document.getElementById("fixtureSelect");
-      const opt =
-        fixtureSelect && fixtureSelect.selectedIndex >= 0
-          ? fixtureSelect.options[fixtureSelect.selectedIndex]
-          : null;
+function getCurrentFixtureMeta() {
+  const fixtureSelect = document.getElementById("fixtureSelect");
+  const opt =
+    fixtureSelect && fixtureSelect.selectedIndex >= 0
+      ? fixtureSelect.options[fixtureSelect.selectedIndex]
+      : null;
 
-      const teamAName = document.getElementById("teamAName")?.value.trim() || "";
-      const teamBName = document.getElementById("teamBName")?.value.trim() || "";
+  const teamAName = document.getElementById("teamAName")?.value.trim() || "";
+  const teamBName = document.getElementById("teamBName")?.value.trim() || "";
 
-      return {
-        eventId: opt?.value || "",
-        eventDate: opt?.dataset.eventDate || "",
-        homeTeam: opt?.dataset.home || teamAName,
-        awayTeam: opt?.dataset.away || teamBName,
-        homeId: opt?.dataset.homeId || String(selectedTeamIds.A || ""),
-        awayId: opt?.dataset.awayId || String(selectedTeamIds.B || "")
-      };
-    }
+  const optHome = opt?.dataset.home || "";
+  const optAway = opt?.dataset.away || "";
+
+  const sameFixture =
+    !!opt &&
+    !!opt.value &&
+    normalizeTeamName(optHome) === normalizeTeamName(teamAName) &&
+    normalizeTeamName(optAway) === normalizeTeamName(teamBName);
+
+  return {
+    eventId: sameFixture ? (opt.value || "") : "",
+    eventDate: sameFixture ? (opt.dataset.eventDate || "") : "",
+    homeTeam: sameFixture ? optHome : teamAName,
+    awayTeam: sameFixture ? optAway : teamBName,
+    homeId: sameFixture ? (opt.dataset.homeId || String(selectedTeamIds.A || "")) : String(selectedTeamIds.A || ""),
+    awayId: sameFixture ? (opt.dataset.awayId || String(selectedTeamIds.B || "")) : String(selectedTeamIds.B || "")
+  };
+}
 
     function openTrackerModal() {
       const modal = document.getElementById("trackerModal");
@@ -4203,6 +4212,7 @@ if (
           "";
 
         const canTrack =
+          !!fixtureMeta.eventId &&
           !p.note &&
           lineRef !== null &&
           side &&
