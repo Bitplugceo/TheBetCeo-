@@ -3311,7 +3311,6 @@ const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasonty
       const h2h = [];
 
       for (const ref of unique.slice(0, 5)) {
-        let added = false;
 
         try {
           await new Promise(r => setTimeout(r, 80));
@@ -3353,7 +3352,6 @@ const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasonty
                   q1B: 0,
                   date: ref.date
                 });
-                added = true;
               }
             }
           }
@@ -3806,12 +3804,6 @@ if (selectedAId && selectedBId && selectedAId === selectedBId) {
 }
 
 const teamAKey = getTeamIdentityKey(document.getElementById("teamAName")?.value || "", league);
-const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
-
-if (teamAKey && teamBKey && teamAKey === teamBKey) {
-  showRunError(table, "⚠ Team A and Team B cannot be the same.");
-  return;
-}
 const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
 
 if (teamAKey && teamBKey && teamAKey === teamBKey) {
