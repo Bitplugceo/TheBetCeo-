@@ -3234,6 +3234,10 @@ setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err")
       }
     }
 
+    function showRunError(table, html) {
+      const row = table.insertRow();
+      row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">${html}</td>`;
+    }
     function runEngine() {
       const table = document.getElementById("results");
       table.style.display = "table";
@@ -3256,9 +3260,9 @@ setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err")
       const isNba = league === "nba";
 
 if (!league) {
-  const row = table.insertRow();
-  row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Select a league first.</td>`;
+  showRunError(table, "⚠ Select a league first.");
   return;
+}
 }
 
       const bases = {
@@ -3443,15 +3447,15 @@ markError("bFTAllowed", "Team B FT Allowed", bAA, true);
       }
 
       if (inputErrors.length) {
-        const row = table.insertRow();
-        row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">⚠ Fix these inputs before running:<br>${inputErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}</td>`;
+        showRunError(table, `⚠ Fix these inputs before running:<br>${inputErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}`);
         return;
       }
 
       const lineErrors = validateLines(league, ftLine, h1Line, q1Line, aLine, bLine);
 if (lineErrors.length) {
-        showRunError(table, `⚠ Fix these inputs before running:<br>${inputErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}`);
-        return;
+  showRunError(table, `⚠ Market line sanity check failed:<br>${lineErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}`);
+  return;
+}
 }
       const calcAvg = isNbaOrNcaa ? weightedAvg : trimmedAvg;
 
@@ -4139,6 +4143,36 @@ if (isNbaOrNcaa) {
     })();
 
     document.addEventListener("DOMContentLoaded", () => {
+      openSection("leagueSection");
+            const themeToggleBtn = document.getElementById("themeToggleBtn");
+      if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
+
+      const leagueSelect = document.getElementById("leagueSelect");
+      if (leagueSelect) leagueSelect.addEventListener("change", onLeagueChange);
+
+      const fixturesTodayBtn = document.getElementById("fixturesTodayBtn");
+      if (fixturesTodayBtn) fixturesTodayBtn.addEventListener("click", () => loadFixtures(0));
+
+      const fixturesTomorrowBtn = document.getElementById("fixturesTomorrowBtn");
+      if (fixturesTomorrowBtn) fixturesTomorrowBtn.addEventListener("click", () => loadFixtures(1));
+
+      const fixtureSelect = document.getElementById("fixtureSelect");
+      if (fixtureSelect) fixtureSelect.addEventListener("change", onFixtureSelect);
+
+      const teamAName = document.getElementById("teamAName");
+      if (teamAName) teamAName.addEventListener("input", () => onTeamInput("A"));
+
+      const teamBName = document.getElementById("teamBName");
+      if (teamBName) teamBName.addEventListener("input", () => onTeamInput("B"));
+
+      const fetchBtn = document.getElementById("fetchBtn");
+      if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
+
+      const runBtn = document.getElementById("runBtn");
+      if (runBtn) runBtn.addEventListener("click", runEngine);
+
+      const clearBtn = document.getElementById("clearBtn");
+      if (clearBtn) clearBtn.addEventListener("click", clearAll);
       makeSectionsCollapsible();
 
       document.querySelectorAll(".section").forEach(s => {
