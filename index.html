@@ -1274,30 +1274,30 @@ return MODEL.H2H_MAX_WEIGHT;
     }
 
     function getLeagueEdgeThresholds(league) {
-      if (league === "nba") return { ft: 0.047, h1: 0.050, q1: 0.055, team: 0.072 };
-      if (league === "ncaa") return { ft: 0.053, h1: 0.058, q1: 0.065, team: 0.088 };
+  if (league === "nba") return { h1: 0.050, q1: 0.055 };
+  if (league === "ncaa") return { h1: 0.058, q1: 0.065 };
 
-      if ([
-        "euroleague","eurocup","acb","lba","bbl","bcl","lkl","proa","prob",
-        "bsl","isl","aba","plk","serbia_kls","croatia_premier","elbl",
-        "georgia_super","hungary_nb1","romania_ln","austria_zweite",
-        "belgium_top","bih_1st","bulgaria_nbl","nbl_cz","denmark_bliga",
-        "england_slb","finland_koris","finland_koris_w","germany_proa",
-        "germany_prob","a2","italy_a2","italy_serb","lithuania_nkl",
-        "poland_1liga","portugal_lpb","portugal_proliga","serbia_2mls",
-        "spain_primera","spain_segunda","sweden_super","sweden_sbl",
-        "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
-        "united_league"
-      ].includes(league)) {
-        return { ft: 0.054, h1: 0.059, q1: 0.068, team: 0.082 };
-      }
+  if ([
+    "euroleague","eurocup","acb","lba","bbl","bcl","lkl","proa","prob",
+    "bsl","isl","aba","plk","serbia_kls","croatia_premier","elbl",
+    "georgia_super","hungary_nb1","romania_ln","austria_zweite",
+    "belgium_top","bih_1st","bulgaria_nbl","nbl_cz","denmark_bliga",
+    "england_slb","finland_koris","finland_koris_w","germany_proa",
+    "germany_prob","a2","italy_a2","italy_serb","lithuania_nkl",
+    "poland_1liga","portugal_lpb","portugal_proliga","serbia_2mls",
+    "spain_primera","spain_segunda","sweden_super","sweden_sbl",
+    "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
+    "united_league"
+  ].includes(league)) {
+    return { h1: 0.059, q1: 0.068 };
+  }
 
-      if (["cba","china_nbl","taipei_pleague","taipei_sbl","taipei_tpbl","bleague","pba","korea_kbl"].includes(league)) {
-        return { ft: 0.058, h1: 0.063, q1: 0.072, team: 0.095 };
-      }
+  if (["cba","china_nbl","taipei_pleague","taipei_sbl","taipei_tpbl","bleague","pba","korea_kbl"].includes(league)) {
+    return { h1: 0.063, q1: 0.072 };
+  }
 
-      return { ft: 0.062, h1: 0.067, q1: 0.075, team: 0.105 };
-    }
+  return { h1: 0.067, q1: 0.075 };
+}
 
     function getLineSanityBands(league) {
       if (league === "nba") return { ft:[190,260], h1:[90,135], q1:[44,70], team:[85,140] };
@@ -1340,14 +1340,14 @@ const overMin =
   marketType === "team" ? 0.050 :
   marketType === "h1" ? thr.h1 :
   marketType === "q1" ? thr.q1 :
-  thr.ft;
+  0.045;
 
 const underMin =
   marketType === "ft" ? 0.060 :
   marketType === "team" ? 0.065 :
   marketType === "h1" ? (thr.h1 + 0.015) :
   marketType === "q1" ? (thr.q1 + 0.015) :
-  (thr.ft + 0.015);
+  0.060;
   const pct = Math.abs(edge / line);
 
   if (edge > 0 && pct < overMin) return "NO PLAY";
@@ -1713,6 +1713,12 @@ function updateSectionLocks() {
 
       return null;
     }
+function getTeamIdentityKey(name, league) {
+  const norm = normalizeTeamName(name);
+  if (!norm) return "";
+  const mappedId = lookupTeamId(norm, league);
+  return mappedId ? `${league}:${mappedId}` : `${league}:name:${norm}`;
+}
 
     async function onTeamInput(side) {
   const inputId = side === "A" ? "teamAName" : "teamBName";
@@ -2826,7 +2832,6 @@ if (myToken !== _fixtureLoadToken) return;
           });
         });
 
-        const now = Date.now();
 
         const events = merged
           .filter(ev => {
@@ -2843,7 +2848,6 @@ if (myToken !== _fixtureLoadToken) return;
             const completed = comp?.status?.type?.completed || state === "post";
             if (completed) return false;
 
-            if (offset === 0 && eventTime.getTime() <= now) return false;
 
             return true;
           })
@@ -3172,20 +3176,20 @@ setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err")
         i.style.borderColor = "";
       });
 
-      const teamANameRaw = document.getElementById("teamAName")?.value.trim().toLowerCase();
-      const teamBNameRaw = document.getElementById("teamBName")?.value.trim().toLowerCase();
-
-      if (teamANameRaw && teamBNameRaw && teamANameRaw === teamBNameRaw) {
-        showRunError(table, "⚠ Team A and Team B cannot be the same.");
-        return;
-      }
-
       const league = document.getElementById("leagueSelect").value;
-      const isNbaOrNcaa = league === "nba" || league === "ncaa";
-      const isNba = league === "nba";
+const isNbaOrNcaa = league === "nba" || league === "ncaa";
+const isNba = league === "nba";
 
 if (!league) {
   showRunError(table, "⚠ Select a league first.");
+  return;
+}
+
+const teamAKey = getTeamIdentityKey(document.getElementById("teamAName")?.value || "", league);
+const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
+
+if (teamAKey && teamBKey && teamAKey === teamBKey) {
+  showRunError(table, "⚠ Team A and Team B cannot be the same.");
   return;
 }
 
@@ -3204,31 +3208,6 @@ if (!league) {
         fiba_ac:154,unknown:160
       };
 
-      const paceClamps = {
-        nba:{min:0.85,max:1.15},ncaa:{min:0.85,max:1.12},lnb:{min:0.87,max:1.10},nbb:{min:0.87,max:1.10},
-        cebl:{min:0.87,max:1.10},bal:{min:0.85,max:1.12},nigeria:{min:0.85,max:1.12},rwanda:{min:0.85,max:1.12},
-        aba:{min:0.87,max:1.10},euroleague:{min:0.87,max:1.10},eurocup:{min:0.87,max:1.10},
-        elbl:{min:0.87,max:1.10},austria_zweite:{min:0.87,max:1.10},belgium_top:{min:0.87,max:1.10},
-        bih_1st:{min:0.87,max:1.10},bulgaria_nbl:{min:0.87,max:1.10},croatia_premier:{min:0.87,max:1.10},
-        nbl_cz:{min:0.87,max:1.10},denmark_bliga:{min:0.87,max:1.10},england_slb:{min:0.87,max:1.10},
-        finland_koris:{min:0.87,max:1.10},finland_koris_w:{min:0.87,max:1.10},proa:{min:0.87,max:1.10},
-        prob:{min:0.87,max:1.10},georgia_super:{min:0.87,max:1.10},bbl:{min:0.87,max:1.10},
-        germany_proa:{min:0.87,max:1.10},germany_prob:{min:0.87,max:1.10},bcl:{min:0.87,max:1.10},
-        a2:{min:0.87,max:1.10},hungary_nb1:{min:0.87,max:1.10},isl:{min:0.87,max:1.10},lba:{min:0.87,max:1.10},
-        italy_a2:{min:0.87,max:1.10},italy_serb:{min:0.87,max:1.10},lkl:{min:0.87,max:1.10},
-        lithuania_nkl:{min:0.87,max:1.10},plk:{min:0.87,max:1.10},poland_1liga:{min:0.87,max:1.10},
-        portugal_lpb:{min:0.87,max:1.10},portugal_proliga:{min:0.87,max:1.10},romania_ln:{min:0.87,max:1.10},
-        serbia_kls:{min:0.87,max:1.10},serbia_2mls:{min:0.87,max:1.10},acb:{min:0.87,max:1.10},
-        spain_primera:{min:0.87,max:1.10},spain_segunda:{min:0.87,max:1.10},sweden_super:{min:0.87,max:1.10},
-        sweden_sbl:{min:0.87,max:1.10},swiss_nlb:{min:0.87,max:1.10},swiss_sbl:{min:0.87,max:1.10},
-        bsl:{min:0.87,max:1.10},turkey_tbl:{min:0.87,max:1.10},turkey_tb2l:{min:0.87,max:1.10},
-        turkey_tkbl_w:{min:0.87,max:1.10},united_league:{min:0.87,max:1.10},cba:{min:0.85,max:1.15},
-        china_nbl:{min:0.85,max:1.12},taipei_pleague:{min:0.85,max:1.12},taipei_sbl:{min:0.87,max:1.10},
-        taipei_tpbl:{min:0.87,max:1.10},bleague:{min:0.87,max:1.10},pba:{min:0.85,max:1.15},
-        korea_kbl:{min:0.87,max:1.10},ausnbl:{min:0.87,max:1.10},nznbl:{min:0.87,max:1.10},
-        fiba_wc:{min:0.87,max:1.10},fiba_eb:{min:0.87,max:1.10},fiba_ac:{min:0.87,max:1.10},
-        unknown:{min:0.85,max:1.12}
-            };
 
       const homeEdge = {
         nba:1.5,ncaa:2.0,lnb:1.6,nbb:1.6,cebl:1.4,bal:1.5,nigeria:1.8,rwanda:1.8,aba:1.5,
@@ -3259,29 +3238,7 @@ if (!league) {
       };
 
             const eb = bases[league] || 160;
-      let cl = paceClamps[league] || { min: 0.90, max: 1.12 };
-
-      if (league === "nba") {
-        cl = { min: 0.90, max: 1.15 };
-      } else if (league === "ncaa") {
-        cl = { min: 0.90, max: 1.12 };
-      } else if (
-        [
-          "euroleague","eurocup","acb","lba","bbl","bcl","bsl","isl","aba","plk",
-          "serbia_kls","croatia_premier","elbl","georgia_super","hungary_nb1",
-          "romania_ln","austria_zweite","belgium_top","bih_1st","bulgaria_nbl",
-          "nbl_cz","denmark_bliga","england_slb","finland_koris","finland_koris_w",
-          "germany_proa","germany_prob","a2","italy_a2","italy_serb","lkl",
-          "lithuania_nkl","poland_1liga","portugal_lpb","portugal_proliga",
-          "serbia_2mls","spain_primera","spain_segunda","sweden_super","sweden_sbl",
-          "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
-          "united_league"
-        ].includes(league)
-      ) {
-        cl = { min: 0.92, max: 1.10 };
-      } else {
-        cl = { min: 0.90, max: 1.12 };
-      }
+      const cl = getEffectivePaceClamp(league);
 
       const hAdj = homeEdge[league] || 1.5;
       const vl = volLimits[league] || 12;
