@@ -4859,7 +4859,72 @@ function runSelfTests() {
   });
 
   test("selectLock ignores non-full-model markets", () => {
+    test("parseMarketLine returns single value unchanged", () => {
+    assertEqual(parseMarketLine("155.5"), 155.5, "Single market line");
+  });
+
+  test("parseMarketLine rejects reversed range", () => {
+    assertEqual(parseMarketLine("160.5 - 150.5"), null, "Reversed range should fail");
+  });
+
+  test("parseGames parses valid comma-separated values", () => {
+    const el = document.createElement("input");
+    el.id = "__testParseGamesValid";
+    el.value = "85,79,88";
+    document.body.appendChild(el);
+
+    try {
+      const out = parseGames("__testParseGamesValid");
+      assertTrue(Array.isArray(out), "parseGames should return array");
+      assertEqual(out.length, 3, "parseGames length");
+      assertEqual(out[0], 85, "parseGames first value");
+      assertEqual(out[2], 88, "parseGames last value");
+    } finally {
+      el.remove();
+    }
+  });
+
+  test("parseGames rejects more than 5 values", () => {
+    const el = document.createElement("input");
+    el.id = "__testParseGamesTooMany";
+    el.value = "1,2,3,4,5,6";
+    document.body.appendChild(el);
+
+    try {
+      const out = parseGames("__testParseGamesTooMany");
+      assertTrue(!!out && !!out.err, "parseGames should return error");
+    } finally {
+      el.remove();
+    }
+  });
+
+  test("stdDev returns sample standard deviation", () => {
+    assertApprox(stdDev([10, 12, 14]), 2, 0.0001, "Sample std dev");
+  });
+
+  test("getH2HWeight returns zero below minimum sample", () => {
+    assertEqual(getH2HWeight(1, 1), 0, "H2H should be disabled below 2 games");
+  });
+
+  test("selectLock returns -1 when no market qualifies", () => {
     const idx = selectLock([
+      { edge: 5, line: 200, pick: "OVER 200.0", fullModel: true },
+      { edge: 3, line: 180, pick: "NO PLAY", fullModel: true }
+    ]);
+    assertEqual(idx, -1, "No valid lock should be selected");
+  });
+
+  test("anchorProjection leaves small NBA FT difference untouched", () => {
+    assertApprox(anchorProjection(224, 220, "nba", "ft"), 224, 0.0001, "Small FT diff should stay unchanged");
+  });
+
+  test("detectTrap flags risky low-line NBA under setup", () => {
+    assertTrue(
+      detectTrap(-30, 190, "UNDER 190.0", "nba", "ft", 20) === true,
+      "Risky NBA under should be trap"
+    );
+  });
+      const idx = selectLock([
       { edge: 12, line: 200, pick: "OVER 200.0", fullModel: false },
       { edge: 9, line: 180, pick: "OVER 180.0", fullModel: true }
     ]);
