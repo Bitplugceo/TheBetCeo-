@@ -1689,13 +1689,13 @@ function addTrackedPicks(newPicks) {
 
 
     function getH2HWeight(lenA, lenB) {
-      const n = Math.min(lenA || 0, lenB || 0);
-      if (n < 2) return 0;
-      if (n === 2) return 0.12;
-      if (n === 3) return 0.18;
-      if (n === 4) return 0.22;
-return MODEL.H2H_MAX_WEIGHT;
-    }
+  const n = Math.min(lenA || 0, lenB || 0);
+  if (n < 2) return 0;
+  if (n <= 3) return 0.20;
+
+  const scaled = 0.30 * Math.min(1, n / 5);
+  return Math.min(scaled, MODEL.H2H_MAX_WEIGHT);
+}
 
     function applyVolatility(proj, std, limit) {
       if (isNaN(proj) || isNaN(std)) return NaN;
