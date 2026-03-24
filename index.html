@@ -1184,6 +1184,21 @@ const ASIA_EDGE_LEAGUES = [
   "bleague","pba","korea_kbl"
 ];
 
+const TRAP_RULES = {
+  minEdgePct: 0.015,
+  extremeEdgePct: 0.12,
+  lowLineUnder: {
+    nba: 205,
+    ncaa: 125
+  },
+  volThresholds: {
+    ft:   { nba: 18, other: 15 },
+    h1:   { nba: 10.5, other: 9.0 },
+    q1:   { nba: 6.5, other: 6.0 },
+    team: { nba: 11.5, other: 10.0 }
+  }
+};
+
     const REST_CURVES = {
       nba:[0.965,0.990,1.000,0.992,0.985],ncaa:[0.968,0.991,1.000,0.993,0.986],
       lnb:[0.974,0.993,1.000,0.994,0.989],nbb:[0.972,0.992,1.000,0.994,0.988],cebl:[0.974,0.993,1.000,0.994,0.989],
@@ -2042,30 +2057,29 @@ function getLeagueEdgeThresholds(league) {
 }
 
     function getTrapVolThreshold(marketType, league) {
-      if (marketType === "q1") return league === "nba" ? 6.5 : 6.0;
-      if (marketType === "h1") return league === "nba" ? 10.5 : 9.0;
-      if (marketType === "team") return league === "nba" ? 11.5 : 10.0;
-      return league === "nba" ? 18 : 15;
-    }
+  const bucket = TRAP_RULES.volThresholds[marketType] || TRAP_RULES.volThresholds.ft;
+  return league === "nba" ? bucket.nba : bucket.other;
+}
 
     function detectTrap(edge, line, pick, league, marketType, vol) {
-      if (!line || isNaN(edge) || line <= 0 || !pick || pick === "NO PLAY") return false;
+  if (!line || isNaN(edge) || line <= 0 || !pick || pick === "NO PLAY") return false;
 
-      const pct = Math.abs(edge / line);
-      if (pct < 0.015) return true;
-      let bad = 0;
-      const volLimit = getTrapVolThreshold(marketType, league);
+  const pct = Math.abs(edge / line);
+  if (pct < TRAP_RULES.minEdgePct) return true;
 
-      if (pct > 0.12) bad++;
-      if (vol && vol > volLimit) bad++;
+  let bad = 0;
+  const volLimit = getTrapVolThreshold(marketType, league);
 
-      if (marketType === "ft" && pick.includes("UNDER")) {
-        if (league === "nba" && line < 205) bad++;
-        else if (league === "ncaa" && line < 125) bad++;
-      }
+  if (pct > TRAP_RULES.extremeEdgePct) bad++;
+  if (vol && vol > volLimit) bad++;
 
-      return bad >= 2;
-    }
+  if (marketType === "ft" && pick.includes("UNDER")) {
+    if (league === "nba" && line < TRAP_RULES.lowLineUnder.nba) bad++;
+    else if (league === "ncaa" && line < TRAP_RULES.lowLineUnder.ncaa) bad++;
+  }
+
+  return bad >= 2;
+}
 
     function selectLock(markets) {
       const valid = markets.filter(m =>
