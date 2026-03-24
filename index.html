@@ -1416,7 +1416,7 @@ function extractFirstHalf(lm, lo) {
     function resetResultsTable() {
       const t = document.getElementById("results");
       if (!t) return;
-      t.innerHTML = ""<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>"
+t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
       t.style.display = "none";
     }
 
@@ -4527,12 +4527,6 @@ const q1HasH2H = !!(
   aQ1H2HArr && bQ1H2HArr &&
   aQ1H2HArr.length >= 2 &&
   bQ1H2HArr.length >= 2
-);
-const q1SampleTier = getSampleTier(
-  safeArr(parsed.aQ1Scored),
-  safeArr(parsed.aQ1Allowed),
-  safeArr(parsed.bQ1Scored),
-  safeArr(parsed.bQ1Allowed)
 );
 
       const ftNote =
