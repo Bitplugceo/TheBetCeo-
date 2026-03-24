@@ -1654,34 +1654,6 @@ function getCurrentFixtureMeta() {
       modal.setAttribute("aria-hidden", "true");
     }
 
-    function buildTrackerSummary(picks) {
-      const all = Array.isArray(picks) ? picks : [];
-
-      const settled = all.filter(p => p.resultStatus && p.resultStatus !== "pending");
-      const wins = settled.filter(p => p.resultStatus === "win");
-      const losses = settled.filter(p => p.resultStatus === "loss");
-      const pushes = settled.filter(p => p.resultStatus === "push");
-
-      const graded = settled.filter(p => p.resultStatus === "win" || p.resultStatus === "loss");
-      const hitRate = graded.length ? ((wins.length / graded.length) * 100).toFixed(1) : "0.0";
-
-      const locks = all.filter(p => p.isLock);
-      const settledLocks = locks.filter(p => p.resultStatus && p.resultStatus !== "pending");
-      const lockWins = settledLocks.filter(p => p.resultStatus === "win");
-      const lockLosses = settledLocks.filter(p => p.resultStatus === "loss");
-      const lockPushes = settledLocks.filter(p => p.resultStatus === "push");
-
-      const gradedLocks = settledLocks.filter(p => p.resultStatus === "win" || p.resultStatus === "loss");
-      const lockHitRate = gradedLocks.length ? ((lockWins.length / gradedLocks.length) * 100).toFixed(1) : "0.0";
-
-      return `
-        <div>${all.length} saved • ${settled.length} settled</div>
-        <div>Record: ${wins.length}-${losses.length}-${pushes.length} • Hit Rate: ${hitRate}%</div>
-        <div>Locks: ${locks.length} saved • ${lockWins.length}-${lockLosses.length}-${lockPushes.length} • Lock Hit Rate: ${lockHitRate}%</div>
-      `;
-    }
-    
-    function renderTrackedPicks() {
       const summaryEl = document.getElementById("trackerSummary");
 const marketSummaryEl = document.getElementById("trackerMarketSummary");
 const emptyEl = document.getElementById("trackerEmpty");
@@ -2250,21 +2222,19 @@ if (side === "B") g_injB = defaultInjuryMeta();
   g_lastFetchedTeams[changedSide] = "";
   setManualSource(changedSide);
 
-  g_injA = defaultInjuryMeta();
-  g_injB = defaultInjuryMeta();
-  hideInjuryBox("A");
-  hideInjuryBox("B");
+  if (changedSide === "A") {
+    g_injA = defaultInjuryMeta();
+    hideInjuryBox("A");
+  }
+
+  if (changedSide === "B") {
+    g_injB = defaultInjuryMeta();
+    hideInjuryBox("B");
+  }
 
   clearSideFields(changedSide);
   clearH2HFields();
 } else {
-    selectedTeamIds = { A: null, B: null };
-    g_lastFetchedTeams = { A: "", B: "" };
-    g_fetchMeta = defaultFetchMeta();
-    clearSideFields("A");
-    clearSideFields("B");
-    clearH2HFields();
-  }
 }
 
 
