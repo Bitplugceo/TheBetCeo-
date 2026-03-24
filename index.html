@@ -873,7 +873,8 @@
       REGRESSION_WEIGHT: 0.82,
       BASELINE_WEIGHT: 0.18,
       PACE_BLEND: 0.50,
-      H2H_DIVERGE_THRESHOLD: 0.20,
+H2H_DIVERGE_THRESHOLD: 0.20,
+H2H_MAX_WEIGHT: 0.30,
 LINE_ANCHOR_NBA: 0.65,
       LINE_ANCHOR_OTHER: 0.50,
       MULTI_GOAL_SUPPRESS: 0.98,
@@ -1273,7 +1274,7 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
       if (n === 2) return 0.12;
       if (n === 3) return 0.18;
       if (n === 4) return 0.22;
-      return 0.25;
+return MODEL.H2H_MAX_WEIGHT;
     }
 
     function applyVolatility(proj, std, limit) {
@@ -1351,13 +1352,20 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
 
   const thr = getLeagueEdgeThresholds(league || "unknown");
-  const overMin =
-    marketType === "h1" ? thr.h1 :
-    marketType === "q1" ? thr.q1 :
-    marketType === "team" ? thr.team :
-    thr.ft;
 
-  const underMin = overMin + 0.015;
+const overMin =
+  marketType === "ft" ? 0.045 :
+  marketType === "team" ? 0.050 :
+  marketType === "h1" ? thr.h1 :
+  marketType === "q1" ? thr.q1 :
+  thr.ft;
+
+const underMin =
+  marketType === "ft" ? 0.060 :
+  marketType === "team" ? 0.065 :
+  marketType === "h1" ? (thr.h1 + 0.015) :
+  marketType === "q1" ? (thr.q1 + 0.015) :
+  (thr.ft + 0.015);
   const pct = Math.abs(edge / line);
 
   if (edge > 0 && pct < overMin) return "NO PLAY";
@@ -3200,7 +3208,7 @@ if (!league) {
 }
 
       const bases = {
-        nba:228,ncaa:150,lnb:157,nbb:160,cebl:154,bal:154,nigeria:148,rwanda:144,aba:158,
+        nba:230,ncaa:150,lnb:157,nbb:160,cebl:154,bal:154,nigeria:148,rwanda:144,aba:158,
         euroleague:160,eurocup:158,elbl:152,austria_zweite:155,belgium_top:158,bih_1st:154,
         bulgaria_nbl:154,croatia_premier:157,nbl_cz:152,denmark_bliga:158,england_slb:155,
         finland_koris:160,finland_koris_w:140,proa:162,prob:154,georgia_super:156,bbl:172,
@@ -3240,7 +3248,6 @@ if (!league) {
         unknown:{min:0.85,max:1.12}
       };
 
-      const homeEdge = {
         nba:1.5,ncaa:2.0,lnb:1.6,nbb:1.6,cebl:1.4,bal:1.5,nigeria:1.8,rwanda:1.8,aba:1.5,
         euroleague:1.5,eurocup:1.5,elbl:1.3,austria_zweite:1.4,belgium_top:1.4,bih_1st:1.4,
         bulgaria_nbl:1.4,croatia_premier:1.4,nbl_cz:1.3,denmark_bliga:1.3,england_slb:1.3,
@@ -3292,7 +3299,6 @@ if (league === "nba") {
 } else {
   cl = { min: 0.90, max: 1.12 };
 }
-      const hAdj = homeEdge[league] || 1.5;
       const vl = volLimits[league] || 12;
 
       const ftLine = snapHalf(parseMarketLine(document.getElementById("ftMarket").value));
@@ -3508,9 +3514,6 @@ const pace = isNaN(rawPace)
       if (!isNaN(projBFT) && injMultB !== 1) projBFT *= injMultB;
 
 
-      if (!isNaN(projAFT)) projAFT += hAdj * 0.75;
-      if (!isNaN(projBFT)) projBFT -= hAdj * 0.75;
-
 
       let ftProj = !isNaN(projAFT) && !isNaN(projBFT) ? projAFT + projBFT : NaN;
 const defensiveFloorFlag = (!isNaN(aA) && aA < 70) || (!isNaN(bA) && bA < 70);
@@ -3521,7 +3524,6 @@ const defensiveFloorFlag = (!isNaN(aA) && aA < 70) || (!isNaN(bA) && bA < 70);
 if (paceGapRisk) ftProj *= MODEL.PACE_SUPPRESS;
 
 
-        if (!isNaN(pace) && pace > 1.12) ftProj *= 0.98;
         ftProj = anchorProjection(ftProj, ftLine, league, "ft");
       }
 
@@ -3777,6 +3779,19 @@ let h1Pick = getPick(h1Edge, h1Line, league, "h1", { aSc: aS1, bSc: bS1 });
 let q1Pick = getPick(q1Edge, q1Line, league, "q1", { aSc: aS1Q, bSc: bS1Q });
 let aPick = getPick(aEdge, aLine, league, "team", { teamSc: aS });
 let bPick = getPick(bEdge, bLine, league, "team", { teamSc: bS });
+
+if (
+  typeof ftPick === "string" &&
+  ftPick.startsWith("OVER") &&
+  (
+    paceGapRisk ||
+    defensiveFloorFlag ||
+    (!isNaN(blowoutGap) && blowoutGap > 20) ||
+    (aVol > vl && bVol > vl)
+  )
+) {
+  ftPick = "NO PLAY";
+}
 
       const ftFullModel = ftSampleTier === "full" && !ftProjectionOnly;
       const h1FullModel = h1SampleTier === "full" && !h1ProjectionOnly && !isNaN(h1Proj);
