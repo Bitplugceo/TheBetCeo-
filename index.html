@@ -3421,10 +3421,10 @@ markError("aFTAllowed", "Team A FT Allowed", aAA, true);
 markError("bFTScored", "Team B FT Scored", bSA, true);
 markError("bFTAllowed", "Team B FT Allowed", bAA, true);
       if (isNbaOrNcaa) {
-        const a1HSRaw = parseGames("a1HScored");
-        const a1HARaw = parseGames("a1HAllowed");
-        const b1HSRaw = parseGames("b1HScored");
-        const b1HARaw = parseGames("b1HAllowed");
+        const a1HSRaw = parsed.a1HScored;
+const a1HARaw = parsed.a1HAllowed;
+const b1HSRaw = parsed.b1HScored;
+const b1HARaw = parsed.b1HAllowed;
 
         if (hasValue("a1HScored")) markError("a1HScored", "Team A 1H Scored", a1HSRaw, true);
         if (hasValue("a1HAllowed")) markError("a1HAllowed", "Team A 1H Allowed", a1HARaw, true);
@@ -3433,10 +3433,10 @@ markError("bFTAllowed", "Team B FT Allowed", bAA, true);
       }
 
       if (isNba) {
-        const aQ1SRaw = parseGames("aQ1Scored");
-        const aQ1ARaw = parseGames("aQ1Allowed");
-        const bQ1SRaw = parseGames("bQ1Scored");
-        const bQ1ARaw = parseGames("bQ1Allowed");
+        const aQ1SRaw = parsed.aQ1Scored;
+const aQ1ARaw = parsed.aQ1Allowed;
+const bQ1SRaw = parsed.bQ1Scored;
+const bQ1ARaw = parsed.bQ1Allowed;
 
         if (hasValue("aQ1Scored")) markError("aQ1Scored", "Team A Q1 Scored", aQ1SRaw, true);
         if (hasValue("aQ1Allowed")) markError("aQ1Allowed", "Team A Q1 Allowed", aQ1ARaw, true);
@@ -3445,8 +3445,8 @@ markError("bFTAllowed", "Team B FT Allowed", bAA, true);
       }
 
       if (document.getElementById("useFTH2H").checked) {
-        const h2hA = parseGames("aFTH2H");
-        const h2hB = parseGames("bFTH2H");
+      const h2hA = parsed.aFTH2H;
+const h2hB = parsed.bFTH2H;
         markError("aFTH2H", "FT H2H Team A", h2hA, true);
         markError("bFTH2H", "FT H2H Team B", h2hB, true);
       }
@@ -3615,7 +3615,7 @@ bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
           let projB1H = bS1 * MODEL.TEAM_WEIGHT + aA1 * MODEL.OPP_WEIGHT;
 
 
-          const pgr1 = Math.abs(aS1 - bS1) > eb1H * 0.10;
+const pgr1 = Math.abs((aS1 + aA1) - (bS1 + bA1)) > 9;
 
           if (document.getElementById("use1HH2H").checked) {
             let h2ha1 = parseGames("a1HH2H");
@@ -3762,7 +3762,7 @@ bA1Q = safeArr(bQ1A) ? weightedAvg(bQ1A) : NaN;
 
           q1Proj = projAQ1 + projBQ1;
 
-          const pgrQ1 = Math.abs(aS1Q - bS1Q) > ebQ1 * 0.10;
+const pgrQ1 = Math.abs((aS1Q + aA1Q) - (bS1Q + bA1Q)) > 5;
           const dfrQ1 = (aA1Q < ebQ1 * 0.40) || (bA1Q < ebQ1 * 0.40);
 
           if (pgrQ1) q1Proj *= MODEL.PACE_SUPPRESS;
