@@ -3494,7 +3494,11 @@ if (lineErrors.length) {
         ? bS * MODEL.TEAM_WEIGHT + aA * MODEL.OPP_WEIGHT
         : NaN;
 
-      const paceRegressionFlag = !isNaN(aS) && !isNaN(bS) && Math.abs(aS - bS) > eb * 0.10;
+const paceGapRisk =
+  fullFTModelInputs &&
+  !isNaN(aS) && !isNaN(aA) &&
+  !isNaN(bS) && !isNaN(bA) &&
+  Math.abs((aS + aA) - (bS + bA)) > 18;
 
       let h2ha = null;
       let h2hb = null;
@@ -3568,12 +3572,8 @@ if (lineErrors.length) {
       if (!isNaN(ftProj)) {
         if (defensiveFloorFlag) ftProj *= 0.97;
         if (Math.abs(projAFT - projBFT) > 18) ftProj *= MODEL.MULTI_GOAL_SUPPRESS;
-        if (paceRegressionFlag) ftProj *= MODEL.PACE_SUPPRESS;
+if (paceGapRisk) ftProj *= MODEL.PACE_SUPPRESS;
 
-        if (fullFTModelInputs) {
-          const paceGap = Math.abs(aS - bS) / eb;
-          if (paceGap > 0.14) ftProj *= 0.97;
-        }
 
         if (!isNaN(pace) && pace > 1.12) ftProj *= 0.98;
         ftProj = anchorProjection(ftProj, ftLine, league, "ft");
@@ -3702,10 +3702,10 @@ let bA1Q = NaN;
         if (bQ1S?.err) bQ1S = null;
         if (bQ1A?.err) bQ1A = null;
 
-        const aS1Q = safeArr(aQ1S) ? weightedAvg(aQ1S) : NaN;
-        const aA1Q = safeArr(aQ1A) ? weightedAvg(aQ1A) : NaN;
-        const bS1Q = safeArr(bQ1S) ? weightedAvg(bQ1S) : NaN;
-        const bA1Q = safeArr(bQ1A) ? weightedAvg(bQ1A) : NaN;
+        aS1Q = safeArr(aQ1S) ? weightedAvg(aQ1S) : NaN;
+aA1Q = safeArr(aQ1A) ? weightedAvg(aQ1A) : NaN;
+bS1Q = safeArr(bQ1S) ? weightedAvg(bQ1S) : NaN;
+bA1Q = safeArr(bQ1A) ? weightedAvg(bQ1A) : NaN;
 
 
         if (!isNaN(aS1Q) && !isNaN(aA1Q) && !isNaN(bS1Q) && !isNaN(bA1Q)) {
