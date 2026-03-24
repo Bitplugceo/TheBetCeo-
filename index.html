@@ -1017,8 +1017,8 @@
     const MODEL = {
       TEAM_WEIGHT: 0.60,
       OPP_WEIGHT: 0.40,
-      REGRESSION_WEIGHT: 0.82,
-      BASELINE_WEIGHT: 0.18,
+      REGRESSION_WEIGHT: 0.85,
+BASELINE_WEIGHT: 0.15,
       PACE_BLEND: 0.50,
 H2H_DIVERGE_THRESHOLD: 0.20,
 H2H_MAX_WEIGHT: 0.30,
@@ -3911,7 +3911,7 @@ const defensiveFloorFlag = (!isNaN(aA) && aA < 70) || (!isNaN(bA) && bA < 70);
 
       if (!isNaN(ftProj)) {
         if (defensiveFloorFlag) ftProj *= 0.97;
-        if (Math.abs(projAFT - projBFT) > 18) ftProj *= MODEL.MULTI_GOAL_SUPPRESS;
+if (!isNaN(blowoutGap) && blowoutGap > 18) ftProj *= MODEL.MULTI_GOAL_SUPPRESS;
 if (paceGapRisk) ftProj *= MODEL.PACE_SUPPRESS;
 
 
