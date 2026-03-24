@@ -3389,7 +3389,7 @@ if (lineErrors.length) {
   showRunError(table, `⚠ Market line sanity check failed:<br>${lineErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}`);
   return;
 }
-      const calcAvg = isNbaOrNcaa ? weightedAvg : trimmedAvg;
+const calcAvg = trimmedAvg;
 
       const aS = safeArr(aSA) ? calcAvg(aSA) : NaN;
       const aA = safeArr(aAA) ? calcAvg(aAA) : NaN;
