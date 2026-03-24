@@ -2770,168 +2770,203 @@ if (result.highUncertainty) {
       return [sA, sB];
     }
 
-    async function fetchNbaSchedule(base, teamId, requiredVenue) {
-      const tId = String(teamId);
-      const gameRefs = [];
+    async function fetchTeamSchedule(base, teamId, requiredVenue, options = {}) {
+  const {
+    seasonsBack = 1,
+    regulationPeriods = 4,
+    includeQ1 = false
+  } = options;
 
-      for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear() - 1)]) {
-        for (const stype of ["2", "3"]) {
-          try {
-            const key = `${base}:sched:${teamId}:${season}:${stype}`;
-            const r = await (_schedCache.has(key)
-              ? _schedCache.get(key)
-              : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-  _schedCache.delete(key);
-  throw err;
-});
-cacheSet(_schedCache, key, p);
-return p;
-                })());
+  const tId = String(teamId);
+  const currentYear = new Date().getFullYear();
+  const gameRefs = [];
 
-            const events = r?.events || r?.team?.schedule?.events || [];
-            for (const ev of events) {
-              if (!ev.id) continue;
+  for (let i = 0; i <= seasonsBack; i++) {
+    const season = String(currentYear - i);
 
-              const comp = ev?.competitions?.[0];
-              if (!comp) continue;
-
-              const done =
-                comp?.status?.type?.completed ||
-                comp?.status?.type?.name === "STATUS_FINAL" ||
-                comp?.status?.type?.state === "post";
-              if (!done || (comp?.competitors || []).length < 2) continue;
-
-              const c = comp.competitors;
-              const mine = c.find(x => matchesTeam(x, tId)) || c[0];
-              const opp = c.find(x => !matchesTeam(x, tId)) || c[1];
-              const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-
-              gameRefs.push({
-                id: String(ev.id),
-                date: ev.date || "",
-                rawS: ps(mine?.score),
-                rawA: ps(opp?.score),
-                venue: mine?.homeAway || ""
+    for (const stype of ["2", "3"]) {
+      try {
+        const key = `${base}:sched:${teamId}:${season}:${stype}`;
+        const r = await (_schedCache.has(key)
+          ? _schedCache.get(key)
+          : (() => {
+              const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+                _schedCache.delete(key);
+                throw err;
               });
-            }
-          } catch (e) {
-            logDebug("fetchNbaSchedule failed", e);
-          }
+              cacheSet(_schedCache, key, p);
+              return p;
+            })());
+
+        const events = r?.events || r?.team?.schedule?.events || [];
+        for (const ev of events) {
+          if (!ev.id) continue;
+
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+
+          const done =
+            comp?.status?.type?.completed ||
+            comp?.status?.type?.name === "STATUS_FINAL" ||
+            comp?.status?.type?.state === "post";
+
+          if (!done || (comp?.competitors || []).length < 2) continue;
+
+          const competitors = comp.competitors;
+          const mine = competitors.find(x => matchesTeam(x, tId)) || competitors[0];
+          const opp = competitors.find(x => !matchesTeam(x, tId)) || competitors[1];
+          const ps = s => typeof s === "object"
+            ? parseFloat(s.value ?? s.displayValue ?? 0)
+            : parseFloat(s);
+
+          gameRefs.push({
+            id: String(ev.id),
+            date: ev.date || "",
+            rawS: ps(mine?.score),
+            rawA: ps(opp?.score),
+            venue: mine?.homeAway || ""
+          });
         }
-        if (gameRefs.length >= 10) break;
+      } catch (e) {
+        logDebug("fetchTeamSchedule failed", e);
       }
-
-      if (!gameRefs.length) return null;
-
-      const seen = new Set();
-      const unique = gameRefs.filter(g => {
-        if (seen.has(g.id)) return false;
-        seen.add(g.id);
-        return true;
-      }).sort((a, b) => {
-        const da = a.date ? new Date(a.date).getTime() : 0;
-        const db = b.date ? new Date(b.date).getTime() : 0;
-        return db - da;
-      });
-
-                  const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
-      const venueReliable = strictFiltered.length >= 2;
-      const usedVenueFallback = !venueReliable && unique.length >= 2;
-      const chosen = venueReliable ? strictFiltered : unique;
-
-      if (chosen.length < 2) return null;
-
-      const scored = [];
-      const allowed = [];
-      const h1Scored = [];
-      const h1Allowed = [];
-      const q1Scored = [];
-      const q1Allowed = [];
-
-      for (const ref of chosen) {
-        let ms = ref.rawS;
-        let os = ref.rawA;
-        let h1m = 0;
-        let h1o = 0;
-        let q1m = 0;
-        let q1o = 0;
-        let gotLS = false;
-
-        try {
-          await new Promise(r => setTimeout(r, 80));
-          const key = `${base}:sum:${ref.id}`;
-          const data = await (_summaryCache.has(key)
-            ? _summaryCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-                  _summaryCache.delete(key);
-                  throw err;
-                });
-                cacheSet(_summaryCache, key, p);
-                return p;
-              })());
-
-          const hc = data?.header?.competitions?.[0];
-          if (hc) {
-            const competitors = hc?.competitors || [];
-            const mine = competitors.find(c => matchesTeam(c, tId));
-            const opp = competitors.find(c => !matchesTeam(c, tId));
-
-            if (mine && opp) {
-              const lm = mine?.linescores || [];
-              const lo = opp?.linescores || [];
-              if (lm.length >= 1) {
-                gotLS = true;
-                ms = parseFloat(mine.score) || ms;
-                os = parseFloat(opp.score) || os;
-
-                q1m = readVal(lm[0]);
-                q1o = readVal(lo[0]);
-                h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
-                h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
-
-                [ms, os] = stripOTFromScores(ms, os, lm, lo, 4);
-              }
-            }
-          }
-        } catch (e) {
-          logDebug("fetchNbaSchedule summary failed", e);
-        }
-
-        if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-
-                        scored.push(Math.round(ms));
-        allowed.push(Math.round(os));
-
-        if (gotLS && h1m > 0) {
-          h1Scored.push(Math.round(h1m));
-          h1Allowed.push(Math.round(h1o));
-        }
-
-        if (gotLS && q1m > 0) {
-          q1Scored.push(Math.round(q1m));
-          q1Allowed.push(Math.round(q1o));
-        }
-
-        if (scored.length >= 5) break;
-      }
-
-      return scored.length >= 2
-        ? {
-            scored,
-            allowed,
-            h1Scored,
-            h1Allowed,
-            q1Scored,
-            q1Allowed,
-            lastGameDate: unique[0]?.date || null,
-            venueReliable,
-            usedVenueFallback,
-            q1VenueReliable: venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2
-          }
-        : null;
     }
+
+    if (gameRefs.length >= 10) break;
+  }
+
+  if (!gameRefs.length) return null;
+
+  const seen = new Set();
+  const unique = gameRefs
+    .filter(g => {
+      if (seen.has(g.id)) return false;
+      seen.add(g.id);
+      return true;
+    })
+    .sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return db - da;
+    });
+
+  const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
+  const venueReliable = strictFiltered.length >= 2;
+  const usedVenueFallback = !venueReliable && unique.length >= 2;
+  const chosen = venueReliable ? strictFiltered : unique;
+
+  if (chosen.length < 2) return null;
+
+  const scored = [];
+  const allowed = [];
+  const h1Scored = [];
+  const h1Allowed = [];
+  const q1Scored = [];
+  const q1Allowed = [];
+
+  for (const ref of chosen) {
+    let ms = ref.rawS;
+    let os = ref.rawA;
+    let h1m = 0;
+    let h1o = 0;
+    let q1m = 0;
+    let q1o = 0;
+    let gotLS = false;
+
+    try {
+      const key = `${base}:sum:${ref.id}`;
+      const data = await (_summaryCache.has(key)
+        ? _summaryCache.get(key)
+        : (() => {
+            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+              _summaryCache.delete(key);
+              throw err;
+            });
+            cacheSet(_summaryCache, key, p);
+            return p;
+          })());
+
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp = competitors.find(c => !matchesTeam(c, tId));
+
+        if (mine && opp) {
+          const lm = mine?.linescores || [];
+          const lo = opp?.linescores || [];
+
+          if (lm.length >= 1) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score) || os;
+
+            if (includeQ1) {
+              q1m = readVal(lm[0]);
+              q1o = readVal(lo[0]);
+              h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
+              h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
+            } else {
+              [h1m, h1o] = extractFirstHalf(lm, lo);
+            }
+
+            [ms, os] = stripOTFromScores(ms, os, lm, lo, regulationPeriods);
+          }
+        }
+      }
+    } catch (e) {
+      logDebug("fetchTeamSchedule summary failed", e);
+    }
+
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+
+    scored.push(Math.round(ms));
+    allowed.push(Math.round(os));
+
+    if (gotLS && h1m > 0) {
+      h1Scored.push(Math.round(h1m));
+      h1Allowed.push(Math.round(h1o));
+    }
+
+    if (includeQ1 && gotLS && q1m > 0) {
+      q1Scored.push(Math.round(q1m));
+      q1Allowed.push(Math.round(q1o));
+    }
+
+    if (scored.length >= 5) break;
+  }
+
+  return scored.length >= 2
+    ? {
+        scored,
+        allowed,
+        h1Scored,
+        h1Allowed,
+        q1Scored,
+        q1Allowed,
+        lastGameDate: unique[0]?.date || null,
+        venueReliable,
+        usedVenueFallback,
+        q1VenueReliable: includeQ1 && venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2
+      }
+    : null;
+}
+
+async function fetchNbaSchedule(base, teamId, requiredVenue) {
+  return fetchTeamSchedule(base, teamId, requiredVenue, {
+    seasonsBack: 1,
+    regulationPeriods: 4,
+    includeQ1: true
+  });
+}
+
+async function fetchNcaaSchedule(base, teamId, requiredVenue) {
+  return fetchTeamSchedule(base, teamId, requiredVenue, {
+    seasonsBack: 2,
+    regulationPeriods: 2,
+    includeQ1: false
+  });
+}
 
     async function fetchNcaaSchedule(base, teamId, requiredVenue) {
       const tId = String(teamId);
@@ -3017,15 +3052,16 @@ const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasonty
       const q1Allowed = [];
 
       for (const ref of chosen) {
-        let ms = ref.rawS;
-        let os = ref.rawA;
-        let h1m = 0;
-        let h1o = 0;
-        let gotLS = false;
+  let ms = ref.rawS;
+  let os = ref.rawA;
+  let h1m = 0;
+  let h1o = 0;
+  let q1m = 0;
+  let q1o = 0;
+  let gotLS = false;
 
-        try {
-          await new Promise(r => setTimeout(r, 80));
-          const key = `${base}:sum:${ref.id}`;
+  try {
+    const key = `${base}:sum:${ref.id}`;
           const data = await (_summaryCache.has(key)
             ? _summaryCache.get(key)
             : (() => {
@@ -3184,9 +3220,8 @@ const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasont
 
       for (const ref of unique.slice(0, 5)) {
 
-        try {
-          await new Promise(r => setTimeout(r, 80));
-          const key = `${base}:sum:${ref.id}`;
+  try {
+    const key = `${base}:sum:${ref.id}`;
           const data = await (_summaryCache.has(key)
             ? _summaryCache.get(key)
             : (() => {
@@ -3320,9 +3355,8 @@ const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasonty
 
       for (const ref of unique.slice(0, 5)) {
 
-        try {
-          await new Promise(r => setTimeout(r, 80));
-          const key = `${base}:sum:${ref.id}`;
+  try {
+    const key = `${base}:sum:${ref.id}`;
           const data = await (_summaryCache.has(key)
             ? _summaryCache.get(key)
             : (() => {
