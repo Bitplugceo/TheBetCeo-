@@ -1547,7 +1547,6 @@ function getCurrentFixtureMeta() {
       }).join("");
     }
 
-    function addTrackedPicks(newPicks) 
     function getTrackedLeagueBase(league) {
   if (league === "nba") {
     return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -1618,7 +1617,6 @@ async function refreshTrackedPickResults() {
   const picks = loadTrackedPicks();
   if (!picks.length) {
     renderTrackedPicks();
-    refreshTrackedPickResults();
     return;
   }
 
@@ -1663,6 +1661,31 @@ async function refreshTrackedPickResults() {
   if (changed) {
     saveTrackedPicks(picks);
   }
+
+  renderTrackedPicks();
+}
+
+function addTrackedPicks(newPicks) {
+  if (!Array.isArray(newPicks) || !newPicks.length) {
+    renderTrackedPicks();
+    return;
+  }
+
+  const current = loadTrackedPicks();
+  const seen = new Set(current.map(p => p.signature));
+  let changed = false;
+
+  newPicks.forEach(p => {
+    if (!p.signature) p.signature = makeTrackedSignature(p);
+    if (seen.has(p.signature)) return;
+    seen.add(p.signature);
+    current.unshift(p);
+    changed = true;
+  });
+
+  if (changed) saveTrackedPicks(current);
+  renderTrackedPicks();
+}
 
   renderTrackedPicks();
 }
