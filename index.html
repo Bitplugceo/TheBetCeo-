@@ -1263,13 +1263,15 @@ let g_lastFetchedTeams = { A: "", B: "" };
     }
 
 function extractFirstHalf(lm, lo) {
-  // NCAA ESPN linescores are half-based:
-  // period 1 = 1H, period 2 = 2H.
-  // So first-half extraction should return index 0 only.
   if (!Array.isArray(lm) || !Array.isArray(lo) || lm.length === 0 || lo.length === 0) {
     return [0, 0];
   }
-  return [readVal(lm[0]), readVal(lo[0])];
+
+  if (lm.length === 1 || lo.length === 1) {
+    return [readVal(lm[0]), readVal(lo[0])];
+  }
+
+  return [readVal(lm[0]) + readVal(lm[1]), readVal(lo[0]) + readVal(lo[1])];
 }
 
 
