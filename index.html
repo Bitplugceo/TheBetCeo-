@@ -358,9 +358,6 @@
       color: #d98a00;
     }
 
-    .inj-rest {
-      color: #2f8f4a;
-    }
 
     #fetchStatus {
       font-size: 11px;
@@ -1168,45 +1165,6 @@ const ANCHOR_RULES = {
     otherWeight: 0.50
   }
 };
-
-    const REST_CURVES = {
-      nba:[0.965,0.990,1.000,0.992,0.985],ncaa:[0.968,0.991,1.000,0.993,0.986],
-      lnb:[0.974,0.993,1.000,0.994,0.989],nbb:[0.972,0.992,1.000,0.994,0.988],cebl:[0.974,0.993,1.000,0.994,0.989],
-      bal:[0.975,0.993,1.000,0.995,0.990],nigeria:[0.977,0.994,1.000,0.995,0.991],rwanda:[0.977,0.994,1.000,0.995,0.991],
-      aba:[0.975,0.993,1.000,0.995,0.990],
-      euroleague:[0.972,0.992,1.000,0.994,0.988],eurocup:[0.972,0.992,1.000,0.994,0.988],
-      elbl:[0.976,0.993,1.000,0.995,0.990],austria_zweite:[0.976,0.993,1.000,0.995,0.990],
-      belgium_top:[0.975,0.993,1.000,0.995,0.990],bih_1st:[0.976,0.993,1.000,0.995,0.990],
-      bulgaria_nbl:[0.976,0.993,1.000,0.995,0.990],croatia_premier:[0.975,0.993,1.000,0.995,0.990],
-      nbl_cz:[0.975,0.993,1.000,0.995,0.990],denmark_bliga:[0.976,0.993,1.000,0.995,0.990],
-      england_slb:[0.976,0.993,1.000,0.995,0.990],finland_koris:[0.975,0.993,1.000,0.995,0.990],
-      finland_koris_w:[0.976,0.993,1.000,0.995,0.990],proa:[0.972,0.992,1.000,0.994,0.988],
-      prob:[0.975,0.993,1.000,0.995,0.990],georgia_super:[0.975,0.993,1.000,0.995,0.990],
-      bbl:[0.972,0.992,1.000,0.994,0.988],germany_proa:[0.974,0.993,1.000,0.994,0.989],
-      germany_prob:[0.975,0.993,1.000,0.995,0.990],bcl:[0.972,0.992,1.000,0.994,0.988],
-      a2:[0.975,0.993,1.000,0.995,0.990],hungary_nb1:[0.975,0.993,1.000,0.995,0.990],
-      isl:[0.972,0.992,1.000,0.994,0.988],lba:[0.972,0.992,1.000,0.994,0.988],
-      italy_a2:[0.974,0.993,1.000,0.994,0.989],italy_serb:[0.975,0.993,1.000,0.995,0.990],
-      lkl:[0.975,0.993,1.000,0.995,0.990],lithuania_nkl:[0.976,0.993,1.000,0.995,0.990],
-      plk:[0.975,0.993,1.000,0.995,0.990],poland_1liga:[0.976,0.993,1.000,0.995,0.990],
-      portugal_lpb:[0.974,0.993,1.000,0.994,0.989],portugal_proliga:[0.975,0.993,1.000,0.995,0.990],
-      romania_ln:[0.975,0.993,1.000,0.995,0.990],serbia_kls:[0.974,0.993,1.000,0.994,0.989],
-      serbia_2mls:[0.975,0.993,1.000,0.995,0.990],acb:[0.970,0.991,1.000,0.993,0.987],
-      spain_primera:[0.972,0.992,1.000,0.994,0.988],spain_segunda:[0.974,0.993,1.000,0.994,0.989],
-      sweden_super:[0.976,0.993,1.000,0.995,0.990],sweden_sbl:[0.977,0.994,1.000,0.995,0.991],
-      swiss_nlb:[0.975,0.993,1.000,0.995,0.990],swiss_sbl:[0.976,0.993,1.000,0.995,0.990],
-      bsl:[0.970,0.991,1.000,0.993,0.987],turkey_tbl:[0.972,0.992,1.000,0.994,0.988],
-      turkey_tb2l:[0.974,0.993,1.000,0.994,0.989],turkey_tkbl_w:[0.975,0.993,1.000,0.995,0.990],
-      united_league:[0.974,0.993,1.000,0.994,0.989],cba:[0.970,0.991,1.000,0.993,0.987],
-      china_nbl:[0.972,0.992,1.000,0.994,0.988],taipei_pleague:[0.972,0.992,1.000,0.994,0.988],
-      taipei_sbl:[0.974,0.993,1.000,0.994,0.989],taipei_tpbl:[0.974,0.993,1.000,0.994,0.989],
-      bleague:[0.972,0.992,1.000,0.994,0.988],pba:[0.968,0.990,1.000,0.992,0.986],
-      korea_kbl:[0.970,0.991,1.000,0.993,0.987],ausnbl:[0.972,0.992,1.000,0.994,0.988],
-      nznbl:[0.974,0.993,1.000,0.994,0.989],fiba_wc:[0.975,0.993,1.000,0.995,0.990],
-      fiba_eb:[0.975,0.993,1.000,0.995,0.990],fiba_ac:[0.975,0.993,1.000,0.995,0.990],
-      unknown:[0.973,0.992,1.000,0.994,0.988]
-    };
-
     const NBA_TEAM_MAP = {
       "hawks":1,"atlanta":1,"celtics":2,"boston":2,"nets":17,"brooklyn":17,
       "hornets":30,"charlotte":30,"bulls":4,"chicago":4,"cavaliers":5,"cavs":5,"cleveland":5,
@@ -1265,7 +1223,6 @@ let g_lastFetchedTeams = { A: "", B: "" };
 
 function defaultInjuryMeta() {
   return {
-    restMult: 1,
     scoringMult: 1,
     notes: [],
     outCount: 0,
@@ -2760,9 +2717,8 @@ function getTeamIdentityKey(name, league) {
       return null;
     }
 
-    async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nextGameDate, league) {
+    async function fetchInjuryAndRest(base, teamId, teamAvgScored, league) {
 const result = {
-  restMult: 1,
   scoringMult: 1,
   notes: [],
   outCount: 0,
@@ -3065,7 +3021,10 @@ return p;
             const r = await (_schedCache.has(key)
               ? _schedCache.get(key)
               : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+  _schedCache.delete(key);
+  throw err;
+});
                   cacheSet(_schedCache, key, p);
                   return p;
                 })());
@@ -3222,14 +3181,20 @@ return p;
             _schedCache.has(key2)
               ? _schedCache.get(key2)
               : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(() => ({}));
+const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=2`).catch(err => {
+  _schedCache.delete(key2);
+  throw err;
+});
                   cacheSet(_schedCache, key2, p);
                   return p;
                 })(),
             _schedCache.has(key3)
               ? _schedCache.get(key3)
               : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(() => ({}));
+const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=3`).catch(err => {
+  _schedCache.delete(key3);
+  throw err;
+});
                   cacheSet(_schedCache, key3, p);
                   return p;
                 })()
@@ -3366,7 +3331,10 @@ return p;
               const r = await (_schedCache.has(key)
                 ? _schedCache.get(key)
                 : (() => {
-                    const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
+const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+  _schedCache.delete(key);
+  throw err;
+});
                     cacheSet(_schedCache, key, p);
                     return p;
                   })());
@@ -3493,10 +3461,7 @@ return p;
       }
 
       content.innerHTML = inj.notes.map(n => {
-const cls =
-  n.type === "out" ? "inj-out" :
-  n.type === "rest" ? "inj-rest" :
-  "inj-dtd";
+const cls = n.type === "out" ? "inj-out" : "inj-dtd";
         return `<div class="${cls}">${safeText(n.text)}</div>`;
       }).join("");
 
@@ -3710,9 +3675,9 @@ g_injB = defaultInjuryMeta();
 g_fetchMeta = defaultFetchMeta();
 hideInjuryBox("A");
 hideInjuryBox("B");
-
-if (aStats?.scored?.length > 0) clearSideFields("A");
-if (bStats?.scored?.length > 0) clearSideFields("B");
+clearSideFields("A");
+clearSideFields("B");
+clearH2HFields();
 
 const messages = [];
 
@@ -3867,14 +3832,10 @@ const messages = [];
 
         const aAvg = aStats?.scored?.length ? avg(aStats.scored) : 75;
         const bAvg = bStats?.scored?.length ? avg(bStats.scored) : 75;
-        const matchupDate = await findMatchupDate(espnBase, teamAId, teamBId);
-        const nextGameDateA = matchupDate || await findNextGameDate(espnBase, teamAId);
-        const nextGameDateB = matchupDate || await findNextGameDate(espnBase, teamBId);
-
         [g_injA, g_injB] = await Promise.all([
-          fetchInjuryAndRest(espnBase, teamAId, aAvg, aStats?.lastGameDate || null, nextGameDateA, league),
-          fetchInjuryAndRest(espnBase, teamBId, bAvg, bStats?.lastGameDate || null, nextGameDateB, league)
-        ]);
+  fetchInjuryAndRest(espnBase, teamAId, aAvg, league),
+  fetchInjuryAndRest(espnBase, teamBId, bAvg, league)
+]);
 
         if (myToken !== _fetchToken) return;
 
