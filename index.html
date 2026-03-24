@@ -1354,9 +1354,22 @@ let g_lastFetchedTeams = { A: "", B: "" };
       }
     });
 
+function defaultInjuryMeta() {
+  return {
+    restMult: 1,
+    scoringMult: 1,
+    notes: [],
+    outCount: 0,
+    dtdCount: 0,
+    estimatedImpactCount: 0,
+    hasEstimatedImpact: false,
+    highUncertainty: false
+  };
+}
+
         let g_fetchMeta = defaultFetchMeta();
-    let g_injA = { restMult: 1, scoringMult: 1, notes: [] };
-    let g_injB = { restMult: 1, scoringMult: 1, notes: [] };
+let g_injA = defaultInjuryMeta();
+let g_injB = defaultInjuryMeta();
 
     const TRACKED_PICKS_KEY = "bbEngineTrackedPicksV1";
     const TRACKED_PICKS_LIMIT = 500;
@@ -2299,8 +2312,8 @@ function getConfidenceGrade({
       const tag = document.getElementById(side === "A" ? "aAutoTag" : "bAutoTag");
       if (tag) tag.style.display = "none";
 
-      if (side === "A") g_injA = { restMult: 1, scoringMult: 1, notes: [] };
-      if (side === "B") g_injB = { restMult: 1, scoringMult: 1, notes: [] };
+if (side === "A") g_injA = defaultInjuryMeta();
+if (side === "B") g_injB = defaultInjuryMeta();
       hideInjuryBox(side);
     }
 
@@ -2327,13 +2340,19 @@ function getConfidenceGrade({
   setStatus("", "");
   resetResultsTable();
 
-  if (changedSide === "A" || changedSide === "B") {
-    selectedTeamIds[changedSide] = null;
-    g_lastFetchedTeams[changedSide] = "";
-    setManualSource(changedSide);
-    clearSideFields(changedSide);
-    clearH2HFields();
-  } else {
+ if (changedSide === "A" || changedSide === "B") {
+  selectedTeamIds[changedSide] = null;
+  g_lastFetchedTeams[changedSide] = "";
+  setManualSource(changedSide);
+
+  g_injA = defaultInjuryMeta();
+  g_injB = defaultInjuryMeta();
+  hideInjuryBox("A");
+  hideInjuryBox("B");
+
+  clearSideFields(changedSide);
+  clearH2HFields();
+} else {
     selectedTeamIds = { A: null, B: null };
     g_lastFetchedTeams = { A: "", B: "" };
     g_fetchMeta = defaultFetchMeta();
@@ -2975,11 +2994,11 @@ result.highUncertainty =
   result.outCount >= 3;
 
 if (result.hasEstimatedImpact) {
-  result.notes.push({ type: "dtd", text: "Estimated player impact used" });
+  result.notes.push({ type: "meta", text: "Estimated player impact used" });
 }
 
 if (result.highUncertainty) {
-  result.notes.push({ type: "dtd", text: "High injury uncertainty" });
+  result.notes.push({ type: "meta", text: "High injury uncertainty" });
 }
       } catch (e) {
         logDebug("fetchInjuryAndRest failed", e);
@@ -3614,7 +3633,10 @@ if (result.highUncertainty) {
       }
 
       content.innerHTML = inj.notes.map(n => {
-        const cls = n.type === "out" ? "inj-out" : n.type === "dtd" ? "inj-dtd" : "inj-rest";
+const cls =
+  n.type === "out" ? "inj-out" :
+  n.type === "rest" ? "inj-rest" :
+  "inj-dtd";
         return `<div class="${cls}">${safeText(n.text)}</div>`;
       }).join("");
 
@@ -3824,8 +3846,8 @@ if (!aStats && !bStats) {
   throw new Error("No recent schedule data found from ESPN.");
 }
 
-g_injA = { restMult: 1, scoringMult: 1, notes: [] };
-g_injB = { restMult: 1, scoringMult: 1, notes: [] };
+g_injA = defaultInjuryMeta();
+g_injB = defaultInjuryMeta();
 g_fetchMeta = defaultFetchMeta();
 hideInjuryBox("A");
 hideInjuryBox("B");
@@ -4983,9 +5005,8 @@ g_fetchMeta = defaultFetchMeta();
 
       hideInjuryBox("A");
       hideInjuryBox("B");
-      g_injA = { restMult: 1, scoringMult: 1, notes: [] };
-      g_injB = { restMult: 1, scoringMult: 1, notes: [] };
-
+    g_injA = defaultInjuryMeta();
+g_injB = defaultInjuryMeta();
       _schedCache.clear();
       _summaryCache.clear();
       _fixtureCache.clear();
@@ -5106,8 +5127,8 @@ g_fetchMeta = defaultFetchMeta();
       _schedCache.clear();
       _summaryCache.clear();
 
-      g_injA = { restMult: 1, scoringMult: 1, notes: [] };
-      g_injB = { restMult: 1, scoringMult: 1, notes: [] };
+     g_injA = defaultInjuryMeta();
+g_injB = defaultInjuryMeta();
       hideInjuryBox("A");
       hideInjuryBox("B");
 
@@ -5208,7 +5229,12 @@ function runSelfTests() {
   });
 
   test("extractFirstHalf falls back to first period if only 1 period exists", () => {
-    test("settleTrackedPickFromCompetition uses NCAA 1H total from extractFirstHalf", () => {
+  const [a, b] = extractFirstHalf([38], [34]);
+  assertEqual(a, 38, "Team A single-period fallback");
+  assertEqual(b, 34, "Team B single-period fallback");
+});
+
+test("settleTrackedPickFromCompetition uses NCAA 1H total from extractFirstHalf", () => {
   const pick = { league: "ncaa", marketKey: "h1", line: 147.5, side: "over" };
 
   const competition = {
@@ -5251,10 +5277,6 @@ test("settleTrackedPickFromCompetition keeps NCAA 1H single-period fallback", ()
   const result = settleTrackedPickFromCompetition(pick, competition);
   assertEqual(result, "win", "NCAA 1H single-period fallback should still work");
 });
-    const [a, b] = extractFirstHalf([38], [34]);
-    assertEqual(a, 38, "Team A single-period fallback");
-    assertEqual(b, 34, "Team B single-period fallback");
-  });
 
   test("stripOTFromScores removes only OT points for NBA-style lines", () => {
     const [a, b] = stripOTFromScores(
