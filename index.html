@@ -874,7 +874,7 @@
       BASELINE_WEIGHT: 0.18,
       PACE_BLEND: 0.50,
       H2H_DIVERGE_THRESHOLD: 0.20,
-      LINE_ANCHOR_NBA: 0.55,
+LINE_ANCHOR_NBA: 0.65,
       LINE_ANCHOR_OTHER: 0.50,
       MULTI_GOAL_SUPPRESS: 0.98,
       PACE_SUPPRESS: 0.97
@@ -1390,6 +1390,7 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
       if (!line || isNaN(edge) || line <= 0 || !pick || pick === "NO PLAY") return false;
 
       const pct = Math.abs(edge / line);
+      if (pct < 0.015) return "NO PLAY";
       let bad = 0;
       const volLimit = getTrapVolThreshold(marketType, league);
 
@@ -3435,6 +3436,11 @@ const paceGapRisk =
   !isNaN(bS) && !isNaN(bA) &&
   Math.abs((aS + aA) - (bS + bA)) > 18;
 
+const blowoutGap =
+  !isNaN(projAFT) && !isNaN(projBFT)
+    ? Math.abs(projAFT - projBFT)
+    : NaN;
+    
       let h2ha = null;
       let h2hb = null;
 
