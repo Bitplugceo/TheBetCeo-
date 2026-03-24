@@ -1191,6 +1191,30 @@ const TRAP_RULES = {
     nba: 205,
     ncaa: 125
   },
+  const ANCHOR_RULES = {
+  ft: {
+    nbaDiff: 18,
+    otherDiff: 25,
+    nbaWeight: MODEL.LINE_ANCHOR_NBA,
+    otherWeight: MODEL.LINE_ANCHOR_OTHER
+  },
+  h1: {
+    nbaDiff: 9,
+    otherDiff: 12,
+    nbaWeight: MODEL.LINE_ANCHOR_NBA,
+    otherWeight: MODEL.LINE_ANCHOR_OTHER
+  },
+  q1: {
+    diff: 6,
+    weight: MODEL.LINE_ANCHOR_NBA
+  },
+  team: {
+    nbaDiff: 10,
+    otherDiff: 12,
+    nbaWeight: 0.55,
+    otherWeight: 0.50
+  }
+};
   volThresholds: {
     ft:   { nba: 18, other: 15 },
     h1:   { nba: 10.5, other: 9.0 },
@@ -2106,34 +2130,48 @@ function getLeagueEdgeThresholds(league) {
     }
 
     function anchorProjection(proj, line, league, marketType) {
-      if (proj === null || isNaN(proj) || line === null || isNaN(line)) return proj;
-      const diff = proj - line;
+  if (proj === null || isNaN(proj) || line === null || isNaN(line)) return proj;
+  const diff = proj - line;
 
-      if (marketType === "ft") {
-        if (league === "nba" && Math.abs(diff) > 18) return line + diff * MODEL.LINE_ANCHOR_NBA;
-        if (Math.abs(diff) > 25) return line + diff * MODEL.LINE_ANCHOR_OTHER;
-        return proj;
-      }
-
-      if (marketType === "h1") {
-        if (league === "nba" && Math.abs(diff) > 9) return line + diff * MODEL.LINE_ANCHOR_NBA;
-        if (Math.abs(diff) > 12) return line + diff * MODEL.LINE_ANCHOR_OTHER;
-        return proj;
-      }
-
-      if (marketType === "q1") {
-        if (Math.abs(diff) > 6) return line + diff * MODEL.LINE_ANCHOR_NBA;
-        return proj;
-      }
-
-      if (marketType === "team") {
-        if (league === "nba" && Math.abs(diff) > 10) return line + diff * 0.55;
-        if (Math.abs(diff) > 12) return line + diff * 0.50;
-        return proj;
-      }
-
-      return proj;
+  if (marketType === "ft") {
+    if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.ft.nbaDiff) {
+      return line + diff * ANCHOR_RULES.ft.nbaWeight;
     }
+    if (Math.abs(diff) > ANCHOR_RULES.ft.otherDiff) {
+      return line + diff * ANCHOR_RULES.ft.otherWeight;
+    }
+    return proj;
+  }
+
+  if (marketType === "h1") {
+    if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.h1.nbaDiff) {
+      return line + diff * ANCHOR_RULES.h1.nbaWeight;
+    }
+    if (Math.abs(diff) > ANCHOR_RULES.h1.otherDiff) {
+      return line + diff * ANCHOR_RULES.h1.otherWeight;
+    }
+    return proj;
+  }
+
+  if (marketType === "q1") {
+    if (Math.abs(diff) > ANCHOR_RULES.q1.diff) {
+      return line + diff * ANCHOR_RULES.q1.weight;
+    }
+    return proj;
+  }
+
+  if (marketType === "team") {
+    if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.team.nbaDiff) {
+      return line + diff * ANCHOR_RULES.team.nbaWeight;
+    }
+    if (Math.abs(diff) > ANCHOR_RULES.team.otherDiff) {
+      return line + diff * ANCHOR_RULES.team.otherWeight;
+    }
+    return proj;
+  }
+
+  return proj;
+}
 
     function hideInjuryBox(side) {
       const box = document.getElementById(side === "A" ? "injuryBoxA" : "injuryBoxB");
