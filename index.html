@@ -4955,6 +4955,49 @@ function runSelfTests() {
   });
 
   test("extractFirstHalf falls back to first period if only 1 period exists", () => {
+    test("settleTrackedPickFromCompetition uses NCAA 1H total from extractFirstHalf", () => {
+  const pick = { league: "ncaa", marketKey: "h1", line: 147.5, side: "over" };
+
+  const competition = {
+    competitors: [
+      {
+        homeAway: "home",
+        score: "76",
+        linescores: [35, 41]
+      },
+      {
+        homeAway: "away",
+        score: "72",
+        linescores: [33, 39]
+      }
+    ]
+  };
+
+  const result = settleTrackedPickFromCompetition(pick, competition);
+  assertEqual(result, "win", "NCAA 1H settlement should use first-half total, not first period only");
+});
+
+test("settleTrackedPickFromCompetition keeps NCAA 1H single-period fallback", () => {
+  const pick = { league: "ncaa", marketKey: "h1", line: 71.5, side: "over" };
+
+  const competition = {
+    competitors: [
+      {
+        homeAway: "home",
+        score: "38",
+        linescores: [38]
+      },
+      {
+        homeAway: "away",
+        score: "34",
+        linescores: [34]
+      }
+    ]
+  };
+
+  const result = settleTrackedPickFromCompetition(pick, competition);
+  assertEqual(result, "win", "NCAA 1H single-period fallback should still work");
+});
     const [a, b] = extractFirstHalf([38], [34]);
     assertEqual(a, 38, "Team A single-period fallback");
     assertEqual(b, 34, "Team B single-period fallback");
