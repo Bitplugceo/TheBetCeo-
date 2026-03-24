@@ -1273,10 +1273,7 @@ return MODEL.H2H_MAX_WEIGHT;
       return "insufficient";
     }
 
-    function getLeagueEdgeThresholds(league) 
-    
-    {
-  function getEffectivePaceClamp(league) {
+    function getEffectivePaceClamp(league) {
   if (league === "nba") return { min: 0.90, max: 1.15 };
   if (league === "ncaa") return { min: 0.90, max: 1.12 };
 
