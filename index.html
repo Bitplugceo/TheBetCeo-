@@ -1327,11 +1327,7 @@ function extractFirstHalf(lm, lo) {
     return [0, 0];
   }
 
-  if (lm.length === 1 || lo.length === 1) {
-    return [readVal(lm[0]), readVal(lo[0])];
-  }
-
-  return [readVal(lm[0]) + readVal(lm[1]), readVal(lo[0]) + readVal(lo[1])];
+  return [readVal(lm[0]), readVal(lo[0])];
 }
 
 
@@ -4212,8 +4208,8 @@ const pace = isNaN(rawPace)
       projBFT = projBFT * (MODEL.PACE_BLEND + pace / 2);
 
 
-      const injMultA = g_injA.restMult * g_injA.scoringMult;
-      const injMultB = g_injB.restMult * g_injB.scoringMult;
+      const injMultA = g_injA.scoringMult;
+const injMultB = g_injB.scoringMult;
 
       if (!isNaN(projAFT) && injMultA !== 1) projAFT *= injMultA;
       if (!isNaN(projBFT) && injMultB !== 1) projBFT *= injMultB;
