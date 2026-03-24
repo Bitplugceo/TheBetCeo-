@@ -1641,7 +1641,6 @@ async function refreshTrackedPickResults() {
 
   for (const pick of picks) {
     if (!pick) continue;
-    if (pick.resultStatus && pick.resultStatus !== "pending") continue;
     if (!pick.eventId) continue;
 
     const base = getTrackedLeagueBase(pick.league);
@@ -3064,19 +3063,6 @@ function getTeamIdentityKey(name, league) {
           logDebug("fetchNbaH2H summary failed", e);
         }
 
-        if (!added && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
-          h2h.push({
-            teamAId: tA,
-            teamBId: tB,
-            scoreA: Math.round(ref.rawScoreA),
-            scoreB: Math.round(ref.rawScoreB),
-            h1A: 0,
-            h1B: 0,
-            q1A: 0,
-            q1B: 0,
-            date: ref.date
-          });
-        }
       }
 
       return h2h.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -3209,19 +3195,6 @@ function getTeamIdentityKey(name, league) {
           logDebug("fetchNcaaH2H summary failed", e);
         }
 
-        if (!added && !isNaN(ref.rawScoreA) && !isNaN(ref.rawScoreB) && ref.rawScoreA > 0 && ref.rawScoreB > 0) {
-          h2h.push({
-            teamAId: tA,
-            teamBId: tB,
-            scoreA: Math.round(ref.rawScoreA),
-            scoreB: Math.round(ref.rawScoreB),
-            h1A: 0,
-            h1B: 0,
-            q1A: 0,
-            q1B: 0,
-            date: ref.date
-          });
-        }
       }
 
       return h2h.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -3895,10 +3868,9 @@ const blowoutGap =
       } else {
       }
 
-      const aVolRaw = (stdDev(safeArr(aSA) || []) + stdDev(safeArr(aAA) || [])) / 2;
-      const bVolRaw = (stdDev(safeArr(bSA) || []) + stdDev(safeArr(bAA) || [])) / 2;
-      const aVol = aVolRaw * 0.6 + bVolRaw * 0.4;
-      const bVol = bVolRaw * 0.6 + aVolRaw * 0.4;
+            const aVol = (stdDev(safeArr(aSA) || []) + stdDev(safeArr(aAA) || [])) / 2;
+      const bVol = (stdDev(safeArr(bSA) || []) + stdDev(safeArr(bAA) || [])) / 2;
+      const volatilityBlock = aVol > vl * 1.35 || bVol > vl * 1.35;
 
       projAFT = applyVolatility(projAFT, aVol, vl);
       projBFT = applyVolatility(projBFT, bVol, vl);
@@ -4203,7 +4175,7 @@ if (
     paceGapRisk ||
     defensiveFloorFlag ||
     (!isNaN(blowoutGap) && blowoutGap > 20) ||
-    (aVol > vl && bVol > vl)
+    volatilityBlock
   )
 ) {
   ftPick = "NO PLAY";
