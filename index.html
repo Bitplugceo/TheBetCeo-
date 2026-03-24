@@ -3268,7 +3268,29 @@ if (!league) {
       };
 
       const eb = bases[league] || 160;
-      const cl = paceClamps[league] || { min: 0.90, max: 1.12 };
+let cl = paceClamps[league] || { min: 0.90, max: 1.12 };
+
+if (league === "nba") {
+  cl = { min: 0.90, max: 1.15 };
+} else if (league === "ncaa") {
+  cl = { min: 0.90, max: 1.12 };
+} else if (
+  [
+    "euroleague","eurocup","acb","lba","bbl","bcl","bsl","isl","aba","plk",
+    "serbia_kls","croatia_premier","elbl","georgia_super","hungary_nb1",
+    "romania_ln","austria_zweite","belgium_top","bih_1st","bulgaria_nbl",
+    "nbl_cz","denmark_bliga","england_slb","finland_koris","finland_koris_w",
+    "germany_proa","germany_prob","a2","italy_a2","italy_serb","lkl",
+    "lithuania_nkl","poland_1liga","portugal_lpb","portugal_proliga",
+    "serbia_2mls","spain_primera","spain_segunda","sweden_super","sweden_sbl",
+    "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
+    "united_league"
+  ].includes(league)
+) {
+  cl = { min: 0.92, max: 1.10 };
+} else {
+  cl = { min: 0.90, max: 1.12 };
+}
       const hAdj = homeEdge[league] || 1.5;
       const vl = volLimits[league] || 12;
 
@@ -3453,16 +3475,21 @@ const paceGapRisk =
       projAFT = projAFT * MODEL.REGRESSION_WEIGHT + (eb / 2) * MODEL.BASELINE_WEIGHT;
       projBFT = projBFT * MODEL.REGRESSION_WEIGHT + (eb / 2) * MODEL.BASELINE_WEIGHT;
 
-      let scoringBalance;
-      if (fullFTModelInputs && !isNaN(aA) && !isNaN(bA) && (aA + bA) > 0) {
-        scoringBalance = (aS + bS) / (aA + bA);
-      } else if (fullFTModelInputs) {
-        scoringBalance = ((aS + bS) / 2) / (eb / 2);
-      } else {
-        scoringBalance = 1.0;
-      }
+      let rawPace = NaN;
 
-      const pace = Math.max(cl.min, Math.min(cl.max, scoringBalance));
+if (fullFTModelInputs) {
+  const teamAPace = aS + aA;
+  const teamBPace = bS + bA;
+  rawPace = (teamAPace + teamBPace) / 2;
+} else if (!isNaN(aS) && !isNaN(aA)) {
+  rawPace = aS + aA;
+} else if (!isNaN(bS) && !isNaN(bA)) {
+  rawPace = bS + bA;
+}
+
+const pace = isNaN(rawPace)
+  ? 1
+  : Math.max(cl.min, Math.min(cl.max, rawPace / eb));
 
       projAFT = projAFT * (MODEL.PACE_BLEND + pace / 2);
       projBFT = projBFT * (MODEL.PACE_BLEND + pace / 2);
@@ -3516,10 +3543,10 @@ let b1HA = parsed.b1HAllowed;
         if (b1HS?.err) b1HS = null;
         if (b1HA?.err) b1HA = null;
 
-        aS1 = safeArr(a1HS) ? weightedAvg(a1HS) : NaN;
-aA1 = safeArr(a1HA) ? weightedAvg(a1HA) : NaN;
-bS1 = safeArr(b1HS) ? weightedAvg(b1HS) : NaN;
-bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
+        aS1 = safeArr(a1HS) ? trimmedAvg(a1HS) : NaN;
+aA1 = safeArr(a1HA) ? trimmedAvg(a1HA) : NaN;
+bS1 = safeArr(b1HS) ? trimmedAvg(b1HS) : NaN;
+bA1 = safeArr(b1HA) ? trimmedAvg(b1HA) : NaN;
 
         const full1HInputs = !isNaN(aS1) && !isNaN(aA1) && !isNaN(bS1) && !isNaN(bA1);
 
@@ -3615,11 +3642,10 @@ let bQ1A = parsed.bQ1Allowed;
         if (bQ1S?.err) bQ1S = null;
         if (bQ1A?.err) bQ1A = null;
 
-        aS1Q = safeArr(aQ1S) ? weightedAvg(aQ1S) : NaN;
-aA1Q = safeArr(aQ1A) ? weightedAvg(aQ1A) : NaN;
-bS1Q = safeArr(bQ1S) ? weightedAvg(bQ1S) : NaN;
-bA1Q = safeArr(bQ1A) ? weightedAvg(bQ1A) : NaN;
-
+        aS1Q = safeArr(aQ1S) ? trimmedAvg(aQ1S) : NaN;
+aA1Q = safeArr(aQ1A) ? trimmedAvg(aQ1A) : NaN;
+bS1Q = safeArr(bQ1S) ? trimmedAvg(bQ1S) : NaN;
+bA1Q = safeArr(bQ1A) ? trimmedAvg(bQ1A) : NaN;
 
         if (!isNaN(aS1Q) && !isNaN(aA1Q) && !isNaN(bS1Q) && !isNaN(bA1Q)) {
           let projAQ1 = aS1Q * MODEL.TEAM_WEIGHT + bA1Q * MODEL.OPP_WEIGHT;
