@@ -4468,11 +4468,48 @@ if (
             marketKey,
             line: lineRef,
             projection: isNaN(p.proj) ? null : Number(p.proj.toFixed(2)),
+            edgeRaw: isNaN(p.edge) ? null : Number(p.edge.toFixed(2)),
             edgePct: isNaN(edgePct) ? null : Number(edgePct.toFixed(2)),
             predictionText: p.pick,
             side,
             isLock,
-            resultStatus: "pending"
+            resultStatus: "pending",
+
+            diagnostics: {
+              sampleTier:
+                marketKey === "ft" || marketKey === "team_a" || marketKey === "team_b" ? ftSampleTier :
+                marketKey === "h1" ? h1SampleTier :
+                marketKey === "q1" ? q1SampleTier :
+                "unknown",
+
+              projectionOnly:
+                marketKey === "ft" || marketKey === "team_a" || marketKey === "team_b" ? ftProjectionOnly :
+                marketKey === "h1" ? h1ProjectionOnly :
+                marketKey === "q1" ? q1ProjectionOnly :
+                false,
+
+              pace: isNaN(pace) ? null : Number(pace.toFixed(3)),
+              paceGapRisk: !!paceGapRisk,
+              defensiveFloorFlag: !!defensiveFloorFlag,
+              blowoutGap: isNaN(blowoutGap) ? null : Number(blowoutGap.toFixed(2)),
+              volatilityBlock: !!volatilityBlock,
+
+              aVol: isNaN(aVol) ? null : Number(aVol.toFixed(2)),
+              bVol: isNaN(bVol) ? null : Number(bVol.toFixed(2)),
+              aVol1: isNaN(aVol1) ? null : Number(aVol1.toFixed(2)),
+              bVol1: isNaN(bVol1) ? null : Number(bVol1.toFixed(2)),
+              aVolQ1: isNaN(aVolQ1) ? null : Number(aVolQ1.toFixed(2)),
+              bVolQ1: isNaN(bVolQ1) ? null : Number(bVolQ1.toFixed(2)),
+
+              injMultA: isNaN(injMultA) ? null : Number(injMultA.toFixed(3)),
+              injMultB: isNaN(injMultB) ? null : Number(injMultB.toFixed(3)),
+
+              fullModel:
+                marketKey === "ft" ? ftFullModel :
+                marketKey === "h1" ? h1FullModel :
+                marketKey === "q1" ? q1FullModel :
+                teamFullModel
+            }
           };
 
           trackedPick.signature = makeTrackedSignature(trackedPick);
