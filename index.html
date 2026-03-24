@@ -1169,6 +1169,9 @@ let g_lastFetchedTeams = { A: "", B: "" };
     }
 
 function extractFirstHalf(lm, lo) {
+  // NCAA ESPN linescores are half-based:
+  // period 1 = 1H, period 2 = 2H.
+  // So first-half extraction should return index 0 only.
   if (!Array.isArray(lm) || !Array.isArray(lo) || lm.length === 0 || lo.length === 0) {
     return [0, 0];
   }
@@ -4589,6 +4592,93 @@ if (isNbaOrNcaa) {
       localStorage.setItem("theme", isDark ? "dark" : "light");
     }
 
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label} | expected: ${expected}, got: ${actual}`);
+  }
+}
+
+function assertApprox(actual, expected, tolerance, label) {
+  if (!isFinite(actual) || !isFinite(expected)) {
+    throw new Error(`${label} | non-finite value`);
+  }
+  if (Math.abs(actual - expected) > tolerance) {
+    throw new Error(`${label} | expected: ${expected}, got: ${actual}`);
+  }
+}
+
+function assertTrue(condition, label) {
+  if (!condition) {
+    throw new Error(`${label} | condition failed`);
+  }
+}
+
+function runSelfTests() {
+  const results = [];
+  let passed = 0;
+  let failed = 0;
+
+  function test(name, fn) {
+    try {
+      fn();
+      results.push({ name, status: "PASS" });
+      passed++;
+    } catch (err) {
+      results.push({ name, status: "FAIL", error: err.message });
+      failed++;
+    }
+  }
+
+test("extractFirstHalf sums first 2 periods when both exist", () => {
+  const [a, b] = extractFirstHalf([35, 41], [33, 39]);
+  assertEqual(a, 76, "Team A 1H should be P1+P2");
+  assertEqual(b, 72, "Team B 1H should be P1+P2");
+});
+
+test("extractFirstHalf falls back to first period if only 1 period exists", () => {
+  const [a, b] = extractFirstHalf([38], [34]);
+  assertEqual(a, 38, "Team A single-period fallback");
+  assertEqual(b, 34, "Team B single-period fallback");
+});
+
+test("stripOTFromScores removes only OT points for NBA-style lines", () => {
+  const [a, b] = stripOTFromScores(
+    118,
+    112,
+    [28, 25, 24, 26, 15],
+    [27, 24, 23, 29, 9],
+    4
+  );
+  assertEqual(a, 103, "Team A OT points removed");
+  assertEqual(b, 103, "Team B OT points removed");
+});
+
+test("stripOTFromScores leaves regulation game untouched", () => {
+  const [a, b] = stripOTFromScores(
+    84,
+    79,
+    [40, 44],
+    [37, 42],
+    2
+  );
+  assertEqual(a, 84, "Team A regulation score unchanged");
+  assertEqual(b, 79, "Team B regulation score unchanged");
+});
+
+  console.group("BB Engine Self Tests");
+  results.forEach(r => {
+    if (r.status === "PASS") {
+      console.log(`✅ ${r.name}`);
+    } else {
+      console.error(`❌ ${r.name} — ${r.error}`);
+    }
+  });
+  console.log(`Finished: ${passed} passed, ${failed} failed`);
+  console.groupEnd();
+
+  return { passed, failed, results };
+}
+
     (function applySavedTheme() {
       if (localStorage.getItem("theme") === "dark") {
         document.body.classList.add("dark-mode");
@@ -4637,7 +4727,8 @@ if (isNbaOrNcaa) {
       if (runBtn) runBtn.addEventListener("click", runEngine);
 
       const clearBtn = document.getElementById("clearBtn");
-      if (clearBtn) clearBtn.addEventListener("click", clearAll);
+     window.runSelfTests = runSelfTests;
+       if (clearBtn) clearBtn.addEventListener("click", clearAll);
       makeSectionsCollapsible();
 
       document.querySelectorAll(".section").forEach(s => {
