@@ -1295,12 +1295,19 @@ t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</
       t.style.display = "none";
     }
 
-    function setStatus(msg, type) {
-      const el = document.getElementById("fetchStatus");
-      if (!el) return;
-      el.className = type || "";
-      el.innerHTML = msg || "";
-    }
+    function setStatusText(msg, type = "") {
+  const el = document.getElementById("fetchStatus");
+  if (!el) return;
+  el.className = type || "";
+  el.textContent = msg || "";
+}
+
+function setStatusHTML(html, type = "") {
+  const el = document.getElementById("fetchStatus");
+  if (!el) return;
+  el.className = type || "";
+  el.innerHTML = html || "";
+}
 
     function unlockFetchBtn() {
       const btn = document.getElementById("fetchBtn");
@@ -1518,16 +1525,17 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
       }
     }
 
-    function saveTrackedPicks(picks) {
-      try {
-        localStorage.setItem(
-          TRACKED_PICKS_KEY,
-          JSON.stringify((picks || []).slice(0, TRACKED_PICKS_LIMIT))
-        );
-      } catch (e) {
-        logDebug("saveTrackedPicks failed", e);
-      }
-    }
+function saveTrackedPicks(picks) {
+  try {
+    localStorage.setItem(
+      TRACKED_PICKS_KEY,
+      JSON.stringify((picks || []).slice(0, TRACKED_PICKS_LIMIT))
+    );
+  } catch (e) {
+    console.error("[BB Engine] saveTrackedPicks failed", e);
+    setStatusText("⚠ Unable to save tracked picks. Browser storage may be full.", "err");
+  }
+}
 
     function makeTrackedSignature(pick) {
       return [
@@ -2160,7 +2168,7 @@ if (side === "B") g_injB = defaultInjuryMeta();
     function clearAutoFill(changedSide = null) {
   _fetchToken++;
   unlockFetchBtn();
-  setStatus("", "");
+setStatusText("", "");
   resetResultsTable();
 
  if (changedSide === "A" || changedSide === "B") {
@@ -3527,7 +3535,7 @@ if (!events.length) {
       selectedTeamIds.B = String(awayId || "");
 
       accordionOpen("espnSection");
-      setStatus('<span class="spinner"></span>Match selected. Fetching stats...', "loading");
+setStatusHTML('<span class="spinner"></span>Match selected. Fetching stats...', "loading");
       fetchESPN();
     }
 
@@ -3537,12 +3545,12 @@ if (!events.length) {
       const teamBName = document.getElementById("teamBName").value.trim();
 
 if (!teamAName || !teamBName) {
-  setStatus("❌ Enter both team names first.", "err");
+setStatusText("❌ Enter both team names first.", "err");
   return;
 }
 
 if (league !== "nba" && league !== "ncaa") {
-  setStatus("❌ ESPN auto-fetch is NBA & NCAA only.", "err");
+setStatusText("❌ ESPN auto-fetch is NBA & NCAA only.", "err");
   return;
 }
 
@@ -3550,7 +3558,7 @@ if (league !== "nba" && league !== "ncaa") {
       btn.disabled = true;
 
       resetResultsTable();
-setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
+setStatusHTML('<span class="spinner"></span>Fetching from ESPN...', "loading");
       const myToken = ++_fetchToken;
 
       try {
@@ -3571,7 +3579,7 @@ setStatus('<span class="spinner"></span>Fetching from ESPN...', "loading");
         if (!teamBId) throw new Error(`Can't find "${teamBName}". Try a fuller team name.`);
         if (String(teamAId) === String(teamBId)) throw new Error("Team A and Team B cannot be the same team.");
 
-        setStatus('<span class="spinner"></span>Loading game stats...', "loading");
+setStatusHTML('<span class="spinner"></span>Loading game stats...', "loading");
 
         const [aStats, bStats] = await Promise.all([
           isNcaa ? fetchNcaaSchedule(espnBase, teamAId, "home") : fetchNbaSchedule(espnBase, teamAId, "home"),
@@ -3650,7 +3658,7 @@ const messages = [];
         if (aStats?.usedVenueFallback) messages.push(`${safeText(teamAName)}: venue fallback used — projection only ⚠️`);
         if (bStats?.usedVenueFallback) messages.push(`${safeText(teamBName)}: venue fallback used — projection only ⚠️`);
 
-        setStatus('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
+setStatusHTML('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
 
         let h2hGames = [];
         try {
@@ -3742,7 +3750,7 @@ const messages = [];
           messages.push("H2H: none found");
         }
 
-        setStatus('<span class="spinner"></span>Checking injuries...', "loading");
+setStatusHTML('<span class="spinner"></span>Checking injuries...', "loading");
 
         const aAvg = aStats?.scored?.length ? avg(aStats.scored) : 75;
         const bAvg = bStats?.scored?.length ? avg(bStats.scored) : 75;
@@ -3763,10 +3771,10 @@ if (allGood) {
   updateSectionLocks();
 }
 
-setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
+setStatusHTML(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
       } catch (e) {
         if (myToken === _fetchToken) {
-          setStatus("❌ " + safeText(e.message), "err");
+setStatusText("❌ " + e.message, "err");
         }
       } finally {
         if (myToken === _fetchToken) btn.disabled = false;
@@ -4755,7 +4763,7 @@ g_injB = defaultInjuryMeta();
       _summaryCache.clear();
       _fixtureCache.clear();
 
-      setStatus("", "");
+setStatusText("", "");
       closeDrop("dropA");
       closeDrop("dropB");
 
@@ -4786,7 +4794,7 @@ _teamSearchToken.B++;
 closeDrop("dropA");
 closeDrop("dropB");
 unlockFetchBtn();
-setStatus("", "");
+setStatusText("", "");
 resetResultsTable();
 
   ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"].forEach(id => {
