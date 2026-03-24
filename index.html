@@ -4805,7 +4805,67 @@ function runSelfTests() {
   });
 
   test("anchorProjection pulls large NBA FT projection toward market", () => {
-    const anchored = anchorProjection(250, 220, "nba", "ft");
+    test("getH2HWeight caps at max weight", () => {
+    assertApprox(getH2HWeight(5, 5), 0.30, 0.0001, "H2H max cap");
+  });
+
+  test("detectTrap flags very small edge as trap", () => {
+    assertTrue(
+      detectTrap(2, 200, "OVER 200.0", "nba", "ft", 10) === true,
+      "Low edge should be trap"
+    );
+  });
+
+  test("detectTrap allows normal clean edge", () => {
+    assertTrue(
+      detectTrap(10, 200, "OVER 200.0", "nba", "ft", 10) === false,
+      "Clean edge should not be trap"
+    );
+  });
+
+  test("getSampleTier returns full for 5-game inputs", () => {
+    assertEqual(
+      getSampleTier(
+        [1,2,3,4,5],
+        [1,2,3,4,5],
+        [1,2,3,4,5],
+        [1,2,3,4,5]
+      ),
+      "full",
+      "Full sample tier"
+    );
+  });
+
+  test("getSampleTier returns thin for 2-game inputs", () => {
+    assertEqual(
+      getSampleTier(
+        [1,2],
+        [1,2],
+        [1,2],
+        [1,2]
+      ),
+      "thin",
+      "Thin sample tier"
+    );
+  });
+
+  test("applyVolatility reduces projection when std exceeds limit", () => {
+    assertApprox(
+      applyVolatility(100, 15, 10),
+      97.5,
+      0.001,
+      "Volatility adjustment"
+    );
+  });
+
+  test("selectLock ignores non-full-model markets", () => {
+    const idx = selectLock([
+      { edge: 12, line: 200, pick: "OVER 200.0", fullModel: false },
+      { edge: 9, line: 180, pick: "OVER 180.0", fullModel: true }
+    ]);
+    assertEqual(idx, 1, "Lock should skip non-full-model market");
+  });
+      const anchored = anchorProjection(250, 220, "nba", "ft");
     assertApprox(anchored, 239.5, 0.001, "NBA FT anchor");
   });
     const [a, b] = stripOTFromScores(
