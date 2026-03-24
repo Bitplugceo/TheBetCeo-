@@ -1348,18 +1348,37 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
       return errs;
     }
 
-    function getPick(edge, line, league, marketType) {
-      if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
-      const thr = getLeagueEdgeThresholds(league || "unknown");
-      const minPct =
-        marketType === "h1" ? thr.h1 :
-        marketType === "q1" ? thr.q1 :
-        marketType === "team" ? thr.team :
-        thr.ft;
+    function getPick(edge, line, league, marketType, context = {}) {
+  if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
 
-      if (Math.abs(edge / line) < minPct) return "NO PLAY";
-      return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
+  const thr = getLeagueEdgeThresholds(league || "unknown");
+  const overMin =
+    marketType === "h1" ? thr.h1 :
+    marketType === "q1" ? thr.q1 :
+    marketType === "team" ? thr.team :
+    thr.ft;
+
+  const underMin = overMin + 0.015;
+  const pct = Math.abs(edge / line);
+
+  if (edge > 0 && pct < overMin) return "NO PLAY";
+  if (edge < 0 && pct < underMin) return "NO PLAY";
+
+  if (edge < 0) {
+    if (
+      (marketType === "ft" || marketType === "h1" || marketType === "q1") &&
+      ((context.aSc || 0) >= line * 0.58 || (context.bSc || 0) >= line * 0.58)
+    ) {
+      return "NO PLAY";
     }
+
+    if (marketType === "team" && (context.teamSc || 0) >= line * 0.58) {
+      return "NO PLAY";
+    }
+  }
+
+  return edge > 0 ? "OVER " + displayLine(line) : "UNDER " + displayLine(line);
+}
 
     function getTrapVolThreshold(marketType, league) {
       if (marketType === "q1") return league === "nba" ? 6.5 : 6.0;
@@ -3564,8 +3583,12 @@ if (lineErrors.length) {
       projBFT = anchorProjection(projBFT, bLine, league, "team");
 
       let h1Proj = NaN;
-      let aVol1 = 0;
-      let bVol1 = 0;
+let aVol1 = 0;
+let bVol1 = 0;
+let aS1 = NaN;
+let aA1 = NaN;
+let bS1 = NaN;
+let bA1 = NaN;
 
       if (isNbaOrNcaa) {
         const eb1H = eb / 2;
@@ -3580,11 +3603,10 @@ if (lineErrors.length) {
         if (b1HS?.err) b1HS = null;
         if (b1HA?.err) b1HA = null;
 
-        const aS1 = safeArr(a1HS) ? weightedAvg(a1HS) : NaN;
-        const aA1 = safeArr(a1HA) ? weightedAvg(a1HA) : NaN;
-        const bS1 = safeArr(b1HS) ? weightedAvg(b1HS) : NaN;
-        const bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
-
+        aS1 = safeArr(a1HS) ? weightedAvg(a1HS) : NaN;
+aA1 = safeArr(a1HA) ? weightedAvg(a1HA) : NaN;
+bS1 = safeArr(b1HS) ? weightedAvg(b1HS) : NaN;
+bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
 
         const full1HInputs = !isNaN(aS1) && !isNaN(aA1) && !isNaN(bS1) && !isNaN(bA1);
 
@@ -3660,8 +3682,12 @@ if (lineErrors.length) {
       }
 
       let q1Proj = NaN;
-      let aVolQ1 = 0;
-      let bVolQ1 = 0;
+let aVolQ1 = 0;
+let bVolQ1 = 0;
+let aS1Q = NaN;
+let aA1Q = NaN;
+let bS1Q = NaN;
+let bA1Q = NaN;
 
       if (isNba) {
         const ebQ1 = eb / 4;
@@ -3803,11 +3829,11 @@ if (lineErrors.length) {
       const h1ProjectionNote = h1ProjectionOnly ? "Weak home/away venue sample — projection only" : null;
       const q1ProjectionNote = q1ProjectionOnly ? "Weak Q1 venue sample — projection only" : null;
 
-      let ftPick = getPick(ftEdge, ftLine, league, "ft");
-      let h1Pick = getPick(h1Edge, h1Line, league, "h1");
-      let q1Pick = getPick(q1Edge, q1Line, league, "q1");
-      let aPick = getPick(aEdge, aLine, league, "team");
-      let bPick = getPick(bEdge, bLine, league, "team");
+      let ftPick = getPick(ftEdge, ftLine, league, "ft", { aSc: aS, bSc: bS });
+let h1Pick = getPick(h1Edge, h1Line, league, "h1", { aSc: aS1, bSc: bS1 });
+let q1Pick = getPick(q1Edge, q1Line, league, "q1", { aSc: aS1Q, bSc: bS1Q });
+let aPick = getPick(aEdge, aLine, league, "team", { teamSc: aS });
+let bPick = getPick(bEdge, bLine, league, "team", { teamSc: bS });
 
       const ftFullModel = ftSampleTier === "full" && !ftProjectionOnly;
       const h1FullModel = h1SampleTier === "full" && !h1ProjectionOnly && !isNaN(h1Proj);
