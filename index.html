@@ -410,7 +410,8 @@
     }
 
     #runBtn,
-    #clearBtn {
+    #clearBtn,
+    #testBtn {
       opacity: 1 !important;
       border: none !important;
       cursor: pointer !important;
@@ -432,6 +433,62 @@
       background: #3a404c !important;
       color: #fff !important;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    #testBtn {
+      background: #1f6fd6 !important;
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(31, 111, 214, 0.28) !important;
+    }
+
+    .test-panel {
+      margin: 0 10px 14px;
+      border: 1px solid #dfe2e7;
+      background: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .test-summary {
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      border-bottom: 1px solid #dfe2e7;
+      background: #f6f7f9;
+      color: #20242c;
+    }
+
+    .test-results {
+      padding: 8px 10px;
+    }
+
+    .test-row {
+      padding: 8px 6px;
+      font-size: 12px;
+      border-bottom: 1px solid #eceff3;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .test-row:last-child {
+      border-bottom: none;
+    }
+
+    .test-pass {
+      color: #2f8f4a;
+      font-weight: 700;
+    }
+
+    .test-fail {
+      color: #c91920;
+      font-weight: 700;
+    }
+
+    .test-error {
+      display: block;
+      margin-top: 2px;
+      color: #7b8088;
+      font-size: 11px;
+      font-weight: 600;
     }
 
     .table-wrap {
@@ -696,9 +753,40 @@
       color: #fff !important;
     }
 
-    body.dark-mode .pred-noplay {
+        body.dark-mode .pred-noplay {
       background: #2a2f3a !important;
       color: #9aa0a8 !important;
+    }
+
+    body.dark-mode .test-panel {
+      background: #1a1a1a !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .test-summary {
+      background: #151515 !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .test-results {
+      background: #1a1a1a !important;
+    }
+
+    body.dark-mode .test-row {
+      border-color: #2a2f38 !important;
+    }
+
+    body.dark-mode .test-pass {
+      color: #58c472 !important;
+    }
+
+    body.dark-mode .test-fail {
+      color: #ff6b6b !important;
+    }
+
+    body.dark-mode .test-error {
+      color: #b0b6bf !important;
     }
 
     body.dark-mode .section.locked .section-toggle {
@@ -962,6 +1050,7 @@
   <div class="actions">
 <button id="runBtn" type="button">Run</button>
 <button id="clearBtn" type="button">Clear</button>
+<button id="testBtn" type="button">Run Tests</button>
   </div>
 
   <div class="table-wrap">
@@ -973,6 +1062,11 @@
         <th>Prediction</th>
       </tr>
     </table>
+  </div>
+
+  <div id="testPanel" class="test-panel" style="display:none;">
+    <div id="testSummary" class="test-summary">No tests run yet.</div>
+    <div id="testResults" class="test-results"></div>
   </div>
 
   <div id="trackerModal" class="tracker-modal" aria-hidden="true">
@@ -4613,6 +4707,32 @@ function assertTrue(condition, label) {
   }
 }
 
+function renderSelfTestResults(summary) {
+  const panel = document.getElementById("testPanel");
+  const summaryEl = document.getElementById("testSummary");
+  const resultsEl = document.getElementById("testResults");
+
+  if (!panel || !summaryEl || !resultsEl) return;
+
+  panel.style.display = "block";
+
+  const total = (summary?.passed || 0) + (summary?.failed || 0);
+  summaryEl.textContent = `Tests finished: ${summary.passed} passed, ${summary.failed} failed, ${total} total`;
+
+  resultsEl.innerHTML = (summary.results || []).map(r => `
+    <div class="test-row">
+      <span class="${r.status === "PASS" ? "test-pass" : "test-fail"}">
+        ${r.status === "PASS" ? "✅ PASS" : "❌ FAIL"} — ${safeText(r.name)}
+      </span>
+      ${r.error ? `<span class="test-error">${safeText(r.error)}</span>` : ""}
+    </div>
+  `).join("");
+
+  setTimeout(() => {
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 100);
+}
+
 function runSelfTests() {
   const results = [];
   let passed = 0;
@@ -4629,41 +4749,41 @@ function runSelfTests() {
     }
   }
 
-test("extractFirstHalf sums first 2 periods when both exist", () => {
-  const [a, b] = extractFirstHalf([35, 41], [33, 39]);
-  assertEqual(a, 76, "Team A 1H should be P1+P2");
-  assertEqual(b, 72, "Team B 1H should be P1+P2");
-});
+  test("extractFirstHalf sums first 2 periods when both exist", () => {
+    const [a, b] = extractFirstHalf([35, 41], [33, 39]);
+    assertEqual(a, 76, "Team A 1H should be P1+P2");
+    assertEqual(b, 72, "Team B 1H should be P1+P2");
+  });
 
-test("extractFirstHalf falls back to first period if only 1 period exists", () => {
-  const [a, b] = extractFirstHalf([38], [34]);
-  assertEqual(a, 38, "Team A single-period fallback");
-  assertEqual(b, 34, "Team B single-period fallback");
-});
+  test("extractFirstHalf falls back to first period if only 1 period exists", () => {
+    const [a, b] = extractFirstHalf([38], [34]);
+    assertEqual(a, 38, "Team A single-period fallback");
+    assertEqual(b, 34, "Team B single-period fallback");
+  });
 
-test("stripOTFromScores removes only OT points for NBA-style lines", () => {
-  const [a, b] = stripOTFromScores(
-    118,
-    112,
-    [28, 25, 24, 26, 15],
-    [27, 24, 23, 29, 9],
-    4
-  );
-  assertEqual(a, 103, "Team A OT points removed");
-  assertEqual(b, 103, "Team B OT points removed");
-});
+  test("stripOTFromScores removes only OT points for NBA-style lines", () => {
+    const [a, b] = stripOTFromScores(
+      118,
+      112,
+      [28, 25, 24, 26, 15],
+      [27, 24, 23, 29, 9],
+      4
+    );
+    assertEqual(a, 103, "Team A OT points removed");
+    assertEqual(b, 103, "Team B OT points removed");
+  });
 
-test("stripOTFromScores leaves regulation game untouched", () => {
-  const [a, b] = stripOTFromScores(
-    84,
-    79,
-    [40, 44],
-    [37, 42],
-    2
-  );
-  assertEqual(a, 84, "Team A regulation score unchanged");
-  assertEqual(b, 79, "Team B regulation score unchanged");
-});
+  test("stripOTFromScores leaves regulation game untouched", () => {
+    const [a, b] = stripOTFromScores(
+      84,
+      79,
+      [40, 44],
+      [37, 42],
+      2
+    );
+    assertEqual(a, 84, "Team A regulation score unchanged");
+    assertEqual(b, 79, "Team B regulation score unchanged");
+  });
 
   console.group("BB Engine Self Tests");
   results.forEach(r => {
@@ -4676,7 +4796,9 @@ test("stripOTFromScores leaves regulation game untouched", () => {
   console.log(`Finished: ${passed} passed, ${failed} failed`);
   console.groupEnd();
 
-  return { passed, failed, results };
+  const summary = { passed, failed, results };
+  renderSelfTestResults(summary);
+  return summary;
 }
 
     (function applySavedTheme() {
@@ -4723,12 +4845,16 @@ test("stripOTFromScores leaves regulation game untouched", () => {
       const fetchBtn = document.getElementById("fetchBtn");
       if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 
-      const runBtn = document.getElementById("runBtn");
+            const runBtn = document.getElementById("runBtn");
       if (runBtn) runBtn.addEventListener("click", runEngine);
 
       const clearBtn = document.getElementById("clearBtn");
-     window.runSelfTests = runSelfTests;
-       if (clearBtn) clearBtn.addEventListener("click", clearAll);
+      if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+      const testBtn = document.getElementById("testBtn");
+      if (testBtn) testBtn.addEventListener("click", runSelfTests);
+
+      window.runSelfTests = runSelfTests;
       makeSectionsCollapsible();
 
       document.querySelectorAll(".section").forEach(s => {
