@@ -1909,22 +1909,21 @@ function settleTrackedPickFromCompetition(pick, competition) {
   let actual = NaN;
 
   if (pick.marketKey === "ft") {
-    actual = (isNaN(homeScore) ? 0 : homeScore) + (isNaN(awayScore) ? 0 : awayScore);
+  if (!isFinite(homeScore) || !isFinite(awayScore)) return "pending";
+  actual = homeScore + awayScore;
+}
   } else if (pick.marketKey === "team_a") {
     actual = isNaN(homeScore) ? NaN : homeScore;
   } else if (pick.marketKey === "team_b") {
     actual = isNaN(awayScore) ? NaN : awayScore;
   } else if (pick.marketKey === "h1") {
     if (pick.league === "ncaa") {
-      if (!homeLines.length || !awayLines.length) return "pending";
       const [homeH1, awayH1] = extractFirstHalf(homeLines, awayLines);
       actual = homeH1 + awayH1;
     } else {
-      if (homeLines.length < 2 || awayLines.length < 2) return "pending";
       actual = sumLineScores(homeLines, 2) + sumLineScores(awayLines, 2);
     }
   } else if (pick.marketKey === "q1") {
-    if (homeLines.length < 1 || awayLines.length < 1) return "pending";
     actual = sumLineScores(homeLines, 1) + sumLineScores(awayLines, 1);
   }
 
@@ -2347,6 +2346,11 @@ if (side === "B") g_injB = defaultInjuryMeta();
   selectedTeamIds[changedSide] = null;
   g_lastFetchedTeams[changedSide] = "";
   setManualSource(changedSide);
+
+  g_injA = defaultInjuryMeta();
+  g_injB = defaultInjuryMeta();
+  hideInjuryBox("A");
+  hideInjuryBox("B");
 
   clearSideFields(changedSide);
   clearH2HFields();
@@ -5701,7 +5705,6 @@ refreshTrackedPickResults();
         }
       });
 
-      
       ["bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed"].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
