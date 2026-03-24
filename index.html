@@ -1522,54 +1522,6 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
   }
 }
 
-    function isStatFieldValid(id) {
-      const parsed = parseGames(id);
-      return Array.isArray(parsed) && parsed.length >= 2;
-    }
-
-    function isMarketComplete() {
-      return ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"].some(id => hasValidMarketLine(id));
-    }
-
-    function isTeamAComplete() {
-      return isStatFieldValid("aFTScored") && isStatFieldValid("aFTAllowed");
-    }
-
-    function isTeamBComplete() {
-      return isStatFieldValid("bFTScored") && isStatFieldValid("bFTAllowed");
-    }
-
-    function isH2HComplete() {
-      const ftCb = document.getElementById("useFTH2H");
-      const h1Cb = document.getElementById("use1HH2H");
-      const q1Cb = document.getElementById("useQ1H2H");
-
-      if (ftCb && ftCb.checked) {
-        const aFt = parseGames("aFTH2H");
-        const bFt = parseGames("bFTH2H");
-        if (!(Array.isArray(aFt) && aFt.length >= 2 && Array.isArray(bFt) && bFt.length >= 2)) {
-          return false;
-        }
-      }
-
-      if (h1Cb && h1Cb.checked) {
-        const aH1 = parseGames("a1HH2H");
-        const bH1 = parseGames("b1HH2H");
-        if (!(Array.isArray(aH1) && aH1.length >= 2 && Array.isArray(bH1) && bH1.length >= 2)) {
-          return false;
-        }
-      }
-
-      if (q1Cb && q1Cb.checked) {
-        const aQ1 = parseGames("aQ1H2H");
-        const bQ1 = parseGames("bQ1H2H");
-        if (!(Array.isArray(aQ1) && aQ1.length >= 2 && Array.isArray(bQ1) && bQ1.length >= 2)) {
-          return false;
-        }
-      }
-
-      return true;
-    }
 
 function updateSectionLocks() {
   const league = document.getElementById("leagueSelect").value;
@@ -1592,42 +1544,6 @@ function updateSectionLocks() {
   }
 }
 
-    function goToNextStep(autoOpen = false) {
-      const league = document.getElementById("leagueSelect").value;
-      if (!league) {
-        if (autoOpen) accordionOpen("leagueSection");
-        return;
-      }
-
-      if (!autoOpen) {
-        if (isMarketComplete() && isTeamAComplete() && isTeamBComplete() && isH2HComplete()) {
-          closeSection("h2hSection");
-        }
-        return;
-      }
-
-      if (!isMarketComplete()) {
-        accordionOpen("marketSection");
-        return;
-      }
-
-      if (!isTeamAComplete()) {
-        accordionOpen("teamASection", true);
-        return;
-      }
-
-      if (!isTeamBComplete()) {
-        accordionOpen("teamBSection", true);
-        return;
-      }
-
-      if (!isH2HComplete()) {
-        accordionOpen("h2hSection", true);
-        return;
-      }
-
-      closeSection("h2hSection");
-    }
 
     function getDateKeyLocal(dateObj) {
       const d = new Date(dateObj);
