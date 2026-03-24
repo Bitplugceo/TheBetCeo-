@@ -3507,7 +3507,7 @@ const pace = isNaN(rawPace)
 
 
       let ftProj = !isNaN(projAFT) && !isNaN(projBFT) ? projAFT + projBFT : NaN;
-      const defensiveFloorFlag = (!isNaN(aA) && aA < eb * 0.40) || (!isNaN(bA) && bA < eb * 0.40);
+const defensiveFloorFlag = (!isNaN(aA) && aA < 70) || (!isNaN(bA) && bA < 70);
 
       if (!isNaN(ftProj)) {
         if (defensiveFloorFlag) ftProj *= 0.97;
@@ -3587,12 +3587,10 @@ let h2hb1 = parsed.b1HH2H;
           const pace1 = Math.max(cl.min, Math.min(cl.max, rawPace1H));
 
           const vl1 = league === "nba" ? 7 : 6;
-          const aVol1Raw = (stdDev(safeArr(a1HS) || []) + stdDev(safeArr(a1HA) || [])) / 2;
-          const bVol1Raw = (stdDev(safeArr(b1HS) || []) + stdDev(safeArr(b1HA) || [])) / 2;
-          aVol1 = aVol1Raw * 0.6 + bVol1Raw * 0.4;
-          bVol1 = bVol1Raw * 0.6 + aVol1Raw * 0.4;
+          const aVol = (stdDev(safeArr(aSA) || []) + stdDev(safeArr(aAA) || [])) / 2;
+const bVol = (stdDev(safeArr(bSA) || []) + stdDev(safeArr(bAA) || [])) / 2;
 
-          const dfr1 = (aA1 < eb1H * 0.40) || (bA1 < eb1H * 0.40);
+const dfr1 = (aA1 < 35) || (bA1 < 35);
 
           projA1H = applyVolatility(projA1H, aVol1, vl1);
           projB1H = applyVolatility(projB1H, bVol1, vl1);
@@ -3702,7 +3700,7 @@ let h2hbQ1 = parsed.bQ1H2H;
           q1Proj = projAQ1 + projBQ1;
 
 const pgrQ1 = Math.abs((aS1Q + aA1Q) - (bS1Q + bA1Q)) > 5;
-          const dfrQ1 = (aA1Q < ebQ1 * 0.40) || (bA1Q < ebQ1 * 0.40);
+const dfrQ1 = (aA1Q < 18) || (bA1Q < 18);
 
           if (pgrQ1) q1Proj *= MODEL.PACE_SUPPRESS;
           if (dfrQ1) q1Proj *= 0.97;
