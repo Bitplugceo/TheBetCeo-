@@ -1481,11 +1481,12 @@ function getCurrentFixtureMeta() {
 }
 
     function openTrackerModal() {
-      const modal = document.getElementById("trackerModal");
-      if (!modal) return;
-      modal.classList.add("open");
-      modal.setAttribute("aria-hidden", "false");
-    }
+  const modal = document.getElementById("trackerModal");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  refreshTrackedPickResults();
+}
 
     function closeTrackerModal() {
       const modal = document.getElementById("trackerModal");
@@ -1546,7 +1547,126 @@ function getCurrentFixtureMeta() {
       }).join("");
     }
 
-    function addTrackedPicks(newPicks) {
+    function addTrackedPicks(newPicks) 
+    function getTrackedLeagueBase(league) {
+  if (league === "nba") {
+    return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+  }
+  if (league === "ncaa") {
+    return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
+  }
+  return "";
+}
+
+function sumLineScores(lines, count) {
+  if (!Array.isArray(lines) || !lines.length) return 0;
+  let total = 0;
+  for (let i = 0; i < Math.min(count, lines.length); i++) {
+    total += readVal(lines[i]);
+  }
+  return total;
+}
+
+function settleTrackedPickFromCompetition(pick, competition) {
+  if (!pick || !competition) return "pending";
+
+  const competitors = competition.competitors || [];
+  if (competitors.length < 2) return "pending";
+
+  const home = competitors.find(c => c.homeAway === "home") || competitors[0];
+  const away = competitors.find(c => c.homeAway === "away") || competitors[1];
+
+  const homeScore = parseFloat(home?.score);
+  const awayScore = parseFloat(away?.score);
+
+  const homeLines = home?.linescores || [];
+  const awayLines = away?.linescores || [];
+
+  let actual = NaN;
+
+  if (pick.marketKey === "ft") {
+    actual = (isNaN(homeScore) ? 0 : homeScore) + (isNaN(awayScore) ? 0 : awayScore);
+  } else if (pick.marketKey === "team_a") {
+    actual = isNaN(homeScore) ? NaN : homeScore;
+  } else if (pick.marketKey === "team_b") {
+    actual = isNaN(awayScore) ? NaN : awayScore;
+  } else if (pick.marketKey === "h1") {
+    actual = sumLineScores(homeLines, 2) + sumLineScores(awayLines, 2);
+  } else if (pick.marketKey === "q1") {
+    actual = sumLineScores(homeLines, 1) + sumLineScores(awayLines, 1);
+  }
+
+  if (!isFinite(actual)) return "pending";
+
+  const line = Number(pick.line);
+  if (!isFinite(line)) return "pending";
+
+  if (Math.abs(actual - line) < 0.001) return "push";
+
+  if (pick.side === "over") {
+    return actual > line ? "win" : "loss";
+  }
+
+  if (pick.side === "under") {
+    return actual < line ? "win" : "loss";
+  }
+
+  return "pending";
+}
+
+async function refreshTrackedPickResults() {
+  const picks = loadTrackedPicks();
+  if (!picks.length) {
+    renderTrackedPicks();
+    refreshTrackedPickResults();
+    return;
+  }
+
+  let changed = false;
+  const eventCache = new Map();
+
+  for (const pick of picks) {
+    if (!pick) continue;
+    if (pick.resultStatus && pick.resultStatus !== "pending") continue;
+    if (!pick.eventId) continue;
+
+    const base = getTrackedLeagueBase(pick.league);
+    if (!base) continue;
+
+    const cacheKey = `${pick.league}:${pick.eventId}`;
+
+    let dataPromise = eventCache.get(cacheKey);
+    if (!dataPromise) {
+      dataPromise = proxyFetch(`${base}/summary?event=${pick.eventId}`).catch(() => null);
+      eventCache.set(cacheKey, dataPromise);
+    }
+
+    const data = await dataPromise;
+    const competition = data?.header?.competitions?.[0];
+    if (!competition) continue;
+
+    const isFinal =
+      competition?.status?.type?.completed ||
+      competition?.status?.type?.state === "post" ||
+      competition?.status?.type?.name === "STATUS_FINAL";
+
+    if (!isFinal) continue;
+
+    const settled = settleTrackedPickFromCompetition(pick, competition);
+    if (settled !== "pending" && pick.resultStatus !== settled) {
+      pick.resultStatus = settled;
+      pick.settledAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveTrackedPicks(picks);
+  }
+
+  renderTrackedPicks();
+}
+    {
       if (!Array.isArray(newPicks) || !newPicks.length) {
         renderTrackedPicks();
         return;
