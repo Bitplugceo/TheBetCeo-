@@ -4188,9 +4188,55 @@ if (
           : "pred-noplay";
 
         row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
+
+        const marketKey =
+          p.name === "FT Total" ? "ft" :
+          p.name === "1H Total" ? "h1" :
+          p.name === "Q1 Total" ? "q1" :
+          p.name === "Team A Total" ? "team_a" :
+          p.name === "Team B Total" ? "team_b" :
+          "other";
+
+        const side =
+          typeof p.pick === "string" && p.pick.startsWith("OVER") ? "over" :
+          typeof p.pick === "string" && p.pick.startsWith("UNDER") ? "under" :
+          "";
+
+        const canTrack =
+          !p.note &&
+          lineRef !== null &&
+          side &&
+          p.pick !== "NO PLAY";
+
+        if (canTrack) {
+          const trackedPick = {
+            createdAt: new Date().toISOString(),
+            league,
+            eventId: fixtureMeta.eventId || "",
+            eventDate: fixtureMeta.eventDate || "",
+            homeTeam: fixtureMeta.homeTeam || currentTeamAName,
+            awayTeam: fixtureMeta.awayTeam || currentTeamBName,
+            homeId: fixtureMeta.homeId || "",
+            awayId: fixtureMeta.awayId || "",
+            marketName: p.name,
+            marketKey,
+            line: lineRef,
+            projection: isNaN(p.proj) ? null : Number(p.proj.toFixed(2)),
+            edgePct: isNaN(edgePct) ? null : Number(edgePct.toFixed(2)),
+            predictionText: p.pick,
+            side,
+            isLock,
+            resultStatus: "pending"
+          };
+
+          trackedPick.signature = makeTrackedSignature(trackedPick);
+          trackedToSave.push(trackedPick);
+        }
       });
 
       
+
+      addTrackedPicks(trackedToSave);
 
       setTimeout(() => {
         table.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -4404,9 +4450,21 @@ if (isNbaOrNcaa) {
 
     document.addEventListener("DOMContentLoaded", () => {
       openSection("leagueSection");
-            const themeToggleBtn = document.getElementById("themeToggleBtn");
+                  const themeToggleBtn = document.getElementById("themeToggleBtn");
       if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
 
+      const trackerToggleBtn = document.getElementById("trackerToggleBtn");
+      if (trackerToggleBtn) trackerToggleBtn.addEventListener("click", openTrackerModal);
+
+      const trackerCloseBtn = document.getElementById("trackerCloseBtn");
+      if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
+
+      const trackerModal = document.getElementById("trackerModal");
+      if (trackerModal) {
+        trackerModal.addEventListener("click", e => {
+          if (e.target === trackerModal) closeTrackerModal();
+        });
+      }
       const leagueSelect = document.getElementById("leagueSelect");
       if (leagueSelect) leagueSelect.addEventListener("change", onLeagueChange);
 
@@ -4451,8 +4509,9 @@ if (isNbaOrNcaa) {
         if (el) el.style.display = "none";
       });
 
-      lockFrom("espnSection");
+            lockFrom("espnSection");
       openSection("leagueSection");
+      renderTrackedPicks();
 
       ["useFTH2H", "use1HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
