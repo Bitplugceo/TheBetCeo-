@@ -1150,6 +1150,40 @@ LINE_ANCHOR_NBA: 0.65,
       PACE_SUPPRESS: 0.97
     };
 
+const PICK_RULES = {
+  default: { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
+  ft:      { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
+  team:    { over: 0.050, under: 0.065, underExtra: 0, underBlockRatio: 0.58 },
+  h1:      { underExtra: 0.015, underBlockRatio: 0.58 },
+  q1:      { underExtra: 0.015, underBlockRatio: 0.58 }
+};
+
+const LEAGUE_EDGE_THRESHOLDS = {
+  nba:     { h1: 0.050, q1: 0.055 },
+  ncaa:    { h1: 0.058, q1: 0.065 },
+  europe:  { h1: 0.059, q1: 0.068 },
+  asia:    { h1: 0.063, q1: 0.072 },
+  default: { h1: 0.067, q1: 0.075 }
+};
+
+const EUROPE_EDGE_LEAGUES = [
+  "euroleague","eurocup","acb","lba","bbl","bcl","lkl","proa","prob",
+  "bsl","isl","aba","plk","serbia_kls","croatia_premier","elbl",
+  "georgia_super","hungary_nb1","romania_ln","austria_zweite",
+  "belgium_top","bih_1st","bulgaria_nbl","nbl_cz","denmark_bliga",
+  "england_slb","finland_koris","finland_koris_w","germany_proa",
+  "germany_prob","a2","italy_a2","italy_serb","lithuania_nkl",
+  "poland_1liga","portugal_lpb","portugal_proliga","serbia_2mls",
+  "spain_primera","spain_segunda","sweden_super","sweden_sbl",
+  "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
+  "united_league"
+];
+
+const ASIA_EDGE_LEAGUES = [
+  "cba","china_nbl","taipei_pleague","taipei_sbl","taipei_tpbl",
+  "bleague","pba","korea_kbl"
+];
+
     const REST_CURVES = {
       nba:[0.965,0.990,1.000,0.992,0.985],ncaa:[0.968,0.991,1.000,0.993,0.986],
       lnb:[0.974,0.993,1.000,0.994,0.989],nbb:[0.972,0.992,1.000,0.994,0.988],cebl:[0.974,0.993,1.000,0.994,0.989],
@@ -1931,29 +1965,11 @@ function addTrackedPicks(newPicks) {
 }
 
 function getLeagueEdgeThresholds(league) {
-  if (league === "nba") return { h1: 0.050, q1: 0.055 };
-  if (league === "ncaa") return { h1: 0.058, q1: 0.065 };
-
-  if ([
-    "euroleague","eurocup","acb","lba","bbl","bcl","lkl","proa","prob",
-    "bsl","isl","aba","plk","serbia_kls","croatia_premier","elbl",
-    "georgia_super","hungary_nb1","romania_ln","austria_zweite",
-    "belgium_top","bih_1st","bulgaria_nbl","nbl_cz","denmark_bliga",
-    "england_slb","finland_koris","finland_koris_w","germany_proa",
-    "germany_prob","a2","italy_a2","italy_serb","lithuania_nkl",
-    "poland_1liga","portugal_lpb","portugal_proliga","serbia_2mls",
-    "spain_primera","spain_segunda","sweden_super","sweden_sbl",
-    "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
-    "united_league"
-  ].includes(league)) {
-    return { h1: 0.059, q1: 0.068 };
-  }
-
-  if (["cba","china_nbl","taipei_pleague","taipei_sbl","taipei_tpbl","bleague","pba","korea_kbl"].includes(league)) {
-    return { h1: 0.063, q1: 0.072 };
-  }
-
-  return { h1: 0.067, q1: 0.075 };
+  if (league === "nba") return LEAGUE_EDGE_THRESHOLDS.nba;
+  if (league === "ncaa") return LEAGUE_EDGE_THRESHOLDS.ncaa;
+  if (EUROPE_EDGE_LEAGUES.includes(league)) return LEAGUE_EDGE_THRESHOLDS.europe;
+  if (ASIA_EDGE_LEAGUES.includes(league)) return LEAGUE_EDGE_THRESHOLDS.asia;
+  return LEAGUE_EDGE_THRESHOLDS.default;
 }
 
     function getLineSanityBands(league) {
@@ -1990,21 +2006,20 @@ function getLeagueEdgeThresholds(league) {
     function getPick(edge, line, league, marketType, context = {}) {
   if (!line || isNaN(edge) || isNaN(line) || line <= 0) return "NO PLAY";
 
-  const thr = getLeagueEdgeThresholds(league || "unknown");
+  const periodThresholds = getLeagueEdgeThresholds(league || "unknown");
+  const rules = PICK_RULES[marketType] || PICK_RULES.default;
+  const underBlockRatio = rules.underBlockRatio ?? PICK_RULES.default.underBlockRatio;
 
-const overMin =
-  marketType === "ft" ? 0.045 :
-  marketType === "team" ? 0.050 :
-  marketType === "h1" ? thr.h1 :
-  marketType === "q1" ? thr.q1 :
-  0.045;
+  const overMin =
+    marketType === "h1" ? periodThresholds.h1 :
+    marketType === "q1" ? periodThresholds.q1 :
+    rules.over;
 
-const underMin =
-  marketType === "ft" ? 0.060 :
-  marketType === "team" ? 0.065 :
-  marketType === "h1" ? (thr.h1 + 0.015) :
-  marketType === "q1" ? (thr.q1 + 0.015) :
-  0.060;
+  const underMin =
+    marketType === "h1" ? (periodThresholds.h1 + rules.underExtra) :
+    marketType === "q1" ? (periodThresholds.q1 + rules.underExtra) :
+    rules.under;
+
   const pct = Math.abs(edge / line);
 
   if (edge > 0 && pct < overMin) return "NO PLAY";
@@ -2013,12 +2028,12 @@ const underMin =
   if (edge < 0) {
     if (
       (marketType === "ft" || marketType === "h1" || marketType === "q1") &&
-      ((context.aSc || 0) >= line * 0.58 || (context.bSc || 0) >= line * 0.58)
+      ((context.aSc || 0) >= line * underBlockRatio || (context.bSc || 0) >= line * underBlockRatio)
     ) {
       return "NO PLAY";
     }
 
-    if (marketType === "team" && (context.teamSc || 0) >= line * 0.58) {
+    if (marketType === "team" && (context.teamSc || 0) >= line * underBlockRatio) {
       return "NO PLAY";
     }
   }
