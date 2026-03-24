@@ -1168,12 +1168,12 @@ let g_lastFetchedTeams = { A: "", B: "" };
       return isFinite(v) ? v : 0;
     }
 
-    function extractFirstHalf(lm, lo) {
-      if (!lm || !lo || lm.length === 0) return [0, 0];
-      if (lm.length === 2) return [readVal(lm[0]), readVal(lo[0])];
-      if (lm.length >= 4) return [readVal(lm[0]) + readVal(lm[1]), readVal(lo[0]) + readVal(lo[1])];
-      return [readVal(lm[0]), readVal(lo[0])];
-    }
+function extractFirstHalf(lm, lo) {
+  if (!Array.isArray(lm) || !Array.isArray(lo) || lm.length === 0 || lo.length === 0) {
+    return [0, 0];
+  }
+  return [readVal(lm[0]), readVal(lo[0])];
+}
 
 
     function resetResultsTable() {
