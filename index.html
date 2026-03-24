@@ -1339,29 +1339,8 @@ t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</
       return false;
     }
 
-    function parseDateOnlyUTC(dateInput) {
-      if (!dateInput) return null;
-      const s = String(dateInput);
-      const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (match) {
-        return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-      }
-      const d = new Date(s);
-      if (isNaN(d.getTime())) return null;
-      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    }
 
-    function daysBetweenUTC(a, b) {
-      const d1 = parseDateOnlyUTC(a);
-      const d2 = parseDateOnlyUTC(b);
-      if (!d1 || !d2) return null;
-      return Math.round((d2.getTime() - d1.getTime()) / 86400000);
-    }
 
-    function restMultiplier(days, league) {
-      const curve = REST_CURVES[league] || REST_CURVES.unknown;
-      return curve[Math.min(Math.max(days, 0), 4)];
-    }
 
     function proxyFetch(url, timeoutMs = 12000) {
       const ctrl = new AbortController();
@@ -2646,76 +2625,7 @@ function getTeamIdentityKey(name, league) {
       }
     }
 
-    async function findMatchupDate(base, teamAId, teamBId) {
-      for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear() - 1)]) {
-        for (const stype of ["2", "3"]) {
-          try {
-            const key = `${base}:sched:${teamAId}:${season}:${stype}`;
-            const r = await (_schedCache.has(key)
-              ? _schedCache.get(key)
-              : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
-                  cacheSet(_schedCache, key, p);
-                  return p;
-                })());
 
-            const events = (r?.events || r?.team?.schedule?.events || [])
-              .slice()
-              .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-
-            for (const ev of events) {
-              const comp = ev?.competitions?.[0];
-              if (!comp) continue;
-              const done =
-                comp?.status?.type?.completed ||
-                comp?.status?.type?.name === "STATUS_FINAL" ||
-                comp?.status?.type?.state === "post";
-              if (done) continue;
-
-              const hasB = (comp?.competitors || []).some(c => matchesTeam(c, teamBId));
-              if (hasB && ev.date) return ev.date;
-            }
-          } catch (e) {
-            logDebug("findMatchupDate failed", e);
-          }
-        }
-      }
-      return null;
-    }
-
-    async function findNextGameDate(base, teamId) {
-      for (const season of [String(new Date().getFullYear()), String(new Date().getFullYear() - 1)]) {
-        for (const stype of ["2", "3"]) {
-          try {
-            const key = `${base}:sched:${teamId}:${season}:${stype}`;
-            const r = await (_schedCache.has(key)
-              ? _schedCache.get(key)
-              : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
-                  cacheSet(_schedCache, key, p);
-                  return p;
-                })());
-
-            const events = (r?.events || r?.team?.schedule?.events || [])
-              .slice()
-              .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
-
-            for (const ev of events) {
-              const comp = ev?.competitions?.[0];
-              if (!comp) continue;
-              const done =
-                comp?.status?.type?.completed ||
-                comp?.status?.type?.name === "STATUS_FINAL" ||
-                comp?.status?.type?.state === "post";
-              if (!done && ev.date) return ev.date;
-            }
-          } catch (e) {
-            logDebug("findNextGameDate failed", e);
-          }
-        }
-      }
-      return null;
-    }
 
     async function fetchInjuryAndRest(base, teamId, teamAvgScored, league) {
 const result = {
@@ -3828,7 +3738,7 @@ const messages = [];
           messages.push("H2H: none found");
         }
 
-        setStatus('<span class="spinner"></span>Checking injuries & rest days...', "loading");
+        setStatus('<span class="spinner"></span>Checking injuries...', "loading");
 
         const aAvg = aStats?.scored?.length ? avg(aStats.scored) : 75;
         const bAvg = bStats?.scored?.length ? avg(bStats.scored) : 75;
