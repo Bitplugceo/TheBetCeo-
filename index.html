@@ -1234,19 +1234,6 @@ if (v > 300) return { err: "value at position " + (i + 1) + " is too high (" + v
       return avg(s);
     }
 
-    function weightedAvg(arr) {
-      if (!arr || arr.length === 0) return NaN;
-      if (arr.length === 1) return arr[0];
-
-      const fullWeights = [0.10, 0.15, 0.20, 0.25, 0.30];
-      const recent = arr.slice(0, 5).reverse();
-      const weights = fullWeights.slice(fullWeights.length - recent.length);
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
-
-      return recent.reduce((sum, val, i) => {
-        return sum + val * (weights[i] / totalWeight);
-      }, 0);
-    }
 
     function stdDev(arr) {
       if (!arr || arr.length < 2) return 0;
@@ -3704,9 +3691,6 @@ let h2hbQ1 = parsed.bQ1H2H;
 
           if (injMultA !== 1) projAQ1 *= injMultA;
           if (injMultB !== 1) projBQ1 *= injMultB;
-
-          projAQ1 += hAdj * 0.25;
-          projBQ1 -= hAdj * 0.25;
 
           q1Proj = projAQ1 + projBQ1;
 
