@@ -1188,11 +1188,6 @@ let g_lastFetchedTeams = { A: "", B: "" };
       return null;
     }
 
-    function hasValidMarketLine(id) {
-      const el = document.getElementById(id);
-      if (!el) return false;
-      return parseMarketLine(el.value) !== null;
-    }
 
     function hasValue(id) {
       const el = document.getElementById(id);
