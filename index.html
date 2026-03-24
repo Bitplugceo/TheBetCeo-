@@ -670,7 +670,34 @@
       color: #d4af37 !important;
       border-color: #333 !important;
     }
+.tracker-market-summary {
+  padding: 10px 14px;
+  border-bottom: 1px solid #dfe2e7;
+  background: #ffffff;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
+.tracker-market-chip {
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  border: 1px solid #dfe2e7;
+  background: #f6f7f9;
+  color: #2a2f38;
+}
+
+body.dark-mode .tracker-market-summary {
+  background: #1a1a1a !important;
+  border-color: #333 !important;
+}
+
+body.dark-mode .tracker-market-chip {
+  background: #151515 !important;
+  border-color: #333 !important;
+  color: #d4af37 !important;
+}
 
     body.dark-mode {
       background: #111 !important;
@@ -1076,7 +1103,8 @@
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
 
-      <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+<div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+<div class="tracker-market-summary" id="trackerMarketSummary" style="display:none;"></div>
 
       <div id="trackerEmpty" style="padding:12px 14px;font-size:12px;color:#7b8088;">
         No tracked picks saved yet.
@@ -1623,21 +1651,54 @@ function getCurrentFixtureMeta() {
     
     function renderTrackedPicks() {
       const summaryEl = document.getElementById("trackerSummary");
-      const emptyEl = document.getElementById("trackerEmpty");
-      const wrapEl = document.getElementById("trackedPicksWrap");
-      const bodyEl = document.getElementById("trackedPicksBody");
+const marketSummaryEl = document.getElementById("trackerMarketSummary");
+const emptyEl = document.getElementById("trackerEmpty");
+const wrapEl = document.getElementById("trackedPicksWrap");
+const bodyEl = document.getElementById("trackedPicksBody");
 
-      if (!summaryEl || !emptyEl || !wrapEl || !bodyEl) return;
+if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl) return;
 
-            const picks = loadTrackedPicks();
+const picks = loadTrackedPicks();
+const settled = picks.filter(p => p.resultStatus && p.resultStatus !== "pending");
+const wins = picks.filter(p => p.resultStatus === "win");
+const losses = picks.filter(p => p.resultStatus === "loss");
+const pushes = picks.filter(p => p.resultStatus === "push");
 
-      summaryEl.innerHTML = buildTrackerSummary(picks);
-      if (!picks.length) {
-        emptyEl.style.display = "block";
-        wrapEl.style.display = "none";
-        bodyEl.innerHTML = "";
-        return;
-      }
+summaryEl.textContent =
+  `${picks.length} saved • ${settled.length} settled • ${wins.length}-${losses.length}-${pushes.length}`;
+
+if (!picks.length) {
+  emptyEl.style.display = "block";
+  wrapEl.style.display = "none";
+  bodyEl.innerHTML = "";
+  marketSummaryEl.style.display = "none";
+  marketSummaryEl.innerHTML = "";
+  return;
+}
+
+const marketLabels = {
+  ft: "FT",
+  h1: "1H",
+  q1: "Q1",
+  team_a: "Team A",
+  team_b: "Team B"
+};
+
+const marketKeys = ["ft", "h1", "q1", "team_a", "team_b"];
+
+const chips = marketKeys.map(key => {
+  const group = picks.filter(p => p.marketKey === key);
+  if (!group.length) return "";
+
+  const w = group.filter(p => p.resultStatus === "win").length;
+  const l = group.filter(p => p.resultStatus === "loss").length;
+  const ps = group.filter(p => p.resultStatus === "push").length;
+
+  return `<div class="tracker-market-chip">${marketLabels[key]} ${w}-${l}-${ps}</div>`;
+}).filter(Boolean);
+
+marketSummaryEl.innerHTML = chips.join("");
+marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
       emptyEl.style.display = "none";
       wrapEl.style.display = "block";
