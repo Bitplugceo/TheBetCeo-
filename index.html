@@ -917,12 +917,12 @@ body.dark-mode .tracker-market-chip {
       <div id="fetchStatus"></div>
 
       <div class="injury-box" id="injuryBoxA">
-        <div class="inj-title">Team A - Injury &amp; Rest</div>
+<div class="inj-title">Team A - Injury Report</div>
         <div id="injuryContentA"></div>
       </div>
 
       <div class="injury-box" id="injuryBoxB">
-        <div class="inj-title">Team B - Injury &amp; Rest</div>
+<div class="inj-title">Team B - Injury Report</div>
         <div id="injuryContentB"></div>
       </div>
     </div>
@@ -1827,7 +1827,11 @@ async function refreshTrackedPickResults() {
   let changed = false;
   const eventCache = new Map();
 
-  for (const pick of picks) {
+const pendingPicks = picks.filter(
+  p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending")
+);
+
+for (const pick of pendingPicks) {
     if (!pick) continue;
     if (!pick.eventId) continue;
 
@@ -2768,31 +2772,6 @@ const result = {
   highUncertainty: false
 };
 
-      const diffDays = daysBetweenUTC(lastGameDate, nextGameDate);
-      if (diffDays !== null) {
-        const restDays = Math.max(0, diffDays - 1);
-
-        if (restDays > 7) {
-          result.restMult = 1;
-          result.notes.push({ type: "rest", text: "Rest unavailable" });
-        } else {
-          result.restMult = restMultiplier(restDays, league);
-
-          const label =
-            restDays === 0 ? "Back-to-back ⚠️" :
-            restDays === 1 ? "1 day rest" :
-            restDays === 2 ? "2 days rest ✓" :
-            `${restDays} days rest`;
-
-          const adj = result.restMult !== 1
-            ? ` (${((result.restMult - 1) * 100).toFixed(1)}% scoring adj)`
-            : "";
-
-          result.notes.push({ type: "rest", text: label + adj });
-        }
-      } else if (lastGameDate) {
-        result.notes.push({ type: "rest", text: "Rest unknown" });
-      }
 
       try {
         const data = await proxyFetch(`${base}/teams/${teamId}/injuries`).catch(() => null);
@@ -2919,9 +2898,12 @@ if (result.highUncertainty) {
             const r = await (_schedCache.has(key)
               ? _schedCache.get(key)
               : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(() => ({}));
-                  cacheSet(_schedCache, key, p);
-                  return p;
+                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+  _schedCache.delete(key);
+  throw err;
+});
+cacheSet(_schedCache, key, p);
+return p;
                 })());
 
             const events = r?.events || r?.team?.schedule?.events || [];
@@ -3598,7 +3580,6 @@ const events = merged
             const state = comp?.status?.type?.state || "";
             const completed = comp?.status?.type?.completed || state === "post";
             if (completed) return false;
-if (offset === 0 && eventTime.getTime() <= now) return false;
 
             return true;
           })
@@ -3729,9 +3710,9 @@ g_injB = defaultInjuryMeta();
 g_fetchMeta = defaultFetchMeta();
 hideInjuryBox("A");
 hideInjuryBox("B");
-clearSideFields("A");
-clearSideFields("B");
-clearH2HFields();
+
+if (aStats?.scored?.length > 0) clearSideFields("A");
+if (bStats?.scored?.length > 0) clearSideFields("B");
 
 const messages = [];
 
@@ -3804,7 +3785,8 @@ const messages = [];
 
         if (myToken !== _fetchToken) return;
 
-        if (h2hGames.length >= 2) {
+       if (h2hGames.length >= 2) {
+  clearH2HFields();
           const tA = String(teamAId);
           const h2hA = [];
           const h2hB = [];
@@ -3859,7 +3841,8 @@ const messages = [];
           }
 
           messages.push(`H2H: ${Math.min(h2hGames.length, 5)} games ✅`);
-        } else if (h2hGames.length === 1) {
+} else if (h2hGames.length === 1) {
+  clearH2HFields();
           const tA = String(teamAId);
           const g = h2hGames[0];
 
