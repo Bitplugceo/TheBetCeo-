@@ -1398,7 +1398,7 @@ const underMin =
       if (!line || isNaN(edge) || line <= 0 || !pick || pick === "NO PLAY") return false;
 
       const pct = Math.abs(edge / line);
-      if (pct < 0.015) return "NO PLAY";
+      if (pct < 0.015) return true;
       let bad = 0;
       const volLimit = getTrapVolThreshold(marketType, league);
 
@@ -3246,8 +3246,9 @@ if (!league) {
         korea_kbl:{min:0.87,max:1.10},ausnbl:{min:0.87,max:1.10},nznbl:{min:0.87,max:1.10},
         fiba_wc:{min:0.87,max:1.10},fiba_eb:{min:0.87,max:1.10},fiba_ac:{min:0.87,max:1.10},
         unknown:{min:0.85,max:1.12}
-      };
+            };
 
+      const homeEdge = {
         nba:1.5,ncaa:2.0,lnb:1.6,nbb:1.6,cebl:1.4,bal:1.5,nigeria:1.8,rwanda:1.8,aba:1.5,
         euroleague:1.5,eurocup:1.5,elbl:1.3,austria_zweite:1.4,belgium_top:1.4,bih_1st:1.4,
         bulgaria_nbl:1.4,croatia_premier:1.4,nbl_cz:1.3,denmark_bliga:1.3,england_slb:1.3,
@@ -3275,30 +3276,32 @@ if (!league) {
         fiba_eb:11,fiba_ac:11,unknown:12
       };
 
-      const eb = bases[league] || 160;
-let cl = paceClamps[league] || { min: 0.90, max: 1.12 };
+            const eb = bases[league] || 160;
+      let cl = paceClamps[league] || { min: 0.90, max: 1.12 };
 
-if (league === "nba") {
-  cl = { min: 0.90, max: 1.15 };
-} else if (league === "ncaa") {
-  cl = { min: 0.90, max: 1.12 };
-} else if (
-  [
-    "euroleague","eurocup","acb","lba","bbl","bcl","bsl","isl","aba","plk",
-    "serbia_kls","croatia_premier","elbl","georgia_super","hungary_nb1",
-    "romania_ln","austria_zweite","belgium_top","bih_1st","bulgaria_nbl",
-    "nbl_cz","denmark_bliga","england_slb","finland_koris","finland_koris_w",
-    "germany_proa","germany_prob","a2","italy_a2","italy_serb","lkl",
-    "lithuania_nkl","poland_1liga","portugal_lpb","portugal_proliga",
-    "serbia_2mls","spain_primera","spain_segunda","sweden_super","sweden_sbl",
-    "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
-    "united_league"
-  ].includes(league)
-) {
-  cl = { min: 0.92, max: 1.10 };
-} else {
-  cl = { min: 0.90, max: 1.12 };
-}
+      if (league === "nba") {
+        cl = { min: 0.90, max: 1.15 };
+      } else if (league === "ncaa") {
+        cl = { min: 0.90, max: 1.12 };
+      } else if (
+        [
+          "euroleague","eurocup","acb","lba","bbl","bcl","bsl","isl","aba","plk",
+          "serbia_kls","croatia_premier","elbl","georgia_super","hungary_nb1",
+          "romania_ln","austria_zweite","belgium_top","bih_1st","bulgaria_nbl",
+          "nbl_cz","denmark_bliga","england_slb","finland_koris","finland_koris_w",
+          "germany_proa","germany_prob","a2","italy_a2","italy_serb","lkl",
+          "lithuania_nkl","poland_1liga","portugal_lpb","portugal_proliga",
+          "serbia_2mls","spain_primera","spain_segunda","sweden_super","sweden_sbl",
+          "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w",
+          "united_league"
+        ].includes(league)
+      ) {
+        cl = { min: 0.92, max: 1.10 };
+      } else {
+        cl = { min: 0.90, max: 1.12 };
+      }
+
+      const hAdj = homeEdge[league] || 1.5;
       const vl = volLimits[league] || 12;
 
       const ftLine = snapHalf(parseMarketLine(document.getElementById("ftMarket").value));
@@ -3594,11 +3597,11 @@ let h2hb1 = parsed.b1HH2H;
           const rawPace1H = (aS1 + aA1 + bS1 + bA1) / (2 * eb1H);
           const pace1 = Math.max(cl.min, Math.min(cl.max, rawPace1H));
 
-          const vl1 = league === "nba" ? 7 : 6;
-          const aVol = (stdDev(safeArr(aSA) || []) + stdDev(safeArr(aAA) || [])) / 2;
-const bVol = (stdDev(safeArr(bSA) || []) + stdDev(safeArr(bAA) || [])) / 2;
+                    const vl1 = league === "nba" ? 7 : 6;
+          aVol1 = (stdDev(safeArr(a1HS) || []) + stdDev(safeArr(a1HA) || [])) / 2;
+          bVol1 = (stdDev(safeArr(b1HS) || []) + stdDev(safeArr(b1HA) || [])) / 2;
 
-const dfr1 = (aA1 < 35) || (bA1 < 35);
+          const dfr1 = (aA1 < 35) || (bA1 < 35);
 
           projA1H = applyVolatility(projA1H, aVol1, vl1);
           projB1H = applyVolatility(projB1H, bVol1, vl1);
