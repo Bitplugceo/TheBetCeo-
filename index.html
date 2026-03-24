@@ -2860,7 +2860,16 @@ function getTeamIdentityKey(name, league) {
     }
 
     async function fetchInjuryAndRest(base, teamId, teamAvgScored, lastGameDate, nextGameDate, league) {
-      const result = { restMult: 1, scoringMult: 1, notes: [] };
+const result = {
+  restMult: 1,
+  scoringMult: 1,
+  notes: [],
+  outCount: 0,
+  dtdCount: 0,
+  estimatedImpactCount: 0,
+  hasEstimatedImpact: false,
+  highUncertainty: false
+};
 
       const diffDays = daysBetweenUTC(lastGameDate, nextGameDate);
       if (diffDays !== null) {
@@ -2906,42 +2915,72 @@ function getTeamIdentityKey(name, league) {
           const playerName = athlete?.displayName || athlete?.fullName || "Unknown";
 
           let ppg = 0;
-          for (const cat of (athlete?.statistics?.splits?.categories || [])) {
-            for (const stat of (cat.stats || [])) {
-              if (stat.name === "avgPoints" || stat.abbreviation === "PPG") {
-                ppg = parseFloat(stat.value) || 0;
-              }
-            }
-          }
+let usedEstimate = false;
 
-          if (ppg === 0) {
-            const pos = (athlete?.position?.abbreviation || athlete?.position?.name || "").toUpperCase();
-            if (isOut) {
-              if (pos === "PG" || pos === "SG" || pos === "G") ppg = 10;
-              else if (pos === "SF" || pos === "PF" || pos === "F") ppg = 9;
-              else if (pos === "C") ppg = 8;
-              else ppg = 7;
-            }
-          }
+for (const cat of (athlete?.statistics?.splits?.categories || [])) {
+  for (const stat of (cat.stats || [])) {
+    if (stat.name === "avgPoints" || stat.abbreviation === "PPG") {
+      ppg = parseFloat(stat.value) || 0;
+    }
+  }
+}
+
+if (ppg === 0) {
+  const pos = (athlete?.position?.abbreviation || athlete?.position?.name || "").toUpperCase();
+
+  if (isOut) {
+    usedEstimate = true;
+    if (pos === "PG" || pos === "SG" || pos === "G") ppg = 10;
+    else if (pos === "SF" || pos === "PF" || pos === "F") ppg = 9;
+    else if (pos === "C") ppg = 8;
+    else ppg = 7;
+  } else if (isDTD) {
+    usedEstimate = true;
+    if (pos === "PG" || pos === "SG" || pos === "G") ppg = 8;
+    else if (pos === "SF" || pos === "PF" || pos === "F") ppg = 7;
+    else if (pos === "C") ppg = 6;
+    else ppg = 5;
+  }
+}
 
           if (ppg === 0) continue;
 
-          const share = ppg / avgPPG;
-          const impact = Math.min(isOut ? share * 0.65 : share * 0.30, 0.22);
-          totalReduction += impact;
+if (isOut) result.outCount++;
+if (isDTD) result.dtdCount++;
+if (usedEstimate) result.estimatedImpactCount++;
+
+const share = ppg / avgPPG;
+const impact = Math.min(isOut ? share * 0.65 : share * 0.30, 0.22);
+totalReduction += impact;
 
           const tag = isOut ? "OUT" : "DTD";
           const ppgStr = ppg > 0 ? ` (${ppg.toFixed(1)} ppg)` : "";
-          const adjStr = impact > 0.005 ? ` → -${(impact * 100).toFixed(1)}% offense` : "";
+const estStr = usedEstimate ? " [est.]" : "";
+const adjStr = impact > 0.005 ? ` → -${(impact * 100).toFixed(1)}% offense` : "";
 
-          result.notes.push({
-            type: isOut ? "out" : "dtd",
-            text: `${playerName}${ppgStr} — ${tag}${adjStr}`
-          });
+result.notes.push({
+  type: isOut ? "out" : "dtd",
+  text: `${playerName}${ppgStr}${estStr} — ${tag}${adjStr}`
+});
         }
 
         const maxInjCap = league === "nba" ? 0.25 : 0.20;
         result.scoringMult = 1 - Math.min(totalReduction, maxInjCap);
+      result.hasEstimatedImpact = result.estimatedImpactCount > 0;
+
+result.highUncertainty =
+  result.dtdCount >= 2 ||
+  result.estimatedImpactCount >= 2 ||
+  (result.dtdCount >= 1 && result.hasEstimatedImpact) ||
+  result.outCount >= 3;
+
+if (result.hasEstimatedImpact) {
+  result.notes.push({ type: "dtd", text: "Estimated player impact used" });
+}
+
+if (result.highUncertainty) {
+  result.notes.push({ type: "dtd", text: "High injury uncertainty" });
+}
       } catch (e) {
         logDebug("fetchInjuryAndRest failed", e);
       }
