@@ -1384,6 +1384,14 @@ function extractFirstHalf(lm, lo) {
       t.style.display = "none";
     }
 
+const testPanel = document.getElementById("testPanel");
+const testSummary = document.getElementById("testSummary");
+const testResults = document.getElementById("testResults");
+
+if (testPanel) testPanel.style.display = "none";
+if (testSummary) testSummary.textContent = "No tests run yet.";
+if (testResults) testResults.innerHTML = "";
+
     function setStatus(msg, type) {
       const el = document.getElementById("fetchStatus");
       if (!el) return;
