@@ -2846,15 +2846,7 @@ function getTeamIdentityKey(name, league) {
 
       if (chosen.length < 2) return null;
 
-      const top5 = chosen.slice(0, 5);
-      const scored = [];
-      const allowed = [];
-      const h1Scored = [];
-      const h1Allowed = [];
-      const q1Scored = [];
-      const q1Allowed = [];
-
-      for (const ref of top5) {
+      for (const ref of chosen) {
         let ms = ref.rawS;
         let os = ref.rawA;
         let h1m = 0;
@@ -3973,18 +3965,25 @@ let h2hb1 = parsed.b1HH2H;
             if (h2ha1 && h2hb1 && h2ha1.length >= 2 && h2hb1.length >= 2) {
               let w1 = getH2HWeight(h2ha1.length, h2hb1.length);
               const h2hA1avg = avg(h2ha1);
-              const h2hB1avg = avg(h2hb1);
+const h2hB1avg = avg(h2hb1);
 
-              if (!isNaN(projA1H) && projA1H > 0 && !isNaN(h2hA1avg)) {
-                const dA1 = Math.abs(h2hA1avg - projA1H) / projA1H;
-                const wA1 = dA1 > MODEL.H2H_DIVERGE_THRESHOLD ? w1 * 0.5 : w1;
-                projA1H = projA1H * (1 - wA1) + h2hA1avg * wA1;
-              }
-              if (!isNaN(projB1H) && projB1H > 0 && !isNaN(h2hB1avg)) {
-                const dB1 = Math.abs(h2hB1avg - projB1H) / projB1H;
-                const wB1 = dB1 > MODEL.H2H_DIVERGE_THRESHOLD ? w1 * 0.5 : w1;
-                projB1H = projB1H * (1 - wB1) + h2hB1avg * wB1;
-              }
+const current1HTotal =
+  !isNaN(projA1H) && !isNaN(projB1H) ? (projA1H + projB1H) : NaN;
+const h2h1HTotal =
+  !isNaN(h2hA1avg) && !isNaN(h2hB1avg) ? (h2hA1avg + h2hB1avg) : NaN;
+
+if (!isNaN(current1HTotal) && current1HTotal > 0 && !isNaN(h2h1HTotal)) {
+  if (Math.abs(h2h1HTotal - current1HTotal) / current1HTotal > MODEL.H2H_DIVERGE_THRESHOLD) {
+    w1 *= 0.5;
+  }
+}
+
+if (!isNaN(projA1H) && !isNaN(h2hA1avg)) {
+  projA1H = projA1H * (1 - w1) + h2hA1avg * w1;
+}
+if (!isNaN(projB1H) && !isNaN(h2hB1avg)) {
+  projB1H = projB1H * (1 - w1) + h2hB1avg * w1;
+}
             } else {
             }
           } else {
@@ -4066,18 +4065,25 @@ let h2hbQ1 = parsed.bQ1H2H;
             if (h2haQ1 && h2hbQ1 && h2haQ1.length >= 2 && h2hbQ1.length >= 2) {
               let wQ1 = getH2HWeight(h2haQ1.length, h2hbQ1.length);
               const h2hAQ1avg = avg(h2haQ1);
-              const h2hBQ1avg = avg(h2hbQ1);
+const h2hBQ1avg = avg(h2hbQ1);
 
-              if (!isNaN(projAQ1) && projAQ1 > 0 && !isNaN(h2hAQ1avg)) {
-                const dAQ1 = Math.abs(h2hAQ1avg - projAQ1) / projAQ1;
-                const wAQ1 = dAQ1 > MODEL.H2H_DIVERGE_THRESHOLD ? wQ1 * 0.5 : wQ1;
-                projAQ1 = projAQ1 * (1 - wAQ1) + h2hAQ1avg * wAQ1;
-              }
-              if (!isNaN(projBQ1) && projBQ1 > 0 && !isNaN(h2hBQ1avg)) {
-                const dBQ1 = Math.abs(h2hBQ1avg - projBQ1) / projBQ1;
-                const wBQ1 = dBQ1 > MODEL.H2H_DIVERGE_THRESHOLD ? wQ1 * 0.5 : wQ1;
-                projBQ1 = projBQ1 * (1 - wBQ1) + h2hBQ1avg * wBQ1;
-              }
+const currentQ1Total =
+  !isNaN(projAQ1) && !isNaN(projBQ1) ? (projAQ1 + projBQ1) : NaN;
+const h2hQ1Total =
+  !isNaN(h2hAQ1avg) && !isNaN(h2hBQ1avg) ? (h2hAQ1avg + h2hBQ1avg) : NaN;
+
+if (!isNaN(currentQ1Total) && currentQ1Total > 0 && !isNaN(h2hQ1Total)) {
+  if (Math.abs(h2hQ1Total - currentQ1Total) / currentQ1Total > MODEL.H2H_DIVERGE_THRESHOLD) {
+    wQ1 *= 0.5;
+  }
+}
+
+if (!isNaN(projAQ1) && !isNaN(h2hAQ1avg)) {
+  projAQ1 = projAQ1 * (1 - wQ1) + h2hAQ1avg * wQ1;
+}
+if (!isNaN(projBQ1) && !isNaN(h2hBQ1avg)) {
+  projBQ1 = projBQ1 * (1 - wQ1) + h2hBQ1avg * wQ1;
+}
             } else {
             }
           } else {
