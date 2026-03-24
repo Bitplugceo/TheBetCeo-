@@ -1648,13 +1648,14 @@ function getCurrentFixtureMeta() {
 }
 
     function closeTrackerModal() {
-      const modal = document.getElementById("trackerModal");
-      if (!modal) return;
-      modal.classList.remove("open");
-      modal.setAttribute("aria-hidden", "true");
-    }
+  const modal = document.getElementById("trackerModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
 
-      const summaryEl = document.getElementById("trackerSummary");
+function renderTrackedPicks() {
+  const summaryEl = document.getElementById("trackerSummary");
 const marketSummaryEl = document.getElementById("trackerMarketSummary");
 const emptyEl = document.getElementById("trackerEmpty");
 const wrapEl = document.getElementById("trackedPicksWrap");
@@ -2232,11 +2233,17 @@ if (side === "B") g_injB = defaultInjuryMeta();
     hideInjuryBox("B");
   }
 
-  clearSideFields(changedSide);
+    clearSideFields(changedSide);
   clearH2HFields();
 } else {
+  selectedTeamIds = { A: null, B: null };
+  g_lastFetchedTeams = { A: "", B: "" };
+  g_fetchMeta = defaultFetchMeta();
+  clearSideFields("A");
+  clearSideFields("B");
+  clearH2HFields();
 }
-
+}
 
 function updateSectionLocks() {
   const league = document.getElementById("leagueSelect").value;
