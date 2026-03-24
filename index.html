@@ -4775,7 +4775,39 @@ function runSelfTests() {
     assertEqual(b, 103, "Team B OT points removed");
   });
 
-  test("stripOTFromScores leaves regulation game untouched", () => {
+ 
+ test("stripOTFromScores leaves regulation game untouched", () => {
+      test("parseMarketLine returns midpoint for ranges", () => {
+    assertEqual(parseMarketLine("150.5 - 160.5"), 155.5, "Range midpoint");
+  });
+
+  test("trimmedAvg removes min and max when 5 values exist", () => {
+    assertEqual(trimmedAvg([80, 90, 100, 110, 120]), 100, "Trimmed average");
+  });
+
+  test("getPick returns OVER for clear FT edge", () => {
+    const pick = getPick(12, 200, "nba", "ft", { aSc: 98, bSc: 96 });
+    assertEqual(pick, "OVER 200.0", "FT OVER pick");
+  });
+
+  test("getPick blocks FT UNDER when team scoring is too high", () => {
+    const pick = getPick(-15, 200, "nba", "ft", { aSc: 120, bSc: 75 });
+    assertEqual(pick, "NO PLAY", "FT UNDER should be blocked");
+  });
+
+  test("selectLock picks the strongest valid edge", () => {
+    const idx = selectLock([
+      { edge: 10, line: 200, pick: "OVER 200.0", fullModel: true },
+      { edge: 8, line: 160, pick: "OVER 160.0", fullModel: true },
+      { edge: 7, line: 155, pick: "NO PLAY", fullModel: true }
+    ]);
+    assertEqual(idx, 0, "Strongest valid edge should be locked");
+  });
+
+  test("anchorProjection pulls large NBA FT projection toward market", () => {
+    const anchored = anchorProjection(250, 220, "nba", "ft");
+    assertApprox(anchored, 239.5, 0.001, "NBA FT anchor");
+  });
     const [a, b] = stripOTFromScores(
       84,
       79,
