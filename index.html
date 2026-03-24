@@ -3834,10 +3834,6 @@ const paceGapRisk =
   !isNaN(bS) && !isNaN(bA) &&
   Math.abs((aS + aA) - (bS + bA)) > 18;
 
-const blowoutGap =
-  !isNaN(projAFT) && !isNaN(projBFT)
-    ? Math.abs(projAFT - projBFT)
-    : NaN;
     
       let h2ha = null;
       let h2hb = null;
@@ -3853,24 +3849,36 @@ const blowoutGap =
         let w = getH2HWeight(h2ha.length, h2hb.length);
 
         const h2hAvgA = avg(h2ha);
-        const h2hAvgB = avg(h2hb);
-        if (!isNaN(projAFT) && projAFT > 0 && !isNaN(h2hAvgA)) {
-          const divA = Math.abs(h2hAvgA - projAFT) / projAFT;
-          const wA = divA > MODEL.H2H_DIVERGE_THRESHOLD ? w * 0.5 : w;
-          projAFT = projAFT * (1 - wA) + h2hAvgA * wA;
-        }
+const h2hAvgB = avg(h2hb);
 
-        if (!isNaN(projBFT) && projBFT > 0 && !isNaN(h2hAvgB)) {
-          const divB = Math.abs(h2hAvgB - projBFT) / projBFT;
-          const wB = divB > MODEL.H2H_DIVERGE_THRESHOLD ? w * 0.5 : w;
-          projBFT = projBFT * (1 - wB) + h2hAvgB * wB;
-        }
+const currentTotal =
+  !isNaN(projAFT) && !isNaN(projBFT) ? (projAFT + projBFT) : NaN;
+const h2hTotal =
+  !isNaN(h2hAvgA) && !isNaN(h2hAvgB) ? (h2hAvgA + h2hAvgB) : NaN;
+
+if (!isNaN(currentTotal) && currentTotal > 0 && !isNaN(h2hTotal)) {
+  if (Math.abs(h2hTotal - currentTotal) / currentTotal > MODEL.H2H_DIVERGE_THRESHOLD) {
+    w *= 0.5;
+  }
+}
+
+if (!isNaN(projAFT) && !isNaN(h2hAvgA)) {
+  projAFT = projAFT * (1 - w) + h2hAvgA * w;
+}
+
+if (!isNaN(projBFT) && !isNaN(h2hAvgB)) {
+  projBFT = projBFT * (1 - w) + h2hAvgB * w;
+}
       } else {
       }
 
+const blowoutGap =
+  !isNaN(projAFT) && !isNaN(projBFT)
+    ? Math.abs(projAFT - projBFT)
+    : NaN;
             const aVol = (stdDev(safeArr(aSA) || []) + stdDev(safeArr(aAA) || [])) / 2;
       const bVol = (stdDev(safeArr(bSA) || []) + stdDev(safeArr(bAA) || [])) / 2;
-      const volatilityBlock = aVol > vl * 1.35 || bVol > vl * 1.35;
+const volatilityBlock = aVol > vl && bVol > vl;
 
       projAFT = applyVolatility(projAFT, aVol, vl);
       projBFT = applyVolatility(projBFT, bVol, vl);
