@@ -873,7 +873,6 @@
       REGRESSION_WEIGHT: 0.82,
       BASELINE_WEIGHT: 0.18,
       PACE_BLEND: 0.50,
-      H2H_MAX_WEIGHT: 0.25,
       H2H_DIVERGE_THRESHOLD: 0.20,
       LINE_ANCHOR_NBA: 0.55,
       LINE_ANCHOR_OTHER: 0.50,
@@ -3282,7 +3281,6 @@ if (!league) {
   showRunError(table, "⚠ Select a league first.");
   return;
 }
-}
 
       const bases = {
         nba:228,ncaa:150,lnb:157,nbb:160,cebl:154,bal:154,nigeria:148,rwanda:144,aba:158,
@@ -3475,7 +3473,6 @@ if (lineErrors.length) {
   showRunError(table, `⚠ Market line sanity check failed:<br>${lineErrors.map(e => "&nbsp;&nbsp;• " + safeText(e)).join("<br>")}`);
   return;
 }
-}
       const calcAvg = isNbaOrNcaa ? weightedAvg : trimmedAvg;
 
       const aS = safeArr(aSA) ? calcAvg(aSA) : NaN;
@@ -3504,11 +3501,11 @@ const paceGapRisk =
       let h2hb = null;
 
       if (document.getElementById("useFTH2H").checked) {
-        const _ha = parseGames("aFTH2H");
-        const _hb = parseGames("bFTH2H");
-        h2ha = _ha && !_ha.err ? _ha : null;
-        h2hb = _hb && !_hb.err ? _hb : null;
-      }
+  const _ha = parsed.aFTH2H;
+  const _hb = parsed.bFTH2H;
+  h2ha = _ha && !_ha.err ? _ha : null;
+  h2hb = _hb && !_hb.err ? _hb : null;
+}
 
       if (fullFTModelInputs && h2ha && h2hb && h2ha.length >= 2 && h2hb.length >= 2) {
         let w = getH2HWeight(h2ha.length, h2hb.length);
@@ -3593,10 +3590,10 @@ let bA1 = NaN;
       if (isNbaOrNcaa) {
         const eb1H = eb / 2;
 
-        let a1HS = parseGames("a1HScored");
-        let a1HA = parseGames("a1HAllowed");
-        let b1HS = parseGames("b1HScored");
-        let b1HA = parseGames("b1HAllowed");
+        let a1HS = parsed.a1HScored;
+let a1HA = parsed.a1HAllowed;
+let b1HS = parsed.b1HScored;
+let b1HA = parsed.b1HAllowed;
 
         if (a1HS?.err) a1HS = null;
         if (a1HA?.err) a1HA = null;
@@ -3618,8 +3615,8 @@ bA1 = safeArr(b1HA) ? weightedAvg(b1HA) : NaN;
 const pgr1 = Math.abs((aS1 + aA1) - (bS1 + bA1)) > 9;
 
           if (document.getElementById("use1HH2H").checked) {
-            let h2ha1 = parseGames("a1HH2H");
-            let h2hb1 = parseGames("b1HH2H");
+            let h2ha1 = parsed.a1HH2H;
+let h2hb1 = parsed.b1HH2H;
             if (h2ha1?.err) h2ha1 = null;
             if (h2hb1?.err) h2hb1 = null;
 
@@ -3692,10 +3689,10 @@ let bA1Q = NaN;
       if (isNba) {
         const ebQ1 = eb / 4;
 
-        let aQ1S = parseGames("aQ1Scored");
-        let aQ1A = parseGames("aQ1Allowed");
-        let bQ1S = parseGames("bQ1Scored");
-        let bQ1A = parseGames("bQ1Allowed");
+        let aQ1S = parsed.aQ1Scored;
+let aQ1A = parsed.aQ1Allowed;
+let bQ1S = parsed.bQ1Scored;
+let bQ1A = parsed.bQ1Allowed;
 
         if (aQ1S?.err) aQ1S = null;
         if (aQ1A?.err) aQ1A = null;
@@ -3714,8 +3711,8 @@ bA1Q = safeArr(bQ1A) ? weightedAvg(bQ1A) : NaN;
 
 
           if (document.getElementById("useQ1H2H").checked) {
-            let h2haQ1 = parseGames("aQ1H2H");
-            let h2hbQ1 = parseGames("bQ1H2H");
+            let h2haQ1 = parsed.aQ1H2H;
+let h2hbQ1 = parsed.bQ1H2H;
             if (h2haQ1?.err) h2haQ1 = null;
             if (h2hbQ1?.err) h2hbQ1 = null;
 
@@ -3780,17 +3777,17 @@ const pgrQ1 = Math.abs((aS1Q + aA1Q) - (bS1Q + bA1Q)) > 5;
 
       const ftSampleTier = getSampleTier(aSA, aAA, bSA, bAA);
       const h1SampleTier = getSampleTier(
-        safeArr(parseGames("a1HScored")),
-        safeArr(parseGames("a1HAllowed")),
-        safeArr(parseGames("b1HScored")),
-        safeArr(parseGames("b1HAllowed"))
-      );
-      const q1SampleTier = getSampleTier(
-        safeArr(parseGames("aQ1Scored")),
-        safeArr(parseGames("aQ1Allowed")),
-        safeArr(parseGames("bQ1Scored")),
-        safeArr(parseGames("bQ1Allowed"))
-      );
+  safeArr(parsed.a1HScored),
+  safeArr(parsed.a1HAllowed),
+  safeArr(parsed.b1HScored),
+  safeArr(parsed.b1HAllowed)
+);
+const q1SampleTier = getSampleTier(
+  safeArr(parsed.aQ1Scored),
+  safeArr(parsed.aQ1Allowed),
+  safeArr(parsed.bQ1Scored),
+  safeArr(parsed.bQ1Allowed)
+);
 
       const ftNote =
         ftSampleTier === "insufficient" ? "Insufficient FT sample — need 2+ games" :
