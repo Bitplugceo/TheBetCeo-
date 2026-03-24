@@ -551,6 +551,41 @@
       margin-top: 3px;
     }
 
+.conf-a {
+  background: #2f8f4a !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.conf-b {
+  background: #4aa346 !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.conf-c {
+  background: #d98a00 !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.conf-d {
+  background: #c91920 !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.conf-none {
+  background: #eaeaea !important;
+  color: #5a5f6b !important;
+  font-weight: 700 !important;
+}
+
+body.dark-mode .conf-none {
+  background: #2a2f3a !important;
+  color: #9aa0a8 !important;
+}
+
        .lock {
       font-size: 4px !important;
       display: inline-block;
@@ -1082,12 +1117,13 @@ body.dark-mode .tracker-market-chip {
 
   <div class="table-wrap">
     <table id="results" style="display:none;">
-      <tr>
-        <th>Pick</th>
-        <th>Projection</th>
-        <th>Edge</th>
-        <th>Prediction</th>
-      </tr>
+<tr>
+  <th>Pick</th>
+  <th>Projection</th>
+  <th>Edge</th>
+  <th>Confidence</th>
+  <th>Prediction</th>
+</tr>
     </table>
   </div>
 
@@ -1380,7 +1416,7 @@ function extractFirstHalf(lm, lo) {
     function resetResultsTable() {
       const t = document.getElementById("results");
       if (!t) return;
-      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+      t.innerHTML = ""<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>"
       t.style.display = "none";
     }
 
@@ -2137,6 +2173,67 @@ function getLeagueEdgeThresholds(league) {
 
       return markets.findIndex(m => m === best);
     }
+
+function getConfidenceGrade({
+  pick,
+  note,
+  line,
+  edge,
+  sampleTier,
+  projectionOnly,
+  fullModel,
+  trap,
+  hasH2H,
+  volatility,
+  volLimit,
+  injuryNotes = [],
+  paceGapRisk = false,
+  defensiveFloorFlag = false,
+  blowoutGap = NaN,
+  marketKey = ""
+}) {
+  if (!pick || pick === "NO PLAY" || note || line === null || isNaN(line) || isNaN(edge)) {
+    return "—";
+  }
+
+  let score = 0;
+  const edgePct = Math.abs(edge / line);
+
+  const dtdCount = injuryNotes.filter(n => n && n.type === "dtd").length;
+  const outCount = injuryNotes.filter(n => n && n.type === "out").length;
+
+  if (fullModel) score += 2;
+  else if (sampleTier === "full") score += 1;
+  else if (sampleTier === "thin") score -= 2;
+  else score -= 3;
+
+  if (projectionOnly) score -= 3;
+
+  if (edgePct >= 0.085) score += 2;
+  else if (edgePct >= 0.065) score += 1;
+  else if (edgePct < 0.050) score -= 1;
+
+  if (hasH2H) score += 1;
+
+  if (isFinite(volatility) && isFinite(volLimit)) {
+    if (volatility <= volLimit * 1.05) score += 1;
+    else if (volatility > volLimit * 1.30) score -= 1;
+  }
+
+  if (dtdCount >= 2) score -= 1;
+  if (outCount >= 2) score -= 1;
+
+  if (trap) score -= 3;
+
+  if ((marketKey === "ft" || marketKey === "h1" || marketKey === "q1") && paceGapRisk) score -= 1;
+  if ((marketKey === "ft" || marketKey === "h1" || marketKey === "q1") && defensiveFloorFlag) score -= 1;
+  if ((marketKey === "ft" || marketKey === "h1") && isFinite(blowoutGap) && blowoutGap > 20) score -= 1;
+
+  if (score >= 5) return "A";
+  if (score >= 3) return "B";
+  if (score >= 1) return "C";
+  return "D";
+}
 
     function anchorProjection(proj, line, league, marketType) {
   if (proj === null || isNaN(proj) || line === null || isNaN(line)) return proj;
@@ -3881,12 +3978,12 @@ setStatus(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err")
 
     function showRunError(table, html) {
       const row = table.insertRow();
-      row.innerHTML = `<td colspan="4" style="color:#ff6b6b;text-align:left;padding:8px;">${html}</td>`;
+row.innerHTML = `<td colspan="5" style="color:#ff6b6b;text-align:left;padding:8px;">${html}</td>`;
     }
     function runEngine() {
       const table = document.getElementById("results");
       table.style.display = "table";
-      table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+      table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>"
 
       document.querySelectorAll("input").forEach(i => {
         i.style.borderColor = "";
@@ -4399,12 +4496,37 @@ const dfrQ1 = (aA1Q < 18) || (bA1Q < 18);
       const aEdge = aLine !== null && !isNaN(projAFT) ? projAFT - aLine : NaN;
       const bEdge = bLine !== null && !isNaN(projBFT) ? projBFT - bLine : NaN;
 
-      const ftSampleTier = getSampleTier(aSA, aAA, bSA, bAA);
+            const ftSampleTier = getSampleTier(aSA, aAA, bSA, bAA);
       const h1SampleTier = getSampleTier(
   safeArr(parsed.a1HScored),
   safeArr(parsed.a1HAllowed),
   safeArr(parsed.b1HScored),
   safeArr(parsed.b1HAllowed)
+);
+const q1SampleTier = getSampleTier(
+  safeArr(parsed.aQ1Scored),
+  safeArr(parsed.aQ1Allowed),
+  safeArr(parsed.bQ1Scored),
+  safeArr(parsed.bQ1Allowed)
+);
+
+const a1HH2HArr = safeArr(parsed.a1HH2H);
+const b1HH2HArr = safeArr(parsed.b1HH2H);
+const aQ1H2HArr = safeArr(parsed.aQ1H2H);
+const bQ1H2HArr = safeArr(parsed.bQ1H2H);
+
+const ftHasH2H = !!(h2ha && h2hb && h2ha.length >= 2 && h2hb.length >= 2);
+const h1HasH2H = !!(
+  document.getElementById("use1HH2H").checked &&
+  a1HH2HArr && b1HH2HArr &&
+  a1HH2HArr.length >= 2 &&
+  b1HH2HArr.length >= 2
+);
+const q1HasH2H = !!(
+  document.getElementById("useQ1H2H").checked &&
+  aQ1H2HArr && bQ1H2HArr &&
+  aQ1H2HArr.length >= 2 &&
+  bQ1H2HArr.length >= 2
 );
 const q1SampleTier = getSampleTier(
   safeArr(parsed.aQ1Scored),
@@ -4504,6 +4626,93 @@ if (
 
 
 
+            const sharedInjuryNotes = [...(g_injA.notes || []), ...(g_injB.notes || [])];
+      const h1VolLimit = league === "nba" ? 7 : 6;
+      const q1VolLimit = 4.5;
+
+      const ftConfidence = getConfidenceGrade({
+        pick: ftPick,
+        note: ftNote || ftProjectionNote,
+        line: ftLine,
+        edge: ftEdge,
+        sampleTier: ftSampleTier,
+        projectionOnly: ftProjectionOnly,
+        fullModel: ftFullModel,
+        trap: ftTrap,
+        hasH2H: ftHasH2H,
+        volatility: Math.max(aVol, bVol),
+        volLimit: vl,
+        injuryNotes: sharedInjuryNotes,
+        paceGapRisk,
+        defensiveFloorFlag,
+        blowoutGap,
+        marketKey: "ft"
+      });
+
+      const h1Confidence = getConfidenceGrade({
+        pick: h1Pick,
+        note: h1Note || h1ProjectionNote,
+        line: h1Line,
+        edge: h1Edge,
+        sampleTier: h1SampleTier,
+        projectionOnly: h1ProjectionOnly,
+        fullModel: h1FullModel,
+        trap: h1Trap,
+        hasH2H: h1HasH2H,
+        volatility: Math.max(aVol1, bVol1),
+        volLimit: h1VolLimit,
+        injuryNotes: sharedInjuryNotes,
+        marketKey: "h1"
+      });
+
+      const q1Confidence = getConfidenceGrade({
+        pick: q1Pick,
+        note: q1Note || q1ProjectionNote,
+        line: q1Line,
+        edge: q1Edge,
+        sampleTier: q1SampleTier,
+        projectionOnly: q1ProjectionOnly,
+        fullModel: q1FullModel,
+        trap: q1Trap,
+        hasH2H: q1HasH2H,
+        volatility: Math.max(aVolQ1, bVolQ1),
+        volLimit: q1VolLimit,
+        injuryNotes: sharedInjuryNotes,
+        marketKey: "q1"
+      });
+
+      const aConfidence = getConfidenceGrade({
+        pick: aPick,
+        note: ftNote || ftProjectionNote,
+        line: aLine,
+        edge: aEdge,
+        sampleTier: ftSampleTier,
+        projectionOnly: ftProjectionOnly,
+        fullModel: teamFullModel,
+        trap: aTrap,
+        hasH2H: ftHasH2H,
+        volatility: aVol,
+        volLimit: vl,
+        injuryNotes: g_injA.notes || [],
+        marketKey: "team_a"
+      });
+
+      const bConfidence = getConfidenceGrade({
+        pick: bPick,
+        note: ftNote || ftProjectionNote,
+        line: bLine,
+        edge: bEdge,
+        sampleTier: ftSampleTier,
+        projectionOnly: ftProjectionOnly,
+        fullModel: teamFullModel,
+        trap: bTrap,
+        hasH2H: ftHasH2H,
+        volatility: bVol,
+        volLimit: vl,
+        injuryNotes: g_injB.notes || [],
+        marketKey: "team_b"
+      });
+
       const markets = [
         { edge: ftEdge, line: ftLine, pick: ftPick, fullModel: ftFullModel },
         { edge: h1Edge, line: h1Line, pick: h1Pick, fullModel: h1FullModel },
@@ -4514,12 +4723,13 @@ if (
 
       const lockIdx = selectLock(markets);
 
-      const picks = [
+            const picks = [
         {
           name: "FT Total",
           proj: ftProj,
           edge: ftEdge,
           pick: ftPick,
+          confidence: ftConfidence,
           note: ftNote || ftProjectionNote
         },
         {
@@ -4527,6 +4737,7 @@ if (
           proj: h1Proj,
           edge: h1Edge,
           pick: h1Pick,
+          confidence: h1Confidence,
           note: h1Note || h1ProjectionNote
         },
         {
@@ -4534,6 +4745,7 @@ if (
           proj: q1Proj,
           edge: q1Edge,
           pick: q1Pick,
+          confidence: q1Confidence,
           note: q1Note || q1ProjectionNote
         },
         {
@@ -4541,6 +4753,7 @@ if (
           proj: projAFT,
           edge: aEdge,
           pick: aPick,
+          confidence: aConfidence,
           note: ftNote || ftProjectionNote
         },
         {
@@ -4548,6 +4761,7 @@ if (
           proj: projBFT,
           edge: bEdge,
           pick: bPick,
+          confidence: bConfidence,
           note: ftNote || ftProjectionNote
         }
       ];
@@ -4582,7 +4796,7 @@ if (
           predText += ' <span class="lock">🔒</span>';
         }
 
-        const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
+                const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
         const lineRef = markets[originalIndex]?.line;
         const edgePct = (!isNaN(p.edge) && lineRef && lineRef > 0) ? (p.edge / lineRef) * 100 : NaN;
         const ed = isNaN(edgePct) ? "—" : (edgePct > 0 ? "+" : "") + edgePct.toFixed(2) + "%";
@@ -4592,8 +4806,14 @@ if (
           ? "pred-under"
           : "pred-noplay";
 
-        row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
+        const confidenceClass =
+          p.confidence === "A" ? "conf-a" :
+          p.confidence === "B" ? "conf-b" :
+          p.confidence === "C" ? "conf-c" :
+          p.confidence === "D" ? "conf-d" :
+          "conf-none";
 
+        row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${confidenceClass}">${p.confidence || "—"}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
         const marketKey =
           p.name === "FT Total" ? "ft" :
           p.name === "1H Total" ? "h1" :
@@ -4742,7 +4962,7 @@ g_fetchMeta = defaultFetchMeta();
       closeDrop("dropB");
 
       const t = document.getElementById("results");
-      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Prediction</th></tr>";
+      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>"
       t.style.display = "none";
 
       const fixtureSelect = document.getElementById("fixtureSelect");
@@ -5191,6 +5411,92 @@ test("settleTrackedPickFromCompetition keeps NCAA 1H single-period fallback", ()
     );
   });
 
+  test("getConfidenceGrade returns A for strong clean full-model play", () => {
+    const grade = getConfidenceGrade({
+      pick: "OVER 200.0",
+      note: null,
+      line: 200,
+      edge: 18,
+      sampleTier: "full",
+      projectionOnly: false,
+      fullModel: true,
+      trap: false,
+      hasH2H: true,
+      volatility: 10,
+      volLimit: 14,
+      injuryNotes: [],
+      paceGapRisk: false,
+      defensiveFloorFlag: false,
+      blowoutGap: 8,
+      marketKey: "ft"
+    });
+
+    assertEqual(grade, "A", "Strong clean play should grade A");
+  });
+
+  test("getConfidenceGrade returns D for weak risky play", () => {
+    const grade = getConfidenceGrade({
+      pick: "OVER 200.0",
+      note: null,
+      line: 200,
+      edge: 9,
+      sampleTier: "full",
+      projectionOnly: false,
+      fullModel: true,
+      trap: false,
+      hasH2H: false,
+      volatility: 20,
+      volLimit: 14,
+      injuryNotes: [{ type: "dtd" }, { type: "dtd" }],
+      paceGapRisk: true,
+      defensiveFloorFlag: false,
+      blowoutGap: 25,
+      marketKey: "ft"
+    });
+
+    assertEqual(grade, "D", "Weak risky play should grade D");
+  });
+
+  test("getConfidenceGrade hides grade for NO PLAY", () => {
+    const grade = getConfidenceGrade({
+      pick: "NO PLAY",
+      note: null,
+      line: 200,
+      edge: 12,
+      sampleTier: "full",
+      projectionOnly: false,
+      fullModel: true,
+      trap: false,
+      hasH2H: true,
+      volatility: 10,
+      volLimit: 14,
+      injuryNotes: [],
+      marketKey: "ft"
+    });
+
+    assertEqual(grade, "—", "NO PLAY should not have a confidence grade");
+  });
+
+  test("getConfidenceGrade hides grade when note blocks official play", () => {
+    const grade = getConfidenceGrade({
+      pick: "OVER 200.0",
+      note: "Thin FT sample — projection only",
+      line: 200,
+      edge: 12,
+      sampleTier: "thin",
+      projectionOnly: false,
+      fullModel: false,
+      trap: false,
+      hasH2H: false,
+      volatility: 10,
+      volLimit: 14,
+      injuryNotes: [],
+      marketKey: "ft"
+    });
+
+    assertEqual(grade, "—", "Blocked plays should not show a confidence grade");
+  });
+  
   console.group("BB Engine Self Tests");
   results.forEach(r => {
     if (r.status === "PASS") {
