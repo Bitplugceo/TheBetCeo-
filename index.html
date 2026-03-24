@@ -3452,15 +3452,15 @@ const h2hB = parsed.bFTH2H;
       }
 
       if (document.getElementById("use1HH2H").checked) {
-        const h2h1HA = parseGames("a1HH2H");
-        const h2h1HB = parseGames("b1HH2H");
+        const h2h1HA = parsed.a1HH2H;
+const h2h1HB = parsed.b1HH2H;
         markError("a1HH2H", "1H H2H Team A", h2h1HA, true);
         markError("b1HH2H", "1H H2H Team B", h2h1HB, true);
       }
 
       if (document.getElementById("useQ1H2H").checked) {
-        const h2hQ1A = parseGames("aQ1H2H");
-        const h2hQ1B = parseGames("bQ1H2H");
+        const h2hQ1A = parsed.aQ1H2H;
+const h2hQ1B = parsed.bQ1H2H;
         markError("aQ1H2H", "Q1 H2H Team A", h2hQ1A, true);
         markError("bQ1H2H", "Q1 H2H Team B", h2hQ1B, true);
       }
