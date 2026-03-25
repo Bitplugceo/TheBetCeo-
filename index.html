@@ -1887,6 +1887,7 @@
         rules.under;
 
       const pct = Math.abs(edge / line);
+      if (edge === 0) return "NO PLAY";
       if (edge > 0 && pct < overMin) return "NO PLAY";
       if (edge < 0 && pct < underMin) return "NO PLAY";
 
