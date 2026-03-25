@@ -3101,7 +3101,9 @@
         if (!validateTeamId(teamBId, league)) teamBId = null;
 
         if (!teamAId) throw new Error(`Can't find "${teamAName}". Try a fuller team name.`);
-        if (!teamBId) throw new Error(`Can't find "${teamBName}". Try a fuller team name.`);
+      selectedTeamIds.A = String(teamAId);
+selectedTeamIds.B = String(teamBId);
+          if (!teamBId) throw new Error(`Can't find "${teamBName}". Try a fuller team name.`);
         if (String(teamAId) === String(teamBId)) throw new Error("Team A and Team B cannot be the same team.");
 
         setStatusHTML('<span class="spinner"></span>Loading game stats...', "loading");
