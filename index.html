@@ -1519,7 +1519,9 @@
         pick.league || "",
         normalizeTeamName(pick.homeTeam || ""),
         normalizeTeamName(pick.awayTeam || ""),
-        pick.marketKey || ""
+        pick.marketKey || "",
+        displayLine(pick.line),
+        pick.side || ""
       ].join("|");
     }
 
@@ -1764,6 +1766,8 @@
         return (
           String(a.eventId || "") === String(b.eventId || "") &&
           String(a.marketKey || "") === String(b.marketKey || "") &&
+          String(displayLine(a.line)) === String(displayLine(b.line)) &&
+          String(a.side || "") === String(b.side || "") &&
           normalizeTeamName(a.homeTeam || "") === normalizeTeamName(b.homeTeam || "") &&
           normalizeTeamName(a.awayTeam || "") === normalizeTeamName(b.awayTeam || "")
         );
@@ -2599,7 +2603,7 @@
           logDebug("fetchNbaSchedule summary failed", e);
         }
 
-        if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+        if (!gotLS || isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
         scored.push(Math.round(ms));
         allowed.push(Math.round(os));
         if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
@@ -2719,7 +2723,7 @@
           logDebug("fetchNcaaSchedule summary failed", e);
         }
 
-        if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+        if (!gotLS || isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
         scored.push(Math.round(ms));
         allowed.push(Math.round(os));
         if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
@@ -2820,6 +2824,7 @@
               let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
               if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
                 const lA = cA?.linescores || [], lB = cB?.linescores || [];
+                if (!lA.length || !lB.length) continue;
                 const h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
                 const h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
                 const q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
@@ -2922,6 +2927,7 @@
               let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
               if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
                 const lA = cA?.linescores || [], lB = cB?.linescores || [];
+                if (!lA.length || !lB.length) continue;
                 const [h1A, h1B] = extractFirstHalf(lA, lB);
                 [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 2);
                 h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), h1A, h1B, q1A: 0, q1B: 0, date: ref.date });
@@ -3268,10 +3274,10 @@
     // V11: Run button disabled during execution via try/finally
     function runEngine() {
       const runBtn = document.getElementById("runBtn");
+      const table = document.getElementById("results");
       if (runBtn) runBtn.disabled = true;
 
       try {
-        const table = document.getElementById("results");
         table.style.display = "table";
         table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
 
@@ -3736,16 +3742,30 @@
 
         // Fix 4: block correlated same-game period picks — keep only strongest
         const activePeriodPicks = picks
-          .map((p, i) => ({ ...p, idx: i }))
+          .map((p, i) => ({
+            ...p,
+            idx: i,
+            line:
+              p.name === "FT Total" ? ftLine :
+              p.name === "1H Total" ? h1Line :
+              p.name === "Q1 Total" ? q1Line : null
+          }))
           .filter(p =>
             ["FT Total", "1H Total", "Q1 Total"].includes(p.name) &&
             !p.note &&
             typeof p.pick === "string" &&
-            p.pick !== "NO PLAY"
+            p.pick !== "NO PLAY" &&
+            p.line !== null &&
+            p.line > 0
           );
 
         if (activePeriodPicks.length > 1) {
-          activePeriodPicks.sort((a, b) => Math.abs(b.edge || 0) - Math.abs(a.edge || 0));
+          activePeriodPicks.sort((a, b) => {
+            const aStrength = Math.abs((a.edge || 0) / a.line);
+            const bStrength = Math.abs((b.edge || 0) / b.line);
+            if (Math.abs(bStrength - aStrength) > 0.0005) return bStrength - aStrength;
+            return Math.abs(b.edge || 0) - Math.abs(a.edge || 0);
+          });
           const keepIdx = activePeriodPicks[0].idx;
           activePeriodPicks.forEach(p => {
             if (p.idx === keepIdx) return;
@@ -3860,6 +3880,13 @@
         addTrackedPicks(trackedToSave);
         setTimeout(() => { table.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100);
 
+      } catch (err) {
+        console.error("[BB Engine] runEngine failed", err);
+        if (table) {
+          table.style.display = "table";
+          table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
+          showRunError(table, "⚠ Unexpected engine error. Check the latest edit.");
+        }
       } finally {
         // V11: always restore Run button
         if (runBtn) runBtn.disabled = false;
