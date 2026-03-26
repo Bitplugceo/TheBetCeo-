@@ -1112,48 +1112,50 @@
   <input id="teamBMarket" placeholder="75.5 - 79.5" />
 </div>
 
-<div class="section" id="teamASection">
-<h3>Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+<div id="teamAVenueSection" style="margin-top:10px;padding-top:10px;border-top:1px solid #dfe2e7;">
+  <h3 style="font-size:14px;margin-bottom:8px;">Team A - Actual Home Last 5 <span class="autofill-indicator" id="aVenueAutoTag">✅ Auto-filled</span></h3>
 
-  <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
-  <input id="aFTScored" placeholder="85,79,88,74,82" />
+  <label>FT Scored</label>
+  <input id="aHomeFTScored" placeholder="85,79,88,74,82" />
 
   <label>FT Allowed</label>
-  <input id="aFTAllowed" placeholder="76,80,72,79,77" />
+  <input id="aHomeFTAllowed" placeholder="76,80,72,79,77" />
 
-  <div id="a1HSection" style="display:none;">
+  <div id="aHome1HSection" style="display:none;">
     <label>1H Scored</label>
-    <input id="a1HScored" placeholder="42,38,45,40,41" />
+    <input id="aHome1HScored" placeholder="42,38,45,40,41" />
     <label>1H Allowed</label>
-    <input id="a1HAllowed" placeholder="38,41,37,42,39" />
-    <div id="aQ1Section" style="display:none;">
+    <input id="aHome1HAllowed" placeholder="38,41,37,42,39" />
+
+    <div id="aHomeQ1Section" style="display:none;">
       <label>Q1 Scored</label>
-      <input id="aQ1Scored" placeholder="28,26,30,25,27" />
+      <input id="aHomeQ1Scored" placeholder="28,26,30,25,27" />
       <label>Q1 Allowed</label>
-      <input id="aQ1Allowed" placeholder="25,27,24,28,26" />
+      <input id="aHomeQ1Allowed" placeholder="25,27,24,28,26" />
     </div>
   </div>
 </div>
 
-<div class="section" id="teamBSection">
-<h3>Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+<div id="teamBVenueSection" style="margin-top:10px;padding-top:10px;border-top:1px solid #dfe2e7;">
+  <h3 style="font-size:14px;margin-bottom:8px;">Team B - Actual Away Last 5 <span class="autofill-indicator" id="bVenueAutoTag">✅ Auto-filled</span></h3>
 
-  <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
-  <input id="bFTScored" placeholder="83,77,81,79,80" />
+  <label>FT Scored</label>
+  <input id="bAwayFTScored" placeholder="83,77,81,79,80" />
 
   <label>FT Allowed</label>
-  <input id="bFTAllowed" placeholder="78,82,74,77,80" />
+  <input id="bAwayFTAllowed" placeholder="78,82,74,77,80" />
 
-  <div id="b1HSection" style="display:none;">
+  <div id="bAway1HSection" style="display:none;">
     <label>1H Scored</label>
-    <input id="b1HScored" placeholder="40,39,42,38,41" />
+    <input id="bAway1HScored" placeholder="40,39,42,38,41" />
     <label>1H Allowed</label>
-    <input id="b1HAllowed" placeholder="37,40,38,41,39" />
-    <div id="bQ1Section" style="display:none;">
+    <input id="bAway1HAllowed" placeholder="37,40,38,41,39" />
+
+    <div id="bAwayQ1Section" style="display:none;">
       <label>Q1 Scored</label>
-      <input id="bQ1Scored" placeholder="27,25,29,24,26" />
+      <input id="bAwayQ1Scored" placeholder="27,25,29,24,26" />
       <label>Q1 Allowed</label>
-      <input id="bQ1Allowed" placeholder="24,26,23,27,25" />
+      <input id="bAwayQ1Allowed" placeholder="24,26,23,27,25" />
     </div>
   </div>
 </div>
@@ -3809,9 +3811,11 @@ selectedTeamIds.A = String(teamAId);
 selectedTeamIds.B = String(teamBId);
         setStatusHTML('<span class="spinner"></span>Loading game stats...', "loading");
 
-        const [aStats, bStats] = await Promise.all([
+        const [aStats, bStats, aVenueStats, bVenueStats] = await Promise.all([
   isNcaa ? fetchNcaaSchedule(espnBase, teamAId, null) : fetchNbaSchedule(espnBase, teamAId, null),
-  isNcaa ? fetchNcaaSchedule(espnBase, teamBId, null) : fetchNbaSchedule(espnBase, teamBId, null)
+  isNcaa ? fetchNcaaSchedule(espnBase, teamBId, null) : fetchNbaSchedule(espnBase, teamBId, null),
+  isNcaa ? fetchNcaaSchedule(espnBase, teamAId, "home") : fetchNbaSchedule(espnBase, teamAId, "home"),
+  isNcaa ? fetchNcaaSchedule(espnBase, teamBId, "away") : fetchNbaSchedule(espnBase, teamBId, "away")
 ]);
 
         if (myToken !== _fetchToken) return;
@@ -3844,7 +3848,23 @@ selectedTeamIds.B = String(teamBId);
         } else {
           messages.push(`${safeText(teamAName)}: no data ❌`);
         }
-
+if (aVenueStats?.scored?.length > 0) {
+  document.getElementById("aHomeFTScored").value = aVenueStats.scored.join(",");
+  document.getElementById("aHomeFTAllowed").value = aVenueStats.allowed.join(",");
+  if (aVenueStats.h1Scored?.length > 0) {
+    document.getElementById("aHome1HScored").value = aVenueStats.h1Scored.join(",");
+    document.getElementById("aHome1HAllowed").value = aVenueStats.h1Allowed.join(",");
+  }
+  if (aVenueStats.q1Scored?.length > 0) {
+    document.getElementById("aHomeQ1Scored").value = aVenueStats.q1Scored.join(",");
+    document.getElementById("aHomeQ1Allowed").value = aVenueStats.q1Allowed.join(",");
+  }
+  const tag = document.getElementById("aVenueAutoTag");
+  if (tag) tag.style.display = "inline";
+  messages.push(`${safeText(teamAName)} home: ${aVenueStats.scored.length} games ✅`);
+} else {
+  messages.push(`${safeText(teamAName)} home: no data ❌`);
+}
         if (bStats?.scored?.length > 0) {
           document.getElementById("bFTScored").value = bStats.scored.join(",");
           document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
@@ -3861,7 +3881,23 @@ selectedTeamIds.B = String(teamBId);
         } else {
           messages.push(`${safeText(teamBName)}: no data ❌`);
         }
-
+if (bVenueStats?.scored?.length > 0) {
+  document.getElementById("bAwayFTScored").value = bVenueStats.scored.join(",");
+  document.getElementById("bAwayFTAllowed").value = bVenueStats.allowed.join(",");
+  if (bVenueStats.h1Scored?.length > 0) {
+    document.getElementById("bAway1HScored").value = bVenueStats.h1Scored.join(",");
+    document.getElementById("bAway1HAllowed").value = bVenueStats.h1Allowed.join(",");
+  }
+  if (bVenueStats.q1Scored?.length > 0) {
+    document.getElementById("bAwayQ1Scored").value = bVenueStats.q1Scored.join(",");
+    document.getElementById("bAwayQ1Allowed").value = bVenueStats.q1Allowed.join(",");
+  }
+  const tag = document.getElementById("bVenueAutoTag");
+  if (tag) tag.style.display = "inline";
+  messages.push(`${safeText(teamBName)} away: ${bVenueStats.scored.length} games ✅`);
+} else {
+  messages.push(`${safeText(teamBName)} away: no data ❌`);
+}
         g_fetchMeta.A = aStats ? {
           ft: { source: "espn", venueReliable: aStats.venueReliable !== false },
           h1: { source: "espn", venueReliable: aStats.venueReliable !== false },
@@ -4064,16 +4100,28 @@ selectedTeamIds.B = String(teamBId);
         }
 
         const parsed = {
-          aFTScored: parseGames("aFTScored"), aFTAllowed: parseGames("aFTAllowed"),
-          bFTScored: parseGames("bFTScored"), bFTAllowed: parseGames("bFTAllowed"),
-          a1HScored: parseGames("a1HScored"), a1HAllowed: parseGames("a1HAllowed"),
-          b1HScored: parseGames("b1HScored"), b1HAllowed: parseGames("b1HAllowed"),
-          aQ1Scored: parseGames("aQ1Scored"), aQ1Allowed: parseGames("aQ1Allowed"),
-          bQ1Scored: parseGames("bQ1Scored"), bQ1Allowed: parseGames("bQ1Allowed"),
-          aFTH2H: parseGames("aFTH2H"), bFTH2H: parseGames("bFTH2H"),
-          a1HH2H: parseGames("a1HH2H"), b1HH2H: parseGames("b1HH2H"),
-          aQ1H2H: parseGames("aQ1H2H"), bQ1H2H: parseGames("bQ1H2H")
-        };
+  aFTScored: parseGames("aFTScored"), aFTAllowed: parseGames("aFTAllowed"),
+  bFTScored: parseGames("bFTScored"), bFTAllowed: parseGames("bFTAllowed"),
+
+  aHomeFTScored: parseGames("aHomeFTScored"), aHomeFTAllowed: parseGames("aHomeFTAllowed"),
+  bAwayFTScored: parseGames("bAwayFTScored"), bAwayFTAllowed: parseGames("bAwayFTAllowed"),
+
+  a1HScored: parseGames("a1HScored"), a1HAllowed: parseGames("a1HAllowed"),
+  b1HScored: parseGames("b1HScored"), b1HAllowed: parseGames("b1HAllowed"),
+
+  aHome1HScored: parseGames("aHome1HScored"), aHome1HAllowed: parseGames("aHome1HAllowed"),
+  bAway1HScored: parseGames("bAway1HScored"), bAway1HAllowed: parseGames("bAway1HAllowed"),
+
+  aQ1Scored: parseGames("aQ1Scored"), aQ1Allowed: parseGames("aQ1Allowed"),
+  bQ1Scored: parseGames("bQ1Scored"), bQ1Allowed: parseGames("bQ1Allowed"),
+
+  aHomeQ1Scored: parseGames("aHomeQ1Scored"), aHomeQ1Allowed: parseGames("aHomeQ1Allowed"),
+  bAwayQ1Scored: parseGames("bAwayQ1Scored"), bAwayQ1Allowed: parseGames("bAwayQ1Allowed"),
+
+  aFTH2H: parseGames("aFTH2H"), bFTH2H: parseGames("bFTH2H"),
+  a1HH2H: parseGames("a1HH2H"), b1HH2H: parseGames("b1HH2H"),
+  aQ1H2H: parseGames("aQ1H2H"), bQ1H2H: parseGames("bQ1H2H")
+};
 
         const aSA = parsed.aFTScored, aAA = parsed.aFTAllowed;
         const bSA = parsed.bFTScored, bAA = parsed.bFTAllowed;
@@ -4140,7 +4188,15 @@ selectedTeamIds.B = String(teamBId);
         const fullFTModelInputs = !isNaN(aS) && !isNaN(aA) && !isNaN(bS) && !isNaN(bA);
 
         let projAFT = (!isNaN(aS) && !isNaN(bA)) ? aS * MODEL.TEAM_WEIGHT + bA * MODEL.OPP_WEIGHT : NaN;
-        let projBFT = (!isNaN(bS) && !isNaN(aA)) ? bS * MODEL.TEAM_WEIGHT + aA * MODEL.OPP_WEIGHT : NaN;
+let projBFT = (!isNaN(bS) && !isNaN(aA)) ? bS * MODEL.TEAM_WEIGHT + aA * MODEL.OPP_WEIGHT : NaN;
+
+const aHomeS = safeArr(parsed.aHomeFTScored) ? trimmedAvg(parsed.aHomeFTScored) : NaN;
+const aHomeA = safeArr(parsed.aHomeFTAllowed) ? trimmedAvg(parsed.aHomeFTAllowed) : NaN;
+const bAwayS = safeArr(parsed.bAwayFTScored) ? trimmedAvg(parsed.bAwayFTScored) : NaN;
+const bAwayA = safeArr(parsed.bAwayFTAllowed) ? trimmedAvg(parsed.bAwayFTAllowed) : NaN;
+
+let venueAFT = (!isNaN(aHomeS) && !isNaN(bAwayA)) ? aHomeS * MODEL.TEAM_WEIGHT + bAwayA * MODEL.OPP_WEIGHT : NaN;
+let venueBFT = (!isNaN(bAwayS) && !isNaN(aHomeA)) ? bAwayS * MODEL.TEAM_WEIGHT + aHomeA * MODEL.OPP_WEIGHT : NaN;
 
         const paceGapRisk = fullFTModelInputs && Math.abs((aS + aA) - (bS + bA)) > 18;
 
@@ -4183,9 +4239,17 @@ selectedTeamIds.B = String(teamBId);
         projBFT = projBFT * (MODEL.PACE_BLEND + pace / 2);
 
         const injMultA = g_injA.scoringMult, injMultB = g_injB.scoringMult;
-        if (!isNaN(projAFT) && injMultA !== 1) projAFT *= injMultA;
-        if (!isNaN(projBFT) && injMultB !== 1) projBFT *= injMultB;
+if (!isNaN(projAFT) && injMultA !== 1) projAFT *= injMultA;
+if (!isNaN(projBFT) && injMultB !== 1) projBFT *= injMultB;
+if (!isNaN(venueAFT) && injMultA !== 1) venueAFT *= injMultA;
+if (!isNaN(venueBFT) && injMultB !== 1) venueBFT *= injMultB;
 
+const hasVenueFT = !isNaN(venueAFT) && !isNaN(venueBFT);
+
+if (hasVenueFT) {
+  projAFT = (projAFT * 0.65) + (venueAFT * 0.35);
+  projBFT = (projBFT * 0.65) + (venueBFT * 0.35);
+}
         let ftProj = !isNaN(projAFT) && !isNaN(projBFT) ? projAFT + projBFT : NaN;
         const defensiveFloorFlag = (!isNaN(aA) && aA < 70) || (!isNaN(bA) && bA < 70);
 
@@ -4661,10 +4725,10 @@ selectedTeamIds.B = String(teamBId);
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
-      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = "none";
-      });
+      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section","aHome1HSection","bAway1HSection","aHomeQ1Section","bAwayQ1Section"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.style.display = "none";
+});
 
       ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id => {
         const el = document.getElementById(id);
@@ -4721,15 +4785,15 @@ selectedTeamIds.B = String(teamBId);
 
       document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
 
-      ["a1HSection", "b1HSection", "h2h1HSection", "h1MarketSection"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
-      });
+     ["a1HSection", "b1HSection", "h2h1HSection", "h1MarketSection", "aHome1HSection", "bAway1HSection"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
+});
 
-      ["aQ1Section", "bQ1Section", "q1MarketSection", "h2hQ1Section"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isNba ? "block" : "none";
-      });
+     ["aQ1Section", "bQ1Section", "q1MarketSection", "h2hQ1Section", "aHomeQ1Section", "bAwayQ1Section"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.style.display = isNba ? "block" : "none";
+});
 
       if (!isNba) {
         ["aQ1Scored", "aQ1Allowed", "bQ1Scored", "bQ1Allowed", "q1Market", "aQ1H2H", "bQ1H2H"].forEach(id => {
