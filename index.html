@@ -1228,7 +1228,11 @@
         </div>
       </div>
       <div class="tracker-market-summary" id="trackerMarketSummary" style="display:none;"></div>
-      <div id="trackerEmpty" style="padding:12px 14px;font-size:12px;color:#7b8088;">
+     <div
+  id="trackerAnalyticsPanel"
+  style="display:none;padding:12px 14px;border-bottom:1px solid #dfe2e7;background:inherit;color:inherit;"
+></div>
+       <div id="trackerEmpty" style="padding:12px 14px;font-size:12px;color:#7b8088;">
         No tracked picks saved yet.
       </div>
       <div class="tracker-body-scroll" id="trackedPicksWrap" style="display:none;">
@@ -2102,6 +2106,46 @@ function buildTrackerAnalytics() {
     recommendations
   };
 }
+function makeTrackedMatchupKey(pick) {
+  const home = normalizeTeamName(pick?.homeTeam || "");
+  const away = normalizeTeamName(pick?.awayTeam || "");
+  if (!home && !away) return "";
+  return [home, away].sort().join(" vs ");
+}
+
+function ensureTrackedPickKeys(pick = {}) {
+  const next = { ...pick };
+
+  next.homeTeam = next.homeTeam || "—";
+  next.awayTeam = next.awayTeam || "—";
+  next.homeTeamKey = next.homeTeamKey || normalizeTeamName(next.homeTeam);
+  next.awayTeamKey = next.awayTeamKey || normalizeTeamName(next.awayTeam);
+  next.matchupKey = next.matchupKey || makeTrackedMatchupKey(next);
+
+  next.marketKey = next.marketKey || "other";
+  next.marketName = next.marketName || "—";
+  next.side = next.side || "";
+  next.confidence = next.confidence || "—";
+  next.resultStatus = String(next.resultStatus || "pending").toLowerCase();
+  next.createdAt = next.createdAt || new Date().toISOString();
+  next.signature = next.signature || makeTrackedSignature(next);
+
+  return next;
+}
+
+function safeWinRate(wins, settled) {
+  if (!settled) return "—";
+  return ((wins / settled) * 100).toFixed(1) + "%";
+}
+
+function numericWinRate(wins, settled) {
+  if (!settled) return NaN;
+  return (wins / settled) * 100;
+}
+
+function formatWLP(stat) {
+  return `${stat.wins}-${stat.losses}-${stat.pushes}`;
+}
 function rebuildTrackerStats() {
   const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
@@ -2402,6 +2446,334 @@ function renderTrackedPicks() {
   }).join("");
 }
 
+function buildTrackerAnalytics() {
+  const activePicks = Array.isArray(g_trackerState.activePicks)
+    ? g_trackerState.activePicks.map(p => ensureTrackedPickKeys(p))
+    : [];
+
+  const archivedPicks = Array.isArray(g_trackerState.archivedPicks)
+    ? g_trackerState.archivedPicks.map(p => ensureTrackedPickKeys(p))
+    : [];
+
+  const allPicks = [...activePicks, ...archivedPicks];
+    renderTrackerAnalytics();
+  const settledPicks = allPicks.filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
+
+  const teamMap = new Map();
+  const matchupMap = new Map();
+
+  function makeBucket(label) {
+    return {
+      label,
+      picks: 0,
+      settled: 0,
+      wins: 0,
+      losses: 0,
+      pushes: 0,
+      lockSettled: 0,
+      lockWins: 0,
+      lockLosses: 0,
+      lockPushes: 0,
+      overSettled: 0,
+      overWins: 0,
+      underSettled: 0,
+      underWins: 0
+    };
+  }
+
+  function applyPickResult(bucket, pick) {
+    const status = String(pick.resultStatus || "pending").toLowerCase();
+
+    bucket.picks++;
+
+    if (status === "pending") return;
+
+    bucket.settled++;
+
+    if (status === "win") bucket.wins++;
+    else if (status === "loss") bucket.losses++;
+    else if (status === "push") bucket.pushes++;
+
+    if (pick.isLock) {
+      bucket.lockSettled++;
+      if (status === "win") bucket.lockWins++;
+      else if (status === "loss") bucket.lockLosses++;
+      else if (status === "push") bucket.lockPushes++;
+    }
+
+    if (pick.side === "over") {
+      bucket.overSettled++;
+      if (status === "win") bucket.overWins++;
+    }
+
+    if (pick.side === "under") {
+      bucket.underSettled++;
+      if (status === "win") bucket.underWins++;
+    }
+  }
+
+  allPicks.forEach(rawPick => {
+    const pick = ensureTrackedPickKeys(rawPick);
+
+    if (pick.homeTeamKey) {
+      if (!teamMap.has(pick.homeTeamKey)) {
+        teamMap.set(pick.homeTeamKey, makeBucket(pick.homeTeam));
+      }
+      applyPickResult(teamMap.get(pick.homeTeamKey), pick);
+    }
+
+    if (pick.awayTeamKey && pick.awayTeamKey !== pick.homeTeamKey) {
+      if (!teamMap.has(pick.awayTeamKey)) {
+        teamMap.set(pick.awayTeamKey, makeBucket(pick.awayTeam));
+      }
+      applyPickResult(teamMap.get(pick.awayTeamKey), pick);
+    }
+
+    if (pick.matchupKey) {
+      if (!matchupMap.has(pick.matchupKey)) {
+        matchupMap.set(
+          pick.matchupKey,
+          makeBucket(`${pick.homeTeam} vs ${pick.awayTeam}`)
+        );
+      }
+      applyPickResult(matchupMap.get(pick.matchupKey), pick);
+    }
+  });
+
+  const teamRows = [...teamMap.values()]
+    .map(row => ({
+      ...row,
+      winRateNum: numericWinRate(row.wins, row.settled),
+      winRate: safeWinRate(row.wins, row.settled)
+    }))
+    .sort((a, b) => {
+      if (b.settled !== a.settled) return b.settled - a.settled;
+      return (b.wins - b.losses) - (a.wins - a.losses);
+    });
+
+  const matchupRows = [...matchupMap.values()]
+    .map(row => ({
+      ...row,
+      winRateNum: numericWinRate(row.wins, row.settled),
+      winRate: safeWinRate(row.wins, row.settled)
+    }))
+    .sort((a, b) => {
+      if (b.settled !== a.settled) return b.settled - a.settled;
+      return (b.wins - b.losses) - (a.wins - a.losses);
+    });
+
+  const lockPicks = settledPicks.filter(p => p.isLock);
+  const overPicks = settledPicks.filter(p => p.side === "over");
+  const underPicks = settledPicks.filter(p => p.side === "under");
+  const ftPicks = settledPicks.filter(p => p.marketKey === "ft");
+  const teamTotalPicks = settledPicks.filter(p => p.marketKey === "team_a" || p.marketKey === "team_b");
+  const periodPicks = settledPicks.filter(p => p.marketKey === "h1" || p.marketKey === "q1");
+
+  function toStats(list) {
+    return {
+      settled: list.length,
+      wins: list.filter(p => p.resultStatus === "win").length,
+      losses: list.filter(p => p.resultStatus === "loss").length,
+      pushes: list.filter(p => p.resultStatus === "push").length
+    };
+  }
+
+  const overallStats = toStats(settledPicks);
+  const lockStats = toStats(lockPicks);
+  const overStats = toStats(overPicks);
+  const underStats = toStats(underPicks);
+  const ftStats = toStats(ftPicks);
+  const teamStats = toStats(teamTotalPicks);
+  const periodStats = toStats(periodPicks);
+
+  const overallRateNum = numericWinRate(overallStats.wins, overallStats.settled);
+  const lockRateNum = numericWinRate(lockStats.wins, lockStats.settled);
+  const ftRateNum = numericWinRate(ftStats.wins, ftStats.settled);
+  const teamRateNum = numericWinRate(teamStats.wins, teamStats.settled);
+  const periodRateNum = numericWinRate(periodStats.wins, periodStats.settled);
+  const overRateNum = numericWinRate(overStats.wins, overStats.settled);
+  const underRateNum = numericWinRate(underStats.wins, underStats.settled);
+
+  const suggestions = [];
+
+  if (overallStats.settled < 12) {
+    suggestions.push(
+      `Only ${overallStats.settled} settled tracked picks so far. Do not change engine formulas yet. Keep collecting results first.`
+    );
+  }
+
+  if (ftStats.settled >= 12 && teamStats.settled >= 12 && isFinite(ftRateNum) && isFinite(teamRateNum)) {
+    if (ftRateNum - teamRateNum >= 8) {
+      suggestions.push(
+        `FT totals are outperforming team totals (${ftRateNum.toFixed(1)}% vs ${teamRateNum.toFixed(1)}%). If that gap still holds after a bigger sample, review team-total anchoring and split logic before touching FT logic.`
+      );
+    } else if (teamRateNum - ftRateNum >= 8) {
+      suggestions.push(
+        `Team totals are outperforming FT totals (${teamRateNum.toFixed(1)}% vs ${ftRateNum.toFixed(1)}%). If that gap stays consistent, review FT suppression/anchoring before changing team-total logic.`
+      );
+    }
+  }
+
+  if (periodStats.settled >= 10 && isFinite(periodRateNum) && isFinite(overallRateNum)) {
+    if (overallRateNum - periodRateNum >= 8) {
+      suggestions.push(
+        `1H/Q1 period picks are lagging the full tracker (${periodRateNum.toFixed(1)}% vs ${overallRateNum.toFixed(1)}%). Keep tracking them separately and only review period-specific thresholds if this stays true over more settled picks.`
+      );
+    }
+  }
+
+  if (lockStats.settled >= 8 && isFinite(lockRateNum) && isFinite(overallRateNum)) {
+    if (overallRateNum - lockRateNum >= 6) {
+      suggestions.push(
+        `Lock picks are underperforming the full tracker (${lockRateNum.toFixed(1)}% vs ${overallRateNum.toFixed(1)}%). Do not weaken the engine yet, but review the lock-selection rule if this remains true later.`
+      );
+    } else if (lockRateNum - overallRateNum >= 6) {
+      suggestions.push(
+        `Lock picks are outperforming the full tracker (${lockRateNum.toFixed(1)}% vs ${overallRateNum.toFixed(1)}%). That means the lock filter is helping, so leave it unchanged for now.`
+      );
+    }
+  }
+
+  if (overStats.settled >= 10 && underStats.settled >= 10 && isFinite(overRateNum) && isFinite(underRateNum)) {
+    if (overRateNum - underRateNum >= 10) {
+      suggestions.push(
+        `Over picks are clearly outperforming under picks (${overRateNum.toFixed(1)}% vs ${underRateNum.toFixed(1)}%). If that keeps repeating, review under-block and suppression rules before changing anything else.`
+      );
+    } else if (underRateNum - overRateNum >= 10) {
+      suggestions.push(
+        `Under picks are clearly outperforming over picks (${underRateNum.toFixed(1)}% vs ${overRateNum.toFixed(1)}%). If that keeps holding, review over filters and pace optimism later.`
+      );
+    }
+  }
+
+  const weakTeams = teamRows
+    .filter(row => row.settled >= 6 && isFinite(row.winRateNum))
+    .sort((a, b) => a.winRateNum - b.winRateNum);
+
+  if (weakTeams.length && weakTeams[0].winRateNum <= 40) {
+    suggestions.push(
+      `Team flag: ${weakTeams[0].label} games are only hitting ${weakTeams[0].winRate} across ${weakTeams[0].settled} settled tracked picks. This is the kind of team-specific weakness Phase 2 should monitor before making any engine edit.`
+    );
+  }
+
+  const weakMatchups = matchupRows
+    .filter(row => row.settled >= 3 && isFinite(row.winRateNum))
+    .sort((a, b) => a.winRateNum - b.winRateNum);
+
+  if (weakMatchups.length && weakMatchups[0].winRateNum <= 33.4) {
+    suggestions.push(
+      `Matchup flag: ${weakMatchups[0].label} is only hitting ${weakMatchups[0].winRate} across ${weakMatchups[0].settled} settled tracked picks. That is exactly the kind of matchup history you said you want the engine to remember.`
+    );
+  }
+
+  if (!suggestions.length) {
+    suggestions.push(
+      "No strong auto-adjustment signal yet. Leave the prediction formulas unchanged and keep building settled tracker history."
+    );
+  }
+
+  return {
+    allCount: allPicks.length,
+    activeCount: activePicks.length,
+    archivedCount: archivedPicks.length,
+    overallStats,
+    lockStats,
+    overStats,
+    underStats,
+    ftStats,
+    teamStats,
+    periodStats,
+    overallRate: safeWinRate(overallStats.wins, overallStats.settled),
+    lockRate: safeWinRate(lockStats.wins, lockStats.settled),
+    teamRows,
+    matchupRows,
+    suggestions
+  };
+}
+
+function renderTrackerAnalytics() {
+  const panel = document.getElementById("trackerAnalyticsPanel");
+  if (!panel) return;
+
+  const analytics = buildTrackerAnalytics();
+
+  if (!analytics.allCount) {
+    panel.style.display = "none";
+    panel.innerHTML = "";
+    return;
+  }
+
+  const topTeams = analytics.teamRows.slice(0, 8);
+  const topMatchups = analytics.matchupRows.slice(0, 8);
+
+  const teamTable = topTeams.length
+    ? `
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;">
+        <tr>
+          <th style="border:1px solid #dfe2e7;padding:6px;">Team</th>
+          <th style="border:1px solid #dfe2e7;padding:6px;">Settled</th>
+          <th style="border:1px solid #dfe2e7;padding:6px;">W-L-P</th>
+          <th style="border:1px solid #dfe2e7;padding:6px;">Win %</th>
+        </tr>
+        ${topTeams.map(row => `
+          <tr>
+            <td style="border:1px solid #dfe2e7;padding:6px;">${safeText(row.label)}</td>
+            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${row.settled}</td>
+            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(formatWLP(row))}</td>
+            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(row.winRate)}</td>
+          </tr>
+        `).join("")}
+      </table>
+    `
+    : `<div style="margin-top:8px;">No team analytics yet.</div>`;
+
+  const matchupTable = topMatchups.length
+    ? `
+      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;">
+        <tr>
+          <th style="border:1px solid #dfe2e7;padding:6px;">Matchup</th>
+          <th style="border:1px solid #dfe2e7;padding:6px;">Settled</th>
+          <th style="border:1px solid #dfe2e7;padding:6px;">W-L-P</th>
+          <th style="border:1px solid #dfe2e7;padding:6px;">Win %</th>
+        </tr>
+        ${topMatchups.map(row => `
+          <tr>
+            <td style="border:1px solid #dfe2e7;padding:6px;">${safeText(row.label)}</td>
+            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${row.settled}</td>
+            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(formatWLP(row))}</td>
+            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(row.winRate)}</td>
+          </tr>
+        `).join("")}
+      </table>
+    `
+    : `<div style="margin-top:8px;">No matchup analytics yet.</div>`;
+
+  panel.style.display = "block";
+  panel.innerHTML = `
+    <div style="font-size:13px;font-weight:800;margin-bottom:8px;">Phase 2 Tracker Audit</div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+      <div class="tracker-market-chip">All ${analytics.allCount}</div>
+      <div class="tracker-market-chip">Settled ${analytics.overallStats.settled}</div>
+      <div class="tracker-market-chip">Win Rate ${safeText(analytics.overallRate)}</div>
+      <div class="tracker-market-chip">Locks ${safeText(formatWLP(analytics.lockStats))}</div>
+      <div class="tracker-market-chip">Over ${safeText(formatWLP(analytics.overStats))}</div>
+      <div class="tracker-market-chip">Under ${safeText(formatWLP(analytics.underStats))}</div>
+    </div>
+
+    <div style="font-size:12px;font-weight:800;margin:0 0 6px;">Engine Suggestions</div>
+    <div style="font-size:12px;line-height:1.6;">
+      ${analytics.suggestions.map(text => `<div>• ${safeText(text)}</div>`).join("")}
+    </div>
+
+    <div style="font-size:12px;font-weight:800;margin:12px 0 6px;">Team Tracking</div>
+    ${teamTable}
+
+    <div style="font-size:12px;font-weight:800;margin:12px 0 6px;">Matchup Tracking</div>
+    ${matchupTable}
+  `;
+}
+
 function getTrackedLeagueBase(league) {
   if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
   if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
@@ -2551,7 +2923,7 @@ function getTrackedLeagueBase(league) {
           return;
         }
 
-        current.unshift(p);
+current.unshift(ensureTrackedPickKeys(p));
         changed = true;
       });
 
@@ -4613,33 +4985,68 @@ selectedTeamIds.B = String(teamBId);
 
           if (canTrack) {
             const trackedPick = {
-              createdAt: new Date().toISOString(), league,
-              eventId: fixtureMeta.eventId || "", eventDate: fixtureMeta.eventDate || "",
-              homeTeam: fixtureMeta.homeTeam || currentTeamAName, awayTeam: fixtureMeta.awayTeam || currentTeamBName,
-              homeId: fixtureMeta.homeId || "", awayId: fixtureMeta.awayId || "",
-              marketName: p.name, marketKey, line: lineRef,
-              projection: isNaN(p.proj) ? null : Number(p.proj.toFixed(2)),
-              edgeRaw: isNaN(p.edge) ? null : Number(p.edge.toFixed(2)),
-              edgePct: isNaN(edgePct) ? null : Number(edgePct.toFixed(2)),
-              predictionText: p.pick, side, isLock, resultStatus: "pending",
-              diagnostics: {
-                sampleTier: marketKey === "ft" || marketKey === "team_a" || marketKey === "team_b" ? ftSampleTier : marketKey === "h1" ? h1SampleTier : marketKey === "q1" ? q1SampleTier : "unknown",
-                projectionOnly: marketKey === "ft" || marketKey === "team_a" || marketKey === "team_b" ? ftProjectionOnly : marketKey === "h1" ? h1ProjectionOnly : marketKey === "q1" ? q1ProjectionOnly : false,
-                pace: isNaN(pace) ? null : Number(pace.toFixed(3)),
-                paceGapRisk: !!paceGapRisk, defensiveFloorFlag: !!defensiveFloorFlag,
-                blowoutGap: isNaN(blowoutGap) ? null : Number(blowoutGap.toFixed(2)),
-                volatilityBlock: !!volatilityBlock,
-                aVol: isNaN(aVol) ? null : Number(aVol.toFixed(2)),
-                bVol: isNaN(bVol) ? null : Number(bVol.toFixed(2)),
-                aVol1: isNaN(aVol1) ? null : Number(aVol1.toFixed(2)),
-                bVol1: isNaN(bVol1) ? null : Number(bVol1.toFixed(2)),
-                aVolQ1: isNaN(aVolQ1) ? null : Number(aVolQ1.toFixed(2)),
-                bVolQ1: isNaN(bVolQ1) ? null : Number(bVolQ1.toFixed(2)),
-                injMultA: isNaN(injMultA) ? null : Number(injMultA.toFixed(3)),
-                injMultB: isNaN(injMultB) ? null : Number(injMultB.toFixed(3)),
-                fullModel: marketKey === "ft" ? ftFullModel : marketKey === "h1" ? h1FullModel : marketKey === "q1" ? q1FullModel : teamFullModel
-              }
-            };
+  createdAt: new Date().toISOString(),
+  league,
+  eventId: fixtureMeta.eventId || "",
+  eventDate: fixtureMeta.eventDate || "",
+  homeTeam: fixtureMeta.homeTeam || currentTeamAName,
+  awayTeam: fixtureMeta.awayTeam || currentTeamBName,
+  homeId: fixtureMeta.homeId || "",
+  awayId: fixtureMeta.awayId || "",
+  homeTeamKey: normalizeTeamName(fixtureMeta.homeTeam || currentTeamAName),
+  awayTeamKey: normalizeTeamName(fixtureMeta.awayTeam || currentTeamBName),
+  matchupKey: makeTrackedMatchupKey({
+    homeTeam: fixtureMeta.homeTeam || currentTeamAName,
+    awayTeam: fixtureMeta.awayTeam || currentTeamBName
+  }),
+  marketName: p.name,
+  marketKey,
+  line: lineRef,
+  projection: isNaN(p.proj) ? null : Number(p.proj.toFixed(2)),
+  edgeRaw: isNaN(p.edge) ? null : Number(p.edge.toFixed(2)),
+  edgePct: isNaN(edgePct) ? null : Number(edgePct.toFixed(2)),
+  predictionText: p.pick,
+  side,
+  confidence: p.confidence || "—",
+  isLock,
+  resultStatus: "pending",
+  diagnostics: {
+    sampleTier: marketKey === "ft" || marketKey === "team_a" || marketKey === "team_b"
+      ? ftSampleTier
+      : marketKey === "h1"
+        ? h1SampleTier
+        : marketKey === "q1"
+          ? q1SampleTier
+          : "unknown",
+    projectionOnly: marketKey === "ft" || marketKey === "team_a" || marketKey === "team_b"
+      ? ftProjectionOnly
+      : marketKey === "h1"
+        ? h1ProjectionOnly
+        : marketKey === "q1"
+          ? q1ProjectionOnly
+          : false,
+    pace: isNaN(pace) ? null : Number(pace.toFixed(3)),
+    paceGapRisk: !!paceGapRisk,
+    defensiveFloorFlag: !!defensiveFloorFlag,
+    blowoutGap: isNaN(blowoutGap) ? null : Number(blowoutGap.toFixed(2)),
+    volatilityBlock: !!volatilityBlock,
+    aVol: isNaN(aVol) ? null : Number(aVol.toFixed(2)),
+    bVol: isNaN(bVol) ? null : Number(bVol.toFixed(2)),
+    aVol1: isNaN(aVol1) ? null : Number(aVol1.toFixed(2)),
+    bVol1: isNaN(bVol1) ? null : Number(bVol1.toFixed(2)),
+    aVolQ1: isNaN(aVolQ1) ? null : Number(aVolQ1.toFixed(2)),
+    bVolQ1: isNaN(bVolQ1) ? null : Number(bVolQ1.toFixed(2)),
+    injMultA: isNaN(injMultA) ? null : Number(injMultA.toFixed(3)),
+    injMultB: isNaN(injMultB) ? null : Number(injMultB.toFixed(3)),
+    fullModel: marketKey === "ft"
+      ? ftFullModel
+      : marketKey === "h1"
+        ? h1FullModel
+        : marketKey === "q1"
+          ? q1FullModel
+          : teamFullModel
+  }
+};
             trackedPick.signature = makeTrackedSignature(trackedPick);
             trackedToSave.push(trackedPick);
           }
