@@ -1396,6 +1396,7 @@ let g_trackerState = {
 };
 
 let g_trackerHydratePromise = null;
+let g_trackerSaveChain = Promise.resolve();
 
     function logDebug(...args) {
       if (DEBUG) console.log("[BB Engine]", ...args);
@@ -1796,6 +1797,18 @@ function saveTrackedPicks(picks) {
   if (!Array.isArray(g_trackerState.archivedPicks)) {
     g_trackerState.archivedPicks = [];
   }
+
+  rebuildTrackerStats();
+  g_trackerState.updatedAt = new Date().toISOString();
+
+  g_trackerSaveChain = g_trackerSaveChain
+    .catch(() => {})
+    .then(() => pushTrackerStateToServer())
+    .catch(err => {
+      console.error("[BB Engine] saveTrackedPicks failed", err);
+      setStatusText("⚠ Tracker sync failed. Refresh later and try again.", "err");
+    });
+}
 
   rebuildTrackerStats();
   g_trackerState.updatedAt = new Date().toISOString();
