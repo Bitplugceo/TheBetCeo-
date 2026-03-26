@@ -1357,6 +1357,15 @@
       team: { nbaDiff: 10, otherDiff: 12, nbaWeight: 0.55, otherWeight: 0.50 }
     };
 
+const ENGINE_TUNING = {
+  FT_VENUE_BLEND: { recent: 0.65, venue: 0.35 },
+  H1_VENUE_BLEND: { recent: 0.70, venue: 0.30 },
+  Q1_VENUE_BLEND: { recent: 0.75, venue: 0.25 },
+  H1_HOME_EDGE_SHARE: 0.375,
+  H1_VOL_LIMIT: { nba: 7, other: 6 },
+  Q1_VOL_LIMIT: 4.5
+};
+
     const NBA_TEAM_MAP = {
       "hawks":1,"atlanta":1,"celtics":2,"boston":2,"nets":17,"brooklyn":17,
       "hornets":30,"charlotte":30,"bulls":4,"chicago":4,"cavaliers":5,"cavs":5,"cleveland":5,
@@ -1433,6 +1442,34 @@
 const TRACKER_ARCHIVED_LIMIT = 2000;
 const TRACKER_ARCHIVE_AFTER_HOURS = 10;
 const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tracker-state";
+
+const TRACKER_USER_STORAGE_KEY = "bb_engine_tracker_user";
+
+function getTrackerUserKey() {
+  let key = localStorage.getItem(TRACKER_USER_STORAGE_KEY);
+
+  if (!key) {
+    key = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : "trk_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+
+    localStorage.setItem(TRACKER_USER_STORAGE_KEY, key);
+  }
+
+  return key;
+}
+
+function getTrackerHeaders(includeJson = false) {
+  const headers = {
+    "X-Tracker-User": getTrackerUserKey()
+  };
+
+  if (includeJson) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  return headers;
+}
 
 let g_trackerState = {
   activePicks: [],
@@ -1799,10 +1836,11 @@ function normalizeTrackerState(raw) {
 async function hydrateTrackedPicks(force = false) {
   if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
-  g_trackerHydratePromise = fetch(TRACKER_API_URL, {
-    method: "GET",
-    cache: "no-store"
-  })
+ g_trackerHydratePromise = fetch(TRACKER_API_URL, {
+  method: "GET",
+  cache: "no-store",
+  headers: getTrackerHeaders(false)
+})
     .then(async res => {
       if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
       const data = await res.json();
@@ -1823,10 +1861,10 @@ async function hydrateTrackedPicks(force = false) {
 
 async function pushTrackerStateToServer() {
   const res = await fetch(TRACKER_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(g_trackerState)
-  });
+  method: "POST",
+  headers: getTrackerHeaders(true),
+  body: JSON.stringify(g_trackerState)
+});
 
   if (!res.ok) {
     throw new Error("Tracker POST failed (" + res.status + ")");
@@ -2680,7 +2718,7 @@ current.unshift(ensureTrackedPickKeys(p));
       const valid = markets.filter(m =>
         m.pick !== "NO PLAY" && m.pick !== "—" &&
         !isNaN(m.edge) && m.line !== null && !isNaN(m.line) && m.line > 0 &&
-        Math.abs(m.edge / m.line) >= 0.045 && m.fullModel !== false
+Math.abs(m.edge / m.line) >= 0.045 && m.fullModel === true
       );
       if (!valid.length) return -1;
       const best = [...valid].sort((a, b) => {
@@ -2733,30 +2771,8 @@ current.unshift(ensureTrackedPickKeys(p));
     }
 
     function anchorProjection(proj, line, league, marketType) {
-      if (proj === null || isNaN(proj) || line === null || isNaN(line)) return proj;
-      const diff = proj - line;
-
-      if (marketType === "ft") {
-        if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.ft.nbaDiff) return line + diff * ANCHOR_RULES.ft.nbaWeight;
-        if (Math.abs(diff) > ANCHOR_RULES.ft.otherDiff) return line + diff * ANCHOR_RULES.ft.otherWeight;
-        return proj;
-      }
-      if (marketType === "h1") {
-        if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.h1.nbaDiff) return line + diff * ANCHOR_RULES.h1.nbaWeight;
-        if (Math.abs(diff) > ANCHOR_RULES.h1.otherDiff) return line + diff * ANCHOR_RULES.h1.otherWeight;
-        return proj;
-      }
-      if (marketType === "q1") {
-        if (Math.abs(diff) > ANCHOR_RULES.q1.diff) return line + diff * ANCHOR_RULES.q1.weight;
-        return proj;
-      }
-      if (marketType === "team") {
-        if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.team.nbaDiff) return line + diff * ANCHOR_RULES.team.nbaWeight;
-        if (Math.abs(diff) > ANCHOR_RULES.team.otherDiff) return line + diff * ANCHOR_RULES.team.otherWeight;
-        return proj;
-      }
-      return proj;
-    }
+  return proj;
+}
 
     function hideInjuryBox(side) {
       const box = document.getElementById(side === "A" ? "injuryBoxA" : "injuryBoxB");
@@ -3287,49 +3303,86 @@ function getCurrentSeasonYear(league) {
     }
 
     // V3: 80ms delays removed from all four fetch functions
-    async function fetchNbaSchedule(base, teamId, requiredVenue, allowFallback = true) {
+   async function collectFinishedTeamGameRefs({ base, teamId, seasonYears }) {
+  const tId = String(teamId);
+  const gameRefs = [];
+
+  for (const season of seasonYears) {
+    for (const stype of ["2", "3"]) {
+      try {
+        const key = `${base}:sched:${teamId}:${season}:${stype}`;
+        const r = await (_schedCache.has(key)
+          ? _schedCache.get(key)
+          : (() => {
+              const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+                _schedCache.delete(key);
+                throw err;
+              });
+              cacheSet(_schedCache, key, p);
+              return p;
+            })());
+
+        const events = r?.events || r?.team?.schedule?.events || [];
+
+        for (const ev of events) {
+          if (!ev.id) continue;
+
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+
+          const done =
+            comp?.status?.type?.completed ||
+            comp?.status?.type?.name === "STATUS_FINAL" ||
+            comp?.status?.type?.state === "post";
+
+          if (!done || (comp?.competitors || []).length < 2) continue;
+
+          const c = comp.competitors;
+          const mine = c.find(x => matchesTeam(x, tId)) || c[0];
+          const opp = c.find(x => !matchesTeam(x, tId)) || c[1];
+          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+
+          gameRefs.push({
+            id: String(ev.id),
+            date: ev.date || "",
+            rawS: ps(mine?.score),
+            rawA: ps(opp?.score),
+            venue: mine?.homeAway || ""
+          });
+        }
+      } catch (e) {
+        logDebug("collectFinishedTeamGameRefs failed", e);
+      }
+    }
+  }
+
+  if (!gameRefs.length) return [];
+
+  const seen = new Set();
+
+  return gameRefs
+    .filter(g => {
+      if (seen.has(g.id)) return false;
+      seen.add(g.id);
+      return true;
+    })
+    .sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return db - da;
+    });
+}
+     async function fetchNbaSchedule(base, teamId, requiredVenue, allowFallback = true) {
       const tId = String(teamId);
-      const gameRefs = [];
 
 const currentSeason = getCurrentSeasonYear("nba");
-for (const season of [String(currentSeason), String(currentSeason - 1)]) {
-        for (const stype of ["2", "3"]) {
-          try {
-            const key = `${base}:sched:${teamId}:${season}:${stype}`;
-            const r = await (_schedCache.has(key)
-              ? _schedCache.get(key)
-              : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                    _schedCache.delete(key); throw err;
-                  });
-                  cacheSet(_schedCache, key, p);
-                  return p;
-                })());
+const unique = await collectFinishedTeamGameRefs({
+  base,
+  teamId,
+  seasonYears: [String(currentSeason), String(currentSeason - 1)]
+});
 
-            const events = r?.events || r?.team?.schedule?.events || [];
-            for (const ev of events) {
-              if (!ev.id) continue;
-              const comp = ev?.competitions?.[0];
-              if (!comp) continue;
-              const done =
-                comp?.status?.type?.completed ||
-                comp?.status?.type?.name === "STATUS_FINAL" ||
-                comp?.status?.type?.state === "post";
-              if (!done || (comp?.competitors || []).length < 2) continue;
-              const c = comp.competitors;
-              const mine = c.find(x => matchesTeam(x, tId)) || c[0];
-              const opp = c.find(x => !matchesTeam(x, tId)) || c[1];
-              const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-              gameRefs.push({
-                id: String(ev.id), date: ev.date || "",
-                rawS: ps(mine?.score), rawA: ps(opp?.score), venue: mine?.homeAway || ""
-              });
-            }
-          } catch (e) {
-            logDebug("fetchNbaSchedule failed", e);
-          }
-        }
-      }
+if (!unique.length) return null;
 
       if (!gameRefs.length) return null;
       const seen = new Set();
@@ -3408,51 +3461,19 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
 
     async function fetchNcaaSchedule(base, teamId, requiredVenue, allowFallback = true) {
       const tId = String(teamId);
-      const gameRefs = [];
 
-      const currentSeason = getCurrentSeasonYear("ncaa");
-for (const season of [
-  String(currentSeason),
-  String(currentSeason - 1),
-  String(currentSeason - 2)
-]) {
-for (const stype of ["1", "2", "3"]) {
-          try {
-            const key = `${base}:sched:${teamId}:${season}:${stype}`;
-            const r = await (_schedCache.has(key)
-              ? _schedCache.get(key)
-              : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                    _schedCache.delete(key); throw err;
-                  });
-                  cacheSet(_schedCache, key, p);
-                  return p;
-                })());
+const currentSeason = getCurrentSeasonYear("ncaa");
+const unique = await collectFinishedTeamGameRefs({
+  base,
+  teamId,
+  seasonYears: [
+    String(currentSeason),
+    String(currentSeason - 1),
+    String(currentSeason - 2)
+  ]
+});
 
-            const events = r?.events || r?.team?.schedule?.events || [];
-            for (const ev of events) {
-              if (!ev.id) continue;
-              const comp = ev?.competitions?.[0];
-              if (!comp) continue;
-              const done =
-                comp?.status?.type?.completed ||
-                comp?.status?.type?.name === "STATUS_FINAL" ||
-                comp?.status?.type?.state === "post";
-              if (!done || (comp?.competitors || []).length < 2) continue;
-              const c = comp.competitors;
-              const mine = c.find(x => matchesTeam(x, tId)) || c[0];
-              const opp = c.find(x => !matchesTeam(x, tId)) || c[1];
-              const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-              gameRefs.push({
-                id: String(ev.id), date: ev.date || "",
-                rawS: ps(mine?.score), rawA: ps(opp?.score), venue: mine?.homeAway || ""
-              });
-            }
-          } catch (e) {
-            logDebug("fetchNcaaSchedule failed", e);
-          }
-        }
-      }
+if (!unique.length) return null;
 
       if (!gameRefs.length) return null;
       const seen = new Set();
@@ -3524,15 +3545,14 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
         : null;
     }
 
-    async function fetchNbaH2H(base, teamAId, teamBId) {
+async function collectH2HCandidateRefs({ base, teamAId, teamBId, seasonYears }) {
   const tA = String(teamAId);
   const tB = String(teamBId);
-  const currentSeason = getCurrentSeasonYear("nba");
   const candidateMap = new Map();
 
   async function collectCandidates(scanId) {
-    for (let season = currentSeason; season >= 2024; season--) {
-for (const stype of ["1", "2", "3"]) {
+    for (const season of seasonYears) {
+      for (const stype of ["2", "3"]) {
         try {
           const key = `${base}:sched:${scanId}:${season}:${stype}`;
           const r = await (_schedCache.has(key)
@@ -3575,7 +3595,7 @@ for (const stype of ["1", "2", "3"]) {
             });
           }
         } catch (e) {
-          logDebug("fetchNbaH2H candidate scan failed", e);
+          logDebug("collectH2HCandidateRefs failed", e);
         }
       }
     }
@@ -3584,11 +3604,26 @@ for (const stype of ["1", "2", "3"]) {
   await collectCandidates(teamAId);
   await collectCandidates(teamBId);
 
-  if (!candidateMap.size) return [];
-
-  const refs = [...candidateMap.values()].sort((a, b) => {
+  return [...candidateMap.values()].sort((a, b) => {
     return new Date(b.date || 0) - new Date(a.date || 0);
   });
+}
+
+    async function fetchNbaH2H(base, teamAId, teamBId) {
+  const tA = String(teamAId);
+const tB = String(teamBId);
+const currentSeason = getCurrentSeasonYear("nba");
+
+const refs = await collectH2HCandidateRefs({
+  base,
+  teamAId,
+  teamBId,
+  seasonYears: [String(currentSeason), String(currentSeason - 1), "2024"]
+});
+
+if (!refs.length) return [];
+
+const h2h = [];
 
   const h2h = [];
 
@@ -3675,69 +3710,24 @@ if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
 
 async function fetchNcaaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId);
-  const tB = String(teamBId);
-  const currentSeason = getCurrentSeasonYear("ncaa");
-  const candidateMap = new Map();
+const tB = String(teamBId);
+const currentSeason = getCurrentSeasonYear("ncaa");
 
-  async function collectCandidates(scanId) {
-    for (let season = currentSeason; season >= 2024; season--) {
-      for (const stype of ["2", "3"]) {
-        try {
-          const key = `${base}:sched:${scanId}:${season}:${stype}`;
-          const r = await (_schedCache.has(key)
-            ? _schedCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                  _schedCache.delete(key);
-                  throw err;
-                });
-                cacheSet(_schedCache, key, p);
-                return p;
-              })());
+const refs = await collectH2HCandidateRefs({
+  base,
+  teamAId,
+  teamBId,
+  seasonYears: [
+    String(currentSeason),
+    String(currentSeason - 1),
+    String(currentSeason - 2),
+    "2024"
+  ]
+});
 
-          const events = [
-            ...(r?.events || []),
-            ...(r?.team?.schedule?.events || [])
-          ];
+if (!refs.length) return [];
 
-          for (const ev of events) {
-            const comp = ev?.competitions?.[0];
-            if (!ev?.id || !comp) continue;
-
-            const done =
-              comp?.status?.type?.completed ||
-              comp?.status?.type?.name === "STATUS_FINAL" ||
-              comp?.status?.type?.state === "post";
-
-            if (!done) continue;
-
-            const competitors = comp?.competitors || [];
-            if (competitors.length < 2) continue;
-
-            const hasA = competitors.some(c => matchesTeam(c, tA));
-            const hasB = competitors.some(c => matchesTeam(c, tB));
-            if (!hasA || !hasB) continue;
-
-            candidateMap.set(String(ev.id), {
-              id: String(ev.id),
-              date: ev?.date || comp?.date || ""
-            });
-          }
-        } catch (e) {
-          logDebug("fetchNcaaH2H candidate scan failed", e);
-        }
-      }
-    }
-  }
-
-  await collectCandidates(teamAId);
-  await collectCandidates(teamBId);
-
-  if (!candidateMap.size) return [];
-
-  const refs = [...candidateMap.values()].sort((a, b) => {
-    return new Date(b.date || 0) - new Date(a.date || 0);
-  });
+const h2h = [];
 
   const h2h = [];
 
@@ -4177,6 +4167,46 @@ if (bVenueStats?.scored?.length > 0) {
       }
     }
 
+function getConfidenceClass(confidence) {
+  return (
+    confidence === "A" ? "conf-a" :
+    confidence === "B" ? "conf-b" :
+    confidence === "C" ? "conf-c" :
+    confidence === "D" ? "conf-d" :
+    "conf-none"
+  );
+}
+
+function getPredictionClass(predText) {
+  return predText.includes("OVER")
+    ? "pred-over"
+    : predText.includes("UNDER")
+      ? "pred-under"
+      : "pred-noplay";
+}
+
+function renderEngineResultRow(table, p, lineRef, isLock) {
+  const row = table.insertRow();
+
+  let predText = p.pick;
+  if (p.note) predText = "—";
+  else if (lineRef === null) predText = "—";
+
+  if (isLock && predText !== "—" && predText !== "NO PLAY") {
+    predText += ' <span class="lock">🔒</span>';
+  }
+
+  const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
+  const edgePct = (!isNaN(p.edge) && lineRef && lineRef > 0) ? (p.edge / lineRef) * 100 : NaN;
+  const ed = isNaN(edgePct) ? "—" : (edgePct > 0 ? "+" : "") + edgePct.toFixed(2) + "%";
+  const cn = getPredictionClass(predText);
+  const confidenceClass = getConfidenceClass(p.confidence);
+
+  row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${confidenceClass}">${p.confidence || "—"}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
+
+  return { predText, edgePct };
+}
+
     function showRunError(table, html) {
       const row = table.insertRow();
       row.innerHTML = `<td colspan="5" style="color:#ff6b6b;text-align:left;padding:8px;">${html}</td>`;
@@ -4255,11 +4285,10 @@ if (bVenueStats?.scored?.length > 0) {
           fiba_eb:11,fiba_ac:11,unknown:12
         };
 
-        const eb = bases[league] || 160;
-        const cl = getEffectivePaceClamp(league);
-        const hAdj = homeEdge[league] || 1.5;
-        const vl = volLimits[league] || 12;
-
+const eb = LEAGUE_BASES[league] || 160;
+const cl = getEffectivePaceClamp(league);
+const hAdj = LEAGUE_HOME_EDGE[league] || 1.5;
+const vl = LEAGUE_VOL_LIMITS[league] || 12;
         const ftLine = snapHalf(parseMarketLine(document.getElementById("ftMarket").value));
         const h1Line = snapHalf(parseMarketLine(document.getElementById("h1Market").value));
         const q1Line = snapHalf(parseMarketLine(document.getElementById("q1Market").value));
@@ -4430,9 +4459,8 @@ if (!isNaN(venueBFT) && injMultB !== 1) venueBFT *= injMultB;
 const hasVenueFT = !isNaN(venueAFT) && !isNaN(venueBFT);
 
 if (hasVenueFT) {
-  projAFT = (projAFT * 0.65) + (venueAFT * 0.35);
-  projBFT = (projBFT * 0.65) + (venueBFT * 0.35);
-}
+  projAFT = (projAFT * ENGINE_TUNING.FT_VENUE_BLEND.recent) + (venueAFT * ENGINE_TUNING.FT_VENUE_BLEND.venue);
+projBFT = (projBFT * ENGINE_TUNING.FT_VENUE_BLEND.recent) + (venueBFT * ENGINE_TUNING.FT_VENUE_BLEND.venue);
 
 blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : NaN;
         let ftProj = !isNaN(projAFT) && !isNaN(projBFT) ? projAFT + projBFT : NaN;
@@ -4483,9 +4511,8 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
               : NaN;
 
             if (!isNaN(venueA1H) && !isNaN(venueB1H)) {
-              projA1H = (projA1H * 0.70) + (venueA1H * 0.30);
-              projB1H = (projB1H * 0.70) + (venueB1H * 0.30);
-            }
+              projA1H = (projA1H * ENGINE_TUNING.H1_VENUE_BLEND.recent) + (venueA1H * ENGINE_TUNING.H1_VENUE_BLEND.venue);
+projB1H = (projB1H * ENGINE_TUNING.H1_VENUE_BLEND.recent) + (venueB1H * ENGINE_TUNING.H1_VENUE_BLEND.venue);
 
             const pgr1 = Math.abs((aS1 + aA1) - (bS1 + bA1)) > 9;
             if (document.getElementById("use1HH2H").checked) {
@@ -4507,7 +4534,9 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
 
             const rawPace1H = (aS1 + aA1 + bS1 + bA1) / (2 * eb1H);
             const pace1 = Math.max(cl.min, Math.min(cl.max, rawPace1H));
-            const vl1 = league === "nba" ? 7 : 6;
+const vl1 = league === "nba"
+  ? ENGINE_TUNING.H1_VOL_LIMIT.nba
+  : ENGINE_TUNING.H1_VOL_LIMIT.other;
             aVol1 = (stdDev(safeArr(a1HS) || []) + stdDev(safeArr(a1HA) || [])) / 2;
             bVol1 = (stdDev(safeArr(b1HS) || []) + stdDev(safeArr(b1HA) || [])) / 2;
             const dfr1 = (aA1 < 35) || (bA1 < 35);
@@ -4520,8 +4549,8 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
             projB1H = projB1H * (MODEL.PACE_BLEND + pace1 / 2);
             if (injMultA !== 1) projA1H *= injMultA;
             if (injMultB !== 1) projB1H *= injMultB;
-            projA1H += hAdj * 0.375;
-            projB1H -= hAdj * 0.375;
+            projA1H += hAdj * ENGINE_TUNING.H1_HOME_EDGE_SHARE;
+projB1H -= hAdj * ENGINE_TUNING.H1_HOME_EDGE_SHARE;
 
             h1Proj = projA1H + projB1H;
             if (!isNaN(h1Proj)) {
@@ -4567,9 +4596,8 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
               : NaN;
 
             if (!isNaN(venueAQ1) && !isNaN(venueBQ1)) {
-              projAQ1 = (projAQ1 * 0.75) + (venueAQ1 * 0.25);
-              projBQ1 = (projBQ1 * 0.75) + (venueBQ1 * 0.25);
-            }
+              projAQ1 = (projAQ1 * ENGINE_TUNING.Q1_VENUE_BLEND.recent) + (venueAQ1 * ENGINE_TUNING.Q1_VENUE_BLEND.venue);
+projBQ1 = (projBQ1 * ENGINE_TUNING.Q1_VENUE_BLEND.recent) + (venueBQ1 * ENGINE_TUNING.Q1_VENUE_BLEND.venue);
             if (document.getElementById("useQ1H2H").checked) {
               let h2haQ1 = parsed.aQ1H2H, h2hbQ1 = parsed.bQ1H2H;
               if (h2haQ1?.err) h2haQ1 = null;
@@ -4794,24 +4822,8 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
         finalPicks.forEach(p => {
           const originalIndex = picks.indexOf(p);
           const isLock = lockIdx === originalIndex;
-          const row = table.insertRow();
-          let predText = p.pick;
-          if (p.note) predText = "—";
-          else if (markets[originalIndex] && markets[originalIndex].line === null) predText = "—";
-          if (isLock && predText !== "—" && predText !== "NO PLAY") predText += ' <span class="lock">🔒</span>';
-
-          const pd = isNaN(p.proj) ? "—" : p.proj.toFixed(2);
           const lineRef = markets[originalIndex]?.line;
-          const edgePct = (!isNaN(p.edge) && lineRef && lineRef > 0) ? (p.edge / lineRef) * 100 : NaN;
-          const ed = isNaN(edgePct) ? "—" : (edgePct > 0 ? "+" : "") + edgePct.toFixed(2) + "%";
-          const cn = predText.includes("OVER") ? "pred-over" : predText.includes("UNDER") ? "pred-under" : "pred-noplay";
-          const confidenceClass =
-            p.confidence === "A" ? "conf-a" :
-            p.confidence === "B" ? "conf-b" :
-            p.confidence === "C" ? "conf-c" :
-            p.confidence === "D" ? "conf-d" : "conf-none";
-
-          row.innerHTML = `<td>${p.name}</td><td>${pd}</td><td>${ed}</td><td class="${confidenceClass}">${p.confidence || "—"}</td><td class="${cn}">${predText}${p.note ? `<br><small class="error-note">${safeText(p.note)}</small>` : ""}</td>`;
+const { edgePct } = renderEngineResultRow(table, p, lineRef, isLock);
 
           const marketKey =
             p.name === "FT Total" ? "ft" : p.name === "1H Total" ? "h1" : p.name === "Q1 Total" ? "q1" :
@@ -4915,7 +4927,29 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
         if (runBtn) runBtn.disabled = false;
       }
     }
+function clearFieldValues(ids) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+}
 
+function setCheckboxValues(ids, checked) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = checked;
+  });
+}
+
+function setDisplayForIds(ids, display) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = display;
+  });
+}
+
+function hideAutoTags() {
+ hideAutoTags();
     function clearAll() {
       _fetchToken++;
       _fixtureLoadToken++;
@@ -4936,16 +4970,17 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
       });
 
             [
-        "ftMarket","h1Market","q1Market","teamAMarket","teamBMarket",
+       clearFieldValues([
+  "ftMarket","h1Market","q1Market","teamAMarket","teamBMarket",
 
-        "aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
-        "aHomeFTScored","aHomeFTAllowed","aHome1HScored","aHome1HAllowed","aHomeQ1Scored","aHomeQ1Allowed",
+  "aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
+  "aHomeFTScored","aHomeFTAllowed","aHome1HScored","aHome1HAllowed","aHomeQ1Scored","aHomeQ1Allowed",
 
-        "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
-        "bAwayFTScored","bAwayFTAllowed","bAway1HScored","bAway1HAllowed","bAwayQ1Scored","bAwayQ1Allowed",
+  "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
+  "bAwayFTScored","bAwayFTAllowed","bAway1HScored","bAway1HAllowed","bAwayQ1Scored","bAwayQ1Allowed",
 
-        "aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"
-      ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  "aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"
+]);
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
@@ -4954,10 +4989,7 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
   if (el) el.style.display = "none";
 });
 
-      ["aAutoTag","bAutoTag","aVenueAutoTag","bVenueAutoTag","h2hAutoTag"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = "none";
-      });
+      hideAutoTags();
 
       hideInjuryBox("A");
       hideInjuryBox("B");
