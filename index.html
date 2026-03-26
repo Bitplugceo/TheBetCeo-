@@ -2716,16 +2716,35 @@ current.unshift(ensureTrackedPickKeys(p));
     }
 
     function clearSideFields(side) {
-      const ids = side === "A"
-        ? ["aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed"]
-        : ["bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "bQ1Scored", "bQ1Allowed"];
-      ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-      const tag = document.getElementById(side === "A" ? "aAutoTag" : "bAutoTag");
-      if (tag) tag.style.display = "none";
-      if (side === "A") g_injA = defaultInjuryMeta();
-      if (side === "B") g_injB = defaultInjuryMeta();
-      hideInjuryBox(side);
-    }
+  const ids = side === "A"
+    ? [
+        "aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed",
+        "aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"
+      ]
+    : [
+        "bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "bQ1Scored", "bQ1Allowed",
+        "bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"
+      ];
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+
+  const tagIds = side === "A"
+    ? ["aAutoTag", "aVenueAutoTag"]
+    : ["bAutoTag", "bVenueAutoTag"];
+
+  tagIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+
+  if (side === "A") g_injA = defaultInjuryMeta();
+  if (side === "B") g_injB = defaultInjuryMeta();
+
+  hideInjuryBox(side);
+}
 
     function clearH2HFields() {
       ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "aQ1H2H", "bQ1H2H"].forEach(id => {
@@ -4141,12 +4160,20 @@ if (bVenueStats?.scored?.length > 0) {
         markError("aFTAllowed", "Team A FT Allowed", aAA, true);
         markError("bFTScored", "Team B FT Scored", bSA, true);
         markError("bFTAllowed", "Team B FT Allowed", bAA, true);
-
+if (hasValue("aHomeFTScored")) markError("aHomeFTScored", "Team A Home FT Scored", parsed.aHomeFTScored, true);
+if (hasValue("aHomeFTAllowed")) markError("aHomeFTAllowed", "Team A Home FT Allowed", parsed.aHomeFTAllowed, true);
+if (hasValue("bAwayFTScored")) markError("bAwayFTScored", "Team B Away FT Scored", parsed.bAwayFTScored, true);
+if (hasValue("bAwayFTAllowed")) markError("bAwayFTAllowed", "Team B Away FT Allowed", parsed.bAwayFTAllowed, true);
         if (isNbaOrNcaa) {
           if (hasValue("a1HScored")) markError("a1HScored", "Team A 1H Scored", parsed.a1HScored, true);
           if (hasValue("a1HAllowed")) markError("a1HAllowed", "Team A 1H Allowed", parsed.a1HAllowed, true);
           if (hasValue("b1HScored")) markError("b1HScored", "Team B 1H Scored", parsed.b1HScored, true);
-          if (hasValue("b1HAllowed")) markError("b1HAllowed", "Team B 1H Allowed", parsed.b1HAllowed, true);
+          
+        if (hasValue("b1HAllowed")) markError("b1HAllowed", "Team B 1H Allowed", parsed.b1HAllowed, true);
+        if (hasValue("aHome1HScored")) markError("aHome1HScored", "Team A Home 1H Scored", parsed.aHome1HScored, true);
+if (hasValue("aHome1HAllowed")) markError("aHome1HAllowed", "Team A Home 1H Allowed", parsed.aHome1HAllowed, true);
+if (hasValue("bAway1HScored")) markError("bAway1HScored", "Team B Away 1H Scored", parsed.bAway1HScored, true);
+if (hasValue("bAway1HAllowed")) markError("bAway1HAllowed", "Team B Away 1H Allowed", parsed.bAway1HAllowed, true);
         }
 
         if (isNba) {
@@ -4154,7 +4181,11 @@ if (bVenueStats?.scored?.length > 0) {
           if (hasValue("aQ1Allowed")) markError("aQ1Allowed", "Team A Q1 Allowed", parsed.aQ1Allowed, true);
           if (hasValue("bQ1Scored")) markError("bQ1Scored", "Team B Q1 Scored", parsed.bQ1Scored, true);
           if (hasValue("bQ1Allowed")) markError("bQ1Allowed", "Team B Q1 Allowed", parsed.bQ1Allowed, true);
-        }
+      if (hasValue("aHomeQ1Scored")) markError("aHomeQ1Scored", "Team A Home Q1 Scored", parsed.aHomeQ1Scored, true);
+if (hasValue("aHomeQ1Allowed")) markError("aHomeQ1Allowed", "Team A Home Q1 Allowed", parsed.aHomeQ1Allowed, true);
+if (hasValue("bAwayQ1Scored")) markError("bAwayQ1Scored", "Team B Away Q1 Scored", parsed.bAwayQ1Scored, true);
+if (hasValue("bAwayQ1Allowed")) markError("bAwayQ1Allowed", "Team B Away Q1 Allowed", parsed.bAwayQ1Allowed, true);
+          }
 
         if (document.getElementById("useFTH2H").checked) {
           markError("aFTH2H", "FT H2H Team A", parsed.aFTH2H, true);
@@ -4281,10 +4312,28 @@ if (hasVenueFT) {
           const full1HInputs = !isNaN(aS1) && !isNaN(aA1) && !isNaN(bS1) && !isNaN(bA1);
 
           if (full1HInputs) {
-            let projA1H = aS1 * MODEL.TEAM_WEIGHT + bA1 * MODEL.OPP_WEIGHT;
+                        let projA1H = aS1 * MODEL.TEAM_WEIGHT + bA1 * MODEL.OPP_WEIGHT;
             let projB1H = bS1 * MODEL.TEAM_WEIGHT + aA1 * MODEL.OPP_WEIGHT;
-            const pgr1 = Math.abs((aS1 + aA1) - (bS1 + bA1)) > 9;
 
+            const aHome1HS = safeArr(parsed.aHome1HScored) ? trimmedAvg(parsed.aHome1HScored) : NaN;
+            const aHome1HA = safeArr(parsed.aHome1HAllowed) ? trimmedAvg(parsed.aHome1HAllowed) : NaN;
+            const bAway1HS = safeArr(parsed.bAway1HScored) ? trimmedAvg(parsed.bAway1HScored) : NaN;
+            const bAway1HA = safeArr(parsed.bAway1HAllowed) ? trimmedAvg(parsed.bAway1HAllowed) : NaN;
+
+            const venueA1H = (!isNaN(aHome1HS) && !isNaN(bAway1HA))
+              ? aHome1HS * MODEL.TEAM_WEIGHT + bAway1HA * MODEL.OPP_WEIGHT
+              : NaN;
+
+            const venueB1H = (!isNaN(bAway1HS) && !isNaN(aHome1HA))
+              ? bAway1HS * MODEL.TEAM_WEIGHT + aHome1HA * MODEL.OPP_WEIGHT
+              : NaN;
+
+            if (!isNaN(venueA1H) && !isNaN(venueB1H)) {
+              projA1H = (projA1H * 0.70) + (venueA1H * 0.30);
+              projB1H = (projB1H * 0.70) + (venueB1H * 0.30);
+            }
+
+            const pgr1 = Math.abs((aS1 + aA1) - (bS1 + bA1)) > 9;
             if (document.getElementById("use1HH2H").checked) {
               let h2ha1 = parsed.a1HH2H, h2hb1 = parsed.b1HH2H;
               if (h2ha1?.err) h2ha1 = null;
@@ -4347,9 +4396,26 @@ if (hasVenueFT) {
           bA1Q = safeArr(bQ1A) ? trimmedAvg(bQ1A) : NaN;
 
           if (!isNaN(aS1Q) && !isNaN(aA1Q) && !isNaN(bS1Q) && !isNaN(bA1Q)) {
-            let projAQ1 = aS1Q * MODEL.TEAM_WEIGHT + bA1Q * MODEL.OPP_WEIGHT;
+                        let projAQ1 = aS1Q * MODEL.TEAM_WEIGHT + bA1Q * MODEL.OPP_WEIGHT;
             let projBQ1 = bS1Q * MODEL.TEAM_WEIGHT + aA1Q * MODEL.OPP_WEIGHT;
 
+            const aHomeQ1S = safeArr(parsed.aHomeQ1Scored) ? trimmedAvg(parsed.aHomeQ1Scored) : NaN;
+            const aHomeQ1A = safeArr(parsed.aHomeQ1Allowed) ? trimmedAvg(parsed.aHomeQ1Allowed) : NaN;
+            const bAwayQ1S = safeArr(parsed.bAwayQ1Scored) ? trimmedAvg(parsed.bAwayQ1Scored) : NaN;
+            const bAwayQ1A = safeArr(parsed.bAwayQ1Allowed) ? trimmedAvg(parsed.bAwayQ1Allowed) : NaN;
+
+            const venueAQ1 = (!isNaN(aHomeQ1S) && !isNaN(bAwayQ1A))
+              ? aHomeQ1S * MODEL.TEAM_WEIGHT + bAwayQ1A * MODEL.OPP_WEIGHT
+              : NaN;
+
+            const venueBQ1 = (!isNaN(bAwayQ1S) && !isNaN(aHomeQ1A))
+              ? bAwayQ1S * MODEL.TEAM_WEIGHT + aHomeQ1A * MODEL.OPP_WEIGHT
+              : NaN;
+
+            if (!isNaN(venueAQ1) && !isNaN(venueBQ1)) {
+              projAQ1 = (projAQ1 * 0.75) + (venueAQ1 * 0.25);
+              projBQ1 = (projBQ1 * 0.75) + (venueBQ1 * 0.25);
+            }
             if (document.getElementById("useQ1H2H").checked) {
               let h2haQ1 = parsed.aQ1H2H, h2hbQ1 = parsed.bQ1H2H;
               if (h2haQ1?.err) h2haQ1 = null;
@@ -4715,13 +4781,17 @@ if (hasVenueFT) {
         i.style.borderColor = "";
       });
 
-      [
+            [
         "ftMarket","h1Market","q1Market","teamAMarket","teamBMarket",
+
         "aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
+        "aHomeFTScored","aHomeFTAllowed","aHome1HScored","aHome1HAllowed","aHomeQ1Scored","aHomeQ1Allowed",
+
         "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed",
+        "bAwayFTScored","bAwayFTAllowed","bAway1HScored","bAway1HAllowed","bAwayQ1Scored","bAwayQ1Allowed",
+
         "aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"
       ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
@@ -4730,7 +4800,7 @@ if (hasVenueFT) {
   if (el) el.style.display = "none";
 });
 
-      ["aAutoTag","bAutoTag","h2hAutoTag"].forEach(id => {
+      ["aAutoTag","bAutoTag","aVenueAutoTag","bVenueAutoTag","h2hAutoTag"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
       });
@@ -4951,13 +5021,24 @@ if (hasVenueFT) {
         });
       });
 
-      const bucketMap = {
+            const bucketMap = {
         "aFTScored":["A","ft"], "aFTAllowed":["A","ft"],
+        "aHomeFTScored":["A","ft"], "aHomeFTAllowed":["A","ft"],
+
         "a1HScored":["A","h1"], "a1HAllowed":["A","h1"],
+        "aHome1HScored":["A","h1"], "aHome1HAllowed":["A","h1"],
+
         "aQ1Scored":["A","q1"], "aQ1Allowed":["A","q1"],
+        "aHomeQ1Scored":["A","q1"], "aHomeQ1Allowed":["A","q1"],
+
         "bFTScored":["B","ft"], "bFTAllowed":["B","ft"],
+        "bAwayFTScored":["B","ft"], "bAwayFTAllowed":["B","ft"],
+
         "b1HScored":["B","h1"], "b1HAllowed":["B","h1"],
-        "bQ1Scored":["B","q1"], "bQ1Allowed":["B","q1"]
+        "bAway1HScored":["B","h1"], "bAway1HAllowed":["B","h1"],
+
+        "bQ1Scored":["B","q1"], "bQ1Allowed":["B","q1"],
+        "bAwayQ1Scored":["B","q1"], "bAwayQ1Allowed":["B","q1"]
       };
 
       Object.entries(bucketMap).forEach(([id, [side, bucket]]) => {
