@@ -3416,7 +3416,7 @@ for (const season of [
   String(currentSeason - 1),
   String(currentSeason - 2)
 ]) {
-        for (const stype of ["2", "3"]) {
+for (const stype of ["1", "2", "3"]) {
           try {
             const key = `${base}:sched:${teamId}:${season}:${stype}`;
             const r = await (_schedCache.has(key)
@@ -3532,7 +3532,7 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
 
   async function collectCandidates(scanId) {
     for (let season = currentSeason; season >= 2024; season--) {
-      for (const stype of ["2", "3"]) {
+for (const stype of ["1", "2", "3"]) {
         try {
           const key = `${base}:sched:${scanId}:${season}:${stype}`;
           const r = await (_schedCache.has(key)
