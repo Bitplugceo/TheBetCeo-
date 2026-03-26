@@ -5109,13 +5109,8 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
                                         const isVenueInput = id.includes("Home") || id.includes("Away");
 
           if (isVenueInput) {
-            setManualSource(side, bucket);
-          } else {
-            g_fetchMeta[side][bucket] = {
-              source: "manual",
-              venueReliable: g_fetchMeta[side][bucket]?.venueReliable ?? true
-            };
-          }
+  setManualSource(side, bucket);
+}
 
           const tagId =
             side === "A"
