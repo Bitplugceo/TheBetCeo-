@@ -1433,7 +1433,33 @@
 const TRACKER_ARCHIVED_LIMIT = 2000;
 const TRACKER_ARCHIVE_AFTER_HOURS = 10;
 const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tracker-state";
+const TRACKER_USER_STORAGE_KEY = "bb_engine_tracker_user";
 
+function getTrackerUserKey() {
+  let key = localStorage.getItem(TRACKER_USER_STORAGE_KEY);
+
+  if (!key) {
+    key = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : "trk_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+
+    localStorage.setItem(TRACKER_USER_STORAGE_KEY, key);
+  }
+
+  return key;
+}
+
+function getTrackerHeaders(includeJson = false) {
+  const headers = {
+    "X-Tracker-User": getTrackerUserKey()
+  };
+
+  if (includeJson) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  return headers;
+}
 let g_trackerState = {
   activePicks: [],
   archivedPicks: [],
@@ -1800,9 +1826,10 @@ async function hydrateTrackedPicks(force = false) {
   if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
   g_trackerHydratePromise = fetch(TRACKER_API_URL, {
-    method: "GET",
-    cache: "no-store"
-  })
+  method: "GET",
+  cache: "no-store",
+  headers: getTrackerHeaders(false)
+})
     .then(async res => {
       if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
       const data = await res.json();
@@ -1822,11 +1849,11 @@ async function hydrateTrackedPicks(force = false) {
 }
 
 async function pushTrackerStateToServer() {
-  const res = await fetch(TRACKER_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(g_trackerState)
-  });
+const res = await fetch(TRACKER_API_URL, {
+  method: "POST",
+  headers: getTrackerHeaders(true),
+  body: JSON.stringify(g_trackerState)
+});
 
   if (!res.ok) {
     throw new Error("Tracker POST failed (" + res.status + ")");
