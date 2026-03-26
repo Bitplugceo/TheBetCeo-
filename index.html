@@ -1810,14 +1810,6 @@ function saveTrackedPicks(picks) {
     });
 }
 
-  rebuildTrackerStats();
-  g_trackerState.updatedAt = new Date().toISOString();
-
-  pushTrackerStateToServer().catch(err => {
-    console.error("[BB Engine] saveTrackedPicks failed", err);
-    setStatusText("⚠ Tracker sync failed. Refresh later and try again.", "err");
-  });
-}
 
   function archiveExpiredTrackedPicks() {
   const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
