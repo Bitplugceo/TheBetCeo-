@@ -1803,10 +1803,12 @@ function renderTrackedPicks() {
     `;
   }).join("");
 }
-      if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-      if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
-      return "";
-    }
+
+function getTrackedLeagueBase(league) {
+  if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+  if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
+  return "";
+}
 
     function sumLineScores(lines, count) {
       if (!Array.isArray(lines) || !lines.length) return 0;
