@@ -961,7 +961,7 @@
 </div>
 
 <div class="section" id="teamASection">
-  <h3>Team A - Home (Last 5) <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
+<h3>Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
   <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
   <input id="aFTScored" placeholder="85,79,88,74,82" />
@@ -984,7 +984,7 @@
 </div>
 
 <div class="section" id="teamBSection">
-  <h3>Team B - Away (Last 5) <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
+<h3>Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
   <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
   <input id="bFTScored" placeholder="83,77,81,79,80" />
@@ -3109,9 +3109,9 @@ selectedTeamIds.B = String(teamBId);
         setStatusHTML('<span class="spinner"></span>Loading game stats...', "loading");
 
         const [aStats, bStats] = await Promise.all([
-          isNcaa ? fetchNcaaSchedule(espnBase, teamAId, "home") : fetchNbaSchedule(espnBase, teamAId, "home"),
-          isNcaa ? fetchNcaaSchedule(espnBase, teamBId, "away") : fetchNbaSchedule(espnBase, teamBId, "away")
-        ]);
+  isNcaa ? fetchNcaaSchedule(espnBase, teamAId, null) : fetchNbaSchedule(espnBase, teamAId, null),
+  isNcaa ? fetchNcaaSchedule(espnBase, teamBId, null) : fetchNbaSchedule(espnBase, teamBId, null)
+]);
 
         if (myToken !== _fetchToken) return;
         if (!aStats && !bStats) throw new Error("No recent schedule data found from ESPN.");
