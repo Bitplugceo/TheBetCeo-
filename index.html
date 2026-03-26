@@ -3624,10 +3624,17 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
       const cB = competitors.find(c => matchesTeam(c, tB));
       if (!cA || !cB) continue;
 
-      let sA = parseFloat(cA?.score);
-      let sB = parseFloat(cB?.score);
-      if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
+      let sA = readVal(cA?.score);
+let sB = readVal(cB?.score);
 
+if ((!isFinite(sA) || sA <= 0) && Array.isArray(cA?.linescores) && cA.linescores.length) {
+  sA = cA.linescores.reduce((t, p) => t + readVal(p), 0);
+}
+if ((!isFinite(sB) || sB <= 0) && Array.isArray(cB?.linescores) && cB.linescores.length) {
+  sB = cB.linescores.reduce((t, p) => t + readVal(p), 0);
+}
+
+if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
       const lA = cA?.linescores || [];
       const lB = cB?.linescores || [];
 
@@ -3766,10 +3773,17 @@ async function fetchNcaaH2H(base, teamAId, teamBId) {
       const cB = competitors.find(c => matchesTeam(c, tB));
       if (!cA || !cB) continue;
 
-      let sA = parseFloat(cA?.score);
-      let sB = parseFloat(cB?.score);
-      if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
+      let sA = readVal(cA?.score);
+let sB = readVal(cB?.score);
 
+if ((!isFinite(sA) || sA <= 0) && Array.isArray(cA?.linescores) && cA.linescores.length) {
+  sA = cA.linescores.reduce((t, p) => t + readVal(p), 0);
+}
+if ((!isFinite(sB) || sB <= 0) && Array.isArray(cB?.linescores) && cB.linescores.length) {
+  sB = cB.linescores.reduce((t, p) => t + readVal(p), 0);
+}
+
+if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
       const lA = cA?.linescores || [];
       const lB = cB?.linescores || [];
 
