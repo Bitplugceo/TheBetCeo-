@@ -1825,11 +1825,11 @@ function normalizeTrackerState(raw) {
 async function hydrateTrackedPicks(force = false) {
   if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
-  g_trackerHydratePromise = fetch(TRACKER_API_URL, {
-  method: "GET",
-  cache: "no-store",
-  headers: getTrackerHeaders(false)
-})
+   g_trackerHydratePromise = fetch(TRACKER_API_URL, {
+    method: "GET",
+    cache: "no-store",
+    headers: getTrackerHeaders(false)
+  })
     .then(async res => {
       if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
       const data = await res.json();
