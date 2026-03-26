@@ -1162,7 +1162,7 @@
     </div>
   </div>
 </div>
-<div id="teamAVenueSection" style="margin-top:10px;padding-top:10px;border-top:1px solid #dfe2e7;">
+<div class="section" id="teamAVenueSection">
   <h3 style="font-size:14px;margin-bottom:8px;">Team A - Actual Home Last 5 <span class="autofill-indicator" id="aVenueAutoTag">✅ Auto-filled</span></h3>
 
   <label>FT Scored</label>
@@ -1186,7 +1186,7 @@
   </div>
 </div>
 
-<div id="teamBVenueSection" style="margin-top:10px;padding-top:10px;border-top:1px solid #dfe2e7;">
+<div class="section" id="teamBVenueSection">
   <h3 style="font-size:14px;margin-bottom:8px;">Team B - Actual Away Last 5 <span class="autofill-indicator" id="bVenueAutoTag">✅ Auto-filled</span></h3>
 
   <label>FT Scored</label>
@@ -1602,7 +1602,7 @@ let g_trackerSaveChain = Promise.resolve();
     }
 
     function accordionOpen(id, keepMarketOpen = false) {
-      ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(sectionId => {
+      ["leagueSection", "espnSection", "marketSection", "teamASection", "teamAVenueSection", "teamBSection", "teamBVenueSection", "h2hSection"].forEach(sectionId => {
         if (sectionId !== id && !(keepMarketOpen && sectionId === "marketSection")) {
           closeSection(sectionId);
         }
@@ -1611,7 +1611,7 @@ let g_trackerSaveChain = Promise.resolve();
     }
 
     function lockFrom(startId) {
-      const order = ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
+      const order = ["espnSection", "marketSection", "teamASection", "teamAVenueSection", "teamBSection", "teamBVenueSection", "h2hSection"];
       let locking = false;
       order.forEach(id => {
         if (id === startId) locking = true;
@@ -2839,12 +2839,14 @@ current.unshift(ensureTrackedPickKeys(p));
       const league = document.getElementById("leagueSelect").value;
       const isNbaOrNcaa = league === "nba" || league === "ncaa";
       if (!league) {
-        ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"].forEach(lockSection);
+        ["espnSection", "marketSection", "teamASection", "teamAVenueSection", "teamBSection", "teamBVenueSection", "h2hSection"].forEach(lockSection);
         return;
       }
-      unlockSection("marketSection");
+            unlockSection("marketSection");
       unlockSection("teamASection");
+      unlockSection("teamAVenueSection");
       unlockSection("teamBSection");
+      unlockSection("teamBVenueSection");
       unlockSection("h2hSection");
       if (isNbaOrNcaa) unlockSection("espnSection");
       else lockSection("espnSection");
@@ -3968,21 +3970,20 @@ if (bVenueStats?.scored?.length > 0) {
 } else {
   messages.push(`${safeText(teamBName)} away: no data ❌`);
 }
-        g_fetchMeta.A = aStats ? {
-          ft: { source: "espn", venueReliable: aStats.venueReliable !== false },
-          h1: { source: "espn", venueReliable: aStats.venueReliable !== false },
-          q1: { source: "espn", venueReliable: !!aStats.q1VenueReliable }
-        } : defaultFetchMeta().A;
+                g_fetchMeta.A = {
+          ft: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.scored?.length >= 2) },
+          h1: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.h1Scored?.length >= 2 && aVenueStats.h1Allowed?.length >= 2) },
+          q1: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.q1Scored?.length >= 2 && aVenueStats.q1Allowed?.length >= 2) }
+        };
 
-        g_fetchMeta.B = bStats ? {
-          ft: { source: "espn", venueReliable: bStats.venueReliable !== false },
-          h1: { source: "espn", venueReliable: bStats.venueReliable !== false },
-          q1: { source: "espn", venueReliable: !!bStats.q1VenueReliable }
-        } : defaultFetchMeta().B;
+        g_fetchMeta.B = {
+          ft: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.scored?.length >= 2) },
+          h1: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.h1Scored?.length >= 2 && bVenueStats.h1Allowed?.length >= 2) },
+          q1: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.q1Scored?.length >= 2 && bVenueStats.q1Allowed?.length >= 2) }
+        };
 
-        if (aStats?.usedVenueFallback) messages.push(`${safeText(teamAName)}: venue fallback used — projection only ⚠️`);
-        if (bStats?.usedVenueFallback) messages.push(`${safeText(teamBName)}: venue fallback used — projection only ⚠️`);
-
+                if (!aVenueStats) messages.push(`${safeText(teamAName)} home: strict venue sample missing ⚠️`);
+        if (!bVenueStats) messages.push(`${safeText(teamBName)} away: strict venue sample missing ⚠️`);
         setStatusHTML('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
 
         let h2hGames = [];
@@ -4301,7 +4302,7 @@ let venueBFT = (!isNaN(bAwayS) && !isNaN(aHomeA)) ? bAwayS * MODEL.TEAM_WEIGHT +
           if (!isNaN(projBFT) && !isNaN(h2hAvgB)) projBFT = projBFT * (1 - w) + h2hAvgB * w;
         }
 
-        const blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : NaN;
+        let blowoutGap = NaN;
         const aVol = (stdDev(safeArr(aSA) || []) + stdDev(safeArr(aAA) || [])) / 2;
         const bVol = (stdDev(safeArr(bSA) || []) + stdDev(safeArr(bAA) || [])) / 2;
         const volatilityBlock = aVol > (vl * 1.35) || bVol > (vl * 1.35);
@@ -4332,6 +4333,8 @@ if (hasVenueFT) {
   projAFT = (projAFT * 0.65) + (venueAFT * 0.35);
   projBFT = (projBFT * 0.65) + (venueBFT * 0.35);
 }
+
+blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : NaN;
         let ftProj = !isNaN(projAFT) && !isNaN(projBFT) ? projAFT + projBFT : NaN;
         const defensiveFloorFlag = (!isNaN(aA) && aA < 70) || (!isNaN(bA) && bA < 70);
 
