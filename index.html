@@ -3373,177 +3373,180 @@ function getCurrentSeasonYear(league) {
     });
 }
      async function fetchNbaSchedule(base, teamId, requiredVenue, allowFallback = true) {
-      const tId = String(teamId);
+  const tId = String(teamId);
 
-const currentSeason = getCurrentSeasonYear("nba");
-const unique = await collectFinishedTeamGameRefs({
-  base,
-  teamId,
-  seasonYears: [String(currentSeason), String(currentSeason - 1)]
-});
+  const currentSeason = getCurrentSeasonYear("nba");
+  const unique = await collectFinishedTeamGameRefs({
+    base,
+    teamId,
+    seasonYears: [String(currentSeason), String(currentSeason - 1)]
+  });
 
-if (!unique.length) return null;
+  if (!unique.length) return null;
 
-      if (!gameRefs.length) return null;
-      const seen = new Set();
-      const unique = gameRefs.filter(g => {
-        if (seen.has(g.id)) return false;
-        seen.add(g.id); return true;
-      }).sort((a, b) => {
-        const da = a.date ? new Date(a.date).getTime() : 0;
-        const db = b.date ? new Date(b.date).getTime() : 0;
-        return db - da;
-      });
+  const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
+  const venueReliable = strictFiltered.length >= 2;
+  const usedVenueFallback = !!requiredVenue && !venueReliable && unique.length >= 2 && allowFallback;
+  const chosen = venueReliable ? strictFiltered : (allowFallback ? unique : strictFiltered);
+  if (chosen.length < 2) return null;
 
-            const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
-      const venueReliable = strictFiltered.length >= 2;
-      const usedVenueFallback = !!requiredVenue && !venueReliable && unique.length >= 2 && allowFallback;
-      const chosen = venueReliable ? strictFiltered : (allowFallback ? unique : strictFiltered);
-      if (chosen.length < 2) return null;
+  const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
 
-      const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
+  for (const ref of chosen) {
+    let ms = ref.rawS, os = ref.rawA;
+    let h1m = 0, h1o = 0, q1m = 0, q1o = 0, gotLS = false;
 
-      for (const ref of chosen) {
-        let ms = ref.rawS, os = ref.rawA;
-        let h1m = 0, h1o = 0, q1m = 0, q1o = 0, gotLS = false;
+    try {
+      const key = `${base}:sum:${ref.id}`;
+      const data = await (_summaryCache.has(key)
+        ? _summaryCache.get(key)
+        : (() => {
+            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+              _summaryCache.delete(key);
+              throw err;
+            });
+            cacheSet(_summaryCache, key, p);
+            return p;
+          })());
 
-        try {
-          // V3: 80ms delay removed
-          const key = `${base}:sum:${ref.id}`;
-          const data = await (_summaryCache.has(key)
-            ? _summaryCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-                  _summaryCache.delete(key); throw err;
-                });
-                cacheSet(_summaryCache, key, p);
-                return p;
-              })());
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp = competitors.find(c => !matchesTeam(c, tId));
 
-          const hc = data?.header?.competitions?.[0];
-          if (hc) {
-            const competitors = hc?.competitors || [];
-            const mine = competitors.find(c => matchesTeam(c, tId));
-            const opp = competitors.find(c => !matchesTeam(c, tId));
-            if (mine && opp) {
-              const lm = mine?.linescores || [];
-              const lo = opp?.linescores || [];
-              if (lm.length >= 1) {
-                gotLS = true;
-                ms = parseFloat(mine.score) || ms;
-                os = parseFloat(opp.score) || os;
-                q1m = readVal(lm[0]);
-                q1o = readVal(lo[0]);
-                h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
-                h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
-                [ms, os] = stripOTFromScores(ms, os, lm, lo, 4);
-              }
-            }
+        if (mine && opp) {
+          const lm = mine?.linescores || [];
+          const lo = opp?.linescores || [];
+
+          if (lm.length >= 1) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score) || os;
+            q1m = readVal(lm[0]);
+            q1o = readVal(lo[0]);
+            h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
+            h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
+            [ms, os] = stripOTFromScores(ms, os, lm, lo, 4);
           }
-        } catch (e) {
-          logDebug("fetchNbaSchedule summary failed", e);
         }
-
-if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-        scored.push(Math.round(ms));
-        allowed.push(Math.round(os));
-        if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
-        if (gotLS && q1m > 0) { q1Scored.push(Math.round(q1m)); q1Allowed.push(Math.round(q1o)); }
-        if (scored.length >= 5) break;
       }
-
-      return scored.length >= 2
-        ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed,
-            lastGameDate: unique[0]?.date || null, venueReliable, usedVenueFallback,
-            q1VenueReliable: venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2 }
-        : null;
+    } catch (e) {
+      logDebug("fetchNbaSchedule summary failed", e);
     }
+
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+
+    scored.push(Math.round(ms));
+    allowed.push(Math.round(os));
+    if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
+    if (gotLS && q1m > 0) { q1Scored.push(Math.round(q1m)); q1Allowed.push(Math.round(q1o)); }
+    if (scored.length >= 5) break;
+  }
+
+  return scored.length >= 2
+    ? {
+        scored,
+        allowed,
+        h1Scored,
+        h1Allowed,
+        q1Scored,
+        q1Allowed,
+        lastGameDate: unique[0]?.date || null,
+        venueReliable,
+        usedVenueFallback,
+        q1VenueReliable: venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2
+      }
+    : null;
+}
 
     async function fetchNcaaSchedule(base, teamId, requiredVenue, allowFallback = true) {
-      const tId = String(teamId);
+  const tId = String(teamId);
 
-const currentSeason = getCurrentSeasonYear("ncaa");
-const unique = await collectFinishedTeamGameRefs({
-  base,
-  teamId,
-  seasonYears: [
-    String(currentSeason),
-    String(currentSeason - 1),
-    String(currentSeason - 2)
-  ]
-});
+  const currentSeason = getCurrentSeasonYear("ncaa");
+  const unique = await collectFinishedTeamGameRefs({
+    base,
+    teamId,
+    seasonYears: [
+      String(currentSeason),
+      String(currentSeason - 1),
+      String(currentSeason - 2)
+    ]
+  });
 
-if (!unique.length) return null;
+  if (!unique.length) return null;
 
-      if (!gameRefs.length) return null;
-      const seen = new Set();
-      const unique = gameRefs.filter(g => {
-        if (seen.has(g.id)) return false;
-        seen.add(g.id); return true;
-      }).sort((a, b) => {
-        const da = a.date ? new Date(a.date).getTime() : 0;
-        const db = b.date ? new Date(b.date).getTime() : 0;
-        return db - da;
-      });
+  const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
+  const venueReliable = strictFiltered.length >= 2;
+  const usedVenueFallback = !!requiredVenue && !venueReliable && unique.length >= 2 && allowFallback;
+  const chosen = venueReliable ? strictFiltered : (allowFallback ? unique : strictFiltered);
+  if (chosen.length < 2) return null;
 
-            const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
-      const venueReliable = strictFiltered.length >= 2;
-      const usedVenueFallback = !!requiredVenue && !venueReliable && unique.length >= 2 && allowFallback;
-      const chosen = venueReliable ? strictFiltered : (allowFallback ? unique : strictFiltered);
-      if (chosen.length < 2) return null;
-      const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
+  const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
 
-      for (const ref of chosen) {
-        let ms = ref.rawS, os = ref.rawA;
-        let h1m = 0, h1o = 0, gotLS = false;
+  for (const ref of chosen) {
+    let ms = ref.rawS, os = ref.rawA;
+    let h1m = 0, h1o = 0, gotLS = false;
 
-        try {
-          // V3: 80ms delay removed
-          const key = `${base}:sum:${ref.id}`;
-          const data = await (_summaryCache.has(key)
-            ? _summaryCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-                  _summaryCache.delete(key); throw err;
-                });
-                cacheSet(_summaryCache, key, p);
-                return p;
-              })());
+    try {
+      const key = `${base}:sum:${ref.id}`;
+      const data = await (_summaryCache.has(key)
+        ? _summaryCache.get(key)
+        : (() => {
+            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+              _summaryCache.delete(key);
+              throw err;
+            });
+            cacheSet(_summaryCache, key, p);
+            return p;
+          })());
 
-          const hc = data?.header?.competitions?.[0];
-          if (hc) {
-            const competitors = hc?.competitors || [];
-            const mine = competitors.find(c => matchesTeam(c, tId));
-            const opp = competitors.find(c => !matchesTeam(c, tId));
-            if (mine && opp) {
-              const lm = mine?.linescores || [];
-              const lo = opp?.linescores || [];
-              if (lm.length >= 1) {
-                gotLS = true;
-                ms = parseFloat(mine.score) || ms;
-                os = parseFloat(opp.score) || os;
-                [h1m, h1o] = extractFirstHalf(lm, lo);
-                [ms, os] = stripOTFromScores(ms, os, lm, lo, 2);
-              }
-            }
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp = competitors.find(c => !matchesTeam(c, tId));
+
+        if (mine && opp) {
+          const lm = mine?.linescores || [];
+          const lo = opp?.linescores || [];
+
+          if (lm.length >= 1) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score) || os;
+            [h1m, h1o] = extractFirstHalf(lm, lo);
+            [ms, os] = stripOTFromScores(ms, os, lm, lo, 2);
           }
-        } catch (e) {
-          logDebug("fetchNcaaSchedule summary failed", e);
         }
-
-if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-        scored.push(Math.round(ms));
-        allowed.push(Math.round(os));
-        if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
-        if (scored.length >= 5) break;
       }
-
-      return scored.length >= 2
-        ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed,
-            lastGameDate: unique[0]?.date || null, venueReliable, usedVenueFallback,
-            q1VenueReliable: venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2 }
-        : null;
+    } catch (e) {
+      logDebug("fetchNcaaSchedule summary failed", e);
     }
+
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+
+    scored.push(Math.round(ms));
+    allowed.push(Math.round(os));
+    if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
+    if (scored.length >= 5) break;
+  }
+
+  return scored.length >= 2
+    ? {
+        scored,
+        allowed,
+        h1Scored,
+        h1Allowed,
+        q1Scored,
+        q1Allowed,
+        lastGameDate: unique[0]?.date || null,
+        venueReliable,
+        usedVenueFallback,
+        q1VenueReliable: venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2
+      }
+    : null;
+}
 
 async function collectH2HCandidateRefs({ base, teamAId, teamBId, seasonYears }) {
   const tA = String(teamAId);
@@ -3624,8 +3627,6 @@ const refs = await collectH2HCandidateRefs({
 if (!refs.length) return [];
 
 const h2h = [];
-
-  const h2h = [];
 
   for (const ref of refs) {
     try {
@@ -3728,9 +3729,6 @@ const refs = await collectH2HCandidateRefs({
 if (!refs.length) return [];
 
 const h2h = [];
-
-  const h2h = [];
-
   for (const ref of refs) {
     try {
       const key = `${base}:sum:${ref.id}`;
@@ -4285,10 +4283,10 @@ function renderEngineResultRow(table, p, lineRef, isLock) {
           fiba_eb:11,fiba_ac:11,unknown:12
         };
 
-const eb = LEAGUE_BASES[league] || 160;
+const eb = bases[league] || 160;
 const cl = getEffectivePaceClamp(league);
-const hAdj = LEAGUE_HOME_EDGE[league] || 1.5;
-const vl = LEAGUE_VOL_LIMITS[league] || 12;
+const hAdj = homeEdge[league] || 1.5;
+const vl = volLimits[league] || 12;
         const ftLine = snapHalf(parseMarketLine(document.getElementById("ftMarket").value));
         const h1Line = snapHalf(parseMarketLine(document.getElementById("h1Market").value));
         const q1Line = snapHalf(parseMarketLine(document.getElementById("q1Market").value));
@@ -4949,8 +4947,13 @@ function setDisplayForIds(ids, display) {
 }
 
 function hideAutoTags() {
- hideAutoTags();
-    function clearAll() {
+  ["aAutoTag", "bAutoTag", "aVenueAutoTag", "bVenueAutoTag", "h2hAutoTag"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+}
+
+function clearAll() {
       _fetchToken++;
       _fixtureLoadToken++;
       _teamSearchToken.A++;
@@ -4969,8 +4972,7 @@ function hideAutoTags() {
         i.style.borderColor = "";
       });
 
-            [
-       clearFieldValues([
+                  clearFieldValues([
   "ftMarket","h1Market","q1Market","teamAMarket","teamBMarket",
 
   "aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
