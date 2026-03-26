@@ -2120,9 +2120,11 @@ function rebuildTrackerStats() {
 
 function normalizeTrackerState(raw) {
   g_trackerState = {
-    activePicks: Array.isArray(raw?.activePicks) ? raw.activePicks : [],
+    activePicks: Array.isArray(raw?.activePicks)
+      ? raw.activePicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKED_PICKS_LIMIT)
+      : [],
     archivedPicks: Array.isArray(raw?.archivedPicks)
-      ? raw.archivedPicks.slice(0, TRACKER_ARCHIVED_LIMIT)
+      ? raw.archivedPicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKER_ARCHIVED_LIMIT)
       : [],
     stats: {
       total: Number(raw?.stats?.total) || 0,
@@ -2185,7 +2187,7 @@ function loadTrackedPicks() {
 
 function saveTrackedPicks(picks) {
   g_trackerState.activePicks = Array.isArray(picks)
-    ? picks.slice(0, TRACKED_PICKS_LIMIT)
+    ? picks.map(p => ensureTrackedPickKeys({ ...p })).slice(0, TRACKED_PICKS_LIMIT)
     : [];
 
   if (!Array.isArray(g_trackerState.archivedPicks)) {
@@ -2201,7 +2203,6 @@ function saveTrackedPicks(picks) {
   });
 }
 
-function archiveExpiredTrackedPicks() {
   const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   if (!active.length) return false;
 
