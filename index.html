@@ -667,6 +667,108 @@
       color: #2a2f38;
     }
 
+    .tracker-analytics-wrap {
+      padding: 10px 14px 0;
+      border-bottom: 1px solid #dfe2e7;
+      background: #ffffff;
+    }
+
+    .tracker-analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .tracker-card {
+      border: 1px solid #dfe2e7;
+      background: #f6f7f9;
+      padding: 8px;
+    }
+
+    .tracker-card-title {
+      font-size: 10px;
+      font-weight: 800;
+      color: #7b8088;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 4px;
+    }
+
+    .tracker-card-value {
+      font-size: 16px;
+      font-weight: 800;
+      color: #20242c;
+      margin-bottom: 4px;
+    }
+
+    .tracker-card-sub {
+      font-size: 11px;
+      font-weight: 700;
+      color: #5a5f6b;
+      line-height: 1.4;
+    }
+
+    .tracker-section-block {
+      margin-bottom: 10px;
+    }
+
+    .tracker-section-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #20242c;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .tracker-mini-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: #fff !important;
+      margin-top: 0;
+    }
+
+    .tracker-mini-table th,
+    .tracker-mini-table td {
+      border: 1px solid #dfe2e7;
+      padding: 6px 5px;
+      text-align: left;
+    }
+
+    .tracker-mini-table th {
+      background: #eceff3 !important;
+      color: #2a2f38 !important;
+      font-weight: 800;
+    }
+
+    .tracker-mini-table td {
+      background: #fff !important;
+      color: #1f2430 !important;
+      font-weight: 700 !important;
+    }
+
+    .tracker-empty-mini {
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #7b8088;
+      border: 1px solid #dfe2e7;
+      background: #f6f7f9;
+    }
+
+    .tracker-recommendation {
+      border: 1px solid #dfe2e7;
+      background: #f6f7f9;
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #20242c;
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+    
     /* ── Dark mode ── */
     body.dark-mode {
       background: #111 !important;
@@ -789,6 +891,56 @@
       border-color: #333 !important;
       color: #d4af37 !important;
     }
+    
+      body.dark-mode .tracker-analytics-wrap {
+      background: #1a1a1a !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .tracker-card {
+      background: #151515 !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .tracker-card-title {
+      color: #9aa0a8 !important;
+    }
+
+    body.dark-mode .tracker-card-value {
+      color: #d4af37 !important;
+    }
+
+    body.dark-mode .tracker-card-sub {
+      color: #c3aa55 !important;
+    }
+
+    body.dark-mode .tracker-section-title {
+      color: #d4af37 !important;
+    }
+
+    body.dark-mode .tracker-mini-table {
+      background: #1a1a1a !important;
+    }
+
+    body.dark-mode .tracker-mini-table th {
+      background: #111 !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .tracker-mini-table td {
+      background: #1a1a1a !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
+    }
+
+    body.dark-mode .tracker-empty-mini,
+    body.dark-mode .tracker-recommendation {
+      background: #151515 !important;
+      color: #d4af37 !important;
+      border-color: #333 !important;
+    }
+    
   </style>
 
 </head>
@@ -1052,6 +1204,29 @@
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
       <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+            <div id="trackerAnalyticsWrap" class="tracker-analytics-wrap" style="display:none;">
+        <div id="trackerAnalyticsGrid" class="tracker-analytics-grid"></div>
+
+        <div id="trackerWeakBucketsBlock" class="tracker-section-block" style="display:none;">
+          <div class="tracker-section-title">Weakest Buckets</div>
+          <div id="trackerWeakBuckets"></div>
+        </div>
+
+        <div id="trackerTeamInsightsBlock" class="tracker-section-block" style="display:none;">
+          <div class="tracker-section-title">Team Performance</div>
+          <div id="trackerTeamInsights"></div>
+        </div>
+
+        <div id="trackerMatchupInsightsBlock" class="tracker-section-block" style="display:none;">
+          <div class="tracker-section-title">Matchup Performance</div>
+          <div id="trackerMatchupInsights"></div>
+        </div>
+
+        <div id="trackerRecommendationsBlock" class="tracker-section-block" style="display:none;">
+          <div class="tracker-section-title">Engine Recommendations</div>
+          <div id="trackerRecommendations"></div>
+        </div>
+      </div>
       <div class="tracker-market-summary" id="trackerMarketSummary" style="display:none;"></div>
       <div id="trackerEmpty" style="padding:12px 14px;font-size:12px;color:#7b8088;">
         No tracked picks saved yet.
@@ -1504,7 +1679,429 @@ let g_trackerHydratePromise = null;
         minute: "2-digit"
       });
     }
+function normalizeTrackerKey(name) {
+  return normalizeTeamName(name).replace(/\s+/g, "_");
+}
 
+function makePairKey(homeTeam, awayTeam) {
+  const parts = [normalizeTrackerKey(homeTeam), normalizeTrackerKey(awayTeam)]
+    .filter(Boolean)
+    .sort();
+  return parts.join("__");
+}
+
+function makePairLabel(homeTeam, awayTeam) {
+  const parts = [String(homeTeam || "").trim(), String(awayTeam || "").trim()]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  return parts.join(" vs ") || "—";
+}
+
+function makePairVenueKey(homeTeam, awayTeam) {
+  const home = normalizeTrackerKey(homeTeam);
+  const away = normalizeTrackerKey(awayTeam);
+  if (!home && !away) return "";
+  return `${home}_home__${away}_away`;
+}
+
+function ensureTrackedPickKeys(pick) {
+  if (!pick || typeof pick !== "object") return pick;
+  pick.homeTeamNorm = pick.homeTeamNorm || normalizeTrackerKey(pick.homeTeam || "");
+  pick.awayTeamNorm = pick.awayTeamNorm || normalizeTrackerKey(pick.awayTeam || "");
+  pick.pairKey = pick.pairKey || makePairKey(pick.homeTeam || "", pick.awayTeam || "");
+  pick.pairLabel = pick.pairLabel || makePairLabel(pick.homeTeam || "", pick.awayTeam || "");
+  pick.pairVenueKey = pick.pairVenueKey || makePairVenueKey(pick.homeTeam || "", pick.awayTeam || "");
+  pick.confidenceGrade = pick.confidenceGrade || pick?.diagnostics?.confidenceGrade || "";
+  return pick;
+}
+
+function formatAggRecord(bucket) {
+  return `${bucket.wins}-${bucket.losses}-${bucket.pushes}`;
+}
+
+function formatAggPct(bucket) {
+  return bucket && bucket.settled
+    ? (bucket.winRate * 100).toFixed(1) + "%"
+    : "—";
+}
+
+function formatAggMiss(bucket) {
+  return bucket && bucket.avgMiss !== null && bucket.avgMiss !== undefined && isFinite(bucket.avgMiss)
+    ? bucket.avgMiss.toFixed(2)
+    : "—";
+}
+
+function initAggBucket(key, label) {
+  return {
+    key,
+    label,
+    total: 0,
+    settled: 0,
+    wins: 0,
+    losses: 0,
+    pushes: 0,
+    missTotal: 0,
+    missCount: 0,
+    winRate: 0,
+    avgMiss: null
+  };
+}
+
+function applyAggResult(bucket, pick) {
+  if (!bucket || !pick) return;
+
+  bucket.total++;
+
+  const status = String(pick.resultStatus || "pending").toLowerCase();
+  if (status === "pending") return;
+
+  bucket.settled++;
+
+  if (status === "win") bucket.wins++;
+  else if (status === "loss") bucket.losses++;
+  else if (status === "push") bucket.pushes++;
+
+  const missAbs = Number(pick.missAbs);
+  if (isFinite(missAbs)) {
+    bucket.missTotal += missAbs;
+    bucket.missCount++;
+  }
+}
+
+function finalizeAggBucket(bucket) {
+  if (!bucket) return bucket;
+  bucket.winRate = bucket.settled ? bucket.wins / bucket.settled : 0;
+  bucket.avgMiss = bucket.missCount ? bucket.missTotal / bucket.missCount : null;
+  return bucket;
+}
+
+function initEntityBucket(key, label) {
+  return {
+    ...initAggBucket(key, label),
+    markets: {
+      ft: initAggBucket("ft", "FT"),
+      h1: initAggBucket("h1", "1H"),
+      q1: initAggBucket("q1", "Q1"),
+      team_a: initAggBucket("team_a", "Team A"),
+      team_b: initAggBucket("team_b", "Team B")
+    },
+    weakestMarket: null
+  };
+}
+
+function applyEntityResult(bucket, pick) {
+  applyAggResult(bucket, pick);
+  if (bucket?.markets?.[pick.marketKey]) {
+    applyAggResult(bucket.markets[pick.marketKey], pick);
+  }
+}
+
+function getWeakestNestedMarket(markets, minSettled = 3) {
+  const list = Object.values(markets || {})
+    .map(finalizeAggBucket)
+    .filter(bucket => bucket.settled >= minSettled);
+
+  if (!list.length) return null;
+
+  return [...list].sort((a, b) =>
+    a.winRate - b.winRate ||
+    b.settled - a.settled ||
+    (b.avgMiss || 0) - (a.avgMiss || 0)
+  )[0];
+}
+
+function finalizeEntityBucket(bucket) {
+  finalizeAggBucket(bucket);
+  Object.values(bucket.markets || {}).forEach(finalizeAggBucket);
+  bucket.weakestMarket = getWeakestNestedMarket(bucket.markets, 3);
+  return bucket;
+}
+
+function makeTrackerCard(title, value, sub) {
+  return `
+    <div class="tracker-card">
+      <div class="tracker-card-title">${safeText(title)}</div>
+      <div class="tracker-card-value">${safeText(value)}</div>
+      <div class="tracker-card-sub">${safeText(sub)}</div>
+    </div>
+  `;
+}
+
+function formatTrackerTable(headers, rows) {
+  if (!rows.length) {
+    return `<div class="tracker-empty-mini">No settled samples yet.</div>`;
+  }
+
+  return `
+    <table class="tracker-mini-table">
+      <thead>
+        <tr>${headers.map(h => `<th>${safeText(h)}</th>`).join("")}</tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => `
+          <tr>${row.map(cell => `<td>${safeText(cell)}</td>`).join("")}</tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function buildTrackerAnalytics() {
+  const activePicks = Array.isArray(g_trackerState.activePicks)
+    ? g_trackerState.activePicks.map(ensureTrackedPickKeys)
+    : [];
+  const archivedPicks = Array.isArray(g_trackerState.archivedPicks)
+    ? g_trackerState.archivedPicks.map(ensureTrackedPickKeys)
+    : [];
+  const allPicks = [...activePicks, ...archivedPicks];
+
+  const marketLabels = {
+    ft: "FT",
+    h1: "1H",
+    q1: "Q1",
+    team_a: "Team A",
+    team_b: "Team B",
+    other: "Other"
+  };
+
+  const overall = initAggBucket("overall", "Overall");
+  const locks = initAggBucket("locks", "Locks");
+  const abConfidence = initAggBucket("ab", "A/B Confidence");
+  const projectionOnly = initAggBucket("projection_only", "Projection Only");
+  const paceGap = initAggBucket("pace_gap", "Pace Gap Risk");
+  const teamTotals = initAggBucket("team_totals", "Team Totals");
+
+  const byMarket = {};
+  const byConfidence = {};
+  const byLeague = {};
+  const byTeam = {};
+  const byMatchup = {};
+
+  allPicks.forEach(pick => {
+    ensureTrackedPickKeys(pick);
+
+    applyAggResult(overall, pick);
+
+    if (pick.isLock) applyAggResult(locks, pick);
+
+    if (["A", "B"].includes(String(pick.confidenceGrade || "").toUpperCase())) {
+      applyAggResult(abConfidence, pick);
+    }
+
+    if (pick?.diagnostics?.projectionOnly) {
+      applyAggResult(projectionOnly, pick);
+    }
+
+    if (pick?.diagnostics?.paceGapRisk) {
+      applyAggResult(paceGap, pick);
+    }
+
+    if (pick.marketKey === "team_a" || pick.marketKey === "team_b") {
+      applyAggResult(teamTotals, pick);
+    }
+
+    const marketKey = pick.marketKey || "other";
+    if (!byMarket[marketKey]) {
+      byMarket[marketKey] = initAggBucket(
+        marketKey,
+        marketLabels[marketKey] || String(marketKey).toUpperCase()
+      );
+    }
+    applyAggResult(byMarket[marketKey], pick);
+
+    const confKey = String(pick.confidenceGrade || "—").toUpperCase();
+    if (!byConfidence[confKey]) {
+      byConfidence[confKey] = initAggBucket(confKey, confKey);
+    }
+    applyAggResult(byConfidence[confKey], pick);
+
+    const leagueKey = String(pick.league || "unknown").toLowerCase();
+    if (!byLeague[leagueKey]) {
+      byLeague[leagueKey] = initAggBucket(leagueKey, leagueKey.toUpperCase());
+    }
+    applyAggResult(byLeague[leagueKey], pick);
+
+    if (pick.homeTeamNorm) {
+      if (!byTeam[pick.homeTeamNorm]) {
+        byTeam[pick.homeTeamNorm] = initEntityBucket(
+          pick.homeTeamNorm,
+          pick.homeTeam || "—"
+        );
+      }
+      applyEntityResult(byTeam[pick.homeTeamNorm], pick);
+    }
+
+    if (pick.awayTeamNorm) {
+      if (!byTeam[pick.awayTeamNorm]) {
+        byTeam[pick.awayTeamNorm] = initEntityBucket(
+          pick.awayTeamNorm,
+          pick.awayTeam || "—"
+        );
+      }
+      if (pick.awayTeamNorm !== pick.homeTeamNorm) {
+        applyEntityResult(byTeam[pick.awayTeamNorm], pick);
+      }
+    }
+
+    if (pick.pairKey) {
+      if (!byMatchup[pick.pairKey]) {
+        byMatchup[pick.pairKey] = initEntityBucket(
+          pick.pairKey,
+          pick.pairLabel || makePairLabel(pick.homeTeam || "", pick.awayTeam || "")
+        );
+      }
+      applyEntityResult(byMatchup[pick.pairKey], pick);
+    }
+  });
+
+  finalizeAggBucket(overall);
+  finalizeAggBucket(locks);
+  finalizeAggBucket(abConfidence);
+  finalizeAggBucket(projectionOnly);
+  finalizeAggBucket(paceGap);
+  finalizeAggBucket(teamTotals);
+
+  const marketList = Object.values(byMarket).map(finalizeAggBucket);
+  const confidenceList = Object.values(byConfidence).map(finalizeAggBucket);
+  const leagueList = Object.values(byLeague).map(finalizeAggBucket);
+  const teamList = Object.values(byTeam).map(finalizeEntityBucket);
+  const matchupList = Object.values(byMatchup).map(finalizeEntityBucket);
+
+  const qualifiedMarkets = marketList.filter(bucket => bucket.settled >= 5);
+
+  const bestMarket = qualifiedMarkets.length
+    ? [...qualifiedMarkets].sort((a, b) =>
+        b.winRate - a.winRate || b.settled - a.settled
+      )[0]
+    : null;
+
+  const weakestMarket = qualifiedMarkets.length
+    ? [...qualifiedMarkets].sort((a, b) =>
+        a.winRate - b.winRate ||
+        b.settled - a.settled ||
+        (b.avgMiss || 0) - (a.avgMiss || 0)
+      )[0]
+    : null;
+
+  const weakBucketCandidates = [];
+
+  marketList
+    .filter(bucket => bucket.settled >= 5)
+    .forEach(bucket => weakBucketCandidates.push({ group: "Market", ...bucket }));
+
+  confidenceList
+    .filter(bucket => bucket.settled >= 5 && bucket.label !== "—")
+    .forEach(bucket => weakBucketCandidates.push({ group: "Confidence", ...bucket }));
+
+  leagueList
+    .filter(bucket => bucket.settled >= 5)
+    .forEach(bucket => weakBucketCandidates.push({ group: "League", ...bucket }));
+
+  if (projectionOnly.settled >= 5) {
+    weakBucketCandidates.push({ group: "Mode", ...projectionOnly });
+  }
+
+  if (paceGap.settled >= 5) {
+    weakBucketCandidates.push({ group: "Risk", ...paceGap });
+  }
+
+  if (teamTotals.settled >= 5) {
+    weakBucketCandidates.push({ group: "Market Group", ...teamTotals });
+  }
+
+  const weakBuckets = weakBucketCandidates
+    .sort((a, b) =>
+      a.winRate - b.winRate ||
+      b.settled - a.settled ||
+      (b.avgMiss || 0) - (a.avgMiss || 0)
+    )
+    .slice(0, 5);
+
+  const teamInsights = teamList
+    .filter(bucket => bucket.settled >= 8)
+    .sort((a, b) =>
+      a.winRate - b.winRate ||
+      b.settled - a.settled ||
+      (b.avgMiss || 0) - (a.avgMiss || 0)
+    )
+    .slice(0, 5);
+
+  const matchupInsights = matchupList
+    .filter(bucket => bucket.settled >= 6)
+    .sort((a, b) =>
+      a.winRate - b.winRate ||
+      b.settled - a.settled ||
+      (b.avgMiss || 0) - (a.avgMiss || 0)
+    )
+    .slice(0, 5);
+
+  const recommendations = [];
+
+  if (projectionOnly.settled >= 8 && projectionOnly.winRate < 0.45) {
+    recommendations.push(
+      `Projection-only picks are ${formatAggRecord(projectionOnly)} (${formatAggPct(projectionOnly)}). Keep them visible if you want, but do not let them drive future engine changes until this bucket improves.`
+    );
+  }
+
+  if (paceGap.settled >= 8 && paceGap.winRate < 0.45) {
+    recommendations.push(
+      `Pace-gap-risk picks are ${formatAggRecord(paceGap)} (${formatAggPct(paceGap)}). That is enough evidence to review pace-gap filters before touching the core average logic.`
+    );
+  }
+
+  if (teamTotals.settled >= 10 && teamTotals.winRate < 0.48) {
+    recommendations.push(
+      `Team-total picks are ${formatAggRecord(teamTotals)} (${formatAggPct(teamTotals)}). Review team-total thresholds before changing FT logic.`
+    );
+  }
+
+  if (weakestMarket && weakestMarket.settled >= 10 && weakestMarket.winRate < 0.45) {
+    recommendations.push(
+      `${weakestMarket.label} is the weakest market at ${formatAggRecord(weakestMarket)} (${formatAggPct(weakestMarket)}), avg miss ${formatAggMiss(weakestMarket)}. That is a valid place to review filters later.`
+    );
+  }
+
+  const worstTeam = teamInsights[0];
+  if (worstTeam && worstTeam.winRate < 0.40) {
+    const weakMarketText = worstTeam.weakestMarket
+      ? ` Weakest market: ${worstTeam.weakestMarket.label} at ${formatAggPct(worstTeam.weakestMarket)}.`
+      : "";
+    recommendations.push(
+      `${worstTeam.label} is a weak team bucket at ${formatAggRecord(worstTeam)} (${formatAggPct(worstTeam)}).${weakMarketText}`
+    );
+  }
+
+  const worstMatchup = matchupInsights[0];
+  if (worstMatchup && worstMatchup.winRate < 0.35) {
+    const weakMarketText = worstMatchup.weakestMarket
+      ? ` Weakest market: ${worstMatchup.weakestMarket.label} at ${formatAggPct(worstMatchup.weakestMarket)}.`
+      : "";
+    recommendations.push(
+      `${worstMatchup.label} is a weak matchup bucket at ${formatAggRecord(worstMatchup)} (${formatAggPct(worstMatchup)}).${weakMarketText}`
+    );
+  }
+
+  if (!recommendations.length) {
+    recommendations.push(
+      "No evidence-based engine change yet. Keep collecting settled picks until one bucket shows repeated underperformance with enough sample."
+    );
+  }
+
+  return {
+    overall,
+    locks,
+    abConfidence,
+    projectionOnly,
+    paceGap,
+    teamTotals,
+    bestMarket,
+    weakestMarket,
+    weakBuckets,
+    teamInsights,
+    matchupInsights,
+    recommendations
+  };
+}
 function rebuildTrackerStats() {
   const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
