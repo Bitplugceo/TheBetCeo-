@@ -3391,7 +3391,7 @@ for (const season of [String(currentSeason), String(currentSeason - 1)]) {
           logDebug("fetchNbaSchedule summary failed", e);
         }
 
-        if (!gotLS || isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
         scored.push(Math.round(ms));
         allowed.push(Math.round(os));
         if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
@@ -3510,7 +3510,7 @@ for (const season of [
           logDebug("fetchNcaaSchedule summary failed", e);
         }
 
-        if (!gotLS || isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
+if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
         scored.push(Math.round(ms));
         allowed.push(Math.round(os));
         if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
