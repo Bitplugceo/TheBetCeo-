@@ -3623,15 +3623,17 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
       if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
 
       const lA = cA?.linescores || [];
-      const lB = cB?.linescores || [];
-      if (!lA.length || !lB.length) continue;
+const lB = cB?.linescores || [];
 
-      const h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
-      const h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
-      const q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
-      const q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
+let h1A = 0, h1B = 0, q1A = 0, q1B = 0;
 
-      [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 4);
+if (lA.length && lB.length) {
+  h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
+  h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
+  q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
+  q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
+  [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 4);
+}
 
       h2h.push({
         teamAId: tA,
@@ -3737,9 +3739,12 @@ for (const scanId of [teamAId, teamBId]) {
               let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
               if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
                 const lA = cA?.linescores || [], lB = cB?.linescores || [];
-                if (!lA.length || !lB.length) continue;
-                const [h1A, h1B] = extractFirstHalf(lA, lB);
-                [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 2);
+let h1A = 0, h1B = 0;
+
+if (lA.length && lB.length) {
+  [h1A, h1B] = extractFirstHalf(lA, lB);
+  [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 2);
+}
                 h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), h1A, h1B, q1A: 0, q1B: 0, date: ref.date });
                }
             }
