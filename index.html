@@ -5106,11 +5106,8 @@ blowoutGap = !isNaN(projAFT) && !isNaN(projBFT) ? Math.abs(projAFT - projBFT) : 
             Object.entries(bucketMap).forEach(([id, [side, bucket]]) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", () => {
-          const isVenueInput = id.includes("Home") || id.includes("Away");
-
-          if (!isVenueInput) {
-            setManualSource(side, bucket);
-          }
+                    const isVenueInput = id.includes("Home") || id.includes("Away");
+          setManualSource(side, bucket);
 
           const tagId =
             side === "A"
