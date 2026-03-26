@@ -1518,6 +1518,28 @@ function getTrackerUserKey() {
 }
 
 function getTrackerHeaders(includeJson = false) {
+  function getTrackerLocalStateKey() {
+  return TRACKER_LOCAL_STATE_PREFIX + getTrackerUserKey();
+}
+
+function loadTrackerStateFromLocal() {
+  try {
+    const raw = localStorage.getItem(getTrackerLocalStateKey());
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.error("[BB Engine] loadTrackerStateFromLocal failed", err);
+    return null;
+  }
+}
+
+function saveTrackerStateToLocal() {
+  try {
+    localStorage.setItem(getTrackerLocalStateKey(), JSON.stringify(g_trackerState));
+  } catch (err) {
+    console.error("[BB Engine] saveTrackerStateToLocal failed", err);
+  }
+}
+
   const headers = {
     "X-Tracker-User": getTrackerUserKey()
   };
@@ -2896,7 +2918,49 @@ current.unshift(ensureTrackedPickKeys(p));
     }
 
     function hideInjuryBox(side) {
-      const box = document.getElementById(side === "A" ? "injuryBoxA" : "injuryBoxB");
+     const FIELD_GROUPS = {
+  markets: ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"],
+
+  teamAOverall: ["aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed"],
+  teamAVenue: ["aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"],
+
+  teamBOverall: ["bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "bQ1Scored", "bQ1Allowed"],
+  teamBVenue: ["bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"],
+
+  h2h: ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "aQ1H2H", "bQ1H2H"],
+
+  autoTags: ["aAutoTag", "bAutoTag", "aVenueAutoTag", "bVenueAutoTag", "h2hAutoTag"],
+
+  q1Inputs: [
+    "aQ1Scored", "aQ1Allowed", "bQ1Scored", "bQ1Allowed",
+    "aHomeQ1Scored", "aHomeQ1Allowed", "bAwayQ1Scored", "bAwayQ1Allowed",
+    "q1Market", "aQ1H2H", "bQ1H2H"
+  ],
+
+  periodInputs: [
+    "a1HScored","a1HAllowed","b1HScored","b1HAllowed",
+    "aHome1HScored","aHome1HAllowed","bAway1HScored","bAway1HAllowed",
+    "a1HH2H","b1HH2H","h1Market",
+    "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed",
+    "aHomeQ1Scored","aHomeQ1Allowed","bAwayQ1Scored","bAwayQ1Allowed",
+    "q1Market","aQ1H2H","bQ1H2H"
+  ]
+};
+
+function setFieldValues(ids, value = "") {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  });
+}
+
+function setDisplayValues(ids, displayValue) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = displayValue;
+  });
+}
+       const box = document.getElementById(side === "A" ? "injuryBoxA" : "injuryBoxB");
       const content = document.getElementById(side === "A" ? "injuryContentA" : "injuryContentB");
       if (content) content.innerHTML = "";
       if (box) box.style.display = "none";
@@ -4120,11 +4184,11 @@ selectedTeamIds.A = String(teamAId);
 selectedTeamIds.B = String(teamBId);
         setStatusHTML('<span class="spinner"></span>Loading game stats...', "loading");
 
-                        const [aStats, bStats, aVenueStats, bVenueStats] = await Promise.all([
-          fetchRecentGamesGeneric(espnBase, teamAId, league, null),
-          fetchRecentGamesGeneric(espnBase, teamBId, league, null),
-          fetchRecentGamesGeneric(espnBase, teamAId, league, "home", false),
-          fetchRecentGamesGeneric(espnBase, teamBId, league, "away", false)
+                                const [aStats, bStats, aVenueStats, bVenueStats] = await Promise.all([
+          isNcaa ? fetchNcaaSchedule(espnBase, teamAId, null) : fetchNbaSchedule(espnBase, teamAId, null),
+          isNcaa ? fetchNcaaSchedule(espnBase, teamBId, null) : fetchNbaSchedule(espnBase, teamBId, null),
+          isNcaa ? fetchNcaaSchedule(espnBase, teamAId, "home", false) : fetchNbaSchedule(espnBase, teamAId, "home", false),
+          isNcaa ? fetchNcaaSchedule(espnBase, teamBId, "away", false) : fetchNbaSchedule(espnBase, teamBId, "away", false)
         ]);
 
         if (myToken !== _fetchToken) return;
@@ -4225,7 +4289,9 @@ if (bVenueStats?.scored?.length > 0) {
 
         let h2hGames = [];
         try {
-                    h2hGames = await fetchH2HGeneric(espnBase, teamAId, teamBId, league);
+          h2hGames = isNcaa
+            ? await fetchNcaaH2H(espnBase, teamAId, teamBId)
+            : await fetchNbaH2H(espnBase, teamAId, teamBId);
         } catch (e) {
           logDebug("H2H fetch failed", e);
           h2hGames = [];
@@ -4318,28 +4384,6 @@ if (bVenueStats?.scored?.length > 0) {
     }
 
     // V11: Run button disabled during execution via try/finally
-    function runEngine() {
-      const runBtn = document.getElementById("runBtn");
-      const table = document.getElementById("results");
-      if (runBtn) runBtn.disabled = true;
-
-      try {
-        table.style.display = "table";
-        table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
-
-        document.querySelectorAll("input").forEach(i => { i.style.borderColor = ""; });
-
-        const league = document.getElementById("leagueSelect").value;
-        const isNbaOrNcaa = league === "nba" || league === "ncaa";
-        const isNba = league === "nba";
-
-        if (!league) { showRunError(table, "⚠ Select a league first."); return; }
-
-        const selectedAId = String(selectedTeamIds.A || "");
-        const selectedBId = String(selectedTeamIds.B || "");
-        if (selectedAId && selectedBId && selectedAId === selectedBId) {
-          showRunError(table, "⚠ Team A and Team B cannot be the same."); return;
-        }
 
         const teamAKey = getTeamIdentityKey(document.getElementById("teamAName")?.value || "", league);
         const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
@@ -4657,7 +4701,6 @@ if (bVenueStats?.scored?.length > 0) {
         const fixtureMeta = getCurrentFixtureMeta();
         const currentTeamAName = document.getElementById("teamAName")?.value.trim() || "";
         const currentTeamBName = document.getElementById("teamBName")?.value.trim() || "";
-        const trackedToSave = [];
 
                 const trackedToSave = buildResultRows({
           table,
@@ -4811,9 +4854,9 @@ if (bVenueStats?.scored?.length > 0) {
         if (q1Cb) q1Cb.checked = false;
       }
 
-      if (!isNbaOrNcaa) {
-                [
-                setFieldValues(FIELD_GROUPS.periodInputs);
+            if (!isNbaOrNcaa) {
+        setFieldValues(FIELD_GROUPS.periodInputs);
+
         ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.style.display = "none";
@@ -4832,27 +4875,17 @@ if (bVenueStats?.scored?.length > 0) {
       ["teamAName", "teamBName"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
             [
-        "aFTScored","aFTAllowed","bFTScored","bFTAllowed",
-        "aHomeFTScored","aHomeFTAllowed","bAwayFTScored","bAwayFTAllowed",
-
-        "a1HScored","a1HAllowed","b1HScored","b1HAllowed",
-        "aHome1HScored","aHome1HAllowed","bAway1HScored","bAway1HAllowed",
-
-        "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed",
-        "aHomeQ1Scored","aHomeQ1Allowed","bAwayQ1Scored","bAwayQ1Allowed",
-
-        "aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"
-      ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-
+             setFieldValues(FIELD_GROUPS.teamAOverall);
+      setFieldValues(FIELD_GROUPS.teamAVenue);
+      setFieldValues(FIELD_GROUPS.teamBOverall);
+      setFieldValues(FIELD_GROUPS.teamBVenue);
+      setFieldValues(FIELD_GROUPS.h2h);
       document.getElementById("useFTH2H").checked = false;
       document.getElementById("use1HH2H").checked = false;
       const q1Cb = document.getElementById("useQ1H2H");
       if (q1Cb) q1Cb.checked = false;
 
-      ["aAutoTag", "bAutoTag", "aVenueAutoTag", "bVenueAutoTag", "h2hAutoTag"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = "none";
-      });
+          setDisplayValues(FIELD_GROUPS.autoTags, "none");
 
       _schedCache.clear();
       _summaryCache.clear();
