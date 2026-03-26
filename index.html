@@ -1221,8 +1221,25 @@
     let g_injA = defaultInjuryMeta();
     let g_injB = defaultInjuryMeta();
 
-    const TRACKED_PICKS_KEY = "bbEngineTrackedPicksV1";
     const TRACKED_PICKS_LIMIT = 500;
+const TRACKER_ARCHIVED_LIMIT = 2000;
+const TRACKER_ARCHIVE_AFTER_HOURS = 10;
+const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tracker-state";
+
+let g_trackerState = {
+  activePicks: [],
+  archivedPicks: [],
+  stats: {
+    total: 0,
+    settled: 0,
+    wins: 0,
+    losses: 0,
+    pushes: 0
+  },
+  updatedAt: null
+};
+
+let g_trackerHydratePromise = null;
 
     function logDebug(...args) {
       if (DEBUG) console.log("[BB Engine]", ...args);
@@ -1488,29 +1505,144 @@
       });
     }
 
-    function loadTrackedPicks() {
-      try {
-        const raw = localStorage.getItem(TRACKED_PICKS_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
-        return [];
-      }
+function rebuildTrackerStats() {
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+  const all = [...active, ...archived];
+
+  g_trackerState.stats = {
+    total: all.length,
+    settled: all.filter(p => p.resultStatus && p.resultStatus !== "pending").length,
+    wins: all.filter(p => p.resultStatus === "win").length,
+    losses: all.filter(p => p.resultStatus === "loss").length,
+    pushes: all.filter(p => p.resultStatus === "push").length
+  };
+
+  return g_trackerState.stats;
+}
+
+function normalizeTrackerState(raw) {
+  g_trackerState = {
+    activePicks: Array.isArray(raw?.activePicks) ? raw.activePicks : [],
+    archivedPicks: Array.isArray(raw?.archivedPicks)
+      ? raw.archivedPicks.slice(0, TRACKER_ARCHIVED_LIMIT)
+      : [],
+    stats: {
+      total: Number(raw?.stats?.total) || 0,
+      settled: Number(raw?.stats?.settled) || 0,
+      wins: Number(raw?.stats?.wins) || 0,
+      losses: Number(raw?.stats?.losses) || 0,
+      pushes: Number(raw?.stats?.pushes) || 0
+    },
+    updatedAt: raw?.updatedAt || null
+  };
+
+  rebuildTrackerStats();
+  return g_trackerState;
+}
+
+async function hydrateTrackedPicks(force = false) {
+  if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
+
+  g_trackerHydratePromise = fetch(TRACKER_API_URL, {
+    method: "GET",
+    cache: "no-store"
+  })
+    .then(async res => {
+      if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
+      const data = await res.json();
+      if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
+      return normalizeTrackerState(data.state);
+    })
+    .catch(err => {
+      console.error("[BB Engine] hydrateTrackedPicks failed", err);
+      return g_trackerState;
+    })
+    .finally(() => {
+      renderTrackedPicks();
+      g_trackerHydratePromise = null;
+    });
+
+  return g_trackerHydratePromise;
+}
+
+async function pushTrackerStateToServer() {
+  const res = await fetch(TRACKER_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(g_trackerState)
+  });
+
+  if (!res.ok) {
+    throw new Error("Tracker POST failed (" + res.status + ")");
+  }
+
+  const data = await res.json();
+  if (data?.ok && data?.state) normalizeTrackerState(data.state);
+  return data;
+}
+
+function loadTrackedPicks() {
+  return Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+}
+
+function saveTrackedPicks(picks) {
+  g_trackerState.activePicks = Array.isArray(picks)
+    ? picks.slice(0, TRACKED_PICKS_LIMIT)
+    : [];
+
+  if (!Array.isArray(g_trackerState.archivedPicks)) {
+    g_trackerState.archivedPicks = [];
+  }
+
+  rebuildTrackerStats();
+  g_trackerState.updatedAt = new Date().toISOString();
+
+  pushTrackerStateToServer().catch(err => {
+    console.error("[BB Engine] saveTrackedPicks failed", err);
+    setStatusText("⚠ Tracker sync failed. Refresh later and try again.", "err");
+  });
+}
+
+function archiveExpiredTrackedPicks() {
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  if (!active.length) return false;
+
+  const now = Date.now();
+  const keep = [];
+  const moved = [];
+
+  active.forEach(pick => {
+    const status = String(pick?.resultStatus || "pending").toLowerCase();
+
+    if (status === "pending") {
+      keep.push(pick);
+      return;
     }
 
-    // V8: storage failure now visible to user
-    function saveTrackedPicks(picks) {
-      try {
-        localStorage.setItem(
-          TRACKED_PICKS_KEY,
-          JSON.stringify((picks || []).slice(0, TRACKED_PICKS_LIMIT))
-        );
-      } catch (e) {
-        console.error("[BB Engine] saveTrackedPicks failed", e);
-        setStatusText("⚠ Unable to save tracked picks. Browser storage may be full.", "err");
-      }
+    const settledAtMs = pick?.settledAt ? new Date(pick.settledAt).getTime() : NaN;
+    const createdAtMs = pick?.createdAt ? new Date(pick.createdAt).getTime() : now;
+    const baseTime = isFinite(settledAtMs) ? settledAtMs : createdAtMs;
+
+    if (now - baseTime >= TRACKER_ARCHIVE_AFTER_HOURS * 60 * 60 * 1000) {
+      moved.push(pick);
+    } else {
+      keep.push(pick);
     }
+  });
+
+  if (!moved.length) return false;
+
+  g_trackerState.activePicks = keep;
+  g_trackerState.archivedPicks = [
+    ...moved,
+    ...(Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [])
+  ].slice(0, TRACKER_ARCHIVED_LIMIT);
+
+  rebuildTrackerStats();
+  g_trackerState.updatedAt = new Date().toISOString();
+  return true;
+}
 
     function makeTrackedSignature(pick) {
       return [
@@ -1562,13 +1694,14 @@
     }
 
     function openTrackerModal() {
-      const modal = document.getElementById("trackerModal");
-      if (!modal) return;
-      modal.classList.add("open");
-      modal.setAttribute("aria-hidden", "false");
-      refreshTrackedPickResults();
-    }
+  const modal = document.getElementById("trackerModal");
+  if (!modal) return;
 
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+
+  hydrateTrackedPicks(true).then(() => refreshTrackedPickResults());
+}
     function closeTrackerModal() {
       const modal = document.getElementById("trackerModal");
       if (!modal) return;
@@ -1576,77 +1709,100 @@
       modal.setAttribute("aria-hidden", "true");
     }
 
-    function renderTrackedPicks() {
-      const summaryEl = document.getElementById("trackerSummary");
-      const marketSummaryEl = document.getElementById("trackerMarketSummary");
-      const emptyEl = document.getElementById("trackerEmpty");
-      const wrapEl = document.getElementById("trackedPicksWrap");
-      const bodyEl = document.getElementById("trackedPicksBody");
+function renderTrackedPicks() {
+  const summaryEl = document.getElementById("trackerSummary");
+  const marketSummaryEl = document.getElementById("trackerMarketSummary");
+  const emptyEl = document.getElementById("trackerEmpty");
+  const wrapEl = document.getElementById("trackedPicksWrap");
+  const bodyEl = document.getElementById("trackedPicksBody");
 
-      if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl) return;
+  if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl) return;
 
-      const picks = loadTrackedPicks();
-      const settled = picks.filter(p => p.resultStatus && p.resultStatus !== "pending");
-      const wins = picks.filter(p => p.resultStatus === "win");
-      const losses = picks.filter(p => p.resultStatus === "loss");
-      const pushes = picks.filter(p => p.resultStatus === "push");
+  const activePicks = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archivedPicks = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+  const allPicks = [...activePicks, ...archivedPicks];
 
-      summaryEl.textContent = `${picks.length} saved • ${settled.length} settled • ${wins.length}-${losses.length}-${pushes.length}`;
+  rebuildTrackerStats();
+  const stats = g_trackerState.stats || {
+    total: 0,
+    settled: 0,
+    wins: 0,
+    losses: 0,
+    pushes: 0
+  };
 
-      if (!picks.length) {
-        emptyEl.style.display = "block";
-        wrapEl.style.display = "none";
-        bodyEl.innerHTML = "";
-        marketSummaryEl.style.display = "none";
-        marketSummaryEl.innerHTML = "";
-        return;
-      }
+  summaryEl.textContent =
+    `${activePicks.length} active • ${stats.settled} settled • ${stats.wins}-${stats.losses}-${stats.pushes}`;
 
-      const marketLabels = { ft: "FT", h1: "1H", q1: "Q1", team_a: "Team A", team_b: "Team B" };
-      const marketKeys = ["ft", "h1", "q1", "team_a", "team_b"];
+  const marketLabels = {
+    ft: "FT",
+    h1: "1H",
+    q1: "Q1",
+    team_a: "Team A",
+    team_b: "Team B"
+  };
 
-      const chips = marketKeys.map(key => {
-        const group = picks.filter(p => p.marketKey === key);
-        if (!group.length) return "";
-        const w = group.filter(p => p.resultStatus === "win").length;
-        const l = group.filter(p => p.resultStatus === "loss").length;
-        const ps = group.filter(p => p.resultStatus === "push").length;
-        return `<div class="tracker-market-chip">${marketLabels[key]} ${w}-${l}-${ps}</div>`;
-      }).filter(Boolean);
+  const marketKeys = ["ft", "h1", "q1", "team_a", "team_b"];
 
-      marketSummaryEl.innerHTML = chips.join("");
-      marketSummaryEl.style.display = chips.length ? "flex" : "none";
-      emptyEl.style.display = "none";
-      wrapEl.style.display = "block";
+  const chips = marketKeys.map(key => {
+    const group = allPicks.filter(p => p.marketKey === key);
+    if (!group.length) return "";
 
-      bodyEl.innerHTML = picks.map(p => {
-        const status = String(p.resultStatus || "pending").toLowerCase();
-        const statusClass =
-          status === "win" ? "track-win" :
-          status === "loss" ? "track-loss" :
-          status === "push" ? "track-push" :
-          "track-pending";
+    const w = group.filter(p => p.resultStatus === "win").length;
+    const l = group.filter(p => p.resultStatus === "loss").length;
+    const ps = group.filter(p => p.resultStatus === "push").length;
 
-        const edgeText =
-          p.edgePct === null || p.edgePct === undefined || isNaN(p.edgePct)
-            ? "—"
-            : (p.edgePct > 0 ? "+" : "") + Number(p.edgePct).toFixed(2) + "%";
+    return `<div class="tracker-market-chip">${marketLabels[key]} ${w}-${l}-${ps}</div>`;
+  }).filter(Boolean);
 
-        return `
-          <tr>
-            <td>${safeText(formatTrackedDate(p.createdAt))}</td>
-            <td>${safeText((p.homeTeam || "—") + " vs " + (p.awayTeam || "—"))}</td>
-            <td>${safeText(p.marketName || "—")}</td>
-            <td>${safeText(displayLine(p.line))}</td>
-            <td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
-            <td>${safeText(edgeText)}</td>
-            <td class="${statusClass}">${safeText(status.toUpperCase())}</td>
-          </tr>
-        `;
-      }).join("");
-    }
+  marketSummaryEl.innerHTML = chips.join("");
+  marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
-    function getTrackedLeagueBase(league) {
+  if (!allPicks.length) {
+    emptyEl.style.display = "block";
+    emptyEl.textContent = "No tracked picks saved yet.";
+    wrapEl.style.display = "none";
+    bodyEl.innerHTML = "";
+    return;
+  }
+
+  if (!activePicks.length) {
+    emptyEl.style.display = "block";
+    emptyEl.textContent = "No active tracked picks right now.";
+    wrapEl.style.display = "none";
+    bodyEl.innerHTML = "";
+    return;
+  }
+
+  emptyEl.style.display = "none";
+  wrapEl.style.display = "block";
+
+  bodyEl.innerHTML = activePicks.map(p => {
+    const status = String(p.resultStatus || "pending").toLowerCase();
+    const statusClass =
+      status === "win" ? "track-win" :
+      status === "loss" ? "track-loss" :
+      status === "push" ? "track-push" :
+      "track-pending";
+
+    const edgeText =
+      p.edgePct === null || p.edgePct === undefined || isNaN(p.edgePct)
+        ? "—"
+        : (p.edgePct > 0 ? "+" : "") + Number(p.edgePct).toFixed(2) + "%";
+
+    return `
+      <tr>
+        <td>${safeText(formatTrackedDate(p.createdAt))}</td>
+        <td>${safeText((p.homeTeam || "—") + " vs " + (p.awayTeam || "—"))}</td>
+        <td>${safeText(p.marketName || "—")}</td>
+        <td>${safeText(displayLine(p.line))}</td>
+        <td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
+        <td>${safeText(edgeText)}</td>
+        <td class="${statusClass}">${safeText(status.toUpperCase())}</td>
+      </tr>
+    `;
+  }).join("");
+}
       if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
       if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
       return "";
@@ -1749,7 +1905,16 @@
         }
       }
 
-      if (changed) saveTrackedPicks(picks);
+            if (changed) {
+        g_trackerState.activePicks = picks;
+      }
+
+      const archivedChanged = archiveExpiredTrackedPicks();
+
+      if (changed || archivedChanged) {
+        saveTrackedPicks(g_trackerState.activePicks);
+      }
+
       renderTrackedPicks();
     }
 
@@ -4135,8 +4300,7 @@ selectedTeamIds.B = String(teamBId);
 
       lockFrom("espnSection");
       openSection("leagueSection");
-      renderTrackedPicks();
-      refreshTrackedPickResults();
+            hydrateTrackedPicks().then(() => refreshTrackedPickResults());
 
       ["useFTH2H", "use1HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
