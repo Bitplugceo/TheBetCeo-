@@ -1203,8 +1203,9 @@
         <span>Tracked Picks</span>
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
-      <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
-     <div
+          <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
+      <div class="tracker-market-summary" id="trackerMarketSummary" style="display:none;"></div>
+      <div
   id="trackerAnalyticsPanel"
   style="display:none;padding:12px 14px;border-bottom:1px solid #dfe2e7;background:inherit;color:inherit;"
 ></div>
@@ -1843,7 +1844,6 @@ function saveTrackedPicks(picks) {
   rebuildTrackerStats();
   g_trackerState.updatedAt = new Date().toISOString();
   return true;
-}
 }
 
     function makeTrackedSignature(pick) {
