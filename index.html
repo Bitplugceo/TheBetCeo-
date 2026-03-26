@@ -3329,7 +3329,6 @@ for (const season of [String(currentSeason), String(currentSeason - 1)]) {
             logDebug("fetchNbaSchedule failed", e);
           }
         }
-        if (gameRefs.length >= 10) break;
       }
 
       if (!gameRefs.length) return null;
@@ -3411,11 +3410,12 @@ for (const season of [String(currentSeason), String(currentSeason - 1)]) {
       const tId = String(teamId);
       const gameRefs = [];
 
-      for (const season of [
-        String(new Date().getFullYear()),
-        String(new Date().getFullYear() - 1),
-        String(new Date().getFullYear() - 2)
-      ]) {
+      const currentSeason = getCurrentSeasonYear("ncaa");
+for (const season of [
+  String(currentSeason),
+  String(currentSeason - 1),
+  String(currentSeason - 2)
+]) {
         for (const stype of ["2", "3"]) {
           try {
             const key = `${base}:sched:${teamId}:${season}:${stype}`;
@@ -3452,7 +3452,6 @@ for (const season of [String(currentSeason), String(currentSeason - 1)]) {
             logDebug("fetchNcaaSchedule failed", e);
           }
         }
-        if (gameRefs.length >= 10) break;
       }
 
       if (!gameRefs.length) return null;
