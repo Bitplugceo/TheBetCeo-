@@ -3525,11 +3525,12 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
     }
 
     async function fetchNbaH2H(base, teamAId, teamBId) {
-  const tA = String(teamAId), tB = String(teamBId);
-  const gameRefs = [];
+  const tA = String(teamAId);
+  const tB = String(teamBId);
   const currentSeason = getCurrentSeasonYear("nba");
+  const candidateMap = new Map();
 
-  for (const scanId of [teamAId, teamBId]) {
+  async function collectCandidates(scanId) {
     for (let season = currentSeason; season >= 2024; season--) {
       for (const stype of ["2", "3"]) {
         try {
@@ -3551,11 +3552,8 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
           ];
 
           for (const ev of events) {
-            const dateStr = ev?.date || "";
-            if (dateStr && dateStr < "2024-01-01") continue;
-
             const comp = ev?.competitions?.[0];
-            if (!comp) continue;
+            if (!ev?.id || !comp) continue;
 
             const done =
               comp?.status?.type?.completed ||
@@ -3565,38 +3563,36 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
             if (!done) continue;
 
             const competitors = comp?.competitors || [];
-            if (competitors.length < 2 || !ev.id) continue;
+            if (competitors.length < 2) continue;
 
             const hasA = competitors.some(c => matchesTeam(c, tA));
             const hasB = competitors.some(c => matchesTeam(c, tB));
             if (!hasA || !hasB) continue;
 
-            gameRefs.push({
+            candidateMap.set(String(ev.id), {
               id: String(ev.id),
-              date: dateStr
+              date: ev?.date || comp?.date || ""
             });
           }
         } catch (e) {
-          logDebug("fetchNbaH2H failed", e);
+          logDebug("fetchNbaH2H candidate scan failed", e);
         }
       }
     }
   }
 
-  if (!gameRefs.length) return [];
+  await collectCandidates(teamAId);
+  await collectCandidates(teamBId);
 
-  const seen = new Set();
-  const unique = gameRefs
-    .filter(g => {
-      if (seen.has(g.id)) return false;
-      seen.add(g.id);
-      return true;
-    })
-    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  if (!candidateMap.size) return [];
+
+  const refs = [...candidateMap.values()].sort((a, b) => {
+    return new Date(b.date || 0) - new Date(a.date || 0);
+  });
 
   const h2h = [];
 
-  for (const ref of unique) {
+  for (const ref of refs) {
     try {
       const key = `${base}:sum:${ref.id}`;
       const data = await (_summaryCache.has(key)
@@ -3613,38 +3609,52 @@ if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
       const hc = data?.header?.competitions?.[0];
       if (!hc) continue;
 
+      const done =
+        hc?.status?.type?.completed ||
+        hc?.status?.type?.name === "STATUS_FINAL" ||
+        hc?.status?.type?.state === "post";
+
+      if (!done) continue;
+
+      const gameDate = hc?.date || ref.date || "";
+      if (gameDate && gameDate < "2024-01-01") continue;
+
       const competitors = hc?.competitors || [];
       const cA = competitors.find(c => matchesTeam(c, tA));
       const cB = competitors.find(c => matchesTeam(c, tB));
       if (!cA || !cB) continue;
 
-      let sA = parseFloat(cA.score);
-      let sB = parseFloat(cB.score);
+      let sA = parseFloat(cA?.score);
+      let sB = parseFloat(cB?.score);
       if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
 
       const lA = cA?.linescores || [];
-const lB = cB?.linescores || [];
+      const lB = cB?.linescores || [];
 
-let h1A = 0, h1B = 0, q1A = 0, q1B = 0;
+      let h1A = 0;
+      let h1B = 0;
+      let q1A = 0;
+      let q1B = 0;
 
-if (lA.length && lB.length) {
-  h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
-  h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
-  q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
-  q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
-  [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 4);
-}
+      if (lA.length && lB.length) {
+        q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
+        q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
+        h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
+        h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
+        [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 4);
+      }
 
       h2h.push({
+        eventId: ref.id,
         teamAId: tA,
         teamBId: tB,
         scoreA: Math.round(sA),
         scoreB: Math.round(sB),
-        h1A,
-        h1B,
-        q1A,
-        q1B,
-        date: ref.date
+        h1A: Math.round(h1A),
+        h1B: Math.round(h1B),
+        q1A: Math.round(q1A),
+        q1B: Math.round(q1B),
+        date: gameDate
       });
     } catch (e) {
       logDebug("fetchNbaH2H summary failed", e);
@@ -3656,109 +3666,144 @@ if (lA.length && lB.length) {
     .slice(0, 5);
 }
 
-    async function fetchNcaaH2H(base, teamAId, teamBId) {
-      const tA = String(teamAId), tB = String(teamBId);
-      const gameRefs = [];
+async function fetchNcaaH2H(base, teamAId, teamBId) {
+  const tA = String(teamAId);
+  const tB = String(teamBId);
+  const currentSeason = getCurrentSeasonYear("ncaa");
+  const candidateMap = new Map();
 
-      const currentSeason = getCurrentSeasonYear("ncaa");
-for (const scanId of [teamAId, teamBId]) {
-  for (let season = currentSeason; season >= 2024; season--) {
-          for (const stype of ["2", "3"]) {
-            try {
-              const key = `${base}:sched:${scanId}:${season}:${stype}`;
-              const r = await (_schedCache.has(key)
-                ? _schedCache.get(key)
-                : (() => {
-                    const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                      _schedCache.delete(key); throw err;
-                    });
-                    cacheSet(_schedCache, key, p);
-                    return p;
-                  })());
-
-              const events = r?.events || r?.team?.schedule?.events || [];
-              for (const ev of events) {
-                const dateStr = ev?.date || "";
-                if (dateStr && dateStr < "2024-01-01") continue;
-                const comp = ev?.competitions?.[0];
-                if (!comp) continue;
-                const done =
-                  comp?.status?.type?.completed ||
-                  comp?.status?.type?.name === "STATUS_FINAL" ||
-                  comp?.status?.type?.state === "post";
-                if (!done) continue;
-                const competitors = comp?.competitors || [];
-                if (competitors.length < 2 || !ev.id) continue;
-                const hasA = competitors.some(c => matchesTeam(c, tA));
-                const hasB = competitors.some(c => matchesTeam(c, tB));
-                if (!hasA || !hasB) continue;
-                const cA = competitors.find(x => matchesTeam(x, tA)) || competitors[0];
-                const cB = competitors.find(x => matchesTeam(x, tB)) || competitors[1];
-                const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-                gameRefs.push({ id: String(ev.id), date: dateStr, rawScoreA: ps(cA?.score), rawScoreB: ps(cB?.score) });
-              }
-            } catch (e) {
-              logDebug("fetchNcaaH2H failed", e);
-            }
-          }
-        }
-      }
-
-      if (!gameRefs.length) return [];
-      const seen = new Set();
-      const unique = gameRefs.filter(g => {
-        if (seen.has(g.id)) return false;
-        seen.add(g.id); return true;
-      }).sort((a, b) => {
-        const da = a.date ? new Date(a.date).getTime() : 0;
-        const db = b.date ? new Date(b.date).getTime() : 0;
-        return db - da;
-      });
-
-      const h2h = [];
-      for (const ref of unique) {
+  async function collectCandidates(scanId) {
+    for (let season = currentSeason; season >= 2024; season--) {
+      for (const stype of ["2", "3"]) {
         try {
-          // V3: 80ms delay removed
-          const key = `${base}:sum:${ref.id}`;
-          const data = await (_summaryCache.has(key)
-            ? _summaryCache.get(key)
+          const key = `${base}:sched:${scanId}:${season}:${stype}`;
+          const r = await (_schedCache.has(key)
+            ? _schedCache.get(key)
             : (() => {
-                const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-                  _summaryCache.delete(key); throw err;
+                const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+                  _schedCache.delete(key);
+                  throw err;
                 });
-                cacheSet(_summaryCache, key, p);
+                cacheSet(_schedCache, key, p);
                 return p;
               })());
 
-          const hc = data?.header?.competitions?.[0];
-          if (hc) {
-            const competitors = hc?.competitors || [];
-            const cA = competitors.find(c => matchesTeam(c, tA));
-            const cB = competitors.find(c => matchesTeam(c, tB));
-            if (cA && cB) {
-              let sA = parseFloat(cA.score), sB = parseFloat(cB.score);
-              if (!isNaN(sA) && !isNaN(sB) && sA > 0 && sB > 0) {
-                const lA = cA?.linescores || [], lB = cB?.linescores || [];
-let h1A = 0, h1B = 0;
+          const events = [
+            ...(r?.events || []),
+            ...(r?.team?.schedule?.events || [])
+          ];
 
-if (lA.length && lB.length) {
-  [h1A, h1B] = extractFirstHalf(lA, lB);
-  [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 2);
-}
-                h2h.push({ teamAId: tA, teamBId: tB, scoreA: Math.round(sA), scoreB: Math.round(sB), h1A, h1B, q1A: 0, q1B: 0, date: ref.date });
-               }
-            }
+          for (const ev of events) {
+            const comp = ev?.competitions?.[0];
+            if (!ev?.id || !comp) continue;
+
+            const done =
+              comp?.status?.type?.completed ||
+              comp?.status?.type?.name === "STATUS_FINAL" ||
+              comp?.status?.type?.state === "post";
+
+            if (!done) continue;
+
+            const competitors = comp?.competitors || [];
+            if (competitors.length < 2) continue;
+
+            const hasA = competitors.some(c => matchesTeam(c, tA));
+            const hasB = competitors.some(c => matchesTeam(c, tB));
+            if (!hasA || !hasB) continue;
+
+            candidateMap.set(String(ev.id), {
+              id: String(ev.id),
+              date: ev?.date || comp?.date || ""
+            });
           }
         } catch (e) {
-          logDebug("fetchNcaaH2H summary failed", e);
+          logDebug("fetchNcaaH2H candidate scan failed", e);
         }
       }
-return h2h
-  .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-  .slice(0, 5);
     }
+  }
 
-    function renderInjuryBox(boxId, contentId, inj) {
+  await collectCandidates(teamAId);
+  await collectCandidates(teamBId);
+
+  if (!candidateMap.size) return [];
+
+  const refs = [...candidateMap.values()].sort((a, b) => {
+    return new Date(b.date || 0) - new Date(a.date || 0);
+  });
+
+  const h2h = [];
+
+  for (const ref of refs) {
+    try {
+      const key = `${base}:sum:${ref.id}`;
+      const data = await (_summaryCache.has(key)
+        ? _summaryCache.get(key)
+        : (() => {
+            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+              _summaryCache.delete(key);
+              throw err;
+            });
+            cacheSet(_summaryCache, key, p);
+            return p;
+          })());
+
+      const hc = data?.header?.competitions?.[0];
+      if (!hc) continue;
+
+      const done =
+        hc?.status?.type?.completed ||
+        hc?.status?.type?.name === "STATUS_FINAL" ||
+        hc?.status?.type?.state === "post";
+
+      if (!done) continue;
+
+      const gameDate = hc?.date || ref.date || "";
+      if (gameDate && gameDate < "2024-01-01") continue;
+
+      const competitors = hc?.competitors || [];
+      const cA = competitors.find(c => matchesTeam(c, tA));
+      const cB = competitors.find(c => matchesTeam(c, tB));
+      if (!cA || !cB) continue;
+
+      let sA = parseFloat(cA?.score);
+      let sB = parseFloat(cB?.score);
+      if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
+
+      const lA = cA?.linescores || [];
+      const lB = cB?.linescores || [];
+
+      let h1A = 0;
+      let h1B = 0;
+
+      if (lA.length && lB.length) {
+        [h1A, h1B] = extractFirstHalf(lA, lB);
+        [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 2);
+      }
+
+      h2h.push({
+        eventId: ref.id,
+        teamAId: tA,
+        teamBId: tB,
+        scoreA: Math.round(sA),
+        scoreB: Math.round(sB),
+        h1A: Math.round(h1A),
+        h1B: Math.round(h1B),
+        q1A: 0,
+        q1B: 0,
+        date: gameDate
+      });
+    } catch (e) {
+      logDebug("fetchNcaaH2H summary failed", e);
+    }
+  }
+
+  return h2h
+    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+    .slice(0, 5);
+}
+
+function renderInjuryBox(boxId, contentId, inj) {
       const box = document.getElementById(boxId);
       const content = document.getElementById(contentId);
       if (!box || !content) return;
