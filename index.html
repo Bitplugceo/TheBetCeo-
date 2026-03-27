@@ -3058,84 +3058,80 @@ function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
 
-  const analytics = buildTrackerAnalytics();
+  const total = Number(g_trackerState?.stats?.total || 0);
+  const settled = Number(g_trackerState?.stats?.settled || 0);
 
-  if (!analytics.allCount) {
+  if (!total) {
     panel.style.display = "none";
     panel.innerHTML = "";
     return;
   }
 
-  const topTeams = analytics.teamRows.slice(0, 8);
-  const topMatchups = analytics.matchupRows.slice(0, 8);
+  const activation = getPhase2ActivationState();
+  const derived = g_trackerDerivedState || defaultTrackerDerivedState();
 
-  const teamTable = topTeams.length
-    ? `
-      <table class="tracker-analytics-table">
-        <tr>
-          <th>Team</th>
-          <th>Settled</th>
-          <th>W-L-P</th>
-          <th>Win %</th>
-        </tr>
-        ${topTeams.map(row => `
-          <tr>
-            <td>${safeText(row.label)}</td>
-            <td class="tracker-center">${row.settled}</td>
-            <td class="tracker-center">${safeText(formatWLP(row))}</td>
-            <td class="tracker-center">${safeText(row.winRate)}</td>
-          </tr>
-        `).join("")}
-      </table>
-    `
-    : `<div class="tracker-empty-mini">No team analytics yet.</div>`;
+  const marketSideSignals = Array.isArray(derived?.signalBoards?.marketSides)
+    ? derived.signalBoards.marketSides.length
+    : 0;
 
-  const matchupTable = topMatchups.length
-    ? `
-      <table class="tracker-analytics-table">
-        <tr>
-          <th>Matchup</th>
-          <th>Settled</th>
-          <th>W-L-P</th>
-          <th>Win %</th>
-        </tr>
-        ${topMatchups.map(row => `
-          <tr>
-            <td>${safeText(row.label)}</td>
-            <td class="tracker-center">${row.settled}</td>
-            <td class="tracker-center">${safeText(formatWLP(row))}</td>
-            <td class="tracker-center">${safeText(row.winRate)}</td>
-          </tr>
-        `).join("")}
-      </table>
-    `
-    : `<div class="tracker-empty-mini">No matchup analytics yet.</div>`;
+  const profileSignals = Array.isArray(derived?.signalBoards?.profiles)
+    ? derived.signalBoards.profiles.length
+    : 0;
+
+  const teamSignals = Array.isArray(derived?.signalBoards?.teams)
+    ? derived.signalBoards.teams.length
+    : 0;
+
+  const matchupSignals = Array.isArray(derived?.signalBoards?.matchups)
+    ? derived.signalBoards.matchups.length
+    : 0;
+
+  const modeText = String(activation.phase2Mode || "auto").toUpperCase();
+
+  const trackerText = activation.trackerFeedbackLive
+    ? "LIVE"
+    : activation.phase2Mode === "shadow"
+      ? "SHADOW"
+      : "BUILDING";
+
+  const teamText = activation.teamMemoryLive
+    ? "LIVE"
+    : activation.phase2Mode === "shadow"
+      ? "SHADOW"
+      : "BUILDING";
+
+  let summaryText = "Phase 2 is collecting data.";
+  if (activation.phase2Mode === "shadow") {
+    summaryText = "Phase 2 is in shadow mode. Signals are tracked, but picks are not being changed live.";
+  } else if (activation.trackerFeedbackLive && activation.teamMemoryLive) {
+    summaryText = "Phase 2 is fully live.";
+  } else if (activation.trackerFeedbackLive) {
+    summaryText = "Tracker feedback is live. Team memory is still building.";
+  } else if (activation.teamMemoryLive) {
+    summaryText = "Team memory is live. Tracker feedback is still building.";
+  } else {
+    summaryText = "Phase 2 is waiting for more settled picks and stronger signal coverage.";
+  }
 
   panel.style.display = "block";
   panel.innerHTML = `
-    <div class="tracker-analytics-title">Phase 2 Tracker Audit</div>
+    <div class="tracker-analytics-title">Phase 2 Status</div>
 
     <div class="tracker-chip-row">
-      <div class="tracker-market-chip">All ${analytics.allCount}</div>
-      <div class="tracker-market-chip">Settled ${analytics.overallStats.settled}</div>
-      <div class="tracker-market-chip">Win Rate ${safeText(analytics.overallRate)}</div>
-      <div class="tracker-market-chip">A/B Only ${safeText(formatWLP(analytics.abStats))}</div>
-      <div class="tracker-market-chip">A/B Win Rate ${safeText(analytics.abRate)}</div>
-      <div class="tracker-market-chip">Locks ${safeText(formatWLP(analytics.lockStats))}</div>
-      <div class="tracker-market-chip">Over ${safeText(formatWLP(analytics.overStats))}</div>
-      <div class="tracker-market-chip">Under ${safeText(formatWLP(analytics.underStats))}</div>
+      <div class="tracker-market-chip">Mode ${safeText(modeText)}</div>
+      <div class="tracker-market-chip">Settled ${settled}</div>
+      <div class="tracker-market-chip">Tracker ${safeText(trackerText)}</div>
+      <div class="tracker-market-chip">Team Memory ${safeText(teamText)}</div>
     </div>
 
-    <div class="tracker-subtitle">Engine Suggestions</div>
-    <div class="tracker-list">
-      ${analytics.suggestions.map(text => `<div class="tracker-list-item">• ${safeText(text)}</div>`).join("")}
+    <div class="tracker-chip-row">
+      <div class="tracker-market-chip">Market-side ${marketSideSignals}</div>
+      <div class="tracker-market-chip">Profiles ${profileSignals}</div>
+      <div class="tracker-market-chip">Teams ${teamSignals}</div>
+      <div class="tracker-market-chip">Matchups ${matchupSignals}</div>
     </div>
 
-    <div class="tracker-subtitle">Team Tracking</div>
-    ${teamTable}
-
-    <div class="tracker-subtitle">Matchup Tracking</div>
-    ${matchupTable}
+    <div class="tracker-recommendation">${safeText(summaryText)}</div>
   `;
 }
 function clampNumber(val, min, max) {
