@@ -46,15 +46,14 @@
   --tracker-subtext: #5a5f6b;
   --tracker-mini-head-bg: #eceff3;
   --tracker-mini-head-text: #2a2f38;
-  body.tracker-open {
+}
+body.tracker-open {
   position: fixed;
   width: 100%;
   left: 0;
   right: 0;
   overflow: hidden;
 }
-}
-
 body.dark-mode {
   --bg: #111;
   --text: #d4af37;
@@ -662,7 +661,9 @@ input,
   z-index: 9999;
   overscroll-behavior: none;
 }
-
+.tracker-modal.open {
+  display: flex;
+}
 .tracker-panel {
   width: min(96vw, 520px);
   height: calc(100dvh - 16px);
