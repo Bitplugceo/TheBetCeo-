@@ -1830,14 +1830,28 @@ function buildTrackerDerivedState() {
     upsertDerivedBucket(environmentMap, environmentKey, environmentKey, pick);
     upsertDerivedBucket(marketSideMap, marketSideKey, marketSideKey, pick);
 
-        if (pick.homeTeamKey) {
-      const homeBucketKey = `${pick.league || "unknown"}:${pick.homeTeamKey}`;
-      upsertDerivedBucket(teamMap, homeBucketKey, pick.homeTeam || pick.homeTeamKey, pick);
-    }
+            const marketKey = String(pick.marketKey || "");
 
-    if (pick.awayTeamKey && pick.awayTeamKey !== pick.homeTeamKey) {
-      const awayBucketKey = `${pick.league || "unknown"}:${pick.awayTeamKey}`;
-      upsertDerivedBucket(teamMap, awayBucketKey, pick.awayTeam || pick.awayTeamKey, pick);
+    if (["ft", "h1", "q1"].includes(marketKey)) {
+      if (pick.homeTeamKey) {
+        const homeBucketKey = `${pick.league || "unknown"}:${pick.homeTeamKey}`;
+        upsertDerivedBucket(teamMap, homeBucketKey, pick.homeTeam || pick.homeTeamKey, pick);
+      }
+
+      if (pick.awayTeamKey && pick.awayTeamKey !== pick.homeTeamKey) {
+        const awayBucketKey = `${pick.league || "unknown"}:${pick.awayTeamKey}`;
+        upsertDerivedBucket(teamMap, awayBucketKey, pick.awayTeam || pick.awayTeamKey, pick);
+      }
+    } else if (marketKey === "team_a") {
+      if (pick.homeTeamKey) {
+        const homeBucketKey = `${pick.league || "unknown"}:${pick.homeTeamKey}`;
+        upsertDerivedBucket(teamMap, homeBucketKey, pick.homeTeam || pick.homeTeamKey, pick);
+      }
+    } else if (marketKey === "team_b") {
+      if (pick.awayTeamKey) {
+        const awayBucketKey = `${pick.league || "unknown"}:${pick.awayTeamKey}`;
+        upsertDerivedBucket(teamMap, awayBucketKey, pick.awayTeam || pick.awayTeamKey, pick);
+      }
     }
 
     if (pick.matchupKey) {
@@ -5953,12 +5967,14 @@ if (payload) tracked.push(payload);
   return tracked;
 }
 
-function runEngine() {
+async function runEngine() {
   const runBtn = document.getElementById("runBtn");
   const table = document.getElementById("results");
 
   if (runBtn) runBtn.disabled = true;
-
+    await hydrateTrackedPicks();
+    await refreshTrackedPickResults();
+    
   try {
     if (!table) return;
 
