@@ -1152,7 +1152,6 @@ input,
       BASELINE_WEIGHT: 0.15,
       PACE_BLEND: 0.50,
       H2H_DIVERGE_THRESHOLD: 0.20,
-      H2H_MAX_WEIGHT: 0.30,
       LINE_ANCHOR_NBA: 0.65,
       LINE_ANCHOR_OTHER: 0.50,
       MULTI_GOAL_SUPPRESS: 0.98,
@@ -1452,8 +1451,10 @@ const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tra
 const TRACKER_USER_KEY_STORAGE = "bb_engine_tracker_user_key";
 const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
-
+let g_trackerFallbackUserKey = "";
 function getTrackerUserKey() {
+  if (g_trackerFallbackUserKey) return g_trackerFallbackUserKey;
+
   try {
     let key = localStorage.getItem(TRACKER_USER_KEY_STORAGE) || "";
 
@@ -1466,9 +1467,14 @@ function getTrackerUserKey() {
       localStorage.setItem(TRACKER_USER_KEY_STORAGE, key);
     }
 
+    g_trackerFallbackUserKey = key;
     return key;
   } catch (err) {
-    return "trk_fallback_" + Math.random().toString(36).slice(2);
+    g_trackerFallbackUserKey =
+      g_trackerFallbackUserKey ||
+      ("trk_fallback_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+
+    return g_trackerFallbackUserKey;
   }
 }
 
@@ -2284,10 +2290,6 @@ function trimmedAvg(arr) {
       return a && !a.err ? a : null;
     }
 
-    function snapHalf(val) {
-      if (val === null || isNaN(val)) return null;
-      return Math.round(val * 2) / 2;
-    }
 
     function displayLine(val) {
       if (val === null || val === undefined || isNaN(val)) return "—";
@@ -2344,15 +2346,6 @@ function safeWinRate(wins, settled) {
   return ((wins / settled) * 100).toFixed(1) + "%";
 }
 
-function numericWinRate(wins, settled) {
-  if (!settled) return NaN;
-  return (wins / settled) * 100;
-}
-
-function formatWLP(stat) {
-  return `${stat.wins}-${stat.losses}-${stat.pushes}`;
-}
-function rebuildTrackerStats() {
   const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
   const all = [...active, ...archived];
@@ -4194,293 +4187,210 @@ validateFetchSection();
       return [sA, sB];
     }
 
-    // V3: 80ms delays removed from all four fetch functions
-    async function fetchNbaSchedule(base, teamId, requiredVenue, allowFallback = true) {
-      const tId = String(teamId);
-      const gameRefs = [];
+    // V3 + V6 + V7: shared fetch core using LEAGUE_FETCH_RULES
+async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFallback = true) {
+  const rules = LEAGUE_FETCH_RULES[leagueKey];
+  if (!rules) return null;
 
-const currentSeason = getCurrentSeasonYear("nba");
-for (const season of [String(currentSeason), String(currentSeason - 1)]) {
-        for (const stype of ["2", "3"]) {
-          try {
-            const key = `${base}:sched:${teamId}:${season}:${stype}`;
-            const r = await (_schedCache.has(key)
-              ? _schedCache.get(key)
-              : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                    _schedCache.delete(key); throw err;
-                  });
-                  cacheSet(_schedCache, key, p);
-                  return p;
-                })());
+  const tId = String(teamId);
+  const gameRefs = [];
+  const currentSeason = getCurrentSeasonYear(leagueKey);
 
-            const events = r?.events || r?.team?.schedule?.events || [];
-            for (const ev of events) {
-              if (!ev.id) continue;
-              const comp = ev?.competitions?.[0];
-              if (!comp) continue;
-              const done =
-                comp?.status?.type?.completed ||
-                comp?.status?.type?.name === "STATUS_FINAL" ||
-                comp?.status?.type?.state === "post";
-              if (!done || (comp?.competitors || []).length < 2) continue;
-              const c = comp.competitors;
-              const mine = c.find(x => matchesTeam(x, tId)) || c[0];
-              const opp = c.find(x => !matchesTeam(x, tId)) || c[1];
-              const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-              gameRefs.push({
-                id: String(ev.id), date: ev.date || "",
-                rawS: ps(mine?.score), rawA: ps(opp?.score), venue: mine?.homeAway || ""
+  for (let i = 0; i < rules.recentSeasons; i++) {
+    const season = String(currentSeason - i);
+
+    for (const stype of rules.scheduleTypes) {
+      try {
+        const key = `${base}:sched:${teamId}:${season}:${stype}`;
+        const r = await (_schedCache.has(key)
+          ? _schedCache.get(key)
+          : (() => {
+              const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+                _schedCache.delete(key);
+                throw err;
               });
-            }
-          } catch (e) {
-            logDebug("fetchNbaSchedule failed", e);
-          }
+              cacheSet(_schedCache, key, p);
+              return p;
+            })());
+
+        const events = r?.events || r?.team?.schedule?.events || [];
+        for (const ev of events) {
+          if (!ev?.id) continue;
+
+          const comp = ev?.competitions?.[0];
+          if (!comp) continue;
+
+          const done =
+            comp?.status?.type?.completed ||
+            comp?.status?.type?.name === "STATUS_FINAL" ||
+            comp?.status?.type?.state === "post";
+
+          if (!done || (comp?.competitors || []).length < 2) continue;
+
+          const competitors = comp.competitors;
+          const mine = competitors.find(x => matchesTeam(x, tId)) || competitors[0];
+          const opp = competitors.find(x => !matchesTeam(x, tId)) || competitors[1];
+          const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
+
+          gameRefs.push({
+            id: String(ev.id),
+            date: ev.date || "",
+            rawS: ps(mine?.score),
+            rawA: ps(opp?.score),
+            venue: mine?.homeAway || ""
+          });
         }
+      } catch (e) {
+        logDebug("fetchScheduleCore failed", e);
       }
-
-      if (!gameRefs.length) return null;
-      const seen = new Set();
-      const unique = gameRefs.filter(g => {
-        if (seen.has(g.id)) return false;
-        seen.add(g.id); return true;
-      }).sort((a, b) => {
-        const da = a.date ? new Date(a.date).getTime() : 0;
-        const db = b.date ? new Date(b.date).getTime() : 0;
-        return db - da;
-      });
-
-            const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
-      const venueReliable = strictFiltered.length >= 2;
-      const usedVenueFallback = !!requiredVenue && !venueReliable && unique.length >= 2 && allowFallback;
-      const chosen = venueReliable ? strictFiltered : (allowFallback ? unique : strictFiltered);
-      if (chosen.length < 2) return null;
-
-      const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
-
-      const summaries = await Promise.all(
-  chosen.slice(0, 5).map(async ref => {
-    let ms = ref.rawS, os = ref.rawA;
-    let h1m = 0, h1o = 0, q1m = 0, q1o = 0, gotLS = false;
-
-    try {
-      const key = `${base}:sum:${ref.id}`;
-      const data = await (_summaryCache.has(key)
-        ? _summaryCache.get(key)
-        : (() => {
-            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-              _summaryCache.delete(key);
-              throw err;
-            });
-            cacheSet(_summaryCache, key, p);
-            return p;
-          })());
-
-      const hc = data?.header?.competitions?.[0];
-      if (hc) {
-        const competitors = hc?.competitors || [];
-        const mine = competitors.find(c => matchesTeam(c, tId));
-        const opp = competitors.find(c => !matchesTeam(c, tId));
-
-        if (mine && opp) {
-          const lm = mine?.linescores || [];
-          const lo = opp?.linescores || [];
-
-          if (lm.length >= 1) {
-            gotLS = true;
-            ms = parseFloat(mine.score) || ms;
-            os = parseFloat(opp.score) || os;
-            q1m = readVal(lm[0]);
-            q1o = readVal(lo[0]);
-            h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
-            h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
-            [ms, os] = stripOTFromScores(ms, os, lm, lo, 4);
-          }
-        }
-      }
-    } catch (e) {
-      logDebug("fetchNbaSchedule summary failed", e);
     }
-
-    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) return null;
-
-    return {
-      ms: Math.round(ms),
-      os: Math.round(os),
-      h1m: gotLS && h1m > 0 ? Math.round(h1m) : null,
-      h1o: gotLS && h1o > 0 ? Math.round(h1o) : null,
-      q1m: gotLS && q1m > 0 ? Math.round(q1m) : null,
-      q1o: gotLS && q1o > 0 ? Math.round(q1o) : null
-    };
-  })
-);
-
-summaries.filter(Boolean).forEach(game => {
-  scored.push(game.ms);
-  allowed.push(game.os);
-
-  if (game.h1m !== null && game.h1o !== null) {
-    h1Scored.push(game.h1m);
-    h1Allowed.push(game.h1o);
   }
 
-  if (game.q1m !== null && game.q1o !== null) {
-    q1Scored.push(game.q1m);
-    q1Allowed.push(game.q1o);
-  }
-});
+  if (!gameRefs.length) return null;
 
-      return scored.length >= 2
-        ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed,
-            lastGameDate: unique[0]?.date || null, venueReliable, usedVenueFallback,
-            q1VenueReliable: venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2 }
-        : null;
-    }
+  const seen = new Set();
+  const unique = gameRefs
+    .filter(g => {
+      if (seen.has(g.id)) return false;
+      seen.add(g.id);
+      return true;
+    })
+    .sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return db - da;
+    });
 
-    async function fetchNcaaSchedule(base, teamId, requiredVenue, allowFallback = true) {
-      const tId = String(teamId);
-      const gameRefs = [];
+  const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
+  const venueReliable = strictFiltered.length >= 2;
+  const usedVenueFallback = !!requiredVenue && !venueReliable && unique.length >= 2 && allowFallback;
+  const chosen = venueReliable ? strictFiltered : (allowFallback ? unique : strictFiltered);
 
-      const currentSeason = getCurrentSeasonYear("ncaa");
-for (const season of [
-  String(currentSeason),
-  String(currentSeason - 1),
-  String(currentSeason - 2)
-]) {
-for (const stype of ["1", "2", "3"]) {
-          try {
-            const key = `${base}:sched:${teamId}:${season}:${stype}`;
-            const r = await (_schedCache.has(key)
-              ? _schedCache.get(key)
-              : (() => {
-                  const p = proxyFetch(`${base}/teams/${teamId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                    _schedCache.delete(key); throw err;
-                  });
-                  cacheSet(_schedCache, key, p);
-                  return p;
-                })());
+  if (chosen.length < 2) return null;
 
-            const events = r?.events || r?.team?.schedule?.events || [];
-            for (const ev of events) {
-              if (!ev.id) continue;
-              const comp = ev?.competitions?.[0];
-              if (!comp) continue;
-              const done =
-                comp?.status?.type?.completed ||
-                comp?.status?.type?.name === "STATUS_FINAL" ||
-                comp?.status?.type?.state === "post";
-              if (!done || (comp?.competitors || []).length < 2) continue;
-              const c = comp.competitors;
-              const mine = c.find(x => matchesTeam(x, tId)) || c[0];
-              const opp = c.find(x => !matchesTeam(x, tId)) || c[1];
-              const ps = s => typeof s === "object" ? parseFloat(s.value ?? s.displayValue ?? 0) : parseFloat(s);
-              gameRefs.push({
-                id: String(ev.id), date: ev.date || "",
-                rawS: ps(mine?.score), rawA: ps(opp?.score), venue: mine?.homeAway || ""
+  const scored = [];
+  const allowed = [];
+  const h1Scored = [];
+  const h1Allowed = [];
+  const q1Scored = [];
+  const q1Allowed = [];
+
+  const summaries = await Promise.all(
+    chosen.slice(0, 5).map(async ref => {
+      let ms = ref.rawS;
+      let os = ref.rawA;
+      let h1m = 0;
+      let h1o = 0;
+      let q1m = 0;
+      let q1o = 0;
+      let gotLS = false;
+
+      try {
+        const key = `${base}:sum:${ref.id}`;
+        const data = await (_summaryCache.has(key)
+          ? _summaryCache.get(key)
+          : (() => {
+              const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+                _summaryCache.delete(key);
+                throw err;
               });
+              cacheSet(_summaryCache, key, p);
+              return p;
+            })());
+
+        const hc = data?.header?.competitions?.[0];
+        if (hc) {
+          const competitors = hc?.competitors || [];
+          const mine = competitors.find(c => matchesTeam(c, tId));
+          const opp = competitors.find(c => !matchesTeam(c, tId));
+
+          if (mine && opp) {
+            const lm = mine?.linescores || [];
+            const lo = opp?.linescores || [];
+
+            if (lm.length >= 1 && lo.length >= 1) {
+              gotLS = true;
+              ms = parseFloat(mine.score) || ms;
+              os = parseFloat(opp.score) || os;
+
+              if (rules.includeQ1) {
+                q1m = readVal(lm[0]);
+                q1o = readVal(lo[0]);
+                h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
+                h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
+              } else {
+                [h1m, h1o] = extractFirstHalf(lm, lo);
+              }
+
+              [ms, os] = stripOTFromScores(ms, os, lm, lo, rules.regulationPeriods);
             }
-          } catch (e) {
-            logDebug("fetchNcaaSchedule failed", e);
           }
         }
+      } catch (e) {
+        logDebug("fetchScheduleCore summary failed", e);
       }
 
-      if (!gameRefs.length) return null;
-      const seen = new Set();
-      const unique = gameRefs.filter(g => {
-        if (seen.has(g.id)) return false;
-        seen.add(g.id); return true;
-      }).sort((a, b) => {
-        const da = a.date ? new Date(a.date).getTime() : 0;
-        const db = b.date ? new Date(b.date).getTime() : 0;
-        return db - da;
-      });
+      if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) return null;
 
-            const strictFiltered = requiredVenue ? unique.filter(g => g.venue === requiredVenue) : unique;
-      const venueReliable = strictFiltered.length >= 2;
-      const usedVenueFallback = !!requiredVenue && !venueReliable && unique.length >= 2 && allowFallback;
-      const chosen = venueReliable ? strictFiltered : (allowFallback ? unique : strictFiltered);
-      if (chosen.length < 2) return null;
-      const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
+      return {
+        ms: Math.round(ms),
+        os: Math.round(os),
+        h1m: gotLS && h1m > 0 ? Math.round(h1m) : null,
+        h1o: gotLS && h1o > 0 ? Math.round(h1o) : null,
+        q1m: rules.includeQ1 && gotLS && q1m > 0 ? Math.round(q1m) : null,
+        q1o: rules.includeQ1 && gotLS && q1o > 0 ? Math.round(q1o) : null
+      };
+    })
+  );
 
-      const summaries = await Promise.all(
-  chosen.slice(0, 5).map(async ref => {
-    let ms = ref.rawS, os = ref.rawA;
-    let h1m = 0, h1o = 0, gotLS = false;
+  summaries.filter(Boolean).forEach(game => {
+    scored.push(game.ms);
+    allowed.push(game.os);
 
-    try {
-      const key = `${base}:sum:${ref.id}`;
-      const data = await (_summaryCache.has(key)
-        ? _summaryCache.get(key)
-        : (() => {
-            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-              _summaryCache.delete(key);
-              throw err;
-            });
-            cacheSet(_summaryCache, key, p);
-            return p;
-          })());
+    if (game.h1m !== null && game.h1o !== null) {
+      h1Scored.push(game.h1m);
+      h1Allowed.push(game.h1o);
+    }
 
-      const hc = data?.header?.competitions?.[0];
-      if (hc) {
-        const competitors = hc?.competitors || [];
-        const mine = competitors.find(c => matchesTeam(c, tId));
-        const opp = competitors.find(c => !matchesTeam(c, tId));
+    if (rules.includeQ1 && game.q1m !== null && game.q1o !== null) {
+      q1Scored.push(game.q1m);
+      q1Allowed.push(game.q1o);
+    }
+  });
 
-        if (mine && opp) {
-          const lm = mine?.linescores || [];
-          const lo = opp?.linescores || [];
-
-          if (lm.length >= 1) {
-            gotLS = true;
-            ms = parseFloat(mine.score) || ms;
-            os = parseFloat(opp.score) || os;
-            [h1m, h1o] = extractFirstHalf(lm, lo);
-            [ms, os] = stripOTFromScores(ms, os, lm, lo, 2);
-          }
-        }
+  return scored.length >= 2
+    ? {
+        scored,
+        allowed,
+        h1Scored,
+        h1Allowed,
+        q1Scored,
+        q1Allowed,
+        lastGameDate: unique[0]?.date || null,
+        venueReliable,
+        usedVenueFallback,
+        q1VenueReliable: !!(
+          rules.includeQ1 &&
+          venueReliable &&
+          q1Scored.length >= 2 &&
+          q1Allowed.length >= 2
+        )
       }
-    } catch (e) {
-      logDebug("fetchNcaaSchedule summary failed", e);
-    }
+    : null;
+}
 
-    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) return null;
+async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
+  const rules = LEAGUE_FETCH_RULES[leagueKey];
+  if (!rules) return [];
 
-    return {
-      ms: Math.round(ms),
-      os: Math.round(os),
-      h1m: gotLS && h1m > 0 ? Math.round(h1m) : null,
-      h1o: gotLS && h1o > 0 ? Math.round(h1o) : null
-    };
-  })
-);
-
-summaries.filter(Boolean).forEach(game => {
-  scored.push(game.ms);
-  allowed.push(game.os);
-
-  if (game.h1m !== null && game.h1o !== null) {
-    h1Scored.push(game.h1m);
-    h1Allowed.push(game.h1o);
-  }
-});
-
-      return scored.length >= 2
-        ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed,
-            lastGameDate: unique[0]?.date || null, venueReliable, usedVenueFallback,
-            q1VenueReliable: venueReliable && q1Scored.length >= 2 && q1Allowed.length >= 2 }
-        : null;
-    }
-
-    async function fetchNbaH2H(base, teamAId, teamBId) {
   const tA = String(teamAId);
   const tB = String(teamBId);
-  const currentSeason = getCurrentSeasonYear("nba");
+  const currentSeason = getCurrentSeasonYear(leagueKey);
   const candidateMap = new Map();
 
   async function collectCandidates(scanId) {
     for (let season = currentSeason; season >= 2024; season--) {
-for (const stype of ["1", "2", "3"]) {
+      for (const stype of rules.h2hScheduleTypes) {
         try {
           const key = `${base}:sched:${scanId}:${season}:${stype}`;
           const r = await (_schedCache.has(key)
@@ -4523,7 +4433,7 @@ for (const stype of ["1", "2", "3"]) {
             });
           }
         } catch (e) {
-          logDebug("fetchNbaH2H candidate scan failed", e);
+          logDebug("fetchH2HCore candidate scan failed", e);
         }
       }
     }
@@ -4538,231 +4448,112 @@ for (const stype of ["1", "2", "3"]) {
     return new Date(b.date || 0) - new Date(a.date || 0);
   });
 
-  const h2h = [];
+  const summaries = await Promise.all(
+    refs.map(async ref => {
+      try {
+        const key = `${base}:sum:${ref.id}`;
+        const data = await (_summaryCache.has(key)
+          ? _summaryCache.get(key)
+          : (() => {
+              const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+                _summaryCache.delete(key);
+                throw err;
+              });
+              cacheSet(_summaryCache, key, p);
+              return p;
+            })());
 
-  for (const ref of refs) {
-    try {
-      const key = `${base}:sum:${ref.id}`;
-      const data = await (_summaryCache.has(key)
-        ? _summaryCache.get(key)
-        : (() => {
-            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-              _summaryCache.delete(key);
-              throw err;
-            });
-            cacheSet(_summaryCache, key, p);
-            return p;
-          })());
+        const hc = data?.header?.competitions?.[0];
+        if (!hc) return null;
 
-      const hc = data?.header?.competitions?.[0];
-      if (!hc) continue;
+        const done =
+          hc?.status?.type?.completed ||
+          hc?.status?.type?.name === "STATUS_FINAL" ||
+          hc?.status?.type?.state === "post";
 
-      const done =
-        hc?.status?.type?.completed ||
-        hc?.status?.type?.name === "STATUS_FINAL" ||
-        hc?.status?.type?.state === "post";
+        if (!done) return null;
 
-      if (!done) continue;
+        const gameDate = hc?.date || ref.date || "";
+        if (gameDate && gameDate < "2024-01-01") return null;
 
-      const gameDate = hc?.date || ref.date || "";
-      if (gameDate && gameDate < "2024-01-01") continue;
+        const competitors = hc?.competitors || [];
+        const cA = competitors.find(c => matchesTeam(c, tA));
+        const cB = competitors.find(c => matchesTeam(c, tB));
+        if (!cA || !cB) return null;
 
-      const competitors = hc?.competitors || [];
-      const cA = competitors.find(c => matchesTeam(c, tA));
-      const cB = competitors.find(c => matchesTeam(c, tB));
-      if (!cA || !cB) continue;
+        let sA = readVal(cA?.score);
+        let sB = readVal(cB?.score);
 
-      let sA = readVal(cA?.score);
-let sB = readVal(cB?.score);
+        if ((!isFinite(sA) || sA <= 0) && Array.isArray(cA?.linescores) && cA.linescores.length) {
+          sA = cA.linescores.reduce((t, p) => t + readVal(p), 0);
+        }
 
-if ((!isFinite(sA) || sA <= 0) && Array.isArray(cA?.linescores) && cA.linescores.length) {
-  sA = cA.linescores.reduce((t, p) => t + readVal(p), 0);
-}
-if ((!isFinite(sB) || sB <= 0) && Array.isArray(cB?.linescores) && cB.linescores.length) {
-  sB = cB.linescores.reduce((t, p) => t + readVal(p), 0);
-}
+        if ((!isFinite(sB) || sB <= 0) && Array.isArray(cB?.linescores) && cB.linescores.length) {
+          sB = cB.linescores.reduce((t, p) => t + readVal(p), 0);
+        }
 
-if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
-      const lA = cA?.linescores || [];
-      const lB = cB?.linescores || [];
+        if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) return null;
 
-      let h1A = 0;
-      let h1B = 0;
-      let q1A = 0;
-      let q1B = 0;
+        const lA = cA?.linescores || [];
+        const lB = cB?.linescores || [];
 
-      if (lA.length && lB.length) {
-        q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
-        q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
-        h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
-        h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
-        [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 4);
+        let h1A = 0;
+        let h1B = 0;
+        let q1A = 0;
+        let q1B = 0;
+
+        if (lA.length && lB.length) {
+          if (rules.includeQ1) {
+            q1A = lA.length >= 1 ? readVal(lA[0]) : 0;
+            q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
+            h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
+            h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
+          } else {
+            [h1A, h1B] = extractFirstHalf(lA, lB);
+          }
+
+          [sA, sB] = stripOTFromScores(sA, sB, lA, lB, rules.regulationPeriods);
+        }
+
+        return {
+          eventId: ref.id,
+          teamAId: tA,
+          teamBId: tB,
+          scoreA: Math.round(sA),
+          scoreB: Math.round(sB),
+          h1A: Math.round(h1A),
+          h1B: Math.round(h1B),
+          q1A: Math.round(q1A),
+          q1B: Math.round(q1B),
+          date: gameDate
+        };
+      } catch (e) {
+        logDebug("fetchH2HCore summary failed", e);
+        return null;
       }
+    })
+  );
 
-      h2h.push({
-        eventId: ref.id,
-        teamAId: tA,
-        teamBId: tB,
-        scoreA: Math.round(sA),
-        scoreB: Math.round(sB),
-        h1A: Math.round(h1A),
-        h1B: Math.round(h1B),
-        q1A: Math.round(q1A),
-        q1B: Math.round(q1B),
-        date: gameDate
-      });
-    } catch (e) {
-      logDebug("fetchNbaH2H summary failed", e);
-    }
-  }
-
-  return h2h
+  return summaries
+    .filter(Boolean)
     .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
     .slice(0, 5);
+}
+
+async function fetchNbaSchedule(base, teamId, requiredVenue, allowFallback = true) {
+  return fetchScheduleCore(base, teamId, "nba", requiredVenue, allowFallback);
+}
+
+async function fetchNcaaSchedule(base, teamId, requiredVenue, allowFallback = true) {
+  return fetchScheduleCore(base, teamId, "ncaa", requiredVenue, allowFallback);
+}
+
+async function fetchNbaH2H(base, teamAId, teamBId) {
+  return fetchH2HCore(base, teamAId, teamBId, "nba");
 }
 
 async function fetchNcaaH2H(base, teamAId, teamBId) {
-  const tA = String(teamAId);
-  const tB = String(teamBId);
-  const currentSeason = getCurrentSeasonYear("ncaa");
-  const candidateMap = new Map();
-
-  async function collectCandidates(scanId) {
-    for (let season = currentSeason; season >= 2024; season--) {
-      for (const stype of ["2", "3"]) {
-        try {
-          const key = `${base}:sched:${scanId}:${season}:${stype}`;
-          const r = await (_schedCache.has(key)
-            ? _schedCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                  _schedCache.delete(key);
-                  throw err;
-                });
-                cacheSet(_schedCache, key, p);
-                return p;
-              })());
-
-          const events = [
-            ...(r?.events || []),
-            ...(r?.team?.schedule?.events || [])
-          ];
-
-          for (const ev of events) {
-            const comp = ev?.competitions?.[0];
-            if (!ev?.id || !comp) continue;
-
-            const done =
-              comp?.status?.type?.completed ||
-              comp?.status?.type?.name === "STATUS_FINAL" ||
-              comp?.status?.type?.state === "post";
-
-            if (!done) continue;
-
-            const competitors = comp?.competitors || [];
-            if (competitors.length < 2) continue;
-
-            const hasA = competitors.some(c => matchesTeam(c, tA));
-            const hasB = competitors.some(c => matchesTeam(c, tB));
-            if (!hasA || !hasB) continue;
-
-            candidateMap.set(String(ev.id), {
-              id: String(ev.id),
-              date: ev?.date || comp?.date || ""
-            });
-          }
-        } catch (e) {
-          logDebug("fetchNcaaH2H candidate scan failed", e);
-        }
-      }
-    }
-  }
-
-  await collectCandidates(teamAId);
-  await collectCandidates(teamBId);
-
-  if (!candidateMap.size) return [];
-
-  const refs = [...candidateMap.values()].sort((a, b) => {
-    return new Date(b.date || 0) - new Date(a.date || 0);
-  });
-
-  const h2h = [];
-
-  for (const ref of refs) {
-    try {
-      const key = `${base}:sum:${ref.id}`;
-      const data = await (_summaryCache.has(key)
-        ? _summaryCache.get(key)
-        : (() => {
-            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-              _summaryCache.delete(key);
-              throw err;
-            });
-            cacheSet(_summaryCache, key, p);
-            return p;
-          })());
-
-      const hc = data?.header?.competitions?.[0];
-      if (!hc) continue;
-
-      const done =
-        hc?.status?.type?.completed ||
-        hc?.status?.type?.name === "STATUS_FINAL" ||
-        hc?.status?.type?.state === "post";
-
-      if (!done) continue;
-
-      const gameDate = hc?.date || ref.date || "";
-      if (gameDate && gameDate < "2024-01-01") continue;
-
-      const competitors = hc?.competitors || [];
-      const cA = competitors.find(c => matchesTeam(c, tA));
-      const cB = competitors.find(c => matchesTeam(c, tB));
-      if (!cA || !cB) continue;
-
-      let sA = readVal(cA?.score);
-let sB = readVal(cB?.score);
-
-if ((!isFinite(sA) || sA <= 0) && Array.isArray(cA?.linescores) && cA.linescores.length) {
-  sA = cA.linescores.reduce((t, p) => t + readVal(p), 0);
-}
-if ((!isFinite(sB) || sB <= 0) && Array.isArray(cB?.linescores) && cB.linescores.length) {
-  sB = cB.linescores.reduce((t, p) => t + readVal(p), 0);
-}
-
-if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) continue;
-      const lA = cA?.linescores || [];
-      const lB = cB?.linescores || [];
-
-      let h1A = 0;
-      let h1B = 0;
-
-      if (lA.length && lB.length) {
-        [h1A, h1B] = extractFirstHalf(lA, lB);
-        [sA, sB] = stripOTFromScores(sA, sB, lA, lB, 2);
-      }
-
-      h2h.push({
-        eventId: ref.id,
-        teamAId: tA,
-        teamBId: tB,
-        scoreA: Math.round(sA),
-        scoreB: Math.round(sB),
-        h1A: Math.round(h1A),
-        h1B: Math.round(h1B),
-        q1A: 0,
-        q1B: 0,
-        date: gameDate
-      });
-    } catch (e) {
-      logDebug("fetchNcaaH2H summary failed", e);
-    }
-  }
-
-  return h2h
-    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-    .slice(0, 5);
+  return fetchH2HCore(base, teamAId, teamBId, "ncaa");
 }
 
 function renderInjuryBox(boxId, contentId, inj) {
@@ -5793,74 +5584,6 @@ function getMarketVolLimit(league, marketKey) {
   return LEAGUE_VOL_LIMITS[league] || LEAGUE_VOL_LIMITS.unknown;
 }
 
-function getMarketSnapshotFromDiagnostics(marketKey, diagnostics = {}, league = "unknown") {
-  const volLimit = getMarketVolLimit(league, marketKey);
-
-  if (marketKey === "ft") {
-    return {
-      sampleTier: diagnostics.ftSampleTier || "unknown",
-      projectionOnly: !!diagnostics.ftProjectionOnly,
-      fullModel: !!diagnostics.ftFullModel,
-      hasH2H: !!diagnostics.ftHasH2H,
-      maxVolatility: Math.max(Number(diagnostics.aVol) || 0, Number(diagnostics.bVol) || 0),
-      volLimit
-    };
-  }
-
-  if (marketKey === "h1") {
-    return {
-      sampleTier: diagnostics.h1SampleTier || "unknown",
-      projectionOnly: !!diagnostics.h1ProjectionOnly,
-      fullModel: !!diagnostics.h1FullModel,
-      hasH2H: !!diagnostics.h1HasH2H,
-      maxVolatility: Math.max(Number(diagnostics.aVol1) || 0, Number(diagnostics.bVol1) || 0),
-      volLimit
-    };
-  }
-
-  if (marketKey === "q1") {
-    return {
-      sampleTier: diagnostics.q1SampleTier || "unknown",
-      projectionOnly: !!diagnostics.q1ProjectionOnly,
-      fullModel: !!diagnostics.q1FullModel,
-      hasH2H: !!diagnostics.q1HasH2H,
-      maxVolatility: Math.max(Number(diagnostics.aVolQ1) || 0, Number(diagnostics.bVolQ1) || 0),
-      volLimit
-    };
-  }
-
-  if (marketKey === "team_a") {
-    return {
-      sampleTier: diagnostics.ftSampleTier || "unknown",
-      projectionOnly: !!diagnostics.ftProjectionOnly,
-      fullModel: !!diagnostics.teamFullModel,
-      hasH2H: !!diagnostics.ftHasH2H,
-      maxVolatility: Number(diagnostics.aVol) || 0,
-      volLimit
-    };
-  }
-
-  if (marketKey === "team_b") {
-    return {
-      sampleTier: diagnostics.ftSampleTier || "unknown",
-      projectionOnly: !!diagnostics.ftProjectionOnly,
-      fullModel: !!diagnostics.teamFullModel,
-      hasH2H: !!diagnostics.ftHasH2H,
-      maxVolatility: Number(diagnostics.bVol) || 0,
-      volLimit
-    };
-  }
-
-  return {
-    sampleTier: "unknown",
-    projectionOnly: false,
-    fullModel: false,
-    hasH2H: false,
-    maxVolatility: NaN,
-    volLimit
-  };
-}
-
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
   if (
   !pickRow ||
@@ -6738,19 +6461,25 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
 if (teamAName) {
   teamAName.addEventListener("input", () => onTeamInput("A"));
   teamAName.addEventListener("blur", () => scheduleDropClose("dropA"));
-teamAName.addEventListener("focus", () => cancelDropClose("dropA"));
+  teamAName.addEventListener("focus", () => cancelDropClose("dropA"));
+}
 
 const teamBName = document.getElementById("teamBName");
 if (teamBName) {
   teamBName.addEventListener("input", () => onTeamInput("B"));
   teamBName.addEventListener("blur", () => scheduleDropClose("dropB"));
-teamBName.addEventListener("focus", () => cancelDropClose("dropB"));
+  teamBName.addEventListener("focus", () => cancelDropClose("dropB"));
+}
 
 const dropA = document.getElementById("dropA");
-if (dropB) dropB.addEventListener("mousedown", () => cancelDropClose("dropB"));
+if (dropA) {
+  dropA.addEventListener("mousedown", () => cancelDropClose("dropA"));
+}
 
 const dropB = document.getElementById("dropB");
-if (dropB) dropB.addEventListener("mousedown", cancelDropClose);
+if (dropB) {
+  dropB.addEventListener("mousedown", () => cancelDropClose("dropB"));
+}
       const fetchBtn = document.getElementById("fetchBtn");
       if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 
