@@ -684,14 +684,109 @@ input,
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 
 .tracker-table-wrap {
   margin: 0;
   padding-bottom: 24px;
 }
-    
+    .tracker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--tracker-head-bg);
+  color: var(--tracker-head-text);
+  border-bottom: 1px solid var(--panel-border);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.tracker-close {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--tracker-head-text) !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  cursor: pointer !important;
+}
+
+.tracker-summary {
+  padding: 14px 16px;
+  background: var(--tracker-summary-bg);
+  color: var(--tracker-strong);
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tracker-market-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.tracker-market-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  background: var(--tracker-chip-bg);
+  border: 1px solid var(--tracker-chip-border);
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tracker-analytics-panel {
+  padding: 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.tracker-analytics-title {
+  margin-bottom: 14px;
+  color: var(--tracker-strong);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.tracker-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tracker-recommendation {
+  padding: 14px;
+  background: var(--tracker-chip-bg);
+  border: 1px solid var(--tracker-chip-border);
+  color: var(--tracker-strong);
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.tracker-empty {
+  padding: 18px 16px;
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tracker-hidden {
+  display: none !important;
+}
+
+#trackedPicksTable {
+  margin-top: 0;
+}
   </style>
 
 </head>
