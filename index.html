@@ -1517,8 +1517,7 @@ function getTrackerUserKey() {
   return key;
 }
 
-function getTrackerHeaders(includeJson = false) {
-  function getTrackerLocalStateKey() {
+function getTrackerLocalStateKey() {
   return TRACKER_LOCAL_STATE_PREFIX + getTrackerUserKey();
 }
 
@@ -1540,6 +1539,7 @@ function saveTrackerStateToLocal() {
   }
 }
 
+function getTrackerHeaders(includeJson = false) {
   const headers = {
     "X-Tracker-User": getTrackerUserKey()
   };
@@ -2916,9 +2916,7 @@ current.unshift(ensureTrackedPickKeys(p));
       }
       return proj;
     }
-
-    function hideInjuryBox(side) {
-     const FIELD_GROUPS = {
+const FIELD_GROUPS = {
   markets: ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"],
 
   teamAOverall: ["aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed"],
@@ -2953,6 +2951,7 @@ function setFieldValues(ids, value = "") {
     if (el) el.value = value;
   });
 }
+    function hideInjuryBox(side) {
 
 function setDisplayValues(ids, displayValue) {
   ids.forEach(id => {
@@ -4874,7 +4873,6 @@ if (bVenueStats?.scored?.length > 0) {
 
       ["teamAName", "teamBName"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
-            [
              setFieldValues(FIELD_GROUPS.teamAOverall);
       setFieldValues(FIELD_GROUPS.teamAVenue);
       setFieldValues(FIELD_GROUPS.teamBOverall);
