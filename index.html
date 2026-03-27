@@ -46,6 +46,13 @@
   --tracker-subtext: #5a5f6b;
   --tracker-mini-head-bg: #eceff3;
   --tracker-mini-head-text: #2a2f38;
+  body.tracker-open {
+  position: fixed;
+  width: 100%;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
 }
 
 body.dark-mode {
@@ -641,268 +648,47 @@ input,
       font-weight: 800 !important;
     }
 
-    .tracker-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.45);
-      display: none;
-      align-items: flex-start;
-      justify-content: flex-end;
-      padding-top: max(8px, env(safe-area-inset-top));
-      padding-right: max(8px, env(safe-area-inset-right));
-      padding-bottom: max(8px, env(safe-area-inset-bottom));
-      padding-left: max(8px, env(safe-area-inset-left));
-      z-index: 9999;
-    }
-
-    .tracker-modal.open {
-      display: flex;
-    }
-
-    .tracker-panel {
-      width: min(96vw, 520px);
-      height: calc(100vh - 16px);
-      background: var(--panel);
-      color: var(--text);
-      border: 1px solid var(--panel-border);
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-      .tracker-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: var(--tracker-head-bg);
-      color: var(--tracker-head-text);
-      font-size: 14px;
-      font-weight: 800;
-    }
-
-    .tracker-close {
-      background: none !important;
-      border: none !important;
-      box-shadow: none !important;
-      color: var(--tracker-head-text) !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      font-size: 18px !important;
-      font-weight: 800 !important;
-      cursor: pointer !important;
-    }
-
-    .tracker-summary {
-      padding: 10px 14px;
-      font-size: 12px;
-      font-weight: 700;
-      border-bottom: 1px solid var(--panel-border);
-      background: var(--tracker-summary-bg);
-      color: var(--text);
-    }
-
-    .tracker-body-scroll {
-      flex: 1;
-      overflow: auto;
-    }
-
-    .tracker-market-summary {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--panel-border);
-      background: var(--panel);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .tracker-market-chip {
-      padding: 6px 8px;
-      font-size: 11px;
-      font-weight: 800;
-      border: 1px solid var(--tracker-chip-border);
-      background: var(--tracker-chip-bg);
-      color: var(--chip-text);
-    }
-
- .tracker-analytics-wrap {
-  padding: 10px 14px 0;
-  border-bottom: 1px solid var(--panel-border);
-  background: var(--panel);
-  color: var(--text);
-}
-
-    .tracker-analytics-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .tracker-card {
-      border: 1px solid var(--panel-border);
-      background: var(--panel-soft);
-      padding: 8px;
-    }
-
-    .tracker-card-title {
-      font-size: 10px;
-      font-weight: 800;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      margin-bottom: 4px;
-    }
-
-    .tracker-card-value {
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--tracker-strong);
-      margin-bottom: 4px;
-    }
-
-    .tracker-card-sub {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--tracker-subtext);
-      line-height: 1.4;
-    }
-    .tracker-section-block {
-      margin-bottom: 10px;
-    }
-
-    .tracker-section-title {
-      font-size: 11px;
-      font-weight: 800;
-      color: var(--tracker-strong);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-    }
-
-    .tracker-mini-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 11px;
-      background: var(--panel) !important;
-      margin-top: 0;
-    }
-
-    .tracker-mini-table th,
-    .tracker-mini-table td {
-      border: 1px solid var(--table-border);
-      padding: 6px 5px;
-      text-align: left;
-    }
-
-    .tracker-mini-table th {
-      background: var(--tracker-mini-head-bg) !important;
-      color: var(--tracker-mini-head-text) !important;
-      font-weight: 800;
-    }
-
-       .tracker-mini-table td {
-      background: var(--panel) !important;
-      color: var(--text) !important;
-      font-weight: 700 !important;
-    }
-
-    .tracker-empty-mini {
-      padding: 8px;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--muted);
-      border: 1px solid var(--panel-border);
-      background: var(--panel-soft);
-    }
-
-       .tracker-recommendation {
-      border: 1px solid var(--panel-border);
-      background: var(--panel-soft);
-      padding: 8px;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--tracker-strong);
-      line-height: 1.5;
-      margin-bottom: 6px;
-    }
-    .tracker-analytics-panel {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--panel-border);
-  background: var(--panel);
-  color: var(--text);
-}
-
-.tracker-analytics-title {
-  font-size: 13px;
-  font-weight: 800;
-  margin-bottom: 8px;
-}
-
-.tracker-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.tracker-subtitle {
-  font-size: 12px;
-  font-weight: 800;
-  margin: 12px 0 6px;
-}
-
-.tracker-list {
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.tracker-list-item {
-  margin-bottom: 2px;
-}
-
-.tracker-analytics-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-  font-size: 11px;
-  background: var(--panel);
-}
-
-.tracker-analytics-table th,
-.tracker-analytics-table td {
-  border: 1px solid var(--panel-border);
-  padding: 6px;
-}
-
-.tracker-analytics-table th {
-  background: var(--panel-soft-2);
-  color: var(--chip-text);
-  font-weight: 800;
-}
-
-.tracker-analytics-table td {
-  background: var(--panel);
-  color: var(--text);
-  font-weight: 700;
-}
-
-.tracker-center {
-  text-align: center;
-}
-.tracker-hidden {
+.tracker-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
   display: none;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-right: max(8px, env(safe-area-inset-right));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  padding-left: max(8px, env(safe-area-inset-left));
+  z-index: 9999;
+  overscroll-behavior: none;
 }
 
-.tracker-empty {
-  padding: 12px 14px;
-  font-size: 12px;
-  color: var(--muted);
+.tracker-panel {
+  width: min(96vw, 520px);
+  height: calc(100dvh - 16px);
+  max-height: calc(100dvh - 16px);
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tracker-body-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
 }
 
 .tracker-table-wrap {
   margin: 0;
+  padding-bottom: 24px;
 }
     
   </style>
@@ -2709,21 +2495,40 @@ function saveTrackedPicks(picks) {
       };
     }
 
-    function openTrackerModal() {
+    let g_trackerScrollLockY = 0;
+
+function lockPageBehindTracker() {
+  g_trackerScrollLockY = window.scrollY || window.pageYOffset || 0;
+  document.body.classList.add("tracker-open");
+  document.body.style.top = `-${g_trackerScrollLockY}px`;
+}
+
+function unlockPageBehindTracker() {
+  const y = g_trackerScrollLockY || 0;
+  document.body.classList.remove("tracker-open");
+  document.body.style.top = "";
+  window.scrollTo(0, y);
+}
+
+function openTrackerModal() {
   const modal = document.getElementById("trackerModal");
   if (!modal) return;
 
+  lockPageBehindTracker();
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 
   hydrateTrackedPicks(true).then(() => refreshTrackedPickResults());
 }
-    function closeTrackerModal() {
-      const modal = document.getElementById("trackerModal");
-      if (!modal) return;
-      modal.classList.remove("open");
-      modal.setAttribute("aria-hidden", "true");
-    }
+
+function closeTrackerModal() {
+  const modal = document.getElementById("trackerModal");
+  if (!modal) return;
+
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  unlockPageBehindTracker();
+}
 
 function renderTrackedPicks() {
   const summaryEl = document.getElementById("trackerSummary");
