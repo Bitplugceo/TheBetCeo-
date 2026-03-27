@@ -1500,7 +1500,9 @@ const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tra
 const TRACKER_USER_KEY_STORAGE = "bb_engine_tracker_user_key";
 const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
-const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001";
+const TRACKER_SAVE_RETRY_BASE_MS = 1500;
+const TRACKER_SAVE_RETRY_MAX_MS = 15000;
+const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: single-owner deployment. Change only if moving to multi-user.
 let g_trackerFallbackUserKey = "";
 function getTrackerUserKey() {
   if (TRACKER_FIXED_USER_KEY && TRACKER_FIXED_USER_KEY.trim()) {
@@ -1883,9 +1885,11 @@ function rebuildTrackerDerivedState() {
 }
 let g_trackerHydratePromise = null;
 let g_trackerSaveTimer = null;
+let g_trackerRetryTimer = null;
 let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
 let g_trackerSaveInFlight = false;
+let g_trackerSaveFailureCount = 0;
 let g_fetchInputErrors = [];
 let g_fetchAuditIssues = [];
 
@@ -2542,6 +2546,20 @@ function scheduleTrackerSave() {
   }, TRACKER_SAVE_DEBOUNCE_MS);
 }
 
+function scheduleTrackerRetry() {
+  if (g_trackerRetryTimer) return;
+
+  const delay = Math.min(
+    TRACKER_SAVE_RETRY_BASE_MS * Math.pow(2, Math.max(0, g_trackerSaveFailureCount - 1)),
+    TRACKER_SAVE_RETRY_MAX_MS
+  );
+
+  g_trackerRetryTimer = setTimeout(() => {
+    g_trackerRetryTimer = null;
+    flushTrackerSave();
+  }, delay);
+}
+
 async function flushTrackerSave() {
   if (g_trackerSaveInFlight) return;
   if (g_trackerPersistedVersion >= g_trackerSaveVersion) return;
@@ -2565,13 +2583,21 @@ async function flushTrackerSave() {
     }
 
     g_trackerPersistedVersion = Math.max(g_trackerPersistedVersion, saveVersion);
+    g_trackerSaveFailureCount = 0;
+
+    if (g_trackerRetryTimer) {
+      clearTimeout(g_trackerRetryTimer);
+      g_trackerRetryTimer = null;
+    }
   } catch (err) {
+    g_trackerSaveFailureCount++;
     console.error("[BB Engine] tracker save failed", err);
     setStatusText("⚠ Tracker sync failed. Local copy kept on this device.", "err");
+    scheduleTrackerRetry();
   } finally {
     g_trackerSaveInFlight = false;
 
-    if (saveVersion < g_trackerSaveVersion) {
+    if (g_trackerSaveFailureCount === 0 && saveVersion < g_trackerSaveVersion) {
       flushTrackerSave();
     }
   }
@@ -3376,11 +3402,7 @@ function getTrackedLeagueBase(league) {
         }
       }
 
-            if (changed) {
-        g_trackerState.activePicks = picks;
-      }
-
-      const archivedChanged = archiveExpiredTrackedPicks();
+                  const archivedChanged = archiveExpiredTrackedPicks();
 
       if (changed || archivedChanged) {
         saveTrackedPicks(g_trackerState.activePicks);
@@ -3563,6 +3585,7 @@ current.unshift(ensureTrackedPickKeys(p));
 
     function selectLock(markets) {
   const valid = markets.filter(m =>
+    m &&
     m.pick !== "NO PLAY" &&
     m.pick !== "—" &&
     !m.note &&
@@ -3584,10 +3607,12 @@ current.unshift(ensureTrackedPickKeys(p));
     return Math.abs(b.edge) - Math.abs(a.edge);
   })[0];
 
-  return markets.findIndex(m => m === best);
+  return Number.isInteger(best?._idx)
+    ? best._idx
+    : markets.findIndex(m => m === best);
 }
 
-    function getConfidenceGrade({
+function getConfidenceGrade({
       pick, note, line, edge, sampleTier, projectionOnly, fullModel, trap,
       hasH2H, volatility, volLimit, injuryNotes = [],
       paceGapRisk = false, defensiveFloorFlag = false, blowoutGap = NaN, marketKey = ""
@@ -3831,8 +3856,11 @@ resetResultsTable();
     }
 
     function getLocalDateKeyFromISO(iso) {
-      return getDateKeyLocal(new Date(iso));
-    }
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  d.setHours(12, 0, 0, 0);
+  return getDateKeyLocal(d);
+}
 
     function setFixtureDay(offset) {
       const todayBtn = document.getElementById("fixturesTodayBtn");
@@ -6271,21 +6299,22 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
       }
     });
 
-    const markets = picks.map(p => ({
-  edge: p.edge,
-  line: p.line,
-  pick: p.pick,
-  fullModel: p.fullModel,
-  confidence: p.confidence,
-  note: p.note
-}));
-    const lockIdx = selectLock(markets);
-
-    const finalPicks = isNba
+        const finalPicks = isNba
       ? picks
       : isNbaOrNcaa
         ? picks.filter(p => p.name !== "Q1 Total")
         : picks.filter(p => p.name !== "1H Total" && p.name !== "Q1 Total");
+
+    const markets = finalPicks.map(p => ({
+      _idx: p._idx,
+      edge: p.edge,
+      line: p.line,
+      pick: p.pick,
+      fullModel: p.fullModel,
+      confidence: p.confidence,
+      note: p.note
+    }));
+    const lockIdx = selectLock(markets);
 
 
     const trackedToSave = buildResultRows({
