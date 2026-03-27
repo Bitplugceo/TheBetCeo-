@@ -2509,14 +2509,19 @@ async function hydrateTrackedPicks(force = false) {
       if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
 
       const data = await res.json();
-      if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
+if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
 
-      normalizeTrackerState(data.state);
-      saveTrackerStateToLocal();
-      return g_trackerState;
-    } catch (err) {
-      console.error("[BB Engine] hydrateTrackedPicks failed", err);
-      return g_trackerState;
+const localUpdatedAt = Date.parse(g_trackerState?.updatedAt || "") || 0;
+const serverUpdatedAt = Date.parse(data.state?.updatedAt || "") || 0;
+
+if (localUpdatedAt > serverUpdatedAt) {
+  scheduleTrackerSave();
+  return g_trackerState;
+}
+
+normalizeTrackerState(data.state);
+saveTrackerStateToLocal();
+return g_trackerState;
     } finally {
       renderTrackedPicks();
       g_trackerHydratePromise = null;
@@ -6218,9 +6223,15 @@ function buildContextTags({
 }
 
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
-  if (!pickRow || pickRow.pick === "NO PLAY" || pickRow.note || !isFinite(pickRow.line)) {
-    return null;
-  }
+  if (
+  !pickRow ||
+  pickRow.pick === "NO PLAY" ||
+  pickRow.note ||
+  !isFinite(pickRow.line) ||
+  !fixtureMeta?.eventId
+) {
+  return null;
+}
 
   const marketKey = getMarketKeyFromName(pickRow.name);
   const side = pickRow.pick.startsWith("OVER") ? "over" : "under";
