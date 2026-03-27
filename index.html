@@ -1287,13 +1287,87 @@ const TEAM_MEMORY_RULES = {
   hardBlockWinRate: 0.34
 };
 const PHASE2_CONTROL = {
-  mode: "shadow",
-  trackerFeedbackLive: false,
-  teamMemoryLive: false
+  mode: "auto", // "shadow" | "auto" | "live"
+  trackerFeedbackLive: true,
+  teamMemoryLive: true
+};
+
+const PHASE2_ACTIVATION_RULES = {
+  trackerFeedback: {
+    minSettled: 40,
+    minMarketSideSignals: 2,
+    minProfileSignals: 1
+  },
+  teamMemory: {
+    minSettled: 60,
+    minTeamSignals: 2,
+    minMatchupSignals: 1
+  }
 };
 
 function isPhase2ShadowMode() {
   return PHASE2_CONTROL.mode === "shadow";
+}
+
+function getPhase2ActivationState() {
+  const stats = g_trackerState?.stats || {};
+  const derived = g_trackerDerivedState || defaultTrackerDerivedState();
+  const settled = Number(stats.settled || 0);
+
+  const marketSideSignals = Array.isArray(derived?.signalBoards?.marketSides)
+    ? derived.signalBoards.marketSides
+    : [];
+  const profileSignals = Array.isArray(derived?.signalBoards?.profiles)
+    ? derived.signalBoards.profiles
+    : [];
+  const teamSignals = Array.isArray(derived?.signalBoards?.teams)
+    ? derived.signalBoards.teams
+    : [];
+  const matchupSignals = Array.isArray(derived?.signalBoards?.matchups)
+    ? derived.signalBoards.matchups
+    : [];
+
+  const forcedShadow = PHASE2_CONTROL.mode === "shadow";
+  const forcedLive = PHASE2_CONTROL.mode === "live";
+
+  const trackerReady =
+    settled >= PHASE2_ACTIVATION_RULES.trackerFeedback.minSettled &&
+    marketSideSignals.length >= PHASE2_ACTIVATION_RULES.trackerFeedback.minMarketSideSignals &&
+    profileSignals.length >= PHASE2_ACTIVATION_RULES.trackerFeedback.minProfileSignals;
+
+  const teamReady =
+    settled >= PHASE2_ACTIVATION_RULES.teamMemory.minSettled &&
+    teamSignals.length >= PHASE2_ACTIVATION_RULES.teamMemory.minTeamSignals &&
+    matchupSignals.length >= PHASE2_ACTIVATION_RULES.teamMemory.minMatchupSignals;
+
+  const trackerFeedbackLive =
+    !forcedShadow &&
+    !!PHASE2_CONTROL.trackerFeedbackLive &&
+    (forcedLive || trackerReady);
+
+  const teamMemoryLive =
+    !forcedShadow &&
+    !!PHASE2_CONTROL.teamMemoryLive &&
+    (forcedLive || teamReady);
+
+  return {
+    phase2Mode: forcedShadow ? "shadow" : forcedLive ? "live" : "auto",
+    settled,
+    trackerReady,
+    teamReady,
+    trackerFeedbackLive,
+    teamMemoryLive,
+    trackerReasons: [
+      `settled:${settled}/${PHASE2_ACTIVATION_RULES.trackerFeedback.minSettled}`,
+      `marketSideSignals:${marketSideSignals.length}/${PHASE2_ACTIVATION_RULES.trackerFeedback.minMarketSideSignals}`,
+      `profileSignals:${profileSignals.length}/${PHASE2_ACTIVATION_RULES.trackerFeedback.minProfileSignals}`
+    ],
+    teamReasons: [
+      `settled:${settled}/${PHASE2_ACTIVATION_RULES.teamMemory.minSettled}`,
+      `teamSignals:${teamSignals.length}/${PHASE2_ACTIVATION_RULES.teamMemory.minTeamSignals}`,
+      `matchupSignals:${matchupSignals.length}/${PHASE2_ACTIVATION_RULES.teamMemory.minMatchupSignals}`
+    ]
+  };
 }
     const PICK_RULES = {
       default: { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
@@ -3236,13 +3310,14 @@ function getTrackerFeedbackSignal(profile, marketKey, side, league) {
   };
 }
 
-function applyTrackerFeedbackToPickRows(picks) {
+function applyTrackerFeedbackToPickRows(picks, phase2Activation = null) {
   if (!Array.isArray(picks) || !picks.length) return;
 
   const profile = buildTrackerFeedbackProfile();
   if (!profile.totalSettled) return;
 
-  const trackerLive = !!PHASE2_CONTROL.trackerFeedbackLive && !isPhase2ShadowMode();
+  const activation = phase2Activation || getPhase2ActivationState();
+  const trackerLive = !!activation.trackerFeedbackLive;
 
   picks.forEach(p => {
     if (!p || p.pick === "NO PLAY" || p.note) return;
@@ -6329,9 +6404,10 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     memoryProfileKey,
     environmentKey,
     resultStatus: "pending",
-            diagnostics: {
+                diagnostics: {
       ...(diagnostics || {}),
-      phase2Mode: isPhase2ShadowMode() ? "shadow" : "live",
+      phase2Mode: diagnostics?.phase2Activation?.phase2Mode || (isPhase2ShadowMode() ? "shadow" : "live"),
+      phase2Activation: diagnostics?.phase2Activation || null,
       confidenceGrade: grade,
       trackerFeedback: pickRow.trackerFeedback || null,
       shadowTrackerFeedback: pickRow.shadowTrackerFeedback || null,
@@ -6659,7 +6735,8 @@ function runEngine() {
     fullModel: ftCalc.teamFullModel
   }
 ];
-applyTrackerFeedbackToPickRows(picks);
+const phase2Activation = getPhase2ActivationState();
+applyTrackerFeedbackToPickRows(picks, phase2Activation);
     const activePeriodPicks = picks
       .filter(p =>
         ["FT Total", "1H Total", "Q1 Total"].includes(p.name) &&
@@ -6706,13 +6783,13 @@ applyTrackerFeedbackToPickRows(picks);
       }));
 
       p.teamMemory = {
-        mode: PHASE2_CONTROL.teamMemoryLive && !isPhase2ShadowMode() ? "live" : "shadow",
+        mode: phase2Activation.teamMemoryLive ? "live" : "shadow",
         wouldBlock: !!memory.shouldBlock,
         wouldDowngrade: !!memory.shouldDowngrade,
         flaggedTeams
       };
 
-      if (!(PHASE2_CONTROL.teamMemoryLive && !isPhase2ShadowMode())) {
+            if (!phase2Activation.teamMemoryLive) {
         return;
       }
 
@@ -6750,7 +6827,8 @@ applyTrackerFeedbackToPickRows(picks);
       lockIdx,
       fixtureMeta,
       league,
-            diagnostics: {
+                  diagnostics: {
+        phase2Activation,
         ftSampleTier: ftCalc.ftSampleTier,
         h1SampleTier: h1Calc.h1SampleTier,
         q1SampleTier: q1Calc.q1SampleTier,
