@@ -3030,7 +3030,228 @@ function renderTrackerAnalytics() {
     ${matchupTable}
   `;
 }
+function clampNumber(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+}
 
+function bumpConfidenceGrade(grade, shift = 0) {
+  const ladder = ["D", "C", "B", "A"];
+  const idx = ladder.indexOf(String(grade || "").toUpperCase());
+  if (idx === -1) return grade || "—";
+  return ladder[clampNumber(idx + shift, 0, ladder.length - 1)];
+}
+
+function settledTrackerScore(stat) {
+  if (!stat || !stat.settled) return NaN;
+  return (stat.wins + stat.pushes * 0.5) / stat.settled;
+}
+
+function getTrackerFeedbackMinSample(marketKey) {
+  if (marketKey === "ft") return 14;
+  if (marketKey === "team_a" || marketKey === "team_b") return 12;
+  if (marketKey === "h1") return 10;
+  if (marketKey === "q1") return 8;
+  return 12;
+}
+
+function createTrackerFeedbackBucket() {
+  return { settled: 0, wins: 0, losses: 0, pushes: 0 };
+}
+
+function buildTrackerFeedbackProfile() {
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+  const all = [...active, ...archived]
+    .map(p => ensureTrackedPickKeys(p))
+    .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
+
+  const buckets = new Map();
+
+  function addResult(key, status) {
+    if (!buckets.has(key)) buckets.set(key, createTrackerFeedbackBucket());
+    const bucket = buckets.get(key);
+    bucket.settled++;
+    if (status === "win") bucket.wins++;
+    else if (status === "loss") bucket.losses++;
+    else if (status === "push") bucket.pushes++;
+  }
+
+  all.forEach(pick => {
+    const status = String(pick.resultStatus || "").toLowerCase();
+    const marketKey = String(pick.marketKey || "other");
+    const side = String(pick.side || "");
+
+    addResult(`market:${marketKey}`, status);
+
+    if (side) {
+      addResult(`marketSide:${marketKey}:${side}`, status);
+      addResult(`side:${side}`, status);
+    }
+  });
+
+  return { totalSettled: all.length, buckets };
+}
+
+function getTrackerFeedbackSignal(profile, marketKey, side) {
+  if (!profile || !profile.buckets || !marketKey || !side) return null;
+
+  const minSample = getTrackerFeedbackMinSample(marketKey);
+  const marketSide = profile.buckets.get(`marketSide:${marketKey}:${side}`);
+  const marketOnly = profile.buckets.get(`market:${marketKey}`);
+  const sideOnly = profile.buckets.get(`side:${side}`);
+
+  let factor = 1;
+  let reasons = [];
+  let signalCount = 0;
+  let severeNegative = false;
+
+  const applyTier = (stat, mode) => {
+    if (!stat) return;
+    const score = settledTrackerScore(stat);
+    if (!isFinite(score)) return;
+
+    if (mode === "marketSide") {
+      if (score <= 0.37 && stat.settled >= minSample + 4) {
+        factor *= 0.82;
+        reasons.push("market/side crash");
+        signalCount++;
+        severeNegative = true;
+        return;
+      }
+      if (score <= 0.44) {
+        factor *= 0.88;
+        reasons.push("market/side weak");
+        signalCount++;
+        return;
+      }
+      if (score <= 0.50) {
+        factor *= 0.94;
+        reasons.push("market/side soft");
+        signalCount++;
+        return;
+      }
+      if (score >= 0.62) {
+        factor *= 1.06;
+        reasons.push("market/side hot");
+        signalCount++;
+        return;
+      }
+      if (score >= 0.57) {
+        factor *= 1.03;
+        reasons.push("market/side positive");
+        signalCount++;
+      }
+      return;
+    }
+
+    if (mode === "marketOnly") {
+      if (score <= 0.43) {
+        factor *= 0.92;
+        reasons.push("market weak");
+        signalCount++;
+        return;
+      }
+      if (score <= 0.48) {
+        factor *= 0.96;
+        reasons.push("market soft");
+        signalCount++;
+        return;
+      }
+      if (score >= 0.60) {
+        factor *= 1.03;
+        reasons.push("market hot");
+        signalCount++;
+        return;
+      }
+      if (score >= 0.55) {
+        factor *= 1.01;
+        reasons.push("market positive");
+        signalCount++;
+      }
+      return;
+    }
+
+    if (mode === "sideOnly") {
+      if (score <= 0.44) {
+        factor *= 0.96;
+        reasons.push("global side weak");
+        signalCount++;
+        return;
+      }
+      if (score >= 0.58) {
+        factor *= 1.02;
+        reasons.push("global side positive");
+        signalCount++;
+      }
+    }
+  };
+
+  if (marketSide && marketSide.settled >= minSample) applyTier(marketSide, "marketSide");
+  if (marketOnly && marketOnly.settled >= minSample + 4) applyTier(marketOnly, "marketOnly");
+  if (sideOnly && sideOnly.settled >= 20) applyTier(sideOnly, "sideOnly");
+
+  if (!signalCount) return null;
+
+  factor = clampNumber(factor, 0.80, 1.10);
+
+  return {
+    factor,
+    shouldBlock: severeNegative && factor <= 0.84,
+    confidenceShift: factor <= 0.90 ? -1 : factor >= 1.05 ? 1 : 0,
+    reasons,
+    marketSideSample: marketSide?.settled || 0,
+    marketSample: marketOnly?.settled || 0,
+    sideSample: sideOnly?.settled || 0
+  };
+}
+
+function applyTrackerFeedbackToPickRows(picks) {
+  if (!Array.isArray(picks) || !picks.length) return;
+
+  const profile = buildTrackerFeedbackProfile();
+  if (!profile.totalSettled) return;
+
+  picks.forEach(p => {
+    if (!p || p.pick === "NO PLAY" || p.note) return;
+    if (!isFinite(p.edge) || !isFinite(p.line) || p.line <= 0) return;
+
+    const side =
+      typeof p.pick === "string" && p.pick.startsWith("OVER") ? "over" :
+      typeof p.pick === "string" && p.pick.startsWith("UNDER") ? "under" :
+      "";
+
+    if (!side || !p.marketKey) return;
+
+    const feedback = getTrackerFeedbackSignal(profile, p.marketKey, side);
+    if (!feedback) return;
+
+    const rawEdge = p.edge;
+    p.edge = p.edge * feedback.factor;
+    p.proj = p.line + p.edge;
+    p.trackerFeedback = { ...feedback, rawEdge };
+
+    if (feedback.shouldBlock) {
+      p.pick = "NO PLAY";
+      p.confidence = "—";
+      p.note = "Blocked: tracker history strongly negative for this market/side";
+      return;
+    }
+
+    const updatedPick = getPick(p.edge, p.line, p.league, p.marketType, p.context || {});
+
+    if (!updatedPick || updatedPick === "NO PLAY") {
+      p.pick = "NO PLAY";
+      p.confidence = "—";
+      return;
+    }
+
+    p.pick = updatedPick;
+
+    if (p.confidence && p.confidence !== "—" && feedback.confidenceShift) {
+      p.confidence = bumpConfidenceGrade(p.confidence, feedback.confidenceShift);
+    }
+  });
+}
 function getTrackedLeagueBase(league) {
   if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
   if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
@@ -5934,7 +6155,8 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     resultStatus: "pending",
     diagnostics: {
       ...(diagnostics || {}),
-      confidenceGrade: grade
+      confidenceGrade: grade,
+      trackerFeedback: pickRow.trackerFeedback || null
     },
     createdAt: new Date().toISOString()
   };
@@ -6182,63 +6404,83 @@ function runEngine() {
     });
 
     const picks = [
-      {
-        _idx: 0,
-        name: "FT Total",
-        line: ftLine,
-        proj: ftCalc.ftProj,
-        edge: ftCalc.ftEdge,
-        pick: ftPick,
-        confidence: ftConfidence,
-        note: ftNote,
-        fullModel: ftCalc.ftFullModel
-      },
-      {
-        _idx: 1,
-        name: "1H Total",
-        line: h1Line,
-        proj: h1Calc.h1Proj,
-        edge: h1Calc.h1Edge,
-        pick: h1Pick,
-        confidence: h1Confidence,
-        note: h1Note,
-        fullModel: h1Calc.h1FullModel
-      },
-      {
-        _idx: 2,
-        name: "Q1 Total",
-        line: q1Line,
-        proj: q1Calc.q1Proj,
-        edge: q1Calc.q1Edge,
-        pick: q1Pick,
-        confidence: q1Confidence,
-        note: q1Note,
-        fullModel: q1Calc.q1FullModel
-      },
-      {
-        _idx: 3,
-        name: "Team A Total",
-        line: aLine,
-        proj: ftCalc.projAFT,
-        edge: ftCalc.aEdge,
-        pick: aPick,
-        confidence: aConfidence,
-        note: ftNote,
-        fullModel: ftCalc.teamFullModel
-      },
-      {
-        _idx: 4,
-        name: "Team B Total",
-        line: bLine,
-        proj: ftCalc.projBFT,
-        edge: ftCalc.bEdge,
-        pick: bPick,
-        confidence: bConfidence,
-        note: ftNote,
-        fullModel: ftCalc.teamFullModel
-      }
-    ];
-
+  {
+    _idx: 0,
+    name: "FT Total",
+    marketKey: "ft",
+    marketType: "ft",
+    league,
+    context: { aSc: ftCalc.aS, bSc: ftCalc.bS },
+    line: ftLine,
+    proj: ftCalc.ftProj,
+    edge: ftCalc.ftEdge,
+    pick: ftPick,
+    confidence: ftConfidence,
+    note: ftNote,
+    fullModel: ftCalc.ftFullModel
+  },
+  {
+    _idx: 1,
+    name: "1H Total",
+    marketKey: "h1",
+    marketType: "h1",
+    league,
+    context: { aSc: h1Calc.aS1, bSc: h1Calc.bS1 },
+    line: h1Line,
+    proj: h1Calc.h1Proj,
+    edge: h1Calc.h1Edge,
+    pick: h1Pick,
+    confidence: h1Confidence,
+    note: h1Note,
+    fullModel: h1Calc.h1FullModel
+  },
+  {
+    _idx: 2,
+    name: "Q1 Total",
+    marketKey: "q1",
+    marketType: "q1",
+    league,
+    context: { aSc: q1Calc.aS1Q, bSc: q1Calc.bS1Q },
+    line: q1Line,
+    proj: q1Calc.q1Proj,
+    edge: q1Calc.q1Edge,
+    pick: q1Pick,
+    confidence: q1Confidence,
+    note: q1Note,
+    fullModel: q1Calc.q1FullModel
+  },
+  {
+    _idx: 3,
+    name: "Team A Total",
+    marketKey: "team_a",
+    marketType: "team",
+    league,
+    context: { teamSc: ftCalc.aS },
+    line: aLine,
+    proj: ftCalc.projAFT,
+    edge: ftCalc.aEdge,
+    pick: aPick,
+    confidence: aConfidence,
+    note: ftNote,
+    fullModel: ftCalc.teamFullModel
+  },
+  {
+    _idx: 4,
+    name: "Team B Total",
+    marketKey: "team_b",
+    marketType: "team",
+    league,
+    context: { teamSc: ftCalc.bS },
+    line: bLine,
+    proj: ftCalc.projBFT,
+    edge: ftCalc.bEdge,
+    pick: bPick,
+    confidence: bConfidence,
+    note: ftNote,
+    fullModel: ftCalc.teamFullModel
+  }
+];
+applyTrackerFeedbackToPickRows(picks);
     const activePeriodPicks = picks
       .filter(p =>
         ["FT Total", "1H Total", "Q1 Total"].includes(p.name) &&
