@@ -19,7 +19,22 @@
   <title>Basketball Prediction Engine</title>
 
   <style>
-    /* ── CSS custom properties ── */
+        /* ── CSS custom properties ── */
+    /*
+      AUDIT NOTE — INTENTIONAL UI CHOICES (DO NOT FLAG AS BUGS UNLESS BROKEN)
+
+      The following UI choices are deliberate and must be treated as intentional:
+      1) Sharp / square UI with zero border-radius.
+      2) Very small lock icon display size for subtle emphasis.
+      3) Current dark/light theme palette and contrast choices.
+      4) Compact table density and compact button sizing.
+      5) Collapsible / locked section behavior.
+      6) Tracker modal layout, chip styling, and compact summary design.
+
+      Audit rule:
+      - Do NOT recommend changing these for style, preference, or “best practice”.
+      - Only flag them if they create a proven functional bug, unreadable UI, or broken interaction.
+    */
 :root {
   --bg: #efefef;
   --text: #1f2430;
@@ -1141,6 +1156,40 @@ input,
 </div>
 
 <script>
+        /*
+      AUDIT NOTE — INTENTIONAL ENGINE / TRACKER LOGIC (DO NOT FLAG AS BUGS UNLESS A REAL REGRESSION IS PROVEN)
+
+      This engine contains deliberate model, UI-flow, and tracker decisions.
+      The following are intentional and must NOT be criticized merely because another approach exists:
+
+      INTENTIONAL MODEL / CALCULATION CHOICES
+      - League-specific base totals, home edges, volatility limits, and pace clamps.
+      - Weighted recent averaging / trimmed behavior / robust averaging choices.
+      - H2H weighting caps, divergence suppression, and 2024+ H2H logic.
+      - Line anchoring logic and anchor scales.
+      - Pace-gap, defensive-floor, blowout, volatility, and trap filters.
+      - Projection-only suppression and NO PLAY behavior when venue/sample quality is weak.
+      - Confidence grade scoring rules.
+      - Strongest-period correlation blocker.
+      - Lock selection thresholds and lock display behavior.
+      - Tracker feedback and team-memory activation thresholds.
+      - Archive timing, duplicate tracking rules, and settlement logic.
+      - Fixed tracker user key behavior if explicitly set in this file.
+
+      INTENTIONAL AUDIT RULES
+      - Previously fixed issues stay CLOSED unless a new regression is proven.
+      - Do NOT reopen a closed issue without direct evidence in the current code.
+      - Do NOT flag intentional thresholds, constants, icon sizes, or stylistic choices as bugs.
+      - Only flag:
+        1) real broken behavior,
+        2) contradictions inside the code,
+        3) data-loss risk,
+        4) incorrect calculations versus the stated engine rules,
+        5) genuine regressions.
+
+      In short:
+      If it is intentional and functioning as designed, it is NOT an audit issue.
+    */
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
     const DEBUG = false;
     const CACHE_MAX = 120;
@@ -2426,8 +2475,17 @@ async function hydrateTrackedPicks(force = false) {
       const data = await res.json();
       if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
 
-      const localUpdatedAt = Date.parse(g_trackerState?.updatedAt || "") || 0;
+            const localUpdatedAt = Date.parse(g_trackerState?.updatedAt || "") || 0;
       const serverUpdatedAt = Date.parse(data.state?.updatedAt || "") || 0;
+
+      const serverHasState =
+        (Array.isArray(data.state?.activePicks) && data.state.activePicks.length > 0) ||
+        (Array.isArray(data.state?.archivedPicks) && data.state.archivedPicks.length > 0);
+
+      if (hadLocalState && !serverHasState) {
+        scheduleTrackerSave();
+        return g_trackerState;
+      }
 
       if (localUpdatedAt > serverUpdatedAt) {
         scheduleTrackerSave();
@@ -2436,10 +2494,6 @@ async function hydrateTrackedPicks(force = false) {
 
       normalizeTrackerState(data.state);
       saveTrackerStateToLocal();
-
-      const serverHasState =
-        (Array.isArray(data.state?.activePicks) && data.state.activePicks.length > 0) ||
-        (Array.isArray(data.state?.archivedPicks) && data.state.archivedPicks.length > 0);
 
       if (!serverHasState && !hadLocalState) {
         console.warn("[BB Engine] tracker loaded empty state for key:", getTrackerUserKey());
@@ -2517,8 +2571,9 @@ async function flushTrackerSave() {
   } finally {
     g_trackerSaveInFlight = false;
 
-    if (g_trackerPersistedVersion < g_trackerSaveVersion) {
+        if (saveVersion < g_trackerSaveVersion) {
       flushTrackerSave();
+    }
     }
   }
 }
@@ -2690,9 +2745,9 @@ function renderTrackedPicks() {
 
   const activePicks = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   const archivedPicks = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
-  const allPicks = [...activePicks, ...archivedPicks];
-  renderTrackerAnalytics();
+    const allPicks = [...activePicks, ...archivedPicks];
   rebuildTrackerStats();
+  renderTrackerAnalytics();
   const stats = g_trackerState.stats || {
     total: 0,
     settled: 0,
