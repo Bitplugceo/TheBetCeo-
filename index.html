@@ -3555,9 +3555,16 @@ current.unshift(ensureTrackedPickKeys(p));
 
     function selectLock(markets) {
   const valid = markets.filter(m =>
-    m.pick !== "NO PLAY" && m.pick !== "—" &&
-    !isNaN(m.edge) && m.line !== null && !isNaN(m.line) && m.line > 0 &&
-    Math.abs(m.edge / m.line) >= 0.045 && m.fullModel === true
+    m.pick !== "NO PLAY" &&
+    m.pick !== "—" &&
+    !m.note &&
+    !isNaN(m.edge) &&
+    m.line !== null &&
+    !isNaN(m.line) &&
+    m.line > 0 &&
+    Math.abs(m.edge / m.line) >= 0.045 &&
+    m.fullModel === true &&
+    ["A", "B"].includes(String(m.confidence || "").toUpperCase())
   );
 
   if (!valid.length) return -1;
@@ -6595,12 +6602,13 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
     });
 
     const markets = picks.map(p => ({
-      edge: p.edge,
-      line: p.line,
-      pick: p.pick,
-      fullModel: p.fullModel
-    }));
-
+  edge: p.edge,
+  line: p.line,
+  pick: p.pick,
+  fullModel: p.fullModel,
+  confidence: p.confidence,
+  note: p.note
+}));
     const lockIdx = selectLock(markets);
 
     const finalPicks = isNba
