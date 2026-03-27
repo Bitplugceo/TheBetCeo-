@@ -248,20 +248,19 @@ small {
       box-sizing: border-box;
     }
 
-    input,
+input,
     .league-box {
       display: block;
       padding: 8px 10px;
       font-size: 12px;
-      background: #ffffff;
-      color: #1f2430;
-      border: 1px solid #cfd4da;
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--input-border);
       margin-bottom: 6px;
       appearance: none;
       -webkit-appearance: none;
       -moz-appearance: none;
     }
-
     input::placeholder {
   color: var(--muted);
   opacity: 0.75;
@@ -801,7 +800,70 @@ small {
       line-height: 1.5;
       margin-bottom: 6px;
     }
-    
+    .tracker-analytics-panel {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.tracker-analytics-title {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.tracker-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tracker-subtitle {
+  font-size: 12px;
+  font-weight: 800;
+  margin: 12px 0 6px;
+}
+
+.tracker-list {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tracker-list-item {
+  margin-bottom: 2px;
+}
+
+.tracker-analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 11px;
+  background: var(--panel);
+}
+
+.tracker-analytics-table th,
+.tracker-analytics-table td {
+  border: 1px solid var(--panel-border);
+  padding: 6px;
+}
+
+.tracker-analytics-table th {
+  background: var(--panel-soft-2);
+  color: var(--chip-text);
+  font-weight: 800;
+}
+
+.tracker-analytics-table td {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.tracker-center {
+  text-align: center;
+}
     /* ── Dark mode ── */
     body.dark-mode {
       background: #111 !important;
@@ -2008,14 +2070,62 @@ function safeText(str) {
       return arr.reduce((a, b) => a + b, 0) / arr.length;
     }
 
-    function trimmedAvg(arr) {
-      if (!arr || arr.length === 0) return NaN;
-      if (arr.length < 5) return avg(arr);
-      const s = [...arr].sort((a, b) => a - b);
-      s.shift();
-      s.pop();
-      return avg(s);
+    function weightedRecentAverage(arr, weights = MODEL_TUNING.recencyWeights) {
+  if (!arr || !arr.length) return NaN;
+
+  let total = 0;
+  let totalWeight = 0;
+
+  for (let i = 0; i < arr.length; i++) {
+    const v = Number(arr[i]);
+    if (!isFinite(v)) continue;
+
+    const w = weights[i] ?? Math.max(0.50, 1 - i * 0.12);
+    total += v * w;
+    totalWeight += w;
+  }
+
+  return totalWeight ? total / totalWeight : NaN;
+}
+
+function robustRecentAverage(arr) {
+  if (!arr || arr.length === 0) return NaN;
+  if (arr.length <= 2) return avg(arr);
+
+  const work = [...arr].map(Number).filter(v => isFinite(v));
+  if (!work.length) return NaN;
+
+  if (work.length >= 5) {
+    const sorted = [...work].sort((a, b) => a - b);
+    const low = sorted[0];
+    const nextLow = sorted[1];
+    const high = sorted[sorted.length - 1];
+    const nextHigh = sorted[sorted.length - 2];
+    const spread = high - low;
+
+    let lowClip = false;
+    let highClip = false;
+
+    if (spread > 0) {
+      lowClip = ((nextLow - low) / spread) >= 0.28;
+      highClip = ((high - nextHigh) / spread) >= 0.28;
     }
+
+    const adjusted = work.map(v => {
+      if (lowClip && v === low) return nextLow;
+      if (highClip && v === high) return nextHigh;
+      return v;
+    });
+
+    return weightedRecentAverage(adjusted);
+  }
+
+  return weightedRecentAverage(work);
+}
+
+function trimmedAvg(arr) {
+  return robustRecentAverage(arr);
+}
 
     function stdDev(arr) {
       if (!arr || arr.length < 2) return 0;
@@ -2707,68 +2817,70 @@ function renderTrackerAnalytics() {
 
   const teamTable = topTeams.length
     ? `
-      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;">
+      <table class="tracker-analytics-table">
         <tr>
-          <th style="border:1px solid #dfe2e7;padding:6px;">Team</th>
-          <th style="border:1px solid #dfe2e7;padding:6px;">Settled</th>
-          <th style="border:1px solid #dfe2e7;padding:6px;">W-L-P</th>
-          <th style="border:1px solid #dfe2e7;padding:6px;">Win %</th>
+          <th>Team</th>
+          <th>Settled</th>
+          <th>W-L-P</th>
+          <th>Win %</th>
         </tr>
         ${topTeams.map(row => `
           <tr>
-            <td style="border:1px solid #dfe2e7;padding:6px;">${safeText(row.label)}</td>
-            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${row.settled}</td>
-            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(formatWLP(row))}</td>
-            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(row.winRate)}</td>
+            <td>${safeText(row.label)}</td>
+            <td class="tracker-center">${row.settled}</td>
+            <td class="tracker-center">${safeText(formatWLP(row))}</td>
+            <td class="tracker-center">${safeText(row.winRate)}</td>
           </tr>
         `).join("")}
       </table>
     `
-    : `<div style="margin-top:8px;">No team analytics yet.</div>`;
+    : `<div class="tracker-empty-mini">No team analytics yet.</div>`;
 
   const matchupTable = topMatchups.length
     ? `
-      <table style="width:100%;border-collapse:collapse;margin-top:8px;font-size:11px;">
+      <table class="tracker-analytics-table">
         <tr>
-          <th style="border:1px solid #dfe2e7;padding:6px;">Matchup</th>
-          <th style="border:1px solid #dfe2e7;padding:6px;">Settled</th>
-          <th style="border:1px solid #dfe2e7;padding:6px;">W-L-P</th>
-          <th style="border:1px solid #dfe2e7;padding:6px;">Win %</th>
+          <th>Matchup</th>
+          <th>Settled</th>
+          <th>W-L-P</th>
+          <th>Win %</th>
         </tr>
         ${topMatchups.map(row => `
           <tr>
-            <td style="border:1px solid #dfe2e7;padding:6px;">${safeText(row.label)}</td>
-            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${row.settled}</td>
-            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(formatWLP(row))}</td>
-            <td style="border:1px solid #dfe2e7;padding:6px;text-align:center;">${safeText(row.winRate)}</td>
+            <td>${safeText(row.label)}</td>
+            <td class="tracker-center">${row.settled}</td>
+            <td class="tracker-center">${safeText(formatWLP(row))}</td>
+            <td class="tracker-center">${safeText(row.winRate)}</td>
           </tr>
         `).join("")}
       </table>
     `
-    : `<div style="margin-top:8px;">No matchup analytics yet.</div>`;
+    : `<div class="tracker-empty-mini">No matchup analytics yet.</div>`;
 
   panel.style.display = "block";
   panel.innerHTML = `
-    <div style="font-size:13px;font-weight:800;margin-bottom:8px;">Phase 2 Tracker Audit</div>
+    <div class="tracker-analytics-title">Phase 2 Tracker Audit</div>
 
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+    <div class="tracker-chip-row">
       <div class="tracker-market-chip">All ${analytics.allCount}</div>
       <div class="tracker-market-chip">Settled ${analytics.overallStats.settled}</div>
       <div class="tracker-market-chip">Win Rate ${safeText(analytics.overallRate)}</div>
+      <div class="tracker-market-chip">A/B Only ${safeText(formatWLP(analytics.abStats))}</div>
+      <div class="tracker-market-chip">A/B Win Rate ${safeText(analytics.abRate)}</div>
       <div class="tracker-market-chip">Locks ${safeText(formatWLP(analytics.lockStats))}</div>
       <div class="tracker-market-chip">Over ${safeText(formatWLP(analytics.overStats))}</div>
       <div class="tracker-market-chip">Under ${safeText(formatWLP(analytics.underStats))}</div>
     </div>
 
-    <div style="font-size:12px;font-weight:800;margin:0 0 6px;">Engine Suggestions</div>
-    <div style="font-size:12px;line-height:1.6;">
-      ${analytics.suggestions.map(text => `<div>• ${safeText(text)}</div>`).join("")}
+    <div class="tracker-subtitle">Engine Suggestions</div>
+    <div class="tracker-list">
+      ${analytics.suggestions.map(text => `<div class="tracker-list-item">• ${safeText(text)}</div>`).join("")}
     </div>
 
-    <div style="font-size:12px;font-weight:800;margin:12px 0 6px;">Team Tracking</div>
+    <div class="tracker-subtitle">Team Tracking</div>
     ${teamTable}
 
-    <div style="font-size:12px;font-weight:800;margin:12px 0 6px;">Matchup Tracking</div>
+    <div class="tracker-subtitle">Matchup Tracking</div>
     ${matchupTable}
   `;
 }
@@ -5773,7 +5885,7 @@ setFetchAuditIssues([]);
 closeDrop("dropA");
 closeDrop("dropB");
       const t = document.getElementById("results");
-      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th<th>Model Grade</th><th>Prediction</th></tr>";
+t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
       t.style.display = "none";
 
       const fixtureSelect = document.getElementById("fixtureSelect");
