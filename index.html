@@ -608,13 +608,14 @@ input,
       color: #9aa0a8 !important;
     }
 
-    .lock {
-      font-size: 4px !important;
-      display: inline-block;
-      vertical-align: middle;
-      transform: translateY(-1px);
-      margin-right: 4px;
-    }
+   .lock {
+  font-size: 4px !important;
+  display: inline-block;
+  vertical-align: middle;
+  transform: none;
+  margin-left: 4px;
+  margin-right: 0;
+}
 
     .track-pending {
       background: #eceff3 !important;
@@ -2810,7 +2811,7 @@ function renderTrackedPicks() {
         <td>${safeText((p.homeTeam || "—") + " vs " + (p.awayTeam || "—"))}</td>
         <td>${safeText(p.marketName || "—")}</td>
         <td>${safeText(displayLine(p.line))}</td>
-<td>${p.isLock ? '<span class="lock">🔒</span> ' : ""}${safeText(p.predictionText || "—")}</td>
+<td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
         <td>${safeText(edgeText)}</td>
         <td class="${statusClass}">${safeText(statusLabel)}</td>
       </tr>
@@ -6228,7 +6229,7 @@ function buildResultRows({
 <td>${isFinite(p.edge) ? safeText(formatEdge(p.edge)) : "—"}</td>
 <td class="${getConfidenceClass(confText)}">${safeText(confText)}</td>
 <td class="${getPredictionClass(p.pick)}">
-  ${isLock ? '<span class="lock">🔒</span> ' : ""}${safeText(p.pick || "NO PLAY")}
+  ${safeText(p.pick || "NO PLAY")}${isLock ? ' <span class="lock">🔒</span>' : ""}
   ${p.note ? `<small class="error-note">${safeText(p.note)}</small>` : ""}
 </td>
     `;
