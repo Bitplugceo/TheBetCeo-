@@ -1279,6 +1279,13 @@ const MODEL_TUNING = {
   h2hMaxWeight: 0.20,
   recencyWeights: [1.35, 1.20, 1.00, 0.85, 0.70]
 };
+
+const TEAM_MEMORY_RULES = {
+  minSample: 5,
+  strongSample: 8,
+  badWinRate: 0.42,
+  hardBlockWinRate: 0.34
+};
     const PICK_RULES = {
       default: { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
       ft:      { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
@@ -1672,7 +1679,22 @@ function collectDerivedSignals(bucketObject = {}, topN = 12) {
     })
     .slice(0, topN);
 }
+function applyResultToDerivedBucket(bucket, pick) {
+  const status = String(pick?.resultStatus || "pending").toLowerCase();
 
+  bucket.picks++;
+
+  if (status === "pending") {
+    bucket.pending++;
+    return;
+  }
+
+  bucket.settled++;
+
+  if (status === "win") bucket.wins++;
+  else if (status === "loss") bucket.losses++;
+  else if (status === "push") bucket.pushes++;
+}
 function upsertDerivedBucket(map, key, label, pick) {
   if (!key) return;
 
@@ -1754,18 +1776,21 @@ function buildTrackerDerivedState() {
     upsertDerivedBucket(environmentMap, environmentKey, environmentKey, pick);
     upsertDerivedBucket(marketSideMap, marketSideKey, marketSideKey, pick);
 
-    if (pick.homeTeamKey) {
-      upsertDerivedBucket(teamMap, pick.homeTeamKey, pick.homeTeam || pick.homeTeamKey, pick);
+        if (pick.homeTeamKey) {
+      const homeBucketKey = `${pick.league || "unknown"}:${pick.homeTeamKey}`;
+      upsertDerivedBucket(teamMap, homeBucketKey, pick.homeTeam || pick.homeTeamKey, pick);
     }
 
     if (pick.awayTeamKey && pick.awayTeamKey !== pick.homeTeamKey) {
-      upsertDerivedBucket(teamMap, pick.awayTeamKey, pick.awayTeam || pick.awayTeamKey, pick);
+      const awayBucketKey = `${pick.league || "unknown"}:${pick.awayTeamKey}`;
+      upsertDerivedBucket(teamMap, awayBucketKey, pick.awayTeam || pick.awayTeamKey, pick);
     }
 
     if (pick.matchupKey) {
+      const matchupBucketKey = `${pick.league || "unknown"}:${pick.matchupKey}`;
       upsertDerivedBucket(
         matchupMap,
-        pick.matchupKey,
+        matchupBucketKey,
         `${pick.homeTeam || "—"} vs ${pick.awayTeam || "—"}`,
         pick
       );
@@ -3076,15 +3101,16 @@ function buildTrackerFeedbackProfile() {
     else if (status === "push") bucket.pushes++;
   }
 
-  all.forEach(pick => {
+    all.forEach(pick => {
     const status = String(pick.resultStatus || "").toLowerCase();
+    const leagueKey = String(pick.league || "unknown");
     const marketKey = String(pick.marketKey || "other");
     const side = String(pick.side || "");
 
-    addResult(`market:${marketKey}`, status);
+    addResult(`leagueMarket:${leagueKey}:${marketKey}`, status);
 
     if (side) {
-      addResult(`marketSide:${marketKey}:${side}`, status);
+      addResult(`leagueMarketSide:${leagueKey}:${marketKey}:${side}`, status);
       addResult(`side:${side}`, status);
     }
   });
@@ -3092,12 +3118,13 @@ function buildTrackerFeedbackProfile() {
   return { totalSettled: all.length, buckets };
 }
 
-function getTrackerFeedbackSignal(profile, marketKey, side) {
+function getTrackerFeedbackSignal(profile, marketKey, side, league) {
   if (!profile || !profile.buckets || !marketKey || !side) return null;
 
   const minSample = getTrackerFeedbackMinSample(marketKey);
-  const marketSide = profile.buckets.get(`marketSide:${marketKey}:${side}`);
-  const marketOnly = profile.buckets.get(`market:${marketKey}`);
+    const leagueKey = String(league || "unknown");
+  const marketSide = profile.buckets.get(`leagueMarketSide:${leagueKey}:${marketKey}:${side}`);
+  const marketOnly = profile.buckets.get(`leagueMarket:${leagueKey}:${marketKey}`);
   const sideOnly = profile.buckets.get(`side:${side}`);
 
   let factor = 1;
@@ -3222,7 +3249,7 @@ function applyTrackerFeedbackToPickRows(picks) {
 
     if (!side || !p.marketKey) return;
 
-    const feedback = getTrackerFeedbackSignal(profile, p.marketKey, side);
+    const feedback = getTrackerFeedbackSignal(profile, p.marketKey, side, p.league);
     if (!feedback) return;
 
     const rawEdge = p.edge;
@@ -3251,6 +3278,116 @@ function applyTrackerFeedbackToPickRows(picks) {
       p.confidence = bumpConfidenceGrade(p.confidence, feedback.confidenceShift);
     }
   });
+}
+function getAllSettledTrackedPicks() {
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+
+  return [...active, ...archived]
+    .map(p => ensureTrackedPickKeys(p))
+    .filter(p => {
+      const status = String(p.resultStatus || "").toLowerCase();
+      return status === "win" || status === "loss";
+    });
+}
+
+function getPickSideFromText(text) {
+  const raw = String(text || "");
+  if (raw.startsWith("OVER")) return "over";
+  if (raw.startsWith("UNDER")) return "under";
+  return "";
+}
+
+function downgradeConfidenceGrade(grade) {
+  if (grade === "A") return "B";
+  if (grade === "B") return "C";
+  if (grade === "C") return "D";
+  return grade || "—";
+}
+
+function getTargetTeamsForMarket(marketKey, fixtureMeta) {
+  const homeKey = normalizeTeamName(fixtureMeta?.homeTeam || "");
+  const awayKey = normalizeTeamName(fixtureMeta?.awayTeam || "");
+
+  if (marketKey === "team_a") return homeKey ? [homeKey] : [];
+  if (marketKey === "team_b") return awayKey ? [awayKey] : [];
+
+  return [homeKey, awayKey].filter(Boolean);
+}
+
+function historicalPickMatchesTeamMarket(histPick, teamKey, marketKey) {
+  const homeKey = histPick.homeTeamKey || normalizeTeamName(histPick.homeTeam || "");
+  const awayKey = histPick.awayTeamKey || normalizeTeamName(histPick.awayTeam || "");
+
+  if (marketKey === "team_a" || marketKey === "team_b") {
+    const subjectTeam =
+      histPick.marketKey === "team_a" ? homeKey :
+      histPick.marketKey === "team_b" ? awayKey :
+      "";
+
+    return !!subjectTeam && subjectTeam === teamKey;
+  }
+
+  return histPick.marketKey === marketKey && (homeKey === teamKey || awayKey === teamKey);
+}
+
+function evaluateTeamMemoryForPick(pickRow, fixtureMeta) {
+  const marketKey = getMarketKeyFromName(pickRow?.name);
+  const side = getPickSideFromText(pickRow?.pick);
+
+  if (!marketKey || !side) return null;
+
+  const targetTeams = getTargetTeamsForMarket(marketKey, fixtureMeta);
+  if (!targetTeams.length) return null;
+
+  const settled = getAllSettledTrackedPicks();
+  if (!settled.length) return null;
+
+  const flaggedTeams = [];
+
+  targetTeams.forEach(teamKey => {
+        const rows = settled.filter(hist =>
+      hist.league === pickRow.league &&
+      hist.side === side &&
+      historicalPickMatchesTeamMarket(hist, teamKey, marketKey)
+    );
+
+    const wins = rows.filter(r => r.resultStatus === "win").length;
+    const losses = rows.filter(r => r.resultStatus === "loss").length;
+    const sample = wins + losses;
+
+    if (sample < TEAM_MEMORY_RULES.minSample) return;
+
+    const winRate = wins / sample;
+    const level =
+      sample >= TEAM_MEMORY_RULES.strongSample && winRate <= TEAM_MEMORY_RULES.hardBlockWinRate
+        ? "strong"
+        : winRate <= TEAM_MEMORY_RULES.badWinRate
+          ? "mild"
+          : "";
+
+    if (!level) return;
+
+    flaggedTeams.push({
+      teamKey,
+      wins,
+      losses,
+      sample,
+      winRate,
+      level
+    });
+  });
+
+  if (!flaggedTeams.length) return null;
+
+  const strongCount = flaggedTeams.filter(t => t.level === "strong").length;
+  const mildCount = flaggedTeams.filter(t => t.level === "mild").length;
+
+  return {
+    flaggedTeams,
+    shouldBlock: strongCount >= 1 || mildCount >= 2,
+    shouldDowngrade: strongCount === 0 && mildCount === 1
+  };
 }
 function getTrackedLeagueBase(league) {
   if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -6018,15 +6155,19 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     return "extreme";
   }
 
-  function getInjuryBucket(dx = {}) {
+    function getInjuryBucketForPayload(market, dx = {}) {
     const injA = Number(dx.injMultA ?? 1);
     const injB = Number(dx.injMultB ?? 1);
-    const strongest = Math.min(injA, injB);
 
-    if (strongest <= 0.75) return "severe";
-    if (strongest <= 0.85) return "high";
-    if (strongest <= 0.92) return "moderate";
-    if (strongest < 0.99) return "light";
+    const target =
+      market === "team_a" ? injA :
+      market === "team_b" ? injB :
+      Math.min(injA, injB);
+
+    if (target <= 0.75) return "severe";
+    if (target <= 0.85) return "high";
+    if (target <= 0.92) return "moderate";
+    if (target < 0.99) return "light";
     return "clean";
   }
 
@@ -6090,7 +6231,7 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
   const hasH2H = getHasH2HForMarket(marketKey, diagnostics);
   const volatilityValue = getVolatilityValueForMarket(marketKey, diagnostics);
   const volatilityBucket = getVolatilityBucket(volatilityValue);
-  const injuryBucket = getInjuryBucket(diagnostics);
+  const injuryBucket = getInjuryBucketForPayload(marketKey, diagnostics);
   const edgeBucket = getEdgeBucket(pickRow.edge, pickRow.line);
   const lineBucket = getLineBucket(marketKey, pickRow.line);
   const gamePaceGapRisk = getPaceRiskForMarket(marketKey, diagnostics);
@@ -6153,10 +6294,10 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     memoryProfileKey,
     environmentKey,
     resultStatus: "pending",
-    diagnostics: {
+        diagnostics: {
       ...(diagnostics || {}),
       confidenceGrade: grade,
-      trackerFeedback: pickRow.trackerFeedback || null
+      teamMemory: pickRow.teamMemory || null
     },
     createdAt: new Date().toISOString()
   };
@@ -6501,13 +6642,44 @@ applyTrackerFeedbackToPickRows(picks);
 
       const keepIdx = activePeriodPicks[0]._idx;
 
-      activePeriodPicks.forEach(p => {
+            activePeriodPicks.forEach(p => {
         if (p._idx === keepIdx) return;
         p.pick = "NO PLAY";
         p.confidence = "—";
         p.note = "Blocked: correlated with stronger same-game period pick";
       });
     }
+
+    const fixtureMeta = getCurrentFixtureMeta();
+
+    picks.forEach(p => {
+      if (!p || p.pick === "NO PLAY" || p.note) return;
+
+      const memory = evaluateTeamMemoryForPick(p, fixtureMeta);
+      if (!memory) return;
+
+      p.teamMemory = {
+        flaggedTeams: memory.flaggedTeams.map(t => ({
+          teamKey: t.teamKey,
+          wins: t.wins,
+          losses: t.losses,
+          sample: t.sample,
+          winRate: Number((t.winRate * 100).toFixed(1)),
+          level: t.level
+        }))
+      };
+
+      if (memory.shouldBlock) {
+        p.pick = "NO PLAY";
+        p.confidence = "—";
+        p.note = "Blocked: team memory";
+        return;
+      }
+
+      if (memory.shouldDowngrade) {
+        p.confidence = downgradeConfidenceGrade(p.confidence);
+      }
+    });
 
     const markets = picks.map(p => ({
       edge: p.edge,
@@ -6524,7 +6696,6 @@ applyTrackerFeedbackToPickRows(picks);
         ? picks.filter(p => p.name !== "Q1 Total")
         : picks.filter(p => p.name !== "1H Total" && p.name !== "Q1 Total");
 
-    const fixtureMeta = getCurrentFixtureMeta();
 
     const trackedToSave = buildResultRows({
       table,
