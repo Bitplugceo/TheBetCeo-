@@ -864,6 +864,19 @@ input,
 .tracker-center {
   text-align: center;
 }
+.tracker-hidden {
+  display: none;
+}
+
+.tracker-empty {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tracker-table-wrap {
+  margin: 0;
+}
     /* ── Dark mode ── */
     body.dark-mode {
       background: #111 !important;
@@ -1361,13 +1374,13 @@ input,
         <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
       </div>
           <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
-      <div class="tracker-market-summary" id="trackerMarketSummary" style="display:none;"></div>
-     <div id="trackerAnalyticsPanel" class="tracker-analytics-panel" style="display:none;"></div>
-       <div id="trackerEmpty" style="padding:12px 14px;font-size:12px;color:#7b8088;">
+<div class="tracker-market-summary tracker-hidden" id="trackerMarketSummary"></div>
+<div id="trackerAnalyticsPanel" class="tracker-analytics-panel tracker-hidden"></div>
+<div id="trackerEmpty" class="tracker-empty">
         No tracked picks saved yet.
       </div>
-      <div class="tracker-body-scroll" id="trackedPicksWrap" style="display:none;">
-        <div class="table-wrap" style="margin:0;">
+<div class="tracker-body-scroll tracker-hidden" id="trackedPicksWrap">
+<div class="table-wrap tracker-table-wrap">
           <table id="trackedPicksTable">
             <thead>
               <tr>
