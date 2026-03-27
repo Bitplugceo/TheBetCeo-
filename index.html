@@ -3045,20 +3045,23 @@ current.unshift(ensureTrackedPickKeys(p));
     }
 
     function selectLock(markets) {
-      const valid = markets.filter(m =>
-        m.pick !== "NO PLAY" && m.pick !== "—" &&
-        !isNaN(m.edge) && m.line !== null && !isNaN(m.line) && m.line > 0 &&
-        Math.abs(m.edge / m.line) >= 0.045 && m.fullModel === true
-      );
-      if (!valid.length) return -1;
-      const best = [...valid].sort((a, b) => {
-        const ea = Math.abs(a.edge / a.line);
-        const eb = Math.abs(b.edge / b.line);
-        if (Math.abs(eb - ea) > 0.0005) return eb - ea;
-        return Math.abs(b.edge) - Math.abs(a.edge);
-      })[0];
-      return markets.findIndex(m => m === best);
-    }
+  const valid = markets.filter(m =>
+    m.pick !== "NO PLAY" && m.pick !== "—" &&
+    !isNaN(m.edge) && m.line !== null && !isNaN(m.line) && m.line > 0 &&
+    Math.abs(m.edge / m.line) >= 0.045 && m.fullModel === true
+  );
+
+  if (valid.length < 2) return -1;
+
+  const best = [...valid].sort((a, b) => {
+    const ea = Math.abs(a.edge / a.line);
+    const eb = Math.abs(b.edge / b.line);
+    if (Math.abs(eb - ea) > 0.0005) return eb - ea;
+    return Math.abs(b.edge) - Math.abs(a.edge);
+  })[0];
+
+  return markets.findIndex(m => m === best);
+}
 
     function getConfidenceGrade({
       pick, note, line, edge, sampleTier, projectionOnly, fullModel, trap,
@@ -3236,7 +3239,7 @@ resetResultsTable();
         if (changedSide === "B") { g_injB = defaultInjuryMeta(); hideInjuryBox("B"); }
         clearSideFields(changedSide);
         clearH2HFields();
-      } else {
+           } else {
         selectedTeamIds = { A: null, B: null };
         g_lastFetchedTeams = { A: "", B: "" };
         g_fetchMeta = defaultFetchMeta();
@@ -3244,8 +3247,9 @@ resetResultsTable();
         clearSideFields("B");
         clearH2HFields();
       }
-        }
-    validateFetchSection();
+
+      validateFetchSection();
+    }
 
     function updateSectionLocks() {
       const league = document.getElementById("leagueSelect").value;
@@ -4602,14 +4606,17 @@ const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
           updateSectionLocks();
         }
 
-        setStatusHTML(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
+setStatusHTML(
+  messages.map(m => `<div>${m}</div>`).join(""),
+  allGood && !fetchAuditIssues.length ? "ok" : "err"
+);
      } catch (e) {
   if (myToken === _fetchToken) {
     setFetchAuditIssues([e.message]);
     setStatusText("❌ " + e.message, "err");
   }
 } finally {
-        if (myToken === _fetchToken) btn.disabled = false;
+        if (myToken === _fetchToken) unlockFetchBtn();
       }
     }
 
@@ -5255,14 +5262,14 @@ function buildResultRows({
 
     const row = table.insertRow();
     row.innerHTML = `
-      <td>${safeText(p.name)}${isLock ? ' <span class="lock">🔒</span>' : ""}</td>
-      <td>${isFinite(p.proj) ? safeText(displayLine(p.proj)) : "—"}</td>
-      <td>${isFinite(p.edge) ? safeText(formatEdge(p.edge)) : "—"}</td>
-      <td class="${getConfidenceClass(confText)}">${safeText(confText)}</td>
-      <td class="${getPredictionClass(p.pick)}">
-        ${safeText(p.pick || "NO PLAY")}
-        ${p.note ? `<small class="error-note">${safeText(p.note)}</small>` : ""}
-      </td>
+     <td>${safeText(p.name)}</td>
+<td>${isFinite(p.proj) ? safeText(displayLine(p.proj)) : "—"}</td>
+<td>${isFinite(p.edge) ? safeText(formatEdge(p.edge)) : "—"}</td>
+<td class="${getConfidenceClass(confText)}">${safeText(confText)}</td>
+<td class="${getPredictionClass(p.pick)}">
+  ${isLock ? '<span class="lock">🔒</span> ' : ""}${safeText(p.pick || "NO PLAY")}
+  ${p.note ? `<small class="error-note">${safeText(p.note)}</small>` : ""}
+</td>
     `;
 
     if (p.pick !== "NO PLAY" && !p.note && isFinite(p.line)) {
