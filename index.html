@@ -1286,6 +1286,15 @@ const TEAM_MEMORY_RULES = {
   badWinRate: 0.42,
   hardBlockWinRate: 0.34
 };
+const PHASE2_CONTROL = {
+  mode: "shadow",
+  trackerFeedbackLive: false,
+  teamMemoryLive: false
+};
+
+function isPhase2ShadowMode() {
+  return PHASE2_CONTROL.mode === "shadow";
+}
     const PICK_RULES = {
       default: { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
       ft:      { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
@@ -3233,6 +3242,8 @@ function applyTrackerFeedbackToPickRows(picks) {
   const profile = buildTrackerFeedbackProfile();
   if (!profile.totalSettled) return;
 
+  const trackerLive = !!PHASE2_CONTROL.trackerFeedbackLive && !isPhase2ShadowMode();
+
   picks.forEach(p => {
     if (!p || p.pick === "NO PLAY" || p.note) return;
     if (!isFinite(p.edge) || !isFinite(p.line) || p.line <= 0) return;
@@ -3248,9 +3259,40 @@ function applyTrackerFeedbackToPickRows(picks) {
     if (!feedback) return;
 
     const rawEdge = p.edge;
-    p.edge = p.edge * feedback.factor;
+    const adjustedEdge = p.edge * feedback.factor;
+    const hypotheticalPick = getPick(
+      adjustedEdge,
+      p.line,
+      p.league,
+      p.marketType,
+      p.context || {}
+    );
+
+    const hypotheticalBlocked =
+      !!feedback.shouldBlock || !hypotheticalPick || hypotheticalPick === "NO PLAY";
+
+    const hypotheticalConfidence =
+      p.confidence && p.confidence !== "—" && feedback.confidenceShift
+        ? bumpConfidenceGrade(p.confidence, feedback.confidenceShift)
+        : (p.confidence || "—");
+
+    p.trackerFeedback = { ...feedback, rawEdge, adjustedEdge };
+    p.shadowTrackerFeedback = {
+      mode: trackerLive ? "live" : "shadow",
+      originalEdge: rawEdge,
+      adjustedEdge,
+      originalPick: p.pick,
+      originalConfidence: p.confidence || "—",
+      hypotheticalPick: hypotheticalBlocked ? "NO PLAY" : hypotheticalPick,
+      hypotheticalConfidence: hypotheticalBlocked ? "—" : hypotheticalConfidence,
+      hypotheticalBlocked,
+      reasons: feedback.reasons || []
+    };
+
+    if (!trackerLive) return;
+
+    p.edge = adjustedEdge;
     p.proj = p.line + p.edge;
-    p.trackerFeedback = { ...feedback, rawEdge };
 
     if (feedback.shouldBlock) {
       p.pick = "NO PLAY";
@@ -3259,18 +3301,16 @@ function applyTrackerFeedbackToPickRows(picks) {
       return;
     }
 
-    const updatedPick = getPick(p.edge, p.line, p.league, p.marketType, p.context || {});
-
-    if (!updatedPick || updatedPick === "NO PLAY") {
+    if (!hypotheticalPick || hypotheticalPick === "NO PLAY") {
       p.pick = "NO PLAY";
       p.confidence = "—";
       return;
     }
 
-    p.pick = updatedPick;
+    p.pick = hypotheticalPick;
 
     if (p.confidence && p.confidence !== "—" && feedback.confidenceShift) {
-      p.confidence = bumpConfidenceGrade(p.confidence, feedback.confidenceShift);
+      p.confidence = hypotheticalConfidence;
     }
   });
 }
@@ -6289,9 +6329,12 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     memoryProfileKey,
     environmentKey,
     resultStatus: "pending",
-        diagnostics: {
+            diagnostics: {
       ...(diagnostics || {}),
+      phase2Mode: isPhase2ShadowMode() ? "shadow" : "live",
       confidenceGrade: grade,
+      trackerFeedback: pickRow.trackerFeedback || null,
+      shadowTrackerFeedback: pickRow.shadowTrackerFeedback || null,
       teamMemory: pickRow.teamMemory || null
     },
     createdAt: new Date().toISOString()
@@ -6647,22 +6690,31 @@ applyTrackerFeedbackToPickRows(picks);
 
     const fixtureMeta = getCurrentFixtureMeta();
 
-    picks.forEach(p => {
+        picks.forEach(p => {
       if (!p || p.pick === "NO PLAY" || p.note) return;
 
       const memory = evaluateTeamMemoryForPick(p, fixtureMeta);
       if (!memory) return;
 
+      const flaggedTeams = memory.flaggedTeams.map(t => ({
+        teamKey: t.teamKey,
+        wins: t.wins,
+        losses: t.losses,
+        sample: t.sample,
+        winRate: Number((t.winRate * 100).toFixed(1)),
+        level: t.level
+      }));
+
       p.teamMemory = {
-        flaggedTeams: memory.flaggedTeams.map(t => ({
-          teamKey: t.teamKey,
-          wins: t.wins,
-          losses: t.losses,
-          sample: t.sample,
-          winRate: Number((t.winRate * 100).toFixed(1)),
-          level: t.level
-        }))
+        mode: PHASE2_CONTROL.teamMemoryLive && !isPhase2ShadowMode() ? "live" : "shadow",
+        wouldBlock: !!memory.shouldBlock,
+        wouldDowngrade: !!memory.shouldDowngrade,
+        flaggedTeams
       };
+
+      if (!(PHASE2_CONTROL.teamMemoryLive && !isPhase2ShadowMode())) {
+        return;
+      }
 
       if (memory.shouldBlock) {
         p.pick = "NO PLAY";
