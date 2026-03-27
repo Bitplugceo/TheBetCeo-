@@ -518,10 +518,10 @@ small {
 }
 
     td {
-      background: #fff !important;
-      color: #1f2430 !important;
-      font-weight: 600 !important;
-    }
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  font-weight: 600 !important;
+}
 
     .pred-over {
       background: #3a9c35 !important;
@@ -573,11 +573,11 @@ small {
       font-weight: 800 !important;
     }
 
-    .conf-none {
-      background: #eaeaea !important;
-      color: #5a5f6b !important;
-      font-weight: 700 !important;
-    }
+   .conf-none {
+  background: var(--panel-soft-2) !important;
+  color: var(--muted) !important;
+  font-weight: 700 !important;
+}
 
     body.dark-mode .conf-none {
       background: #2a2f3a !important;
@@ -1286,7 +1286,7 @@ small {
         <th>Pick</th>
         <th>Projection</th>
         <th>Edge</th>
-        <th>Confidence</th>
+<th>Model Grade</th>
         <th>Prediction</th>
       </tr>
     </table>
@@ -1343,7 +1343,12 @@ small {
       MULTI_GOAL_SUPPRESS: 0.98,
       PACE_SUPPRESS: 0.97
     };
-
+const MODEL_TUNING = {
+  anchorEnabled: { ft: true, h1: true, q1: true, team: true },
+  anchorScale: { ft: 0.75, h1: 0.75, q1: 0.85, team: 0.85 },
+  h2hMaxWeight: 0.20,
+  recencyWeights: [1.35, 1.20, 1.00, 0.85, 0.70]
+};
     const PICK_RULES = {
       default: { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
       ft:      { over: 0.045, under: 0.060, underExtra: 0, underBlockRatio: 0.58 },
@@ -1520,16 +1525,16 @@ const LEAGUE_FETCH_RULES = {
     });
 
     function defaultInjuryMeta() {
-      return {
-        scoringMult: 1,
-        notes: [],
-        outCount: 0,
-        dtdCount: 0,
-        estimatedImpactCount: 0,
-        hasEstimatedImpact: false,
-        highUncertainty: false
-      };
-    }
+  return {
+    scoringMult: 1,
+    notes: [],
+    outCount: 0,
+    dtdCount: 0,
+    unknownImpactCount: 0,
+    hasUnknownImpact: false,
+    highUncertainty: false
+  };
+}
 
     let g_fetchMeta = defaultFetchMeta();
     let g_injA = defaultInjuryMeta();
@@ -1833,7 +1838,7 @@ function safeText(str) {
     function resetResultsTable() {
       const t = document.getElementById("results");
       if (!t) return;
-      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
+      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
       t.style.display = "none";
     }
 
@@ -2552,8 +2557,9 @@ function buildTrackerAnalytics() {
     });
 
   const lockPicks = settledPicks.filter(p => p.isLock);
-  const overPicks = settledPicks.filter(p => p.side === "over");
-  const underPicks = settledPicks.filter(p => p.side === "under");
+const abPicks = settledPicks.filter(p => p.isABQualified);
+const overPicks = settledPicks.filter(p => p.side === "over");
+const underPicks = settledPicks.filter(p => p.side === "under");
   const ftPicks = settledPicks.filter(p => p.marketKey === "ft");
   const teamTotalPicks = settledPicks.filter(p => p.marketKey === "team_a" || p.marketKey === "team_b");
   const periodPicks = settledPicks.filter(p => p.marketKey === "h1" || p.marketKey === "q1");
@@ -2568,15 +2574,17 @@ function buildTrackerAnalytics() {
   }
 
   const overallStats = toStats(settledPicks);
-  const lockStats = toStats(lockPicks);
-  const overStats = toStats(overPicks);
-  const underStats = toStats(underPicks);
+const lockStats = toStats(lockPicks);
+const abStats = toStats(abPicks);
+const overStats = toStats(overPicks);
+const underStats = toStats(underPicks);
   const ftStats = toStats(ftPicks);
   const teamStats = toStats(teamTotalPicks);
   const periodStats = toStats(periodPicks);
 
   const overallRateNum = numericWinRate(overallStats.wins, overallStats.settled);
-  const lockRateNum = numericWinRate(lockStats.wins, lockStats.settled);
+const lockRateNum = numericWinRate(lockStats.wins, lockStats.settled);
+const abRateNum = numericWinRate(abStats.wins, abStats.settled);
   const ftRateNum = numericWinRate(ftStats.wins, ftStats.settled);
   const teamRateNum = numericWinRate(teamStats.wins, teamStats.settled);
   const periodRateNum = numericWinRate(periodStats.wins, periodStats.settled);
@@ -2667,6 +2675,8 @@ function buildTrackerAnalytics() {
     archivedCount: archivedPicks.length,
     overallStats,
     lockStats,
+    abStats,
+abRate: safeWinRate(abStats.wins, abStats.settled),
     overStats,
     underStats,
     ftStats,
@@ -2921,12 +2931,12 @@ current.unshift(ensureTrackedPickKeys(p));
     }
 
     function getH2HWeight(lenA, lenB) {
-      const n = Math.min(lenA || 0, lenB || 0);
-      if (n < 2) return 0;
-      if (n <= 3) return 0.20;
-      const scaled = 0.30 * Math.min(1, n / 5);
-      return Math.min(scaled, MODEL.H2H_MAX_WEIGHT);
-    }
+  const n = Math.min(lenA || 0, lenB || 0);
+  if (n < 2) return 0;
+  if (n <= 3) return 0.15;
+  const scaled = MODEL_TUNING.h2hMaxWeight * Math.min(1, n / 5);
+  return Math.min(scaled, MODEL_TUNING.h2hMaxWeight);
+}
 
     function applyVolatility(proj, std, limit) {
       if (isNaN(proj) || isNaN(std)) return NaN;
@@ -3109,30 +3119,52 @@ current.unshift(ensureTrackedPickKeys(p));
     }
 
     function anchorProjection(proj, line, league, marketType) {
-      if (proj === null || isNaN(proj) || line === null || isNaN(line)) return proj;
-      const diff = proj - line;
+  if (proj === null || isNaN(proj) || line === null || isNaN(line)) return proj;
+  if (!MODEL_TUNING.anchorEnabled[marketType]) return proj;
 
-      if (marketType === "ft") {
-        if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.ft.nbaDiff) return line + diff * ANCHOR_RULES.ft.nbaWeight;
-        if (Math.abs(diff) > ANCHOR_RULES.ft.otherDiff) return line + diff * ANCHOR_RULES.ft.otherWeight;
-        return proj;
-      }
-      if (marketType === "h1") {
-        if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.h1.nbaDiff) return line + diff * ANCHOR_RULES.h1.nbaWeight;
-        if (Math.abs(diff) > ANCHOR_RULES.h1.otherDiff) return line + diff * ANCHOR_RULES.h1.otherWeight;
-        return proj;
-      }
-      if (marketType === "q1") {
-        if (Math.abs(diff) > ANCHOR_RULES.q1.diff) return line + diff * ANCHOR_RULES.q1.weight;
-        return proj;
-      }
-      if (marketType === "team") {
-        if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.team.nbaDiff) return line + diff * ANCHOR_RULES.team.nbaWeight;
-        if (Math.abs(diff) > ANCHOR_RULES.team.otherDiff) return line + diff * ANCHOR_RULES.team.otherWeight;
-        return proj;
-      }
-      return proj;
+  const diff = proj - line;
+  const scale = MODEL_TUNING.anchorScale[marketType] ?? 1;
+  const scaled = weight => Math.max(0, Math.min(1, weight * scale));
+
+  if (marketType === "ft") {
+    if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.ft.nbaDiff) {
+      return line + diff * scaled(ANCHOR_RULES.ft.nbaWeight);
     }
+    if (Math.abs(diff) > ANCHOR_RULES.ft.otherDiff) {
+      return line + diff * scaled(ANCHOR_RULES.ft.otherWeight);
+    }
+    return proj;
+  }
+
+  if (marketType === "h1") {
+    if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.h1.nbaDiff) {
+      return line + diff * scaled(ANCHOR_RULES.h1.nbaWeight);
+    }
+    if (Math.abs(diff) > ANCHOR_RULES.h1.otherDiff) {
+      return line + diff * scaled(ANCHOR_RULES.h1.otherWeight);
+    }
+    return proj;
+  }
+
+  if (marketType === "q1") {
+    if (Math.abs(diff) > ANCHOR_RULES.q1.diff) {
+      return line + diff * scaled(ANCHOR_RULES.q1.weight);
+    }
+    return proj;
+  }
+
+  if (marketType === "team") {
+    if (league === "nba" && Math.abs(diff) > ANCHOR_RULES.team.nbaDiff) {
+      return line + diff * scaled(ANCHOR_RULES.team.nbaWeight);
+    }
+    if (Math.abs(diff) > ANCHOR_RULES.team.otherDiff) {
+      return line + diff * scaled(ANCHOR_RULES.team.otherWeight);
+    }
+    return proj;
+  }
+
+  return proj;
+}
 const FIELD_GROUPS = {
   markets: ["ftMarket", "h1Market", "q1Market", "teamAMarket", "teamBMarket"],
 
@@ -3384,7 +3416,16 @@ function getCurrentSeasonYear(league) {
       if (drop) { drop.style.display = "none"; drop.innerHTML = ""; }
       if (activeDropTeam === (dropId === "dropA" ? "A" : "B")) activeDropTeam = null;
     }
+let _dropCloseTimer = null;
 
+function scheduleDropClose(dropId) {
+  clearTimeout(_dropCloseTimer);
+  _dropCloseTimer = setTimeout(() => closeDrop(dropId), 120);
+}
+
+function cancelDropClose() {
+  clearTimeout(_dropCloseTimer);
+}
     function selectTeam(side, name, id) {
   const inputId = side === "A" ? "teamAName" : "teamBName";
   const dropId = side === "A" ? "dropA" : "dropB";
@@ -3615,85 +3656,89 @@ validateFetchSection();
     }
 
     async function fetchInjuryMeta(base, teamId, teamAvgScored, league) {
-      const result = {
-        scoringMult: 1, notes: [], outCount: 0, dtdCount: 0,
-        estimatedImpactCount: 0, hasEstimatedImpact: false, highUncertainty: false
-      };
+  const result = {
+    scoringMult: 1,
+    notes: [],
+    outCount: 0,
+    dtdCount: 0,
+    unknownImpactCount: 0,
+    hasUnknownImpact: false,
+    highUncertainty: false
+  };
 
-      try {
-        const data = await proxyFetch(`${base}/teams/${teamId}/injuries`).catch(() => null);
-        const items = data?.injuries || data?.items || [];
-        if (!items.length) return result;
+  try {
+    const data = await proxyFetch(`${base}/teams/${teamId}/injuries`).catch(() => null);
+    const items = data?.injuries || data?.items || [];
+    if (!items.length) return result;
 
-        const avgPPG = teamAvgScored || 75;
-        let totalReduction = 0;
+    const avgPPG = teamAvgScored || 75;
+    let totalReduction = 0;
 
-        for (const inj of items) {
-          const status = (inj?.status || inj?.type?.description || "").toLowerCase();
-          const isOut = status.includes("out") || status.includes("injured reserve") || status.includes("suspended");
-          const isDTD = status.includes("questionable") || status.includes("doubtful") || status.includes("day-to-day");
-          if (!isOut && !isDTD) continue;
+    for (const inj of items) {
+      const status = (inj?.status || inj?.type?.description || "").toLowerCase();
+      const isOut = status.includes("out") || status.includes("injured reserve") || status.includes("suspended");
+      const isDTD = status.includes("questionable") || status.includes("doubtful") || status.includes("day-to-day");
+      if (!isOut && !isDTD) continue;
 
-          const athlete = inj?.athlete || inj?.person || {};
-          const playerName = athlete?.displayName || athlete?.fullName || "Unknown";
-          let ppg = 0;
-          let usedEstimate = false;
+      const athlete = inj?.athlete || inj?.person || {};
+      const playerName = athlete?.displayName || athlete?.fullName || "Unknown";
+      const tag = isOut ? "OUT" : "DTD";
 
-          for (const cat of (athlete?.statistics?.splits?.categories || [])) {
-            for (const stat of (cat.stats || [])) {
-              if (stat.name === "avgPoints" || stat.abbreviation === "PPG") {
-                ppg = parseFloat(stat.value) || 0;
-              }
-            }
+      if (isOut) result.outCount++;
+      if (isDTD) result.dtdCount++;
+
+      let ppg = 0;
+
+      for (const cat of (athlete?.statistics?.splits?.categories || [])) {
+        for (const stat of (cat.stats || [])) {
+          if (stat.name === "avgPoints" || stat.abbreviation === "PPG") {
+            ppg = parseFloat(stat.value) || 0;
           }
-
-          if (ppg === 0) {
-            const pos = (athlete?.position?.abbreviation || athlete?.position?.name || "").toUpperCase();
-            if (isOut) {
-              usedEstimate = true;
-              if (pos === "PG" || pos === "SG" || pos === "G") ppg = 10;
-              else if (pos === "SF" || pos === "PF" || pos === "F") ppg = 9;
-              else if (pos === "C") ppg = 8;
-              else ppg = 7;
-            } else if (isDTD) {
-              usedEstimate = true;
-              if (pos === "PG" || pos === "SG" || pos === "G") ppg = 8;
-              else if (pos === "SF" || pos === "PF" || pos === "F") ppg = 7;
-              else if (pos === "C") ppg = 6;
-              else ppg = 5;
-            }
-          }
-
-          if (ppg === 0) continue;
-          if (isOut) result.outCount++;
-          if (isDTD) result.dtdCount++;
-          if (usedEstimate) result.estimatedImpactCount++;
-
-          const share = ppg / avgPPG;
-          const impact = Math.min(isOut ? share * 0.65 : share * 0.30, 0.22);
-          totalReduction += impact;
-
-          const tag = isOut ? "OUT" : "DTD";
-          const ppgStr = ppg > 0 ? ` (${ppg.toFixed(1)} ppg)` : "";
-          const estStr = usedEstimate ? " [est.]" : "";
-          const adjStr = impact > 0.005 ? ` → -${(impact * 100).toFixed(1)}% offense` : "";
-          result.notes.push({ type: isOut ? "out" : "dtd", text: `${playerName}${ppgStr}${estStr} — ${tag}${adjStr}` });
         }
-
-        const maxInjCap = league === "nba" ? 0.25 : 0.20;
-        result.scoringMult = 1 - Math.min(totalReduction, maxInjCap);
-        result.hasEstimatedImpact = result.estimatedImpactCount > 0;
-        result.highUncertainty =
-          result.dtdCount >= 2 || result.estimatedImpactCount >= 2 ||
-          (result.dtdCount >= 1 && result.hasEstimatedImpact) || result.outCount >= 3;
-
-        if (result.hasEstimatedImpact) result.notes.push({ type: "meta", text: "Estimated player impact used" });
-        if (result.highUncertainty) result.notes.push({ type: "meta", text: "High injury uncertainty" });
-      } catch (e) {
-        logDebug("fetchInjuryMeta failed", e);
       }
-      return result;
+
+      if (ppg <= 0) {
+        result.unknownImpactCount++;
+        result.notes.push({
+          type: isOut ? "out" : "dtd",
+          text: `${playerName} — ${tag} (impact unknown)`
+        });
+        continue;
+      }
+
+      const share = ppg / avgPPG;
+      const impact = Math.min(isOut ? share * 0.65 : share * 0.30, 0.22);
+      totalReduction += impact;
+
+      result.notes.push({
+        type: isOut ? "out" : "dtd",
+        text: `${playerName} (${ppg.toFixed(1)} ppg) — ${tag} → -${(impact * 100).toFixed(1)}% offense`
+      });
     }
+
+    const maxInjCap = league === "nba" ? 0.25 : 0.20;
+    result.scoringMult = 1 - Math.min(totalReduction, maxInjCap);
+    result.hasUnknownImpact = result.unknownImpactCount > 0;
+
+    result.highUncertainty =
+      result.dtdCount >= 2 ||
+      result.unknownImpactCount >= 2 ||
+      (result.dtdCount >= 1 && result.hasUnknownImpact) ||
+      result.outCount >= 3;
+
+    if (result.hasUnknownImpact) {
+      result.notes.push({ type: "meta", text: "Injury caution: some player scoring data unavailable" });
+    }
+
+    if (result.highUncertainty) {
+      result.notes.push({ type: "meta", text: "High injury uncertainty" });
+    }
+  } catch (e) {
+    logDebug("fetchInjuryMeta failed", e);
+  }
+
+  return result;
+}
 
     function stripOTFromScores(scoreA, scoreB, linesA, linesB, regulationPeriods) {
       let sA = scoreA, sB = scoreB;
@@ -4896,8 +4941,8 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
 
   if (ftHasH2H) {
     let w = getH2HWeight(h2ha.length, h2hb.length);
-    const h2hA = avgOrNaN(h2ha);
-    const h2hB = avgOrNaN(h2hb);
+    const h2hA = weightedRecentAverage(h2ha);
+const h2hB = weightedRecentAverage(h2hb);
     const currentTotal = projAFT + projBFT;
     const h2hTotal = h2hA + h2hB;
 
@@ -5048,8 +5093,8 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
 
   if (h1HasH2H) {
     let w = getH2HWeight(a1HH2H.length, b1HH2H.length);
-    const h2hA = avgOrNaN(a1HH2H);
-    const h2hB = avgOrNaN(b1HH2H);
+    const h2hA = weightedRecentAverage(a1HH2H);
+const h2hB = weightedRecentAverage(b1HH2H);
     const currentTotal = projA1H + projB1H;
     const h2hTotal = h2hA + h2hB;
 
@@ -5184,8 +5229,8 @@ function computeQ1Projection({ league, parsed, lines, injMultA = 1, injMultB = 1
 
   if (q1HasH2H) {
     let w = getH2HWeight(aQ1H2H.length, bQ1H2H.length);
-    const h2hA = avgOrNaN(aQ1H2H);
-    const h2hB = avgOrNaN(bQ1H2H);
+const h2hA = weightedRecentAverage(aQ1H2H);
+const h2hB = weightedRecentAverage(bQ1H2H);
     const currentTotal = projAQ1 + projBQ1;
     const h2hTotal = h2hA + h2hB;
 
@@ -5295,7 +5340,7 @@ function buildResultRows({
   const tracked = [];
 
   table.style.display = "table";
-  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
+  table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
   finalPicks.forEach(p => {
     const isLock = p._idx === lockIdx && p.pick !== "NO PLAY" && !p.note;
@@ -5337,7 +5382,7 @@ function runEngine() {
     if (!table) return;
 
     table.style.display = "table";
-    table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
+    table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
     const league = document.getElementById("leagueSelect")?.value || "";
     const isNba = league === "nba";
@@ -5672,7 +5717,7 @@ function runEngine() {
     console.error("[BB Engine] runEngine failed", err);
     if (table) {
       table.style.display = "table";
-      table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
+      table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
       showRunError(table, "⚠ Unexpected engine error. Check the latest edit.");
     }
   } finally {
@@ -5728,7 +5773,7 @@ setFetchAuditIssues([]);
 closeDrop("dropA");
 closeDrop("dropB");
       const t = document.getElementById("results");
-      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
+      t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th<th>Model Grade</th><th>Prediction</th></tr>";
       t.style.display = "none";
 
       const fixtureSelect = document.getElementById("fixtureSelect");
@@ -5876,11 +5921,24 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
       if (fixtureSelect) fixtureSelect.addEventListener("change", onFixtureSelect);
 
       const teamAName = document.getElementById("teamAName");
-      if (teamAName) teamAName.addEventListener("input", () => onTeamInput("A"));
+if (teamAName) {
+  teamAName.addEventListener("input", () => onTeamInput("A"));
+  teamAName.addEventListener("blur", () => scheduleDropClose("dropA"));
+  teamAName.addEventListener("focus", cancelDropClose);
+}
 
-      const teamBName = document.getElementById("teamBName");
-      if (teamBName) teamBName.addEventListener("input", () => onTeamInput("B"));
+const teamBName = document.getElementById("teamBName");
+if (teamBName) {
+  teamBName.addEventListener("input", () => onTeamInput("B"));
+  teamBName.addEventListener("blur", () => scheduleDropClose("dropB"));
+  teamBName.addEventListener("focus", cancelDropClose);
+}
 
+const dropA = document.getElementById("dropA");
+if (dropA) dropA.addEventListener("mousedown", cancelDropClose);
+
+const dropB = document.getElementById("dropB");
+if (dropB) dropB.addEventListener("mousedown", cancelDropClose);
       const fetchBtn = document.getElementById("fetchBtn");
       if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 
