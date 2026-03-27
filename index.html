@@ -20,25 +20,35 @@
 
   <style>
     /* ── CSS custom properties ── */
-    :root {
-      --bg: #efefef;
-      --text: #1f2430;
-      --panel: #ffffff;
-      --panel-border: #dedede;
-      --input-bg: #ffffff;
-      --input-border: #cfd4da;
-      --table-head: #3a404c;
-    }
+:root {
+  --bg: #efefef;
+  --text: #1f2430;
+  --panel: #ffffff;
+  --panel-border: #dedede;
+  --panel-soft: #f6f7f9;
+  --panel-soft-2: #eceff3;
+  --input-bg: #ffffff;
+  --input-border: #cfd4da;
+  --table-head: #3a404c;
+  --muted: #7b8088;
+  --chip-text: #2a2f38;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
 
-    body.dark-mode {
-      --bg: #111;
-      --text: #d4af37;
-      --panel: #1a1a1a;
-      --panel-border: #333;
-      --input-bg: #222;
-      --input-border: #444;
-      --table-head: #111;
-    }
+body.dark-mode {
+  --bg: #111;
+  --text: #d4af37;
+  --panel: #1a1a1a;
+  --panel-border: #333;
+  --panel-soft: #151515;
+  --panel-soft-2: #111;
+  --input-bg: #222;
+  --input-border: #444;
+  --table-head: #111;
+  --muted: #9aa0a8;
+  --chip-text: #d4af37;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
 
     /* ── Zero border-radius on all UI controls ── */
     button,
@@ -65,14 +75,13 @@
     }
 
     body {
-      margin: 0;
-      padding: 0;
-      background: #efefef;
-      color: #1f2430;
-      font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-      -webkit-text-size-adjust: 100%;
-    }
-
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
    .app-header {
   position: relative;
   display: flex;
@@ -149,13 +158,13 @@
       padding: 0 10px;
     }
 
-    .section {
-      border: 1px solid #dedede;
-      background: #ffffff;
-      margin: 8px auto;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      color: #1f2430;
-    }
+   .section {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  margin: 8px auto;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
 
     .section-toggle {
       width: 100%;
@@ -218,18 +227,18 @@
     }
 
     label {
-      display: block;
-      font-size: 12px;
-      margin-bottom: 4px;
-      color: #20242c;
-      font-weight: 600;
-    }
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-weight: 600;
+}
 
-    h3 span,
-    label span,
-    small {
-      color: #7b8088;
-    }
+h3 span,
+label span,
+small {
+  color: var(--muted);
+}
 
     input,
     .league-box,
@@ -1290,10 +1299,7 @@
       </div>
           <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
       <div class="tracker-market-summary" id="trackerMarketSummary" style="display:none;"></div>
-      <div
-  id="trackerAnalyticsPanel"
-  style="display:none;padding:12px 14px;border-bottom:1px solid #dfe2e7;background:inherit;color:inherit;"
-></div>
+     <div id="trackerAnalyticsPanel" class="tracker-analytics-panel" style="display:none;"></div>
        <div id="trackerEmpty" style="padding:12px 14px;font-size:12px;color:#7b8088;">
         No tracked picks saved yet.
       </div>
@@ -1777,11 +1783,19 @@ function validateFetchSection() {
       map.set(key, val);
     }
 
-    function safeText(str) {
-      const d = document.createElement("div");
-      d.textContent = String(str ?? "");
-      return d.innerHTML;
-    }
+    function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, ch => {
+    if (ch === "&") return "&amp;";
+    if (ch === "<") return "&lt;";
+    if (ch === ">") return "&gt;";
+    if (ch === '"') return "&quot;";
+    return "&#39;";
+  });
+}
+
+function safeText(str) {
+  return escapeHtml(str);
+}
 
     function normalizeTeamName(name) {
       return String(name || "")
@@ -5232,7 +5246,43 @@ function computeQ1Projection({ league, parsed, lines, injMultA = 1, injMultB = 1
     defensiveFloorFlag
   };
 }
+function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
+  if (!pickRow || pickRow.pick === "NO PLAY" || pickRow.note || !isFinite(pickRow.line)) {
+    return null;
+  }
 
+  const side = pickRow.pick.startsWith("OVER") ? "over" : "under";
+  const grade = String(pickRow.confidence || "—").toUpperCase();
+  const isABQualified = grade === "A" || grade === "B";
+
+  return {
+    eventId: fixtureMeta.eventId || "",
+    eventDate: fixtureMeta.eventDate || "",
+    league,
+    homeTeam: fixtureMeta.homeTeam || "—",
+    awayTeam: fixtureMeta.awayTeam || "—",
+    homeId: fixtureMeta.homeId || "",
+    awayId: fixtureMeta.awayId || "",
+    marketKey: getMarketKeyFromName(pickRow.name),
+    marketName: pickRow.name,
+    line: pickRow.line,
+    side,
+    predictionText: pickRow.pick,
+    edge: pickRow.edge,
+    edgePct: isFinite(pickRow.edge) && pickRow.line ? (pickRow.edge / pickRow.line) * 100 : null,
+    confidence: grade,
+    confidenceGrade: grade,
+    isLock,
+    isABQualified,
+    trackerBucket: "raw",
+    resultStatus: "pending",
+    diagnostics: {
+      ...(diagnostics || {}),
+      confidenceGrade: grade
+    },
+    createdAt: new Date().toISOString()
+  };
+}
 function buildResultRows({
   table,
   finalPicks,
@@ -5262,35 +5312,15 @@ function buildResultRows({
 </td>
     `;
 
-    if (p.pick !== "NO PLAY" && !p.note && isFinite(p.line)) {
-      const side = p.pick.startsWith("OVER") ? "over" : "under";
+    const payload = buildTrackedPickPayload({
+  pickRow: p,
+  isLock,
+  fixtureMeta,
+  league,
+  diagnostics
+});
 
-      tracked.push({
-        eventId: fixtureMeta.eventId || "",
-        eventDate: fixtureMeta.eventDate || "",
-        league,
-        homeTeam: fixtureMeta.homeTeam || "—",
-        awayTeam: fixtureMeta.awayTeam || "—",
-        homeId: fixtureMeta.homeId || "",
-        awayId: fixtureMeta.awayId || "",
-        marketKey: getMarketKeyFromName(p.name),
-        marketName: p.name,
-        line: p.line,
-        side,
-        predictionText: p.pick,
-        edge: p.edge,
-        edgePct: isFinite(p.edge) && p.line ? (p.edge / p.line) * 100 : null,
-        confidence: p.confidence || "—",
-        confidenceGrade: p.confidence || "—",
-        isLock,
-        resultStatus: "pending",
-        diagnostics: {
-          ...(diagnostics || {}),
-          confidenceGrade: p.confidence || "—"
-        },
-        createdAt: new Date().toISOString()
-      });
-    }
+if (payload) tracked.push(payload);
   });
 
   return tracked;
