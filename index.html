@@ -1532,22 +1532,12 @@ const LEAGUE_FETCH_RULES = {
 const TRACKER_ARCHIVED_LIMIT = 2000;
 const TRACKER_ARCHIVE_AFTER_HOURS = 10;
 const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tracker-state";
-const TRACKER_USER_STORAGE_KEY = "bb_engine_tracker_user";
+const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001";
 const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 
 function getTrackerUserKey() {
-  let key = localStorage.getItem(TRACKER_USER_STORAGE_KEY);
-
-  if (!key) {
-    key = (window.crypto && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : "trk_" + Date.now() + "_" + Math.random().toString(36).slice(2);
-
-    localStorage.setItem(TRACKER_USER_STORAGE_KEY, key);
-  }
-
-  return key;
+  return TRACKER_FIXED_USER_KEY;
 }
 
 function getTrackerLocalStateKey() {
