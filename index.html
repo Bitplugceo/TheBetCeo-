@@ -1527,7 +1527,183 @@ let g_trackerState = {
   },
   updatedAt: null
 };
+function defaultTrackerDerivedState() {
+  return {
+    totalPicks: 0,
+    settledPicks: 0,
+    profiles: {},
+    environments: {},
+    marketSides: {},
+    teams: {},
+    matchups: {},
+    computedAt: null
+  };
+}
 
+let g_trackerDerivedState = defaultTrackerDerivedState();
+
+function makeDerivedBucket(label = "") {
+  return {
+    label,
+    picks: 0,
+    pending: 0,
+    settled: 0,
+    wins: 0,
+    losses: 0,
+    pushes: 0,
+    netWins: 0,
+    winRate: null
+  };
+}
+
+function applyResultToDerivedBucket(bucket, pick) {
+  bucket.picks++;
+
+  const status = String(pick?.resultStatus || "pending").toLowerCase();
+
+  if (status === "pending") {
+    bucket.pending++;
+    return bucket;
+  }
+
+  bucket.settled++;
+
+  if (status === "win") bucket.wins++;
+  else if (status === "loss") bucket.losses++;
+  else if (status === "push") bucket.pushes++;
+
+  return bucket;
+}
+
+function finalizeDerivedBucket(bucket) {
+  const settled = Number(bucket.settled || 0);
+  const wins = Number(bucket.wins || 0);
+  const losses = Number(bucket.losses || 0);
+
+  bucket.netWins = wins - losses;
+  bucket.winRate = settled ? Number(((wins / settled) * 100).toFixed(2)) : null;
+
+  return bucket;
+}
+
+function upsertDerivedBucket(map, key, label, pick) {
+  if (!key) return;
+
+  if (!map.has(key)) {
+    map.set(key, makeDerivedBucket(label || key));
+  }
+
+  applyResultToDerivedBucket(map.get(key), pick);
+}
+
+function derivedMapToObject(map) {
+  const out = {};
+
+  [...map.entries()]
+    .sort((a, b) => {
+      const A = a[1];
+      const B = b[1];
+
+      if ((B.settled || 0) !== (A.settled || 0)) return (B.settled || 0) - (A.settled || 0);
+      if ((B.wins || 0) !== (A.wins || 0)) return (B.wins || 0) - (A.wins || 0);
+      if ((A.losses || 0) !== (B.losses || 0)) return (A.losses || 0) - (B.losses || 0);
+
+      return String(a[0]).localeCompare(String(b[0]));
+    })
+    .forEach(([key, bucket]) => {
+      out[key] = finalizeDerivedBucket({ ...bucket });
+    });
+
+  return out;
+}
+
+function buildFallbackProfileKey(pick) {
+  return [
+    pick.league || "unknown",
+    pick.marketKey || "other",
+    pick.side || "unknown",
+    pick.edgeBucket || "unknown",
+    pick.lineBucket || "unknown",
+    pick.sampleTier || "unknown",
+    pick.projectionOnly ? "projection_only" : "normal_projection",
+    pick.volatilityBucket || "unknown",
+    pick.injuryBucket || "unknown"
+  ].join("|");
+}
+
+function buildFallbackEnvironmentKey(pick) {
+  return [
+    pick.hasH2H ? "h2h" : "no_h2h",
+    pick.gamePaceGapRisk ? "pace_gap" : "pace_ok",
+    pick.gameDefensiveFloorFlag ? "def_floor" : "def_ok",
+    (Number(pick.gameBlowoutGap) || 0) > 20 ? "blowout" : "balanced",
+    pick.gameVolatilityBlock ? "vol_block" : "vol_ok"
+  ].join("|");
+}
+
+function buildTrackerDerivedState() {
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+  const all = [...active, ...archived].map(p => ensureTrackedPickKeys(p));
+
+  const profileMap = new Map();
+  const environmentMap = new Map();
+  const marketSideMap = new Map();
+  const teamMap = new Map();
+  const matchupMap = new Map();
+
+  all.forEach(rawPick => {
+    const pick = ensureTrackedPickKeys(rawPick);
+
+    const profileKey = pick.memoryProfileKey || buildFallbackProfileKey(pick);
+    const environmentKey = pick.environmentKey || buildFallbackEnvironmentKey(pick);
+    const marketSideKey = [
+      pick.league || "unknown",
+      pick.marketKey || "other",
+      pick.side || "unknown"
+    ].join("|");
+
+    upsertDerivedBucket(profileMap, profileKey, profileKey, pick);
+    upsertDerivedBucket(environmentMap, environmentKey, environmentKey, pick);
+    upsertDerivedBucket(marketSideMap, marketSideKey, marketSideKey, pick);
+
+    if (pick.homeTeamKey) {
+      upsertDerivedBucket(teamMap, pick.homeTeamKey, pick.homeTeam || pick.homeTeamKey, pick);
+    }
+
+    if (pick.awayTeamKey && pick.awayTeamKey !== pick.homeTeamKey) {
+      upsertDerivedBucket(teamMap, pick.awayTeamKey, pick.awayTeam || pick.awayTeamKey, pick);
+    }
+
+    if (pick.matchupKey) {
+      upsertDerivedBucket(
+        matchupMap,
+        pick.matchupKey,
+        `${pick.homeTeam || "—"} vs ${pick.awayTeam || "—"}`,
+        pick
+      );
+    }
+  });
+
+  return {
+    totalPicks: all.length,
+    settledPicks: all.filter(p => {
+      const s = String(p.resultStatus || "pending").toLowerCase();
+      return s === "win" || s === "loss" || s === "push";
+    }).length,
+    profiles: derivedMapToObject(profileMap),
+    environments: derivedMapToObject(environmentMap),
+    marketSides: derivedMapToObject(marketSideMap),
+    teams: derivedMapToObject(teamMap),
+    matchups: derivedMapToObject(matchupMap),
+    computedAt: new Date().toISOString()
+  };
+}
+
+function rebuildTrackerDerivedState() {
+  g_trackerDerivedState = buildTrackerDerivedState();
+  return g_trackerDerivedState;
+}
 let g_trackerHydratePromise = null;
 let g_trackerSaveTimer = null;
 let g_trackerSaveVersion = 0;
@@ -2085,6 +2261,8 @@ function rebuildTrackerStats() {
     losses: all.filter(p => p.resultStatus === "loss").length,
     pushes: all.filter(p => p.resultStatus === "push").length
   };
+
+  rebuildTrackerDerivedState();
 
   return g_trackerState.stats;
 }
