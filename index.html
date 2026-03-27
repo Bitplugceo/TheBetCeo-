@@ -73,19 +73,20 @@
       -webkit-text-size-adjust: 100%;
     }
 
-    .app-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin: 0 0 10px 0;
-      padding-top: max(10px, env(safe-area-inset-top));
-      padding-left: max(14px, env(safe-area-inset-left));
-      padding-right: max(14px, env(safe-area-inset-right));
-      padding-bottom: 10px;
-      background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
-      color: #fff;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
-    }
+   .app-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px 0;
+  padding-top: max(10px, env(safe-area-inset-top));
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-bottom: 10px;
+  background: linear-gradient(90deg, #c91920 0%, #d91f26 50%, #b91520 100%);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
 
     .brand-name {
       font-size: 15px;
@@ -105,20 +106,42 @@
       text-transform: uppercase;
     }
 
-    .theme-toggle {
-      background: none !important;
-      border: none !important;
-      box-shadow: none !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      font-size: 11px !important;
-      font-weight: 700 !important;
-      letter-spacing: 1.5px !important;
-      color: rgba(255, 255, 255, 0.85) !important;
-      text-transform: uppercase !important;
-      cursor: pointer !important;
-      opacity: 1 !important;
-    }
+  .theme-toggle {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.5px !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  opacity: 1 !important;
+}
+
+.header-error-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.header-error-btn.active {
+  opacity: 1;
+  pointer-events: auto;
+}
 
     .wrapper {
       max-width: 760px;
@@ -945,14 +968,24 @@
 
 </head>
 <body>
-  <header class="app-header">
-    <span class="brand-name">TheBetCeo ⚡️</span>
-    <span class="brand-right">
-      <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
-      <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
-      PREDICTIONS
-    </span>
-  </header>
+ <header class="app-header">
+  <span class="brand-name">TheBetCeo ⚡️</span>
+
+  <button
+    class="header-error-btn"
+    type="button"
+    id="headerErrorBtn"
+    title="Show fetch/input issues"
+  >
+    ⚠️
+  </button>
+
+  <span class="brand-right">
+    <button class="theme-toggle" type="button" id="themeToggleBtn" title="Toggle dark/light mode">🏀</button>
+    <button class="theme-toggle" type="button" id="trackerToggleBtn" title="Open tracked picks">📊</button>
+    PREDICTIONS
+  </span>
+</header>
 
   <div class="wrapper">
     <div class="section" id="leagueSection">
@@ -1568,6 +1601,183 @@ let g_trackerSaveTimer = null;
 let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
 let g_trackerSaveInFlight = false;
+let g_fetchInputErrors = [];
+let g_fetchAuditIssues = [];
+
+function renderHeaderErrorState() {
+  const btn = document.getElementById("headerErrorBtn");
+  if (!btn) return;
+
+  const hasIssues = g_fetchInputErrors.length > 0 || g_fetchAuditIssues.length > 0;
+  btn.classList.toggle("active", hasIssues);
+}
+
+function setFetchInputErrors(errors = []) {
+  g_fetchInputErrors = [...new Set((errors || []).filter(Boolean))];
+  renderHeaderErrorState();
+}
+
+function setFetchAuditIssues(issues = []) {
+  g_fetchAuditIssues = [...new Set((issues || []).filter(Boolean))];
+  renderHeaderErrorState();
+}
+
+function showFetchInputErrors() {
+  const blocks = [];
+
+  if (g_fetchInputErrors.length) {
+    blocks.push("Input lock errors:\n• " + g_fetchInputErrors.join("\n• "));
+  }
+
+  if (g_fetchAuditIssues.length) {
+    blocks.push("Fetch audit warnings:\n• " + g_fetchAuditIssues.join("\n• "));
+  }
+
+  if (!blocks.length) return;
+  alert(blocks.join("\n\n"));
+}
+
+function getSelectedFixtureOption() {
+  const select = document.getElementById("fixtureSelect");
+  if (!select || select.selectedIndex < 0) return null;
+  const opt = select.options[select.selectedIndex];
+  return opt && opt.value ? opt : null;
+}
+
+function buildFetchAuditIssues({
+  league,
+  teamAName,
+  teamBName,
+  aStats,
+  bStats,
+  aVenueStats,
+  bVenueStats,
+  h2hGames
+}) {
+  const issues = [];
+  const fixtureOpt = getSelectedFixtureOption();
+
+  if (fixtureOpt) {
+    const homeId = String(fixtureOpt.dataset.homeId || "");
+    const awayId = String(fixtureOpt.dataset.awayId || "");
+
+    if (homeId && String(selectedTeamIds.A || "") !== homeId) {
+      issues.push("Team A selected ID no longer matches the chosen fixture.");
+    }
+
+    if (awayId && String(selectedTeamIds.B || "") !== awayId) {
+      issues.push("Team B selected ID no longer matches the chosen fixture.");
+    }
+  }
+
+  if (!(aStats?.scored?.length >= 2)) {
+    issues.push(`${teamAName || "Team A"} overall FT sample is missing or below 2 games.`);
+  }
+
+  if (!(bStats?.scored?.length >= 2)) {
+    issues.push(`${teamBName || "Team B"} overall FT sample is missing or below 2 games.`);
+  }
+
+  if (!(aVenueStats?.scored?.length >= 2)) {
+    issues.push(`${teamAName || "Team A"} strict home FT sample is missing or below 2 games.`);
+  }
+
+  if (!(bVenueStats?.scored?.length >= 2)) {
+    issues.push(`${teamBName || "Team B"} strict away FT sample is missing or below 2 games.`);
+  }
+
+  if (league === "nba" || league === "ncaa") {
+    if (!(aStats?.h1Scored?.length >= 2)) {
+      issues.push(`${teamAName || "Team A"} 1H sample is missing or below 2 games.`);
+    }
+
+    if (!(bStats?.h1Scored?.length >= 2)) {
+      issues.push(`${teamBName || "Team B"} 1H sample is missing or below 2 games.`);
+    }
+  }
+
+  if (league === "nba") {
+    if (!(aStats?.q1Scored?.length >= 2)) {
+      issues.push(`${teamAName || "Team A"} Q1 sample is missing or below 2 games.`);
+    }
+
+    if (!(bStats?.q1Scored?.length >= 2)) {
+      issues.push(`${teamBName || "Team B"} Q1 sample is missing or below 2 games.`);
+    }
+  }
+
+  if ((h2hGames?.length || 0) === 0) {
+    issues.push("No 2024+ H2H games were found for this matchup.");
+  } else if ((h2hGames?.length || 0) === 1) {
+    issues.push("Only 1 H2H game was found, so H2H is not fully confirmed.");
+  }
+
+  return issues;
+}
+
+function validateFetchSection() {
+  const league = document.getElementById("leagueSelect")?.value || "";
+  const fetchBtn = document.getElementById("fetchBtn");
+  const teamAName = document.getElementById("teamAName")?.value.trim() || "";
+  const teamBName = document.getElementById("teamBName")?.value.trim() || "";
+  const supported = league === "nba" || league === "ncaa";
+  const fixtureOpt = getSelectedFixtureOption();
+  const hasActivity = !!teamAName || !!teamBName || !!fixtureOpt;
+
+  if (!supported) {
+    if (fetchBtn) fetchBtn.disabled = true;
+    setFetchInputErrors([]);
+    return false;
+  }
+
+  const errors = [];
+
+  if (hasActivity) {
+    if (!teamAName) errors.push("Team A is empty.");
+    if (!teamBName) errors.push("Team B is empty.");
+
+    if (teamAName && !selectedTeamIds.A) {
+      errors.push("Team A must be selected from the fixture list or autocomplete list.");
+    }
+
+    if (teamBName && !selectedTeamIds.B) {
+      errors.push("Team B must be selected from the fixture list or autocomplete list.");
+    }
+
+    if (
+      selectedTeamIds.A &&
+      selectedTeamIds.B &&
+      String(selectedTeamIds.A) === String(selectedTeamIds.B)
+    ) {
+      errors.push("Team A and Team B cannot be the same team.");
+    }
+
+    if (fixtureOpt) {
+      const homeId = String(fixtureOpt.dataset.homeId || "");
+      const awayId = String(fixtureOpt.dataset.awayId || "");
+
+      if (homeId && String(selectedTeamIds.A || "") && String(selectedTeamIds.A) !== homeId) {
+        errors.push("Team A no longer matches the selected fixture.");
+      }
+
+      if (awayId && String(selectedTeamIds.B || "") && String(selectedTeamIds.B) !== awayId) {
+        errors.push("Team B no longer matches the selected fixture.");
+      }
+    }
+  }
+
+  const isValid =
+    errors.length === 0 &&
+    !!teamAName &&
+    !!teamBName &&
+    !!selectedTeamIds.A &&
+    !!selectedTeamIds.B;
+
+  if (fetchBtn) fetchBtn.disabled = !isValid;
+
+  setFetchInputErrors(hasActivity ? errors : []);
+  return isValid;
+}
     function logDebug(...args) {
       if (DEBUG) console.log("[BB Engine]", ...args);
     }
@@ -1638,9 +1848,8 @@ let g_trackerSaveInFlight = false;
     }
 
     function unlockFetchBtn() {
-      const btn = document.getElementById("fetchBtn");
-      if (btn) btn.disabled = false;
-    }
+  validateFetchSection();
+}
 
     function setManualSource(side, bucket) {
       if (bucket) {
@@ -3013,10 +3222,11 @@ function hideInjuryBox(side) {
     }
 
     function clearAutoFill(changedSide = null) {
-      _fetchToken++;
-      unlockFetchBtn();
-      setStatusText("", "");
-      resetResultsTable();
+_fetchToken++;
+unlockFetchBtn();
+setStatusText("", "");
+setFetchAuditIssues([]);
+resetResultsTable();
 
       if (changedSide === "A" || changedSide === "B") {
         selectedTeamIds[changedSide] = null;
@@ -3034,7 +3244,8 @@ function hideInjuryBox(side) {
         clearSideFields("B");
         clearH2HFields();
       }
-    }
+        }
+    validateFetchSection();
 
     function updateSectionLocks() {
       const league = document.getElementById("leagueSelect").value;
@@ -3166,13 +3377,14 @@ function getCurrentSeasonYear(league) {
     }
 
     function selectTeam(side, name, id) {
-      const inputId = side === "A" ? "teamAName" : "teamBName";
-      const dropId = side === "A" ? "dropA" : "dropB";
-      document.getElementById(inputId).value = name;
-      selectedTeamIds[side] = id || null;
-      closeDrop(dropId);
-      activeDropTeam = null;
-    }
+  const inputId = side === "A" ? "teamAName" : "teamBName";
+  const dropId = side === "A" ? "dropA" : "dropB";
+  document.getElementById(inputId).value = name;
+  selectedTeamIds[side] = id || null;
+  closeDrop(dropId);
+  activeDropTeam = null;
+  validateFetchSection();
+}
 
     function lookupTeamId(name, leagueHint) {
       const n = normalizeTeamName(name);
@@ -3219,10 +3431,11 @@ function getCurrentSeasonYear(league) {
       const normVal = normalizeTeamName(val);
 
       if (g_lastFetchedTeams[side] && normVal !== g_lastFetchedTeams[side]) clearAutoFill(side);
-      selectedTeamIds[side] = null;
+selectedTeamIds[side] = null;
+validateFetchSection();
 
-      if (!val) { closeDrop(dropId); return; }
-      if (league !== "nba" && league !== "ncaa") { closeDrop(dropId); return; }
+if (!val) { closeDrop(dropId); return; }
+if (league !== "nba" && league !== "ncaa") { closeDrop(dropId); return; }
 
       const myToken = ++_teamSearchToken[side];
       const teams = await fetchLeagueTeamCatalog(league);
@@ -3247,7 +3460,8 @@ function getCurrentSeasonYear(league) {
       });
 
       drop.style.display = "block";
-      activeDropTeam = side;
+activeDropTeam = side;
+validateFetchSection();
     }
 
     document.addEventListener("click", e => {
@@ -4131,16 +4345,17 @@ function renderInjuryBox(boxId, contentId, inj) {
     }
 
     function pickFixture(homeName, homeId, awayName, awayId) {
-      closeDrop("dropA");
-      closeDrop("dropB");
-      document.getElementById("teamAName").value = homeName;
-      document.getElementById("teamBName").value = awayName;
-      selectedTeamIds.A = String(homeId || "");
-      selectedTeamIds.B = String(awayId || "");
-      accordionOpen("espnSection");
-      setStatusHTML('<span class="spinner"></span>Match selected. Fetching stats...', "loading");
-      fetchESPN();
-    }
+  closeDrop("dropA");
+  closeDrop("dropB");
+  document.getElementById("teamAName").value = homeName;
+  document.getElementById("teamBName").value = awayName;
+  selectedTeamIds.A = String(homeId || "");
+  selectedTeamIds.B = String(awayId || "");
+  validateFetchSection();
+  accordionOpen("espnSection");
+  setStatusHTML('<span class="spinner"></span>Match selected. Fetching stats...', "loading");
+  fetchESPN();
+}
 
     async function fetchESPN() {
       const league = document.getElementById("leagueSelect").value;
@@ -4157,10 +4372,11 @@ function renderInjuryBox(boxId, contentId, inj) {
       }
 
       const btn = document.getElementById("fetchBtn");
-      btn.disabled = true;
-      resetResultsTable();
-      setStatusHTML('<span class="spinner"></span>Fetching from ESPN...', "loading");
-      const myToken = ++_fetchToken;
+btn.disabled = true;
+setFetchAuditIssues([]);
+resetResultsTable();
+setStatusHTML('<span class="spinner"></span>Fetching from ESPN...', "loading");
+const myToken = ++_fetchToken;
 
       try {
         const isNcaa = league === "ncaa";
@@ -4361,9 +4577,25 @@ if (bVenueStats?.scored?.length > 0) {
         if (myToken !== _fetchToken) return;
 
         renderInjuryBox("injuryBoxA", "injuryContentA", g_injA);
-        renderInjuryBox("injuryBoxB", "injuryContentB", g_injB);
+renderInjuryBox("injuryBoxB", "injuryContentB", g_injB);
 
-        const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
+const fetchAuditIssues = buildFetchAuditIssues({
+  league,
+  teamAName,
+  teamBName,
+  aStats,
+  bStats,
+  aVenueStats,
+  bVenueStats,
+  h2hGames
+});
+
+setFetchAuditIssues(fetchAuditIssues);
+if (fetchAuditIssues.length) {
+  messages.push("Fetch audit: tap ⚠️ to review");
+}
+
+const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
         if (allGood) {
           g_lastFetchedTeams.A = normalizeTeamName(teamAName);
           g_lastFetchedTeams.B = normalizeTeamName(teamBName);
@@ -4371,9 +4603,12 @@ if (bVenueStats?.scored?.length > 0) {
         }
 
         setStatusHTML(messages.map(m => `<div>${m}</div>`).join(""), allGood ? "ok" : "err");
-      } catch (e) {
-        if (myToken === _fetchToken) setStatusText("❌ " + e.message, "err");
-      } finally {
+     } catch (e) {
+  if (myToken === _fetchToken) {
+    setFetchAuditIssues([e.message]);
+    setStatusText("❌ " + e.message, "err");
+  }
+} finally {
         if (myToken === _fetchToken) btn.disabled = false;
       }
     }
@@ -5461,9 +5696,9 @@ function runEngine() {
       _fixtureCache.clear();
 
       setStatusText("", "");
-      closeDrop("dropA");
-      closeDrop("dropB");
-
+setFetchAuditIssues([]);
+closeDrop("dropA");
+closeDrop("dropB");
       const t = document.getElementById("results");
       t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Confidence</th><th>Prediction</th></tr>";
       t.style.display = "none";
@@ -5476,9 +5711,10 @@ function runEngine() {
         s.classList.remove("locked");
       });
 
-      lockFrom("espnSection");
-      updateSectionLocks();
-      accordionOpen("leagueSection");
+lockFrom("espnSection");
+updateSectionLocks();
+accordionOpen("leagueSection");
+validateFetchSection();
     }
 
     function onLeagueChange() {
@@ -5486,10 +5722,11 @@ function runEngine() {
       _teamSearchToken.A++;
       _teamSearchToken.B++;
       closeDrop("dropA");
-      closeDrop("dropB");
-      unlockFetchBtn();
-      setStatusText("", "");
-      resetResultsTable();
+closeDrop("dropB");
+unlockFetchBtn();
+setStatusText("", "");
+setFetchAuditIssues([]);
+resetResultsTable();
 
            setFieldValues(FIELD_GROUPS.markets);
 
@@ -5557,11 +5794,17 @@ function runEngine() {
       const fsel = document.getElementById("fixtureSelect");
       if (fsel) { fsel.innerHTML = '<option value="">— Select match —</option>'; fsel.value = ""; }
 
-      if (!league) { lockFrom("espnSection"); accordionOpen("leagueSection"); return; }
+if (!league) {
+  lockFrom("espnSection");
+  accordionOpen("leagueSection");
+  validateFetchSection();
+  return;
+}
 
       updateSectionLocks();
-      if (isNbaOrNcaa) { accordionOpen("espnSection"); loadFixtures(0); }
-      else accordionOpen("marketSection");
+if (isNbaOrNcaa) { accordionOpen("espnSection"); loadFixtures(0); }
+else accordionOpen("marketSection");
+validateFetchSection();
     }
 
     function toggleTheme() {
@@ -5577,8 +5820,10 @@ function runEngine() {
       openSection("leagueSection");
 
       const themeToggleBtn = document.getElementById("themeToggleBtn");
-      if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
+if (themeToggleBtn) themeToggleBtn.addEventListener("click", toggleTheme);
 
+const headerErrorBtn = document.getElementById("headerErrorBtn");
+if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputErrors);
       const trackerToggleBtn = document.getElementById("trackerToggleBtn");
       if (trackerToggleBtn) trackerToggleBtn.addEventListener("click", openTrackerModal);
 
@@ -5710,12 +5955,16 @@ function runEngine() {
         if (el) el.addEventListener("input", () => updateSectionLocks());
       });
 
-      ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H","useFTH2H","use1HH2H","useQ1H2H"].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener("input", () => updateSectionLocks());
-        el.addEventListener("change", () => updateSectionLocks());
-      });
+    ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H","useFTH2H","use1HH2H","useQ1H2H"].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("input", () => updateSectionLocks());
+  el.addEventListener("change", () => updateSectionLocks());
+});
+
+setFetchInputErrors([]);
+setFetchAuditIssues([]);
+validateFetchSection();
     });
   </script>
 
