@@ -1965,23 +1965,21 @@ function validateFetchSection() {
 
   const errors = [];
 
-  if (hasActivity) {
+    if (hasActivity) {
     if (!teamAName) errors.push("Team A is empty.");
     if (!teamBName) errors.push("Team B is empty.");
 
-    if (teamAName && !selectedTeamIds.A) {
-      errors.push("Team A must be selected from the fixture list or autocomplete list.");
-    }
-
-    if (teamBName && !selectedTeamIds.B) {
-      errors.push("Team B must be selected from the fixture list or autocomplete list.");
-    }
-
-    if (
+    const sameById =
       selectedTeamIds.A &&
       selectedTeamIds.B &&
-      String(selectedTeamIds.A) === String(selectedTeamIds.B)
-    ) {
+      String(selectedTeamIds.A) === String(selectedTeamIds.B);
+
+    const sameByName =
+      teamAName &&
+      teamBName &&
+      normalizeTeamName(teamAName) === normalizeTeamName(teamBName);
+
+    if (sameById || sameByName) {
       errors.push("Team A and Team B cannot be the same team.");
     }
 
@@ -2002,10 +2000,7 @@ function validateFetchSection() {
   const isValid =
     errors.length === 0 &&
     !!teamAName &&
-    !!teamBName &&
-    !!selectedTeamIds.A &&
-    !!selectedTeamIds.B;
-
+    !!teamBName;
   if (fetchBtn) fetchBtn.disabled = !isValid;
 
   setFetchInputErrors(hasActivity ? errors : []);
@@ -3682,7 +3677,7 @@ current.unshift(ensureTrackedPickKeys(p));
     Math.abs(m.edge / m.line) >= 0.045 && m.fullModel === true
   );
 
-  if (valid.length < 2) return -1;
+  if (!valid.length) return -1;
 
   const best = [...valid].sort((a, b) => {
     const ea = Math.abs(a.edge / a.line);
@@ -6999,7 +6994,11 @@ if (dropB) dropB.addEventListener("mousedown", cancelDropClose);
       const espnEl = document.getElementById("espnSection");
       if (espnEl) espnEl.style.display = "none";
 
-      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section"].forEach(id => {
+      [
+        "a1HSection","b1HSection","h2h1HSection","h1MarketSection",
+        "aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section",
+        "aHome1HSection","bAway1HSection","aHomeQ1Section","bAwayQ1Section"
+      ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
       });
