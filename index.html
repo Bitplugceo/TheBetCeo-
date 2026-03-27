@@ -263,8 +263,9 @@ small {
     }
 
     input::placeholder {
-      color: #9aa0a8;
-    }
+  color: var(--muted);
+  opacity: 0.75;
+}
 
     input:focus,
     select:focus {
@@ -353,26 +354,26 @@ small {
       box-sizing: border-box;
     }
 
-    .autocomplete-list {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: #fff;
-      border: 1px solid #cfd4da;
-      border-top: none;
-      z-index: 999;
-      max-height: 180px;
-      overflow-y: auto;
-      display: none;
-    }
+   .autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--input-border);
+  border-top: none;
+  z-index: 999;
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+}
 
-    .autocomplete-list div {
-      padding: 8px 10px;
-      font-size: 12px;
-      cursor: pointer;
-      color: #20242c;
-    }
+  .autocomplete-list div {
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+}
 
     .autocomplete-list div:hover,
     .autocomplete-list div.active {
@@ -380,14 +381,14 @@ small {
       color: #fff !important;
     }
 
-    .autocomplete-list div.group-label {
-      color: #7b8088 !important;
-      font-size: 10px;
-      padding: 4px 8px;
-      cursor: default;
-      background: #f2f3f5 !important;
-      pointer-events: none;
-    }
+   .autocomplete-list div.group-label {
+  color: var(--muted) !important;
+  font-size: 10px;
+  padding: 4px 8px;
+  cursor: default;
+  background: var(--panel-soft) !important;
+  pointer-events: none;
+}
 
     .autocomplete-list strong {
       color: inherit;
@@ -395,15 +396,15 @@ small {
       text-decoration: underline;
     }
 
-    .injury-box {
-      background: #f6f7f9;
-      border: 1px solid #d9dde4;
-      padding: 8px;
-      margin-top: 6px;
-      font-size: 11px;
-      line-height: 1.8;
-      display: none;
-    }
+   .injury-box {
+  background: var(--panel-soft);
+  border: 1px solid var(--panel-border);
+  padding: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.8;
+  display: none;
+}
 
     .injury-box .inj-title {
       color: #20242c;
@@ -496,12 +497,12 @@ small {
     }
 
     table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      font-size: 12px;
-      background: #fff !important;
-    }
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 12px;
+  background: var(--panel) !important;
+}
 
     th,
     td {
@@ -511,10 +512,10 @@ small {
     }
 
     th {
-      background: #3a404c !important;
-      color: #fff !important;
-      font-weight: 700;
-    }
+  background: var(--table-head) !important;
+  color: #fff !important;
+  font-weight: 700;
+}
 
     td {
       background: #fff !important;
