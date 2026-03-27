@@ -1114,29 +1114,28 @@ input,
           <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
 <div class="tracker-market-summary" id="trackerMarketSummary"></div>
 <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
-<div class="tracker-body-scroll" id="trackedPicksWrap">
-        No tracked picks saved yet.
-      </div>
+<div id="trackerEmpty" class="tracker-empty">
+  No tracked picks saved yet.
+</div>
+
 <div class="tracker-body-scroll tracker-hidden" id="trackedPicksWrap">
-<div class="table-wrap tracker-table-wrap">
-          <table id="trackedPicksTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Match</th>
-                <th>Market</th>
-                <th>Line</th>
-                <th>Pick</th>
-                <th>Edge</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="trackedPicksBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  <div class="table-wrap tracker-table-wrap">
+    <table id="trackedPicksTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Match</th>
+          <th>Market</th>
+          <th>Line</th>
+          <th>Pick</th>
+          <th>Edge</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="trackedPicksBody"></tbody>
+    </table>
   </div>
+</div>
 
   <script>
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
