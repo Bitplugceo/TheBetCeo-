@@ -1137,8 +1137,10 @@ input,
     </table>
   </div>
 </div>
+</div>
+</div>
 
-  <script>
+<script>
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
     const DEBUG = false;
     const CACHE_MAX = 120;
@@ -1164,10 +1166,10 @@ const MODEL_TUNING = {
 };
 
 const TEAM_MEMORY_RULES = {
-  minSample: 5,
-  strongSample: 8,
-  badWinRate: 0.42,
-  hardBlockWinRate: 0.34
+  minSample: 8,
+  strongSample: 12,
+  badWinRate: 0.38,
+  hardBlockWinRate: 0.30
 };
 const PHASE2_CONTROL = {
   mode: "auto", // "shadow" | "auto" | "live"
@@ -1445,14 +1447,29 @@ const LEAGUE_FETCH_RULES = {
 
     const TRACKED_PICKS_LIMIT = 500;
 const TRACKER_ARCHIVED_LIMIT = 2000;
-const TRACKER_ARCHIVE_AFTER_HOURS = 10;
+const TRACKER_ARCHIVE_AFTER_HOURS = 36;
 const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tracker-state";
-const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001";
+const TRACKER_USER_KEY_STORAGE = "bb_engine_tracker_user_key";
 const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 
 function getTrackerUserKey() {
-  return TRACKER_FIXED_USER_KEY;
+  try {
+    let key = localStorage.getItem(TRACKER_USER_KEY_STORAGE) || "";
+
+    if (!key) {
+      key =
+        (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+          ? crypto.randomUUID()
+          : ("trk_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+
+      localStorage.setItem(TRACKER_USER_KEY_STORAGE, key);
+    }
+
+    return key;
+  } catch (err) {
+    return "trk_fallback_" + Math.random().toString(36).slice(2);
+  }
 }
 
 function getTrackerLocalStateKey() {
@@ -2452,7 +2469,11 @@ async function flushTrackerSave() {
   try {
     const data = await pushTrackerStateToServer(stateSnapshot);
 
-    if (saveVersion === g_trackerSaveVersion && data?.ok && data?.state) {
+    if (!data?.ok || !data?.state) {
+      throw new Error("Tracker POST returned invalid state");
+    }
+
+    if (saveVersion === g_trackerSaveVersion) {
       normalizeTrackerState(data.state);
       saveTrackerStateToLocal();
     }
@@ -3818,15 +3839,31 @@ function getCurrentSeasonYear(league) {
       if (drop) { drop.style.display = "none"; drop.innerHTML = ""; }
       if (activeDropTeam === (dropId === "dropA" ? "A" : "B")) activeDropTeam = null;
     }
-let _dropCloseTimer = null;
+const _dropCloseTimers = { dropA: null, dropB: null };
 
 function scheduleDropClose(dropId) {
-  clearTimeout(_dropCloseTimer);
-  _dropCloseTimer = setTimeout(() => closeDrop(dropId), 120);
+  if (!_dropCloseTimers.hasOwnProperty(dropId)) return;
+
+  clearTimeout(_dropCloseTimers[dropId]);
+  _dropCloseTimers[dropId] = setTimeout(() => {
+    closeDrop(dropId);
+    _dropCloseTimers[dropId] = null;
+  }, 120);
 }
 
-function cancelDropClose() {
-  clearTimeout(_dropCloseTimer);
+function cancelDropClose(dropId = null) {
+  if (dropId) {
+    if (_dropCloseTimers.hasOwnProperty(dropId)) {
+      clearTimeout(_dropCloseTimers[dropId]);
+      _dropCloseTimers[dropId] = null;
+    }
+    return;
+  }
+
+  Object.keys(_dropCloseTimers).forEach(key => {
+    clearTimeout(_dropCloseTimers[key]);
+    _dropCloseTimers[key] = null;
+  });
 }
     function selectTeam(side, name, id) {
   const inputId = side === "A" ? "teamAName" : "teamBName";
@@ -4221,54 +4258,77 @@ for (const season of [String(currentSeason), String(currentSeason - 1)]) {
 
       const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
 
-      for (const ref of chosen) {
-        let ms = ref.rawS, os = ref.rawA;
-        let h1m = 0, h1o = 0, q1m = 0, q1o = 0, gotLS = false;
+      const summaries = await Promise.all(
+  chosen.slice(0, 5).map(async ref => {
+    let ms = ref.rawS, os = ref.rawA;
+    let h1m = 0, h1o = 0, q1m = 0, q1o = 0, gotLS = false;
 
-        try {
-          // V3: 80ms delay removed
-          const key = `${base}:sum:${ref.id}`;
-          const data = await (_summaryCache.has(key)
-            ? _summaryCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-                  _summaryCache.delete(key); throw err;
-                });
-                cacheSet(_summaryCache, key, p);
-                return p;
-              })());
+    try {
+      const key = `${base}:sum:${ref.id}`;
+      const data = await (_summaryCache.has(key)
+        ? _summaryCache.get(key)
+        : (() => {
+            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+              _summaryCache.delete(key);
+              throw err;
+            });
+            cacheSet(_summaryCache, key, p);
+            return p;
+          })());
 
-          const hc = data?.header?.competitions?.[0];
-          if (hc) {
-            const competitors = hc?.competitors || [];
-            const mine = competitors.find(c => matchesTeam(c, tId));
-            const opp = competitors.find(c => !matchesTeam(c, tId));
-            if (mine && opp) {
-              const lm = mine?.linescores || [];
-              const lo = opp?.linescores || [];
-              if (lm.length >= 1) {
-                gotLS = true;
-                ms = parseFloat(mine.score) || ms;
-                os = parseFloat(opp.score) || os;
-                q1m = readVal(lm[0]);
-                q1o = readVal(lo[0]);
-                h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
-                h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
-                [ms, os] = stripOTFromScores(ms, os, lm, lo, 4);
-              }
-            }
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp = competitors.find(c => !matchesTeam(c, tId));
+
+        if (mine && opp) {
+          const lm = mine?.linescores || [];
+          const lo = opp?.linescores || [];
+
+          if (lm.length >= 1) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score) || os;
+            q1m = readVal(lm[0]);
+            q1o = readVal(lo[0]);
+            h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
+            h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
+            [ms, os] = stripOTFromScores(ms, os, lm, lo, 4);
           }
-        } catch (e) {
-          logDebug("fetchNbaSchedule summary failed", e);
         }
-
-if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-        scored.push(Math.round(ms));
-        allowed.push(Math.round(os));
-        if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
-        if (gotLS && q1m > 0) { q1Scored.push(Math.round(q1m)); q1Allowed.push(Math.round(q1o)); }
-        if (scored.length >= 5) break;
       }
+    } catch (e) {
+      logDebug("fetchNbaSchedule summary failed", e);
+    }
+
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) return null;
+
+    return {
+      ms: Math.round(ms),
+      os: Math.round(os),
+      h1m: gotLS && h1m > 0 ? Math.round(h1m) : null,
+      h1o: gotLS && h1o > 0 ? Math.round(h1o) : null,
+      q1m: gotLS && q1m > 0 ? Math.round(q1m) : null,
+      q1o: gotLS && q1o > 0 ? Math.round(q1o) : null
+    };
+  })
+);
+
+summaries.filter(Boolean).forEach(game => {
+  scored.push(game.ms);
+  allowed.push(game.os);
+
+  if (game.h1m !== null && game.h1o !== null) {
+    h1Scored.push(game.h1m);
+    h1Allowed.push(game.h1o);
+  }
+
+  if (game.q1m !== null && game.q1o !== null) {
+    q1Scored.push(game.q1m);
+    q1Allowed.push(game.q1o);
+  }
+});
 
       return scored.length >= 2
         ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed,
@@ -4343,50 +4403,67 @@ for (const stype of ["1", "2", "3"]) {
       if (chosen.length < 2) return null;
       const scored = [], allowed = [], h1Scored = [], h1Allowed = [], q1Scored = [], q1Allowed = [];
 
-      for (const ref of chosen) {
-        let ms = ref.rawS, os = ref.rawA;
-        let h1m = 0, h1o = 0, gotLS = false;
+      const summaries = await Promise.all(
+  chosen.slice(0, 5).map(async ref => {
+    let ms = ref.rawS, os = ref.rawA;
+    let h1m = 0, h1o = 0, gotLS = false;
 
-        try {
-          // V3: 80ms delay removed
-          const key = `${base}:sum:${ref.id}`;
-          const data = await (_summaryCache.has(key)
-            ? _summaryCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
-                  _summaryCache.delete(key); throw err;
-                });
-                cacheSet(_summaryCache, key, p);
-                return p;
-              })());
+    try {
+      const key = `${base}:sum:${ref.id}`;
+      const data = await (_summaryCache.has(key)
+        ? _summaryCache.get(key)
+        : (() => {
+            const p = proxyFetch(`${base}/summary?event=${ref.id}`).catch(err => {
+              _summaryCache.delete(key);
+              throw err;
+            });
+            cacheSet(_summaryCache, key, p);
+            return p;
+          })());
 
-          const hc = data?.header?.competitions?.[0];
-          if (hc) {
-            const competitors = hc?.competitors || [];
-            const mine = competitors.find(c => matchesTeam(c, tId));
-            const opp = competitors.find(c => !matchesTeam(c, tId));
-            if (mine && opp) {
-              const lm = mine?.linescores || [];
-              const lo = opp?.linescores || [];
-              if (lm.length >= 1) {
-                gotLS = true;
-                ms = parseFloat(mine.score) || ms;
-                os = parseFloat(opp.score) || os;
-                [h1m, h1o] = extractFirstHalf(lm, lo);
-                [ms, os] = stripOTFromScores(ms, os, lm, lo, 2);
-              }
-            }
+      const hc = data?.header?.competitions?.[0];
+      if (hc) {
+        const competitors = hc?.competitors || [];
+        const mine = competitors.find(c => matchesTeam(c, tId));
+        const opp = competitors.find(c => !matchesTeam(c, tId));
+
+        if (mine && opp) {
+          const lm = mine?.linescores || [];
+          const lo = opp?.linescores || [];
+
+          if (lm.length >= 1) {
+            gotLS = true;
+            ms = parseFloat(mine.score) || ms;
+            os = parseFloat(opp.score) || os;
+            [h1m, h1o] = extractFirstHalf(lm, lo);
+            [ms, os] = stripOTFromScores(ms, os, lm, lo, 2);
           }
-        } catch (e) {
-          logDebug("fetchNcaaSchedule summary failed", e);
         }
-
-if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) continue;
-        scored.push(Math.round(ms));
-        allowed.push(Math.round(os));
-        if (gotLS && h1m > 0) { h1Scored.push(Math.round(h1m)); h1Allowed.push(Math.round(h1o)); }
-        if (scored.length >= 5) break;
       }
+    } catch (e) {
+      logDebug("fetchNcaaSchedule summary failed", e);
+    }
+
+    if (isNaN(ms) || isNaN(os) || ms <= 0 || os <= 0) return null;
+
+    return {
+      ms: Math.round(ms),
+      os: Math.round(os),
+      h1m: gotLS && h1m > 0 ? Math.round(h1m) : null,
+      h1o: gotLS && h1o > 0 ? Math.round(h1o) : null
+    };
+  })
+);
+
+summaries.filter(Boolean).forEach(game => {
+  scored.push(game.ms);
+  allowed.push(game.os);
+
+  if (game.h1m !== null && game.h1o !== null) {
+    h1Scored.push(game.h1m);
+    h1Allowed.push(game.h1o);
+  }
+});
 
       return scored.length >= 2
         ? { scored, allowed, h1Scored, h1Allowed, q1Scored, q1Allowed,
@@ -5573,8 +5650,9 @@ const h2hB = weightedRecentAverage(b1HH2H);
 function computeQ1Projection({ league, parsed, lines, injMultA = 1, injMultB = 1 }) {
   const supported = league === "nba";
   const ebQ1 = (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 4;
-  const homeAdj = (LEAGUE_HOME_EDGE[league] ?? LEAGUE_HOME_EDGE.unknown) * 0.18;
-  const volLimit = 4.5;
+const cl = getEffectivePaceClamp(league);
+const homeAdj = (LEAGUE_HOME_EDGE[league] ?? LEAGUE_HOME_EDGE.unknown) * 0.18;
+const volLimit = 4.5;
 
   const aQ1S = safeArr(parsed.aQ1Scored) || [];
   const aQ1A = safeArr(parsed.aQ1Allowed) || [];
@@ -5670,7 +5748,7 @@ const h2hB = weightedRecentAverage(bQ1H2H);
   projBQ1 = projBQ1 * MODEL.REGRESSION_WEIGHT + (ebQ1 / 2) * MODEL.BASELINE_WEIGHT;
 
   const rawPaceQ1 = (aS1Q + aA1Q + bS1Q + bA1Q) / (2 * ebQ1);
-  const paceQ1 = Math.max(0.90, Math.min(1.10, rawPaceQ1));
+const paceQ1 = Math.max(cl.min, Math.min(cl.max, rawPaceQ1));
 
   projAQ1 *= MODEL.PACE_BLEND + paceQ1 / 2;
   projBQ1 *= MODEL.PACE_BLEND + paceQ1 / 2;
@@ -5781,131 +5859,6 @@ function getMarketSnapshotFromDiagnostics(marketKey, diagnostics = {}, league = 
     maxVolatility: NaN,
     volLimit
   };
-}
-
-function getLineBucket(line, marketKey) {
-  const v = Number(line);
-  if (!isFinite(v)) return "unknown";
-
-  if (marketKey === "ft") {
-    if (v < 150) return "<150";
-    if (v < 170) return "150-169.5";
-    if (v < 190) return "170-189.5";
-    if (v < 210) return "190-209.5";
-    return "210+";
-  }
-
-  if (marketKey === "h1") {
-    if (v < 70) return "<70";
-    if (v < 85) return "70-84.5";
-    if (v < 100) return "85-99.5";
-    return "100+";
-  }
-
-  if (marketKey === "q1") {
-    if (v < 45) return "<45";
-    if (v < 50) return "45-49.5";
-    if (v < 55) return "50-54.5";
-    return "55+";
-  }
-
-  if (v < 70) return "<70";
-  if (v < 80) return "70-79.5";
-  if (v < 90) return "80-89.5";
-  if (v < 100) return "90-99.5";
-  return "100+";
-}
-
-function getEdgeBucketFromPct(edgePct) {
-  const v = Math.abs(Number(edgePct));
-  if (!isFinite(v)) return "unknown";
-  if (v < 0.045) return "<4.5%";
-  if (v < 0.07) return "4.5-6.99%";
-  if (v < 0.10) return "7-9.99%";
-  return "10%+";
-}
-
-function getRelativeVolatilityBucket(vol, limit) {
-  const v = Number(vol);
-  const l = Number(limit);
-
-  if (!isFinite(v) || !isFinite(l) || l <= 0) return "unknown";
-
-  const ratio = v / l;
-  if (ratio <= 0.80) return "calm";
-  if (ratio <= 1.00) return "normal";
-  if (ratio <= 1.15) return "elevated";
-  if (ratio <= 1.35) return "high";
-  return "extreme";
-}
-
-function getInjuryBucket(marketKey, diagnostics = {}) {
-  const aMult = Number(diagnostics.injMultA ?? 1);
-  const bMult = Number(diagnostics.injMultB ?? 1);
-
-  const aHigh = !!diagnostics.injHighUncertaintyA;
-  const bHigh = !!diagnostics.injHighUncertaintyB;
-
-  let mult = 1;
-  let high = false;
-
-  if (marketKey === "team_a") {
-    mult = aMult;
-    high = aHigh;
-  } else if (marketKey === "team_b") {
-    mult = bMult;
-    high = bHigh;
-  } else {
-    mult = Math.min(aMult, bMult);
-    high = aHigh || bHigh;
-  }
-
-  if (high) return "high_uncertainty";
-  if (mult <= 0.85) return "major";
-  if (mult <= 0.93) return "moderate";
-  if (mult < 1) return "minor";
-  return "clean";
-}
-
-function buildContextTags({
-  league,
-  marketKey,
-  side,
-  isLock,
-  isABQualified,
-  snapshot,
-  edgeBucket,
-  lineBucket,
-  volatilityBucket,
-  injuryBucket,
-  diagnostics
-}) {
-  const tags = [
-    `league:${league}`,
-    `market:${marketKey}`,
-    `side:${side}`,
-    `sample:${snapshot.sampleTier}`,
-    `edge:${edgeBucket}`,
-    `line:${lineBucket}`,
-    `vol:${volatilityBucket}`,
-    `inj:${injuryBucket}`
-  ];
-
-  if (snapshot.projectionOnly) tags.push("projection_only");
-  if (snapshot.fullModel) tags.push("full_model");
-  if (snapshot.hasH2H) tags.push("has_h2h");
-  if (isLock) tags.push("lock");
-  if (isABQualified) tags.push("ab_qualified");
-
-  if (marketKey === "team_a") tags.push("home_team_total");
-  if (marketKey === "team_b") tags.push("away_team_total");
-
-  if (diagnostics.paceGapRisk) tags.push("game_pace_gap");
-  if (diagnostics.defensiveFloorFlag) tags.push("game_defensive_floor");
-  if ((Number(diagnostics.blowoutGap) || 0) > 20) tags.push("game_blowout");
-  if (diagnostics.volatilityBlock) tags.push("game_volatility_block");
-
-  return [...new Set(tags)];
 }
 
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
@@ -6785,18 +6738,16 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
 if (teamAName) {
   teamAName.addEventListener("input", () => onTeamInput("A"));
   teamAName.addEventListener("blur", () => scheduleDropClose("dropA"));
-  teamAName.addEventListener("focus", cancelDropClose);
-}
+teamAName.addEventListener("focus", () => cancelDropClose("dropA"));
 
 const teamBName = document.getElementById("teamBName");
 if (teamBName) {
   teamBName.addEventListener("input", () => onTeamInput("B"));
   teamBName.addEventListener("blur", () => scheduleDropClose("dropB"));
-  teamBName.addEventListener("focus", cancelDropClose);
-}
+teamBName.addEventListener("focus", () => cancelDropClose("dropB"));
 
 const dropA = document.getElementById("dropA");
-if (dropA) dropA.addEventListener("mousedown", cancelDropClose);
+if (dropB) dropB.addEventListener("mousedown", () => cancelDropClose("dropB"));
 
 const dropB = document.getElementById("dropB");
 if (dropB) dropB.addEventListener("mousedown", cancelDropClose);
