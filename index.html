@@ -1536,6 +1536,13 @@ function defaultTrackerDerivedState() {
     marketSides: {},
     teams: {},
     matchups: {},
+    signalBoards: {
+      profiles: [],
+      environments: [],
+      marketSides: [],
+      teams: [],
+      matchups: []
+    },
     computedAt: null
   };
 }
@@ -1551,39 +1558,119 @@ function makeDerivedBucket(label = "") {
     wins: 0,
     losses: 0,
     pushes: 0,
+    decisive: 0,
     netWins: 0,
+    rawWinRate: null,
+    stabilizedWinRate: null,
+    reliabilityScore: 0,
+    reliabilityTier: "none",
+    signalStrength: null,
+    signalDirection: "neutral",
+    isActionable: false,
     winRate: null
   };
 }
 
-function applyResultToDerivedBucket(bucket, pick) {
-  bucket.picks++;
+function getBucketReliabilityScore(decisiveGames = 0) {
+  const n = Number(decisiveGames) || 0;
 
-  const status = String(pick?.resultStatus || "pending").toLowerCase();
+  if (n <= 0) return 0;
+  if (n === 1) return 8;
+  if (n === 2) return 15;
+  if (n === 3) return 22;
+  if (n <= 5) return 32;
+  if (n <= 8) return 45;
+  if (n <= 12) return 58;
+  if (n <= 18) return 72;
+  if (n <= 28) return 84;
+  if (n <= 45) return 93;
+  return 100;
+}
 
-  if (status === "pending") {
-    bucket.pending++;
-    return bucket;
-  }
+function getBucketReliabilityTier(score = 0) {
+  if (score >= 93) return "elite";
+  if (score >= 84) return "strong";
+  if (score >= 72) return "trusted";
+  if (score >= 58) return "building";
+  if (score >= 45) return "small";
+  if (score >= 22) return "tiny";
+  return "none";
+}
 
-  bucket.settled++;
+function getStabilizedBucketWinRate(wins = 0, losses = 0, priorGames = 12, priorWinRate = 50) {
+  const w = Number(wins) || 0;
+  const l = Number(losses) || 0;
+  const decisive = w + l;
 
-  if (status === "win") bucket.wins++;
-  else if (status === "loss") bucket.losses++;
-  else if (status === "push") bucket.pushes++;
+  if (!decisive) return null;
 
-  return bucket;
+  const priorWins = priorGames * (priorWinRate / 100);
+  return Number((((w + priorWins) / (decisive + priorGames)) * 100).toFixed(2));
+}
+
+function getBucketSignalStrength(stabilizedWinRate = null, reliabilityScore = 0) {
+  if (!isFinite(stabilizedWinRate)) return null;
+  return Number((((stabilizedWinRate - 50) * (reliabilityScore / 100))).toFixed(2));
+}
+
+function getBucketSignalDirection(signalStrength = null) {
+  if (!isFinite(signalStrength)) return "neutral";
+  if (signalStrength >= 2.5) return "positive";
+  if (signalStrength <= -2.5) return "negative";
+  return "neutral";
+}
+
+function getBucketActionability(decisive = 0, reliabilityScore = 0, signalStrength = null) {
+  return (
+    decisive >= 8 &&
+    reliabilityScore >= 45 &&
+    isFinite(signalStrength) &&
+    Math.abs(signalStrength) >= 2.5
+  );
 }
 
 function finalizeDerivedBucket(bucket) {
   const settled = Number(bucket.settled || 0);
   const wins = Number(bucket.wins || 0);
   const losses = Number(bucket.losses || 0);
+  const decisive = wins + losses;
 
+  const rawWinRate = decisive ? Number(((wins / decisive) * 100).toFixed(2)) : null;
+  const stabilizedWinRate = getStabilizedBucketWinRate(wins, losses, 12, 50);
+  const reliabilityScore = getBucketReliabilityScore(decisive);
+  const reliabilityTier = getBucketReliabilityTier(reliabilityScore);
+  const signalStrength = getBucketSignalStrength(stabilizedWinRate, reliabilityScore);
+  const signalDirection = getBucketSignalDirection(signalStrength);
+  const isActionable = getBucketActionability(decisive, reliabilityScore, signalStrength);
+
+  bucket.decisive = decisive;
   bucket.netWins = wins - losses;
+  bucket.rawWinRate = rawWinRate;
+  bucket.stabilizedWinRate = stabilizedWinRate;
+  bucket.reliabilityScore = reliabilityScore;
+  bucket.reliabilityTier = reliabilityTier;
+  bucket.signalStrength = signalStrength;
+  bucket.signalDirection = signalDirection;
+  bucket.isActionable = isActionable;
+
   bucket.winRate = settled ? Number(((wins / settled) * 100).toFixed(2)) : null;
 
   return bucket;
+}
+
+function collectDerivedSignals(bucketObject = {}, topN = 12) {
+  return Object.entries(bucketObject)
+    .map(([key, bucket]) => ({ key, ...bucket }))
+    .filter(item => item.isActionable)
+    .sort((a, b) => {
+      const aSignal = Math.abs(Number(a.signalStrength || 0));
+      const bSignal = Math.abs(Number(b.signalStrength || 0));
+
+      if (bSignal !== aSignal) return bSignal - aSignal;
+      if ((b.decisive || 0) !== (a.decisive || 0)) return (b.decisive || 0) - (a.decisive || 0);
+      return String(a.key).localeCompare(String(b.key));
+    })
+    .slice(0, topN);
 }
 
 function upsertDerivedBucket(map, key, label, pick) {
@@ -1685,17 +1772,30 @@ function buildTrackerDerivedState() {
     }
   });
 
+   const profiles = derivedMapToObject(profileMap);
+  const environments = derivedMapToObject(environmentMap);
+  const marketSides = derivedMapToObject(marketSideMap);
+  const teams = derivedMapToObject(teamMap);
+  const matchups = derivedMapToObject(matchupMap);
+
   return {
     totalPicks: all.length,
     settledPicks: all.filter(p => {
       const s = String(p.resultStatus || "pending").toLowerCase();
       return s === "win" || s === "loss" || s === "push";
     }).length,
-    profiles: derivedMapToObject(profileMap),
-    environments: derivedMapToObject(environmentMap),
-    marketSides: derivedMapToObject(marketSideMap),
-    teams: derivedMapToObject(teamMap),
-    matchups: derivedMapToObject(matchupMap),
+    profiles,
+    environments,
+    marketSides,
+    teams,
+    matchups,
+    signalBoards: {
+      profiles: collectDerivedSignals(profiles, 12),
+      environments: collectDerivedSignals(environments, 12),
+      marketSides: collectDerivedSignals(marketSides, 12),
+      teams: collectDerivedSignals(teams, 12),
+      matchups: collectDerivedSignals(matchups, 12)
+    },
     computedAt: new Date().toISOString()
   };
 }
@@ -5658,46 +5758,143 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
   const side = pickRow.pick.startsWith("OVER") ? "over" : "under";
   const grade = String(pickRow.confidence || "—").toUpperCase();
   const isABQualified = grade === "A" || grade === "B";
-  const edgePctRaw = isFinite(pickRow.edge) && pickRow.line ? (pickRow.edge / pickRow.line) : NaN;
 
-  const snapshot = getMarketSnapshotFromDiagnostics(marketKey, diagnostics, league);
-  const lineBucket = getLineBucket(pickRow.line, marketKey);
-  const edgeBucket = getEdgeBucketFromPct(edgePctRaw);
-  const volatilityBucket = getRelativeVolatilityBucket(snapshot.maxVolatility, snapshot.volLimit);
-  const injuryBucket = getInjuryBucket(marketKey, diagnostics);
+  function getSampleTierForMarket(market, dx = {}) {
+    if (market === "ft" || market === "team_a" || market === "team_b") return dx.ftSampleTier || "unknown";
+    if (market === "h1") return dx.h1SampleTier || "unknown";
+    if (market === "q1") return dx.q1SampleTier || "unknown";
+    return "unknown";
+  }
 
-  const contextTags = buildContextTags({
-    league,
-    marketKey,
-    side,
-    isLock,
-    isABQualified,
-    snapshot,
-    edgeBucket,
-    lineBucket,
-    volatilityBucket,
-    injuryBucket,
-    diagnostics
-  });
+  function getProjectionOnlyForMarket(market, dx = {}) {
+    if (market === "ft" || market === "team_a" || market === "team_b") return !!dx.ftProjectionOnly;
+    if (market === "h1") return !!dx.h1ProjectionOnly;
+    if (market === "q1") return !!dx.q1ProjectionOnly;
+    return false;
+  }
+
+  function getHasH2HForMarket(market, dx = {}) {
+    if (market === "ft" || market === "team_a" || market === "team_b") return !!dx.ftHasH2H;
+    if (market === "h1") return !!dx.h1HasH2H;
+    if (market === "q1") return !!dx.q1HasH2H;
+    return false;
+  }
+
+  function getVolatilityValueForMarket(market, dx = {}) {
+    if (market === "ft") return Math.max(Number(dx.aVol || 0), Number(dx.bVol || 0));
+    if (market === "team_a") return Number(dx.aVol || 0);
+    if (market === "team_b") return Number(dx.bVol || 0);
+    if (market === "h1") return Math.max(Number(dx.aVol1 || 0), Number(dx.bVol1 || 0));
+    if (market === "q1") return Math.max(Number(dx.aVolQ1 || 0), Number(dx.bVolQ1 || 0));
+    return 0;
+  }
+
+  function getVolatilityBucket(value = 0) {
+    const v = Number(value) || 0;
+    if (v < 4.5) return "low";
+    if (v < 7.5) return "normal";
+    if (v < 11.5) return "high";
+    return "extreme";
+  }
+
+  function getInjuryBucket(dx = {}) {
+    const injA = Number(dx.injMultA ?? 1);
+    const injB = Number(dx.injMultB ?? 1);
+    const strongest = Math.min(injA, injB);
+
+    if (strongest <= 0.75) return "severe";
+    if (strongest <= 0.85) return "high";
+    if (strongest <= 0.92) return "moderate";
+    if (strongest < 0.99) return "light";
+    return "clean";
+  }
+
+  function getEdgeBucket(edge, line) {
+    if (!isFinite(edge) || !isFinite(line) || !line) return "unknown";
+    const pct = Math.abs(edge / line);
+
+    if (pct < 0.03) return "micro";
+    if (pct < 0.05) return "small";
+    if (pct < 0.075) return "medium";
+    if (pct < 0.10) return "strong";
+    return "extreme";
+  }
+
+  function getLineBucket(market, line) {
+    if (!isFinite(line)) return "unknown";
+
+    if (market === "ft") {
+      if (line < 150) return "ft_low";
+      if (line < 180) return "ft_mid";
+      if (line < 210) return "ft_high";
+      return "ft_very_high";
+    }
+
+    if (market === "h1") {
+      if (line < 70) return "h1_low";
+      if (line < 95) return "h1_mid";
+      return "h1_high";
+    }
+
+    if (market === "q1") {
+      if (line < 45) return "q1_low";
+      if (line < 58) return "q1_mid";
+      return "q1_high";
+    }
+
+    if (market === "team_a" || market === "team_b") {
+      if (line < 70) return "team_low";
+      if (line < 90) return "team_mid";
+      if (line < 110) return "team_high";
+      return "team_very_high";
+    }
+
+    return "unknown";
+  }
+
+  function getPaceRiskForMarket(market, dx = {}) {
+    if (market === "h1") return !!dx.h1PaceGapRisk;
+    if (market === "q1") return !!dx.q1PaceGapRisk;
+    return !!dx.paceGapRisk;
+  }
+
+  function getDefFloorForMarket(market, dx = {}) {
+    if (market === "h1") return !!dx.h1DefensiveFloorFlag;
+    if (market === "q1") return !!dx.q1DefensiveFloorFlag;
+    return !!dx.defensiveFloorFlag;
+  }
+
+  const sampleTier = getSampleTierForMarket(marketKey, diagnostics);
+  const projectionOnly = getProjectionOnlyForMarket(marketKey, diagnostics);
+  const hasH2H = getHasH2HForMarket(marketKey, diagnostics);
+  const volatilityValue = getVolatilityValueForMarket(marketKey, diagnostics);
+  const volatilityBucket = getVolatilityBucket(volatilityValue);
+  const injuryBucket = getInjuryBucket(diagnostics);
+  const edgeBucket = getEdgeBucket(pickRow.edge, pickRow.line);
+  const lineBucket = getLineBucket(marketKey, pickRow.line);
+  const gamePaceGapRisk = getPaceRiskForMarket(marketKey, diagnostics);
+  const gameDefensiveFloorFlag = getDefFloorForMarket(marketKey, diagnostics);
+  const gameBlowoutGap = Number(diagnostics?.blowoutGap || 0);
+  const gameVolatilityBlock = !!diagnostics?.volatilityBlock;
 
   const memoryProfileKey = [
-    league,
-    marketKey,
-    side,
+    league || "unknown",
+    marketKey || "other",
+    side || "unknown",
     edgeBucket,
     lineBucket,
-    snapshot.sampleTier,
-    snapshot.projectionOnly ? "projection_only" : "normal_projection",
+    sampleTier,
+    projectionOnly ? "projection_only" : "normal_projection",
     volatilityBucket,
     injuryBucket
   ].join("|");
 
   const environmentKey = [
-    snapshot.hasH2H ? "h2h" : "no_h2h",
-    diagnostics.paceGapRisk ? "pace_gap" : "pace_ok",
-    diagnostics.defensiveFloorFlag ? "def_floor" : "def_ok",
-    (Number(diagnostics.blowoutGap) || 0) > 20 ? "blowout" : "balanced",
-    diagnostics.volatilityBlock ? "vol_block" : "vol_ok"
+    hasH2H ? "h2h" : "no_h2h",
+    gamePaceGapRisk ? "pace_gap" : "pace_ok",
+    gameDefensiveFloorFlag ? "def_floor" : "def_ok",
+    gameBlowoutGap > 20 ? "blowout" : "balanced",
+    gameVolatilityBlock ? "vol_block" : "vol_ok"
   ].join("|");
 
   return {
@@ -5708,52 +5905,32 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     awayTeam: fixtureMeta.awayTeam || "—",
     homeId: fixtureMeta.homeId || "",
     awayId: fixtureMeta.awayId || "",
-
     marketKey,
     marketName: pickRow.name,
     line: pickRow.line,
     side,
     predictionText: pickRow.pick,
-
     edge: pickRow.edge,
-    edgePct: isFinite(edgePctRaw) ? edgePctRaw * 100 : null,
-    rawEdgePctDecimal: isFinite(edgePctRaw) ? edgePctRaw : null,
-    rawProjection: isFinite(pickRow.proj) ? pickRow.proj : null,
-
+    edgePct: isFinite(pickRow.edge) && pickRow.line ? (pickRow.edge / pickRow.line) * 100 : null,
     confidence: grade,
     confidenceGrade: grade,
     isLock,
     isABQualified,
-
-    trackerVersion: "phase1_snapshot_v1",
-    sampleTier: snapshot.sampleTier,
-    projectionOnly: snapshot.projectionOnly,
-    fullModel: snapshot.fullModel,
-    hasH2H: snapshot.hasH2H,
-
-    lineBucket,
-    edgeBucket,
+    trackerBucket: "raw",
+    sampleTier,
+    projectionOnly,
+    hasH2H,
+    volatilityValue: isFinite(volatilityValue) ? Number(volatilityValue.toFixed(2)) : null,
     volatilityBucket,
     injuryBucket,
-
-    maxVolatility: isFinite(snapshot.maxVolatility) ? snapshot.maxVolatility : null,
-    volLimit: isFinite(snapshot.volLimit) ? snapshot.volLimit : null,
-
-    gamePaceGapRisk: !!diagnostics.paceGapRisk,
-    gameDefensiveFloorFlag: !!diagnostics.defensiveFloorFlag,
-    gameBlowoutGap: isFinite(Number(diagnostics.blowoutGap)) ? Number(diagnostics.blowoutGap) : null,
-    gameVolatilityBlock: !!diagnostics.volatilityBlock,
-
-    injMultA: Number(diagnostics.injMultA ?? 1),
-    injMultB: Number(diagnostics.injMultB ?? 1),
-    injHighUncertaintyA: !!diagnostics.injHighUncertaintyA,
-    injHighUncertaintyB: !!diagnostics.injHighUncertaintyB,
-
+    edgeBucket,
+    lineBucket,
+    gamePaceGapRisk,
+    gameDefensiveFloorFlag,
+    gameBlowoutGap,
+    gameVolatilityBlock,
     memoryProfileKey,
     environmentKey,
-    contextTags,
-
-    trackerBucket: "raw",
     resultStatus: "pending",
     diagnostics: {
       ...(diagnostics || {}),
@@ -6113,8 +6290,8 @@ function runEngine() {
       lockIdx,
       fixtureMeta,
       league,
-      diagnostics: {
-                ftSampleTier: ftCalc.ftSampleTier,
+            diagnostics: {
+        ftSampleTier: ftCalc.ftSampleTier,
         h1SampleTier: h1Calc.h1SampleTier,
         q1SampleTier: q1Calc.q1SampleTier,
 
@@ -6128,7 +6305,13 @@ function runEngine() {
 
         pace: ftCalc.pace,
         paceGapRisk: ftCalc.paceGapRisk,
+        h1PaceGapRisk: h1Calc.paceGapRisk,
+        q1PaceGapRisk: q1Calc.paceGapRisk,
+
         defensiveFloorFlag: ftCalc.defensiveFloorFlag,
+        h1DefensiveFloorFlag: h1Calc.defensiveFloorFlag,
+        q1DefensiveFloorFlag: q1Calc.defensiveFloorFlag,
+
         blowoutGap: ftCalc.blowoutGap,
         volatilityBlock: ftCalc.volatilityBlock,
 
@@ -6141,14 +6324,6 @@ function runEngine() {
 
         injMultA: g_injA.scoringMult,
         injMultB: g_injB.scoringMult,
-        injHighUncertaintyA: !!g_injA.highUncertainty,
-        injHighUncertaintyB: !!g_injB.highUncertainty,
-        injOutCountA: Number(g_injA.outCount || 0),
-        injOutCountB: Number(g_injB.outCount || 0),
-        injDTDCountA: Number(g_injA.dtdCount || 0),
-        injDTDCountB: Number(g_injB.dtdCount || 0),
-        injUnknownImpactCountA: Number(g_injA.unknownImpactCount || 0),
-        injUnknownImpactCountB: Number(g_injB.unknownImpactCount || 0),
 
         ftFullModel: ftCalc.ftFullModel,
         h1FullModel: h1Calc.h1FullModel,
