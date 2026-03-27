@@ -613,7 +613,7 @@ input,
       display: inline-block;
       vertical-align: middle;
       transform: translateY(-1px);
-      margin-left: 4px;
+      margin-right: 4px;
     }
 
     .track-pending {
@@ -2658,39 +2658,53 @@ function saveTrackedPicks(picks) {
       ].join("|");
     }
 
-    function getCurrentFixtureMeta() {
+        function getCurrentFixtureMeta() {
       const fixtureSelect = document.getElementById("fixtureSelect");
-      const opt =
+      const selectedOpt =
         fixtureSelect && fixtureSelect.selectedIndex >= 0
           ? fixtureSelect.options[fixtureSelect.selectedIndex]
           : null;
 
+      const allOpts = fixtureSelect
+        ? [...fixtureSelect.options].filter(o => o && o.value)
+        : [];
+
       const teamAName = document.getElementById("teamAName")?.value.trim() || "";
       const teamBName = document.getElementById("teamBName")?.value.trim() || "";
-      const optHome = opt?.dataset.home || "";
-      const optAway = opt?.dataset.away || "";
+      const normA = normalizeTeamName(teamAName);
+      const normB = normalizeTeamName(teamBName);
 
-      const sameByIds =
-        !!opt && !!opt.value &&
-        String(opt.dataset.homeId || "") !== "" &&
-        String(opt.dataset.awayId || "") !== "" &&
-        String(opt.dataset.homeId || "") === String(selectedTeamIds.A || "") &&
-        String(opt.dataset.awayId || "") === String(selectedTeamIds.B || "");
+      const matchedOpt = (() => {
+        if (selectedOpt && selectedOpt.value) {
+          const optHome = selectedOpt.dataset.home || "";
+          const optAway = selectedOpt.dataset.away || "";
 
-      const sameByNames =
-        !!opt && !!opt.value &&
-        normalizeTeamName(optHome) === normalizeTeamName(teamAName) &&
-        normalizeTeamName(optAway) === normalizeTeamName(teamBName);
+          const sameByIds =
+            String(selectedOpt.dataset.homeId || "") !== "" &&
+            String(selectedOpt.dataset.awayId || "") !== "" &&
+            String(selectedOpt.dataset.homeId || "") === String(selectedTeamIds.A || "") &&
+            String(selectedOpt.dataset.awayId || "") === String(selectedTeamIds.B || "");
 
-      const sameFixture = sameByIds || sameByNames;
+          const sameByNames =
+            normalizeTeamName(optHome) === normA &&
+            normalizeTeamName(optAway) === normB;
+
+          if (sameByIds || sameByNames) return selectedOpt;
+        }
+
+        return allOpts.find(opt =>
+          normalizeTeamName(opt.dataset.home || "") === normA &&
+          normalizeTeamName(opt.dataset.away || "") === normB
+        ) || null;
+      })();
 
       return {
-        eventId:   sameFixture ? (opt.value || "") : "",
-        eventDate: sameFixture ? (opt.dataset.eventDate || "") : "",
-        homeTeam:  sameFixture ? optHome : teamAName,
-        awayTeam:  sameFixture ? optAway : teamBName,
-        homeId:    sameFixture ? (opt.dataset.homeId || String(selectedTeamIds.A || "")) : String(selectedTeamIds.A || ""),
-        awayId:    sameFixture ? (opt.dataset.awayId || String(selectedTeamIds.B || "")) : String(selectedTeamIds.B || "")
+        eventId: matchedOpt ? (matchedOpt.value || "") : "",
+        eventDate: matchedOpt ? (matchedOpt.dataset.eventDate || "") : "",
+        homeTeam: matchedOpt ? (matchedOpt.dataset.home || teamAName) : teamAName,
+        awayTeam: matchedOpt ? (matchedOpt.dataset.away || teamBName) : teamBName,
+        homeId: matchedOpt ? (matchedOpt.dataset.homeId || String(selectedTeamIds.A || "")) : String(selectedTeamIds.A || ""),
+        awayId: matchedOpt ? (matchedOpt.dataset.awayId || String(selectedTeamIds.B || "")) : String(selectedTeamIds.B || "")
       };
     }
 
@@ -2759,17 +2773,9 @@ function renderTrackedPicks() {
   marketSummaryEl.innerHTML = chips.join("");
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
-  if (!allPicks.length) {
+    if (!allPicks.length) {
     emptyEl.style.display = "block";
     emptyEl.textContent = "No tracked picks saved yet.";
-    wrapEl.style.display = "none";
-    bodyEl.innerHTML = "";
-    return;
-  }
-
-  if (!activePicks.length) {
-    emptyEl.style.display = "block";
-    emptyEl.textContent = "No active tracked picks right now.";
     wrapEl.style.display = "none";
     bodyEl.innerHTML = "";
     return;
@@ -2778,7 +2784,12 @@ function renderTrackedPicks() {
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  bodyEl.innerHTML = activePicks.map(p => {
+  const rows = [
+    ...activePicks.map(p => ({ ...p, _archived: false })),
+    ...archivedPicks.map(p => ({ ...p, _archived: true }))
+  ];
+
+  bodyEl.innerHTML = rows.map(p => {
     const status = String(p.resultStatus || "pending").toLowerCase();
     const statusClass =
       status === "win" ? "track-win" :
@@ -2791,6 +2802,8 @@ function renderTrackedPicks() {
         ? "—"
         : (p.edgePct > 0 ? "+" : "") + Number(p.edgePct).toFixed(2) + "%";
 
+    const statusLabel = status.toUpperCase() + (p._archived ? " • ARCHIVED" : "");
+
     return `
       <tr>
         <td>${safeText(formatTrackedDate(p.createdAt))}</td>
@@ -2799,7 +2812,7 @@ function renderTrackedPicks() {
         <td>${safeText(displayLine(p.line))}</td>
 <td>${p.isLock ? '<span class="lock">🔒</span> ' : ""}${safeText(p.predictionText || "—")}</td>
         <td>${safeText(edgeText)}</td>
-        <td class="${statusClass}">${safeText(status.toUpperCase())}</td>
+        <td class="${statusClass}">${safeText(statusLabel)}</td>
       </tr>
     `;
   }).join("");
@@ -3429,7 +3442,9 @@ current.unshift(ensureTrackedPickKeys(p));
       if (minLen >= 2) return "thin";
       return "insufficient";
     }
-
+    function hasMinGames(arr, min = 2) {
+      return Array.isArray(arr) && arr.length >= min;
+    }
     function getEffectivePaceClamp(league) {
       if (league === "nba") return { min: 0.90, max: 1.15 };
       if (league === "ncaa") return { min: 0.90, max: 1.12 };
@@ -5362,10 +5377,15 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
 
   const ftSampleTier = getSampleTier(aFTS, aFTA, bFTS, bFTA);
 
-  const ftProjectionOnly =
-    (g_fetchMeta.A.ft.source === "espn" && !g_fetchMeta.A.ft.venueReliable) ||
-    (g_fetchMeta.B.ft.source === "espn" && !g_fetchMeta.B.ft.venueReliable);
+    const ftVenueReliableA =
+    hasMinGames(safeArr(parsed.aHomeFTScored)) &&
+    hasMinGames(safeArr(parsed.aHomeFTAllowed));
 
+  const ftVenueReliableB =
+    hasMinGames(safeArr(parsed.bAwayFTScored)) &&
+    hasMinGames(safeArr(parsed.bAwayFTAllowed));
+
+  const ftProjectionOnly = !(ftVenueReliableA && ftVenueReliableB);
   const ftProjectionNote = ftProjectionOnly ? "Weak home/away venue sample — projection only" : null;
   const ftNote =
     ftSampleTier === "insufficient" ? "Insufficient FT sample — need 2+ games" :
@@ -5513,10 +5533,15 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
 
   const sampleTier = getSampleTier(a1HS, a1HA, b1HS, b1HA);
 
-  const projectionOnly =
-    (g_fetchMeta.A.h1.source === "espn" && !g_fetchMeta.A.h1.venueReliable) ||
-    (g_fetchMeta.B.h1.source === "espn" && !g_fetchMeta.B.h1.venueReliable);
+    const h1VenueReliableA =
+    hasMinGames(safeArr(parsed.aHome1HScored)) &&
+    hasMinGames(safeArr(parsed.aHome1HAllowed));
 
+  const h1VenueReliableB =
+    hasMinGames(safeArr(parsed.bAway1HScored)) &&
+    hasMinGames(safeArr(parsed.bAway1HAllowed));
+
+  const projectionOnly = !(h1VenueReliableA && h1VenueReliableB);
   const projectionNote = projectionOnly ? "Weak home/away venue sample — projection only" : null;
   const note =
     !supported ? "1H market not available for this league" :
@@ -5649,10 +5674,15 @@ function computeQ1Projection({ league, parsed, lines, injMultA = 1, injMultB = 1
 
   const sampleTier = getSampleTier(aQ1S, aQ1A, bQ1S, bQ1A);
 
-  const projectionOnly =
-    (g_fetchMeta.A.q1.source === "espn" && !g_fetchMeta.A.q1.venueReliable) ||
-    (g_fetchMeta.B.q1.source === "espn" && !g_fetchMeta.B.q1.venueReliable);
+    const q1VenueReliableA =
+    hasMinGames(safeArr(parsed.aHomeQ1Scored)) &&
+    hasMinGames(safeArr(parsed.aHomeQ1Allowed));
 
+  const q1VenueReliableB =
+    hasMinGames(safeArr(parsed.bAwayQ1Scored)) &&
+    hasMinGames(safeArr(parsed.bAwayQ1Allowed));
+
+  const projectionOnly = !(q1VenueReliableA && q1VenueReliableB);
   const projectionNote = projectionOnly ? "Weak Q1 venue sample — projection only" : null;
   const note =
     !supported ? "Q1 market not available for this league" :
