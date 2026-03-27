@@ -5117,7 +5117,12 @@ function validateInputs(league) {
     return val;
   }
 
-  function parseArrayField(id, label, required = false) {
+  function parseArrayField(id, label, required = false, enabled = true) {
+    clearInvalid(id);
+
+    if (!enabled) {
+      return null;
+    }
     clearInvalid(id);
     const raw = document.getElementById(id)?.value?.trim() || "";
     if (!raw) {
@@ -5147,6 +5152,12 @@ function validateInputs(league) {
   const bLine = parseRequiredLine("teamBMarket", "Team B Total");
 
   const h1Line = parseOptionalLine("h1Market");
+    const useFTH2H = !!document.getElementById("useFTH2H")?.checked;
+  const use1HH2H = !!document.getElementById("use1HH2H")?.checked;
+  const useQ1H2H = !!document.getElementById("useQ1H2H")?.checked;
+
+  const wants1H = h1Line !== null || use1HH2H;
+  const wantsQ1 = q1Line !== null || useQ1H2H;
   const q1Line = parseOptionalLine("q1Market");
 
   const parsed = {
@@ -5155,22 +5166,22 @@ function validateInputs(league) {
     bFTScored: parseArrayField("bFTScored", "Team B FT Scored", true),
     bFTAllowed: parseArrayField("bFTAllowed", "Team B FT Allowed", true),
 
-    a1HScored: parseArrayField("a1HScored", "Team A 1H Scored"),
-    a1HAllowed: parseArrayField("a1HAllowed", "Team A 1H Allowed"),
-    b1HScored: parseArrayField("b1HScored", "Team B 1H Scored"),
-    b1HAllowed: parseArrayField("b1HAllowed", "Team B 1H Allowed"),
+        a1HScored: parseArrayField("a1HScored", "Team A 1H Scored", false, wants1H),
+    a1HAllowed: parseArrayField("a1HAllowed", "Team A 1H Allowed", false, wants1H),
+    b1HScored: parseArrayField("b1HScored", "Team B 1H Scored", false, wants1H),
+    b1HAllowed: parseArrayField("b1HAllowed", "Team B 1H Allowed", false, wants1H),
 
-    aQ1Scored: parseArrayField("aQ1Scored", "Team A Q1 Scored"),
-    aQ1Allowed: parseArrayField("aQ1Allowed", "Team A Q1 Allowed"),
-    bQ1Scored: parseArrayField("bQ1Scored", "Team B Q1 Scored"),
-    bQ1Allowed: parseArrayField("bQ1Allowed", "Team B Q1 Allowed"),
+    aQ1Scored: parseArrayField("aQ1Scored", "Team A Q1 Scored", false, wantsQ1),
+    aQ1Allowed: parseArrayField("aQ1Allowed", "Team A Q1 Allowed", false, wantsQ1),
+    bQ1Scored: parseArrayField("bQ1Scored", "Team B Q1 Scored", false, wantsQ1),
+    bQ1Allowed: parseArrayField("bQ1Allowed", "Team B Q1 Allowed", false, wantsQ1),
 
     aHomeFTScored: parseArrayField("aHomeFTScored", "Team A Home FT Scored"),
     aHomeFTAllowed: parseArrayField("aHomeFTAllowed", "Team A Home FT Allowed"),
     bAwayFTScored: parseArrayField("bAwayFTScored", "Team B Away FT Scored"),
     bAwayFTAllowed: parseArrayField("bAwayFTAllowed", "Team B Away FT Allowed"),
 
-    aHome1HScored: parseArrayField("aHome1HScored", "Team A Home 1H Scored"),
+        aHome1HScored: parseArrayField("aHome1HScored", "Team A Home 1H Scored"),
     aHome1HAllowed: parseArrayField("aHome1HAllowed", "Team A Home 1H Allowed"),
     bAway1HScored: parseArrayField("bAway1HScored", "Team B Away 1H Scored"),
     bAway1HAllowed: parseArrayField("bAway1HAllowed", "Team B Away 1H Allowed"),
@@ -5179,13 +5190,12 @@ function validateInputs(league) {
     aHomeQ1Allowed: parseArrayField("aHomeQ1Allowed", "Team A Home Q1 Allowed"),
     bAwayQ1Scored: parseArrayField("bAwayQ1Scored", "Team B Away Q1 Scored"),
     bAwayQ1Allowed: parseArrayField("bAwayQ1Allowed", "Team B Away Q1 Allowed"),
-
-    aFTH2H: parseArrayField("aFTH2H", "Team A FT H2H"),
-    bFTH2H: parseArrayField("bFTH2H", "Team B FT H2H"),
-    a1HH2H: parseArrayField("a1HH2H", "Team A 1H H2H"),
-    b1HH2H: parseArrayField("b1HH2H", "Team B 1H H2H"),
-    aQ1H2H: parseArrayField("aQ1H2H", "Team A Q1 H2H"),
-    bQ1H2H: parseArrayField("bQ1H2H", "Team B Q1 H2H")
+        aFTH2H: parseArrayField("aFTH2H", "Team A FT H2H", false, useFTH2H),
+    bFTH2H: parseArrayField("bFTH2H", "Team B FT H2H", false, useFTH2H),
+    a1HH2H: parseArrayField("a1HH2H", "Team A 1H H2H", false, use1HH2H),
+    b1HH2H: parseArrayField("b1HH2H", "Team B 1H H2H", false, use1HH2H),
+    aQ1H2H: parseArrayField("aQ1H2H", "Team A Q1 H2H", false, useQ1H2H),
+    bQ1H2H: parseArrayField("bQ1H2H", "Team B Q1 H2H", false, useQ1H2H)
   };
 
   const requiredFtLens = [
@@ -5972,10 +5982,10 @@ async function runEngine() {
   const table = document.getElementById("results");
 
   if (runBtn) runBtn.disabled = true;
+
+  try {
     await hydrateTrackedPicks();
     await refreshTrackedPickResults();
-    
-  try {
     if (!table) return;
 
     table.style.display = "table";
