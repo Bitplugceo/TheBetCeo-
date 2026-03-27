@@ -2423,7 +2423,7 @@ function renderTrackedPicks() {
         <td>${safeText((p.homeTeam || "—") + " vs " + (p.awayTeam || "—"))}</td>
         <td>${safeText(p.marketName || "—")}</td>
         <td>${safeText(displayLine(p.line))}</td>
-        <td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
+<td>${p.isLock ? '<span class="lock">🔒</span> ' : ""}${safeText(p.predictionText || "—")}</td>
         <td>${safeText(edgeText)}</td>
         <td class="${statusClass}">${safeText(status.toUpperCase())}</td>
       </tr>
