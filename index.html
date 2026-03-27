@@ -1451,8 +1451,22 @@ const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tra
 const TRACKER_USER_KEY_STORAGE = "bb_engine_tracker_user_key";
 const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
+const TRACKER_FIXED_USER_KEY = ""; // paste your OLD tracker key here to restore old saved picks
 let g_trackerFallbackUserKey = "";
 function getTrackerUserKey() {
+  if (TRACKER_FIXED_USER_KEY && TRACKER_FIXED_USER_KEY.trim()) {
+    const pinned = TRACKER_FIXED_USER_KEY.trim();
+    g_trackerFallbackUserKey = pinned;
+
+    try {
+      localStorage.setItem(TRACKER_USER_KEY_STORAGE, pinned);
+    } catch (err) {
+      console.error("[BB Engine] failed to persist fixed tracker key", err);
+    }
+
+    return pinned;
+  }
+
   if (g_trackerFallbackUserKey) return g_trackerFallbackUserKey;
 
   try {
@@ -2390,6 +2404,14 @@ async function hydrateTrackedPicks(force = false) {
 
   g_trackerHydratePromise = (async () => {
     const localState = loadTrackerStateFromLocal();
+
+    const hadLocalState =
+      !!localState &&
+      (
+        (Array.isArray(localState.activePicks) && localState.activePicks.length > 0) ||
+        (Array.isArray(localState.archivedPicks) && localState.archivedPicks.length > 0)
+      );
+
     if (localState) normalizeTrackerState(localState);
 
     try {
@@ -2402,19 +2424,36 @@ async function hydrateTrackedPicks(force = false) {
       if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
 
       const data = await res.json();
-if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
+      if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
 
-const localUpdatedAt = Date.parse(g_trackerState?.updatedAt || "") || 0;
-const serverUpdatedAt = Date.parse(data.state?.updatedAt || "") || 0;
+      const localUpdatedAt = Date.parse(g_trackerState?.updatedAt || "") || 0;
+      const serverUpdatedAt = Date.parse(data.state?.updatedAt || "") || 0;
 
-if (localUpdatedAt > serverUpdatedAt) {
-  scheduleTrackerSave();
-  return g_trackerState;
-}
+      if (localUpdatedAt > serverUpdatedAt) {
+        scheduleTrackerSave();
+        return g_trackerState;
+      }
 
-normalizeTrackerState(data.state);
-saveTrackerStateToLocal();
-return g_trackerState;
+      normalizeTrackerState(data.state);
+      saveTrackerStateToLocal();
+
+      const serverHasState =
+        (Array.isArray(data.state?.activePicks) && data.state.activePicks.length > 0) ||
+        (Array.isArray(data.state?.archivedPicks) && data.state.archivedPicks.length > 0);
+
+      if (!serverHasState && !hadLocalState) {
+        console.warn("[BB Engine] tracker loaded empty state for key:", getTrackerUserKey());
+      }
+
+      return g_trackerState;
+    } catch (err) {
+      console.error("[BB Engine] hydrateTrackedPicks failed", err);
+
+      if (hadLocalState) {
+        return g_trackerState;
+      }
+
+      return g_trackerState;
     } finally {
       renderTrackedPicks();
       g_trackerHydratePromise = null;
