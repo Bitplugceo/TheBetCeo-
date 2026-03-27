@@ -2346,6 +2346,7 @@ function safeWinRate(wins, settled) {
   return ((wins / settled) * 100).toFixed(1) + "%";
 }
 
+function rebuildTrackerStats() {
   const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
   const all = [...active, ...archived];
@@ -2359,7 +2360,6 @@ function safeWinRate(wins, settled) {
   };
 
   rebuildTrackerDerivedState();
-
   return g_trackerState.stats;
 }
 
