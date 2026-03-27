@@ -5272,14 +5272,255 @@ const h2hB = weightedRecentAverage(bQ1H2H);
     defensiveFloorFlag
   };
 }
+function getMarketVolLimit(league, marketKey) {
+  if (marketKey === "h1") return league === "nba" ? 7 : 6;
+  if (marketKey === "q1") return 4.5;
+  return LEAGUE_VOL_LIMITS[league] || LEAGUE_VOL_LIMITS.unknown;
+}
+
+function getMarketSnapshotFromDiagnostics(marketKey, diagnostics = {}, league = "unknown") {
+  const volLimit = getMarketVolLimit(league, marketKey);
+
+  if (marketKey === "ft") {
+    return {
+      sampleTier: diagnostics.ftSampleTier || "unknown",
+      projectionOnly: !!diagnostics.ftProjectionOnly,
+      fullModel: !!diagnostics.ftFullModel,
+      hasH2H: !!diagnostics.ftHasH2H,
+      maxVolatility: Math.max(Number(diagnostics.aVol) || 0, Number(diagnostics.bVol) || 0),
+      volLimit
+    };
+  }
+
+  if (marketKey === "h1") {
+    return {
+      sampleTier: diagnostics.h1SampleTier || "unknown",
+      projectionOnly: !!diagnostics.h1ProjectionOnly,
+      fullModel: !!diagnostics.h1FullModel,
+      hasH2H: !!diagnostics.h1HasH2H,
+      maxVolatility: Math.max(Number(diagnostics.aVol1) || 0, Number(diagnostics.bVol1) || 0),
+      volLimit
+    };
+  }
+
+  if (marketKey === "q1") {
+    return {
+      sampleTier: diagnostics.q1SampleTier || "unknown",
+      projectionOnly: !!diagnostics.q1ProjectionOnly,
+      fullModel: !!diagnostics.q1FullModel,
+      hasH2H: !!diagnostics.q1HasH2H,
+      maxVolatility: Math.max(Number(diagnostics.aVolQ1) || 0, Number(diagnostics.bVolQ1) || 0),
+      volLimit
+    };
+  }
+
+  if (marketKey === "team_a") {
+    return {
+      sampleTier: diagnostics.ftSampleTier || "unknown",
+      projectionOnly: !!diagnostics.ftProjectionOnly,
+      fullModel: !!diagnostics.teamFullModel,
+      hasH2H: !!diagnostics.ftHasH2H,
+      maxVolatility: Number(diagnostics.aVol) || 0,
+      volLimit
+    };
+  }
+
+  if (marketKey === "team_b") {
+    return {
+      sampleTier: diagnostics.ftSampleTier || "unknown",
+      projectionOnly: !!diagnostics.ftProjectionOnly,
+      fullModel: !!diagnostics.teamFullModel,
+      hasH2H: !!diagnostics.ftHasH2H,
+      maxVolatility: Number(diagnostics.bVol) || 0,
+      volLimit
+    };
+  }
+
+  return {
+    sampleTier: "unknown",
+    projectionOnly: false,
+    fullModel: false,
+    hasH2H: false,
+    maxVolatility: NaN,
+    volLimit
+  };
+}
+
+function getLineBucket(line, marketKey) {
+  const v = Number(line);
+  if (!isFinite(v)) return "unknown";
+
+  if (marketKey === "ft") {
+    if (v < 150) return "<150";
+    if (v < 170) return "150-169.5";
+    if (v < 190) return "170-189.5";
+    if (v < 210) return "190-209.5";
+    return "210+";
+  }
+
+  if (marketKey === "h1") {
+    if (v < 70) return "<70";
+    if (v < 85) return "70-84.5";
+    if (v < 100) return "85-99.5";
+    return "100+";
+  }
+
+  if (marketKey === "q1") {
+    if (v < 45) return "<45";
+    if (v < 50) return "45-49.5";
+    if (v < 55) return "50-54.5";
+    return "55+";
+  }
+
+  if (v < 70) return "<70";
+  if (v < 80) return "70-79.5";
+  if (v < 90) return "80-89.5";
+  if (v < 100) return "90-99.5";
+  return "100+";
+}
+
+function getEdgeBucketFromPct(edgePct) {
+  const v = Math.abs(Number(edgePct));
+  if (!isFinite(v)) return "unknown";
+  if (v < 0.045) return "<4.5%";
+  if (v < 0.07) return "4.5-6.99%";
+  if (v < 0.10) return "7-9.99%";
+  return "10%+";
+}
+
+function getRelativeVolatilityBucket(vol, limit) {
+  const v = Number(vol);
+  const l = Number(limit);
+
+  if (!isFinite(v) || !isFinite(l) || l <= 0) return "unknown";
+
+  const ratio = v / l;
+  if (ratio <= 0.80) return "calm";
+  if (ratio <= 1.00) return "normal";
+  if (ratio <= 1.15) return "elevated";
+  if (ratio <= 1.35) return "high";
+  return "extreme";
+}
+
+function getInjuryBucket(marketKey, diagnostics = {}) {
+  const aMult = Number(diagnostics.injMultA ?? 1);
+  const bMult = Number(diagnostics.injMultB ?? 1);
+
+  const aHigh = !!diagnostics.injHighUncertaintyA;
+  const bHigh = !!diagnostics.injHighUncertaintyB;
+
+  let mult = 1;
+  let high = false;
+
+  if (marketKey === "team_a") {
+    mult = aMult;
+    high = aHigh;
+  } else if (marketKey === "team_b") {
+    mult = bMult;
+    high = bHigh;
+  } else {
+    mult = Math.min(aMult, bMult);
+    high = aHigh || bHigh;
+  }
+
+  if (high) return "high_uncertainty";
+  if (mult <= 0.85) return "major";
+  if (mult <= 0.93) return "moderate";
+  if (mult < 1) return "minor";
+  return "clean";
+}
+
+function buildContextTags({
+  league,
+  marketKey,
+  side,
+  isLock,
+  isABQualified,
+  snapshot,
+  edgeBucket,
+  lineBucket,
+  volatilityBucket,
+  injuryBucket,
+  diagnostics
+}) {
+  const tags = [
+    `league:${league}`,
+    `market:${marketKey}`,
+    `side:${side}`,
+    `sample:${snapshot.sampleTier}`,
+    `edge:${edgeBucket}`,
+    `line:${lineBucket}`,
+    `vol:${volatilityBucket}`,
+    `inj:${injuryBucket}`
+  ];
+
+  if (snapshot.projectionOnly) tags.push("projection_only");
+  if (snapshot.fullModel) tags.push("full_model");
+  if (snapshot.hasH2H) tags.push("has_h2h");
+  if (isLock) tags.push("lock");
+  if (isABQualified) tags.push("ab_qualified");
+
+  if (marketKey === "team_a") tags.push("home_team_total");
+  if (marketKey === "team_b") tags.push("away_team_total");
+
+  if (diagnostics.paceGapRisk) tags.push("game_pace_gap");
+  if (diagnostics.defensiveFloorFlag) tags.push("game_defensive_floor");
+  if ((Number(diagnostics.blowoutGap) || 0) > 20) tags.push("game_blowout");
+  if (diagnostics.volatilityBlock) tags.push("game_volatility_block");
+
+  return [...new Set(tags)];
+}
+
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
   if (!pickRow || pickRow.pick === "NO PLAY" || pickRow.note || !isFinite(pickRow.line)) {
     return null;
   }
 
+  const marketKey = getMarketKeyFromName(pickRow.name);
   const side = pickRow.pick.startsWith("OVER") ? "over" : "under";
   const grade = String(pickRow.confidence || "—").toUpperCase();
   const isABQualified = grade === "A" || grade === "B";
+  const edgePctRaw = isFinite(pickRow.edge) && pickRow.line ? (pickRow.edge / pickRow.line) : NaN;
+
+  const snapshot = getMarketSnapshotFromDiagnostics(marketKey, diagnostics, league);
+  const lineBucket = getLineBucket(pickRow.line, marketKey);
+  const edgeBucket = getEdgeBucketFromPct(edgePctRaw);
+  const volatilityBucket = getRelativeVolatilityBucket(snapshot.maxVolatility, snapshot.volLimit);
+  const injuryBucket = getInjuryBucket(marketKey, diagnostics);
+
+  const contextTags = buildContextTags({
+    league,
+    marketKey,
+    side,
+    isLock,
+    isABQualified,
+    snapshot,
+    edgeBucket,
+    lineBucket,
+    volatilityBucket,
+    injuryBucket,
+    diagnostics
+  });
+
+  const memoryProfileKey = [
+    league,
+    marketKey,
+    side,
+    edgeBucket,
+    lineBucket,
+    snapshot.sampleTier,
+    snapshot.projectionOnly ? "projection_only" : "normal_projection",
+    volatilityBucket,
+    injuryBucket
+  ].join("|");
+
+  const environmentKey = [
+    snapshot.hasH2H ? "h2h" : "no_h2h",
+    diagnostics.paceGapRisk ? "pace_gap" : "pace_ok",
+    diagnostics.defensiveFloorFlag ? "def_floor" : "def_ok",
+    (Number(diagnostics.blowoutGap) || 0) > 20 ? "blowout" : "balanced",
+    diagnostics.volatilityBlock ? "vol_block" : "vol_ok"
+  ].join("|");
 
   return {
     eventId: fixtureMeta.eventId || "",
@@ -5289,17 +5530,51 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     awayTeam: fixtureMeta.awayTeam || "—",
     homeId: fixtureMeta.homeId || "",
     awayId: fixtureMeta.awayId || "",
-    marketKey: getMarketKeyFromName(pickRow.name),
+
+    marketKey,
     marketName: pickRow.name,
     line: pickRow.line,
     side,
     predictionText: pickRow.pick,
+
     edge: pickRow.edge,
-    edgePct: isFinite(pickRow.edge) && pickRow.line ? (pickRow.edge / pickRow.line) * 100 : null,
+    edgePct: isFinite(edgePctRaw) ? edgePctRaw * 100 : null,
+    rawEdgePctDecimal: isFinite(edgePctRaw) ? edgePctRaw : null,
+    rawProjection: isFinite(pickRow.proj) ? pickRow.proj : null,
+
     confidence: grade,
     confidenceGrade: grade,
     isLock,
     isABQualified,
+
+    trackerVersion: "phase1_snapshot_v1",
+    sampleTier: snapshot.sampleTier,
+    projectionOnly: snapshot.projectionOnly,
+    fullModel: snapshot.fullModel,
+    hasH2H: snapshot.hasH2H,
+
+    lineBucket,
+    edgeBucket,
+    volatilityBucket,
+    injuryBucket,
+
+    maxVolatility: isFinite(snapshot.maxVolatility) ? snapshot.maxVolatility : null,
+    volLimit: isFinite(snapshot.volLimit) ? snapshot.volLimit : null,
+
+    gamePaceGapRisk: !!diagnostics.paceGapRisk,
+    gameDefensiveFloorFlag: !!diagnostics.defensiveFloorFlag,
+    gameBlowoutGap: isFinite(Number(diagnostics.blowoutGap)) ? Number(diagnostics.blowoutGap) : null,
+    gameVolatilityBlock: !!diagnostics.volatilityBlock,
+
+    injMultA: Number(diagnostics.injMultA ?? 1),
+    injMultB: Number(diagnostics.injMultB ?? 1),
+    injHighUncertaintyA: !!diagnostics.injHighUncertaintyA,
+    injHighUncertaintyB: !!diagnostics.injHighUncertaintyB,
+
+    memoryProfileKey,
+    environmentKey,
+    contextTags,
+
     trackerBucket: "raw",
     resultStatus: "pending",
     diagnostics: {
@@ -5661,25 +5936,42 @@ function runEngine() {
       fixtureMeta,
       league,
       diagnostics: {
-        ftSampleTier: ftCalc.ftSampleTier,
+                ftSampleTier: ftCalc.ftSampleTier,
         h1SampleTier: h1Calc.h1SampleTier,
         q1SampleTier: q1Calc.q1SampleTier,
+
         ftProjectionOnly: ftCalc.ftProjectionOnly,
         h1ProjectionOnly: h1Calc.h1ProjectionOnly,
         q1ProjectionOnly: q1Calc.q1ProjectionOnly,
+
+        ftHasH2H: ftCalc.ftHasH2H,
+        h1HasH2H: h1Calc.h1HasH2H,
+        q1HasH2H: q1Calc.q1HasH2H,
+
         pace: ftCalc.pace,
         paceGapRisk: ftCalc.paceGapRisk,
         defensiveFloorFlag: ftCalc.defensiveFloorFlag,
         blowoutGap: ftCalc.blowoutGap,
         volatilityBlock: ftCalc.volatilityBlock,
+
         aVol: ftCalc.aVol,
         bVol: ftCalc.bVol,
         aVol1: h1Calc.aVol1,
         bVol1: h1Calc.bVol1,
         aVolQ1: q1Calc.aVolQ1,
         bVolQ1: q1Calc.bVolQ1,
+
         injMultA: g_injA.scoringMult,
         injMultB: g_injB.scoringMult,
+        injHighUncertaintyA: !!g_injA.highUncertainty,
+        injHighUncertaintyB: !!g_injB.highUncertainty,
+        injOutCountA: Number(g_injA.outCount || 0),
+        injOutCountB: Number(g_injB.outCount || 0),
+        injDTDCountA: Number(g_injA.dtdCount || 0),
+        injDTDCountB: Number(g_injB.dtdCount || 0),
+        injUnknownImpactCountA: Number(g_injA.unknownImpactCount || 0),
+        injUnknownImpactCountB: Number(g_injB.unknownImpactCount || 0),
+
         ftFullModel: ftCalc.ftFullModel,
         h1FullModel: h1Calc.h1FullModel,
         q1FullModel: q1Calc.q1FullModel,
