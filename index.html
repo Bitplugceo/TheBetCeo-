@@ -2571,9 +2571,8 @@ async function flushTrackerSave() {
   } finally {
     g_trackerSaveInFlight = false;
 
-        if (saveVersion < g_trackerSaveVersion) {
+    if (saveVersion < g_trackerSaveVersion) {
       flushTrackerSave();
-    }
     }
   }
 }
