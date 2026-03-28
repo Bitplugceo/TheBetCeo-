@@ -1507,6 +1507,234 @@ const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // WARNING: fixed single-user tracker key. Do NOT use this as-is for public/shared/multi-user deployments.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
+
+const ENGINE_LINE_MEMORY_STORAGE = "bb_engine_line_memory_v1";
+let g_engineLineMemory = loadEngineLineMemory();
+
+function loadEngineLineMemory() {
+  try {
+    const raw = localStorage.getItem(ENGINE_LINE_MEMORY_STORAGE);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (err) {
+    console.error("[BB Engine] loadEngineLineMemory failed", err);
+    return {};
+  }
+}
+
+function saveEngineLineMemory() {
+  try {
+    localStorage.setItem(ENGINE_LINE_MEMORY_STORAGE, JSON.stringify(g_engineLineMemory));
+  } catch (err) {
+    console.error("[BB Engine] saveEngineLineMemory failed", err);
+  }
+}
+
+function makeEngineLineMemoryKey(eventId, league, marketKey) {
+  return [
+    String(eventId || "").trim(),
+    String(league || "").trim(),
+    String(marketKey || "").trim()
+  ].join("|");
+}
+
+function isBetterLineForSide(side, nextLine, savedLine) {
+  const next = Number(nextLine);
+  const saved = Number(savedLine);
+
+  if (!isFinite(next) || next <= 0) return false;
+  if (!isFinite(saved) || saved <= 0) return true;
+
+  if (side === "over") return next < saved;
+  if (side === "under") return next > saved;
+  return false;
+}
+
+function resolveLineWithMemory({ eventId, league, marketKey, currentLine }) {
+  const line = Number(currentLine);
+
+  if (!eventId || !marketKey || !isFinite(line) || line <= 0) {
+    return {
+      line,
+      originalLine: line,
+      usedMemory: false,
+      lockedSide: "",
+      savedLine: null
+    };
+  }
+
+  const key = makeEngineLineMemoryKey(eventId, league, marketKey);
+  const entry = g_engineLineMemory[key];
+
+  if (!entry) {
+    return {
+      line,
+      originalLine: line,
+      usedMemory: false,
+      lockedSide: "",
+      savedLine: null
+    };
+  }
+
+  const savedLine = Number(entry.line);
+  const lockedSide = String(entry.side || "").toLowerCase();
+
+  if (!isFinite(savedLine) || savedLine <= 0 || !lockedSide) {
+    return {
+      line,
+      originalLine: line,
+      usedMemory: false,
+      lockedSide: "",
+      savedLine: null
+    };
+  }
+
+  let resolved = line;
+
+  if (lockedSide === "over") resolved = Math.min(line, savedLine);
+  if (lockedSide === "under") resolved = Math.max(line, savedLine);
+
+  return {
+    line: resolved,
+    originalLine: line,
+    usedMemory: Math.abs(resolved - line) > 0.001,
+    lockedSide,
+    savedLine
+  };
+}
+
+function upsertEngineLineMemory({
+  eventId,
+  eventDate,
+  league,
+  marketKey,
+  side,
+  line,
+  homeTeam = "",
+  awayTeam = ""
+}) {
+  const cleanSide = String(side || "").toLowerCase();
+  const cleanLine = Number(line);
+
+  if (!eventId || !marketKey || !["over", "under"].includes(cleanSide) || !isFinite(cleanLine) || cleanLine <= 0) {
+    return null;
+  }
+
+  const key = makeEngineLineMemoryKey(eventId, league, marketKey);
+  const nowIso = new Date().toISOString();
+  const existing = g_engineLineMemory[key];
+
+  if (!existing) {
+    g_engineLineMemory[key] = {
+      eventId,
+      eventDate: eventDate || "",
+      league: league || "",
+      marketKey,
+      side: cleanSide,
+      line: cleanLine,
+      homeTeam: homeTeam || "",
+      awayTeam: awayTeam || "",
+      createdAt: nowIso,
+      updatedAt: nowIso
+    };
+    saveEngineLineMemory();
+    return g_engineLineMemory[key];
+  }
+
+  if (String(existing.side || "").toLowerCase() !== cleanSide) {
+    return existing;
+  }
+
+  if (isBetterLineForSide(cleanSide, cleanLine, existing.line)) {
+    existing.line = cleanLine;
+    existing.eventDate = eventDate || existing.eventDate || "";
+    existing.homeTeam = homeTeam || existing.homeTeam || "";
+    existing.awayTeam = awayTeam || existing.awayTeam || "";
+    existing.updatedAt = nowIso;
+    saveEngineLineMemory();
+  }
+
+  return existing;
+}
+
+function backfillLineMemoryFromTrackedPicks() {
+  const active = Array.isArray(g_trackerState?.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState?.archivedPicks) ? g_trackerState.archivedPicks : [];
+  const all = [...active, ...archived];
+
+  if (!all.length) return;
+
+  let dirty = false;
+
+  all.forEach(raw => {
+    const pick = ensureTrackedPickKeys(raw);
+    const eventId = String(pick.eventId || "");
+    const marketKey = String(pick.marketKey || "");
+    const side = String(pick.side || getPickSideFromText(pick.predictionText || "")).toLowerCase();
+    const line = Number(pick.line);
+
+    if (!eventId || !marketKey || !["over", "under"].includes(side) || !isFinite(line) || line <= 0) return;
+
+    const key = makeEngineLineMemoryKey(eventId, pick.league, marketKey);
+    const existing = g_engineLineMemory[key];
+
+    if (!existing) {
+      g_engineLineMemory[key] = {
+        eventId,
+        eventDate: pick.eventDate || "",
+        league: pick.league || "",
+        marketKey,
+        side,
+        line,
+        homeTeam: pick.homeTeam || "",
+        awayTeam: pick.awayTeam || "",
+        createdAt: pick.createdAt || new Date().toISOString(),
+        updatedAt: pick.createdAt || new Date().toISOString()
+      };
+      dirty = true;
+      return;
+    }
+
+    if (String(existing.side || "").toLowerCase() !== side) return;
+
+    if (isBetterLineForSide(side, line, existing.line)) {
+      existing.line = line;
+      existing.updatedAt = new Date().toISOString();
+      dirty = true;
+    }
+  });
+
+  if (dirty) saveEngineLineMemory();
+}
+
+function persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league) {
+  if (!fixtureMeta?.eventId || !Array.isArray(finalPicks) || !finalPicks.length) return;
+
+  finalPicks.forEach(p => {
+    if (!p || p.pick === "NO PLAY" || p.note) return;
+    if (!isFinite(p.line) || p.line <= 0) return;
+
+    const marketKey = getMarketKeyFromName(p.name);
+    const side =
+      typeof p.pick === "string" && p.pick.startsWith("OVER") ? "over" :
+      typeof p.pick === "string" && p.pick.startsWith("UNDER") ? "under" :
+      "";
+
+    if (!marketKey || !side) return;
+
+    upsertEngineLineMemory({
+      eventId: fixtureMeta.eventId,
+      eventDate: fixtureMeta.eventDate || "",
+      league,
+      marketKey,
+      side,
+      line: p.line,
+      homeTeam: fixtureMeta.homeTeam || "",
+      awayTeam: fixtureMeta.awayTeam || ""
+    });
+  });
+}
+
 let g_trackerFallbackUserKey = "";
 function getTrackerUserKey() {
   if (TRACKER_FIXED_USER_KEY && TRACKER_FIXED_USER_KEY.trim()) {
@@ -2560,7 +2788,10 @@ async function hydrateTrackedPicks(force = false) {
         (Array.isArray(localState.archivedPicks) && localState.archivedPicks.length > 0)
       );
 
-    if (localState) normalizeTrackerState(localState);
+if (localState) {
+  normalizeTrackerState(localState);
+  backfillLineMemoryFromTrackedPicks();
+}
 
     try {
       const res = await fetch(TRACKER_API_URL, {
@@ -2592,7 +2823,8 @@ async function hydrateTrackedPicks(force = false) {
       }
 
       normalizeTrackerState(data.state);
-      saveTrackerStateToLocal();
+backfillLineMemoryFromTrackedPicks();
+saveTrackerStateToLocal();
 
       if (!serverHasState && !hadLocalState) {
         console.warn("[BB Engine] tracker loaded empty state for key:", getTrackerUserKey());
@@ -6151,7 +6383,48 @@ async function runEngine() {
     }
 
     const { parsed, lines } = validation;
-    const { ftLine, h1Line, q1Line, aLine, bLine } = lines;
+const fixtureMeta = getCurrentFixtureMeta();
+
+const ftLineState = resolveLineWithMemory({
+  eventId: fixtureMeta.eventId,
+  league,
+  marketKey: "ft",
+  currentLine: lines.ftLine
+});
+
+const h1LineState = resolveLineWithMemory({
+  eventId: fixtureMeta.eventId,
+  league,
+  marketKey: "h1",
+  currentLine: lines.h1Line
+});
+
+const q1LineState = resolveLineWithMemory({
+  eventId: fixtureMeta.eventId,
+  league,
+  marketKey: "q1",
+  currentLine: lines.q1Line
+});
+
+const aLineState = resolveLineWithMemory({
+  eventId: fixtureMeta.eventId,
+  league,
+  marketKey: "team_a",
+  currentLine: lines.aLine
+});
+
+const bLineState = resolveLineWithMemory({
+  eventId: fixtureMeta.eventId,
+  league,
+  marketKey: "team_b",
+  currentLine: lines.bLine
+});
+
+const ftLine = ftLineState.line;
+const h1Line = h1LineState.line;
+const q1Line = q1LineState.line;
+const aLine = aLineState.line;
+const bLine = bLineState.line;
 
     const ftCalc = computeFTProjection({
       league,
@@ -6469,6 +6742,8 @@ const finalPicks = picks.filter(p => {
   if (p.name === "Q1 Total") return includeQ1;
   return true;
 });
+
+persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league);
 
     const markets = finalPicks.map(p => ({
       _idx: p._idx,
