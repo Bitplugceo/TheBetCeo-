@@ -1505,8 +1505,6 @@ const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // WARNING: fixed single-user tracker key. Do NOT use this as-is for public/shared/multi-user deployments.
-const ENGINE_MODEL_VERSION = "engine_freeze_2026_03_28";
-const TRACKER_LEARNING_ENABLED = false;
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 let g_trackerFallbackUserKey = "";
@@ -2006,17 +2004,37 @@ function buildFetchAuditIssues({
   const fixtureOpt = getSelectedFixtureOption();
 
   if (fixtureOpt) {
-    const homeId = String(fixtureOpt.dataset.homeId || "");
-    const awayId = String(fixtureOpt.dataset.awayId || "");
+  const homeId = String(fixtureOpt.dataset.homeId || "");
+  const awayId = String(fixtureOpt.dataset.awayId || "");
+  const fixtureHome = String(fixtureOpt.dataset.home || "");
+  const fixtureAway = String(fixtureOpt.dataset.away || "");
 
-    if (homeId && String(selectedTeamIds.A || "") !== homeId) {
-      issues.push("Team A selected ID no longer matches the chosen fixture.");
-    }
+  const sameHomeById =
+    homeId &&
+    String(selectedTeamIds.A || "") &&
+    String(selectedTeamIds.A) === homeId;
 
-    if (awayId && String(selectedTeamIds.B || "") !== awayId) {
-      issues.push("Team B selected ID no longer matches the chosen fixture.");
-    }
+  const sameAwayById =
+    awayId &&
+    String(selectedTeamIds.B || "") &&
+    String(selectedTeamIds.B) === awayId;
+
+  const sameHomeByName =
+    !!teamAName &&
+    normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
+
+  const sameAwayByName =
+    !!teamBName &&
+    normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
+
+  if (!(sameHomeById || sameHomeByName)) {
+    errors.push("Team A no longer matches the selected fixture.");
   }
+
+  if (!(sameAwayById || sameAwayByName)) {
+    errors.push("Team B no longer matches the selected fixture.");
+  }
+}
 
 const requireFullModelSample = (count, label) => {
   if (!count) {
@@ -4094,7 +4112,17 @@ function cancelDropClose(dropId = null) {
       const league = document.getElementById("leagueSelect").value;
       const normVal = normalizeTeamName(val);
 
-      if (g_lastFetchedTeams[side] && normVal !== g_lastFetchedTeams[side]) clearAutoFill(side);
+if (normVal !== g_lastFetchedTeams[side]) {
+  _fetchToken++;
+
+  if (g_lastFetchedTeams[side]) {
+    clearAutoFill(side);
+  } else {
+    setStatusText("", "");
+    setFetchAuditIssues([]);
+    resetResultsTable();
+  }
+}
 selectedTeamIds[side] = null;
 validateFetchSection();
 
@@ -4895,7 +4923,14 @@ return isPreGame;
         setStatusText("❌ ESPN auto-fetch is NBA & NCAA only.", "err");
         return;
       }
-
+g_injA = defaultInjuryMeta();
+g_injB = defaultInjuryMeta();
+g_fetchMeta = defaultFetchMeta();
+hideInjuryBox("A");
+hideInjuryBox("B");
+clearSideFields("A");
+clearSideFields("B");
+clearH2HFields();
       const btn = document.getElementById("fetchBtn");
 btn.disabled = true;
 setFetchAuditIssues([]);
@@ -4935,14 +4970,7 @@ selectedTeamIds.B = String(teamBId);
         if (myToken !== _fetchToken) return;
         if (!aStats && !bStats) throw new Error("No recent schedule data found from ESPN.");
 
-        g_injA = defaultInjuryMeta();
-        g_injB = defaultInjuryMeta();
-        g_fetchMeta = defaultFetchMeta();
-        hideInjuryBox("A");
-        hideInjuryBox("B");
-        clearSideFields("A");
-        clearSideFields("B");
-        clearH2HFields();
+  
 
         const messages = [];
 
