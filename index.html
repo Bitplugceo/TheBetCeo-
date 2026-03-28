@@ -5189,12 +5189,14 @@ if (hasQ1Activity && q1Line === null) {
 
 const wants1H = has1HActivity;
 const wantsQ1 = hasQ1Activity;
+
+  const parsed = {
     aFTScored: parseArrayField("aFTScored", "Team A FT Scored", true),
     aFTAllowed: parseArrayField("aFTAllowed", "Team A FT Allowed", true),
     bFTScored: parseArrayField("bFTScored", "Team B FT Scored", true),
     bFTAllowed: parseArrayField("bFTAllowed", "Team B FT Allowed", true),
 
-        a1HScored: parseArrayField("a1HScored", "Team A 1H Scored", false, wants1H),
+    a1HScored: parseArrayField("a1HScored", "Team A 1H Scored", false, wants1H),
     a1HAllowed: parseArrayField("a1HAllowed", "Team A 1H Allowed", false, wants1H),
     b1HScored: parseArrayField("b1HScored", "Team B 1H Scored", false, wants1H),
     b1HAllowed: parseArrayField("b1HAllowed", "Team B 1H Allowed", false, wants1H),
@@ -5209,16 +5211,17 @@ const wantsQ1 = hasQ1Activity;
     bAwayFTScored: parseArrayField("bAwayFTScored", "Team B Away FT Scored"),
     bAwayFTAllowed: parseArrayField("bAwayFTAllowed", "Team B Away FT Allowed"),
 
-        aHome1HScored: parseArrayField("aHome1HScored", "Team A Home 1H Scored", false, wants1H),
-aHome1HAllowed: parseArrayField("aHome1HAllowed", "Team A Home 1H Allowed", false, wants1H),
-bAway1HScored: parseArrayField("bAway1HScored", "Team B Away 1H Scored", false, wants1H),
-bAway1HAllowed: parseArrayField("bAway1HAllowed", "Team B Away 1H Allowed", false, wants1H),
+    aHome1HScored: parseArrayField("aHome1HScored", "Team A Home 1H Scored", false, wants1H),
+    aHome1HAllowed: parseArrayField("aHome1HAllowed", "Team A Home 1H Allowed", false, wants1H),
+    bAway1HScored: parseArrayField("bAway1HScored", "Team B Away 1H Scored", false, wants1H),
+    bAway1HAllowed: parseArrayField("bAway1HAllowed", "Team B Away 1H Allowed", false, wants1H),
 
-aHomeQ1Scored: parseArrayField("aHomeQ1Scored", "Team A Home Q1 Scored", false, wantsQ1),
-aHomeQ1Allowed: parseArrayField("aHomeQ1Allowed", "Team A Home Q1 Allowed", false, wantsQ1),
-bAwayQ1Scored: parseArrayField("bAwayQ1Scored", "Team B Away Q1 Scored", false, wantsQ1),
-bAwayQ1Allowed: parseArrayField("bAwayQ1Allowed", "Team B Away Q1 Allowed", false, wantsQ1),
-        aFTH2H: parseArrayField("aFTH2H", "Team A FT H2H", false, useFTH2H),
+    aHomeQ1Scored: parseArrayField("aHomeQ1Scored", "Team A Home Q1 Scored", false, wantsQ1),
+    aHomeQ1Allowed: parseArrayField("aHomeQ1Allowed", "Team A Home Q1 Allowed", false, wantsQ1),
+    bAwayQ1Scored: parseArrayField("bAwayQ1Scored", "Team B Away Q1 Scored", false, wantsQ1),
+    bAwayQ1Allowed: parseArrayField("bAwayQ1Allowed", "Team B Away Q1 Allowed", false, wantsQ1),
+
+    aFTH2H: parseArrayField("aFTH2H", "Team A FT H2H", false, useFTH2H),
     bFTH2H: parseArrayField("bFTH2H", "Team B FT H2H", false, useFTH2H),
     a1HH2H: parseArrayField("a1HH2H", "Team A 1H H2H", false, use1HH2H),
     b1HH2H: parseArrayField("b1HH2H", "Team B 1H H2H", false, use1HH2H),
