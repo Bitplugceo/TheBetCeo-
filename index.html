@@ -1243,9 +1243,8 @@ function isPhase2ShadowMode() {
 }
 
 function getPhase2ActivationState() {
-  const stats = g_trackerState?.stats || {};
   const derived = g_trackerDerivedState || defaultTrackerDerivedState();
-  const settled = Number(stats.settled || 0);
+  const settled = Number(derived?.settledPicks || 0);
 
   const marketSideSignals = Array.isArray(derived?.signalBoards?.marketSides)
     ? derived.signalBoards.marketSides
@@ -1260,6 +1259,7 @@ function getPhase2ActivationState() {
     ? derived.signalBoards.matchups
     : [];
 
+  const learningEnabled = !!TRACKER_LEARNING_ENABLED;
   const forcedShadow = PHASE2_CONTROL.mode === "shadow";
   const forcedLive = PHASE2_CONTROL.mode === "live";
 
@@ -1274,17 +1274,19 @@ function getPhase2ActivationState() {
     matchupSignals.length >= PHASE2_ACTIVATION_RULES.teamMemory.minMatchupSignals;
 
   const trackerFeedbackLive =
+    learningEnabled &&
     !forcedShadow &&
     !!PHASE2_CONTROL.trackerFeedbackLive &&
     (forcedLive || trackerReady);
 
   const teamMemoryLive =
+    learningEnabled &&
     !forcedShadow &&
     !!PHASE2_CONTROL.teamMemoryLive &&
     (forcedLive || teamReady);
 
   return {
-    phase2Mode: forcedShadow ? "shadow" : forcedLive ? "live" : "auto",
+    phase2Mode: !learningEnabled ? "frozen" : forcedShadow ? "shadow" : forcedLive ? "live" : "auto",
     settled,
     trackerReady,
     teamReady,
@@ -1502,7 +1504,11 @@ const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
-const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: single-owner deployment. Change only if moving to multi-user.
+const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // WARNING: fixed single-user tracker key. Do NOT use this as-is for public/shared/multi-user deployments.
+const ENGINE_MODEL_VERSION = "engine_freeze_2026_03_28";
+const TRACKER_LEARNING_ENABLED = false;
+const ENGINE_MODEL_VERSION = "engine_v1_final";
+const TRACKER_LEARNING_ENABLED = true;
 let g_trackerFallbackUserKey = "";
 function getTrackerUserKey() {
   if (TRACKER_FIXED_USER_KEY && TRACKER_FIXED_USER_KEY.trim()) {
@@ -1607,7 +1613,48 @@ function defaultTrackerDerivedState() {
     computedAt: null
   };
 }
+function normalizeModelVersion(version) {
+  return String(version || "legacy").trim() || "legacy";
+}
 
+function getCurrentModelVersion() {
+  return normalizeModelVersion(ENGINE_MODEL_VERSION);
+}
+
+function isPickEligibleForLearning(pick) {
+  if (!TRACKER_LEARNING_ENABLED) return false;
+  return normalizeModelVersion(pick?.modelVersion) === getCurrentModelVersion();
+}
+
+function getLearningTrackedPicks() {
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+
+  return [...active, ...archived]
+    .map(p => ensureTrackedPickKeys(p))
+    .filter(p => isPickEligibleForLearning(p));
+}
+function normalizeModelVersion(version) {
+  return String(version || "legacy").trim() || "legacy";
+}
+
+function getCurrentModelVersion() {
+  return normalizeModelVersion(ENGINE_MODEL_VERSION);
+}
+
+function isPickEligibleForLearning(pick) {
+  if (!TRACKER_LEARNING_ENABLED) return false;
+  return normalizeModelVersion(pick?.modelVersion) === getCurrentModelVersion();
+}
+
+function getLearningTrackedPicks() {
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+
+  return [...active, ...archived]
+    .map(p => ensureTrackedPickKeys(p))
+    .filter(p => isPickEligibleForLearning(p));
+}
 let g_trackerDerivedState = defaultTrackerDerivedState();
 
 function makeDerivedBucket(label = "") {
@@ -1805,9 +1852,7 @@ function buildFallbackEnvironmentKey(pick) {
 }
 
 function buildTrackerDerivedState() {
-  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
-  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
-  const all = [...active, ...archived].map(p => ensureTrackedPickKeys(p));
+  const all = getLearningTrackedPicks();
 
   const profileMap = new Map();
   const environmentMap = new Map();
@@ -2412,7 +2457,8 @@ function ensureTrackedPickKeys(pick = {}) {
     next.confidenceGrade || next.confidence || next?.diagnostics?.confidenceGrade || ""
   ).toUpperCase();
 
-  next.resultStatus = String(next.resultStatus || "pending").toLowerCase();
+    next.resultStatus = String(next.resultStatus || "pending").toLowerCase();
+  next.modelVersion = normalizeModelVersion(next.modelVersion);
   next.createdAt = next.createdAt || new Date().toISOString();
   next.signature = next.signature || makeTrackedSignature(next);
 
@@ -2868,8 +2914,7 @@ function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
 
-  const total = Number(g_trackerState?.stats?.total || 0);
-  const settled = Number(g_trackerState?.stats?.settled || 0);
+    const total = Number(g_trackerState?.stats?.total || 0);
 
   if (!total) {
     panel.style.display = "none";
@@ -2879,6 +2924,7 @@ function renderTrackerAnalytics() {
 
   const activation = getPhase2ActivationState();
   const derived = g_trackerDerivedState || defaultTrackerDerivedState();
+  const settled = Number(derived?.settledPicks || 0);
 
   const marketSideSignals = Array.isArray(derived?.signalBoards?.marketSides)
     ? derived.signalBoards.marketSides.length
@@ -2898,20 +2944,26 @@ function renderTrackerAnalytics() {
 
   const modeText = String(activation.phase2Mode || "auto").toUpperCase();
 
-  const trackerText = activation.trackerFeedbackLive
-    ? "LIVE"
-    : activation.phase2Mode === "shadow"
-      ? "SHADOW"
-      : "BUILDING";
+  const trackerText = activation.phase2Mode === "frozen"
+    ? "FROZEN"
+    : activation.trackerFeedbackLive
+      ? "LIVE"
+      : activation.phase2Mode === "shadow"
+        ? "SHADOW"
+        : "BUILDING";
 
-  const teamText = activation.teamMemoryLive
-    ? "LIVE"
-    : activation.phase2Mode === "shadow"
-      ? "SHADOW"
-      : "BUILDING";
+  const teamText = activation.phase2Mode === "frozen"
+    ? "FROZEN"
+    : activation.teamMemoryLive
+      ? "LIVE"
+      : activation.phase2Mode === "shadow"
+        ? "SHADOW"
+        : "BUILDING";
 
   let summaryText = "Phase 2 is collecting data.";
-  if (activation.phase2Mode === "shadow") {
+  if (activation.phase2Mode === "frozen") {
+    summaryText = `Tracker learning is frozen. Only model version "${getCurrentModelVersion()}" will be allowed to learn after you switch learning on.`;
+  } else if (activation.phase2Mode === "shadow") {
     summaryText = "Phase 2 is in shadow mode. Signals are tracked, but picks are not being changed live.";
   } else if (activation.trackerFeedbackLive && activation.teamMemoryLive) {
     summaryText = "Phase 2 is fully live.";
@@ -2973,14 +3025,10 @@ function createTrackerFeedbackBucket() {
 }
 
 function buildTrackerFeedbackProfile() {
-  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
-  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
-  const all = [...active, ...archived]
-    .map(p => ensureTrackedPickKeys(p))
+  const all = getLearningTrackedPicks()
     .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
 
   const buckets = new Map();
-
   function addResult(key, status) {
     if (!buckets.has(key)) buckets.set(key, createTrackerFeedbackBucket());
     const bucket = buckets.get(key);
@@ -3201,11 +3249,7 @@ function applyTrackerFeedbackToPickRows(picks, phase2Activation = null) {
   });
 }
 function getAllSettledTrackedPicks() {
-  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
-  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
-
-  return [...active, ...archived]
-    .map(p => ensureTrackedPickKeys(p))
+  return getLearningTrackedPicks()
     .filter(p => {
       const status = String(p.resultStatus || "").toLowerCase();
       return status === "win" || status === "loss";
@@ -5948,8 +5992,9 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     predictionText: pickRow.pick,
     edge: pickRow.edge,
     edgePct: isFinite(pickRow.edge) && pickRow.line ? (pickRow.edge / pickRow.line) * 100 : null,
-    confidence: grade,
+        confidence: grade,
     confidenceGrade: grade,
+    modelVersion: getCurrentModelVersion(),
     isLock,
     isABQualified,
     trackerBucket: "raw",
