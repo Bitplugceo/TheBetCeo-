@@ -1504,10 +1504,20 @@ const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
-const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // WARNING: fixed single-user tracker key. Do NOT use this as-is for public/shared/multi-user deployments.
+const TRACKER_FIXED_USER_KEY = "";
+const TRACKER_LEGACY_SHARED_USER_KEYS = ["thebetceo_main_tracker_001"];
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 let g_trackerFallbackUserKey = "";
+
+function makeTrackerUserKey() {
+  return (
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+  )
+    ? crypto.randomUUID()
+    : ("trk_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+}
+
 function getTrackerUserKey() {
   if (TRACKER_FIXED_USER_KEY && TRACKER_FIXED_USER_KEY.trim()) {
     const pinned = TRACKER_FIXED_USER_KEY.trim();
@@ -1522,27 +1532,39 @@ function getTrackerUserKey() {
     return pinned;
   }
 
-  if (g_trackerFallbackUserKey) return g_trackerFallbackUserKey;
+  if (
+    g_trackerFallbackUserKey &&
+    !TRACKER_LEGACY_SHARED_USER_KEYS.includes(g_trackerFallbackUserKey)
+  ) {
+    return g_trackerFallbackUserKey;
+  }
 
   try {
     let key = localStorage.getItem(TRACKER_USER_KEY_STORAGE) || "";
+    const isLegacySharedKey =
+      !key || TRACKER_LEGACY_SHARED_USER_KEYS.includes(key);
 
-    if (!key) {
-      key =
-        (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
-          ? crypto.randomUUID()
-          : ("trk_" + Date.now() + "_" + Math.random().toString(36).slice(2));
-
+    if (isLegacySharedKey) {
+      const oldKey = key;
+      key = makeTrackerUserKey();
       localStorage.setItem(TRACKER_USER_KEY_STORAGE, key);
+
+      if (oldKey && TRACKER_LEGACY_SHARED_USER_KEYS.includes(oldKey)) {
+        localStorage.removeItem(TRACKER_LOCAL_STATE_PREFIX + oldKey);
+      }
     }
 
     g_trackerFallbackUserKey = key;
     return key;
   } catch (err) {
-    g_trackerFallbackUserKey =
-      g_trackerFallbackUserKey ||
-      ("trk_fallback_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+    if (
+      g_trackerFallbackUserKey &&
+      !TRACKER_LEGACY_SHARED_USER_KEYS.includes(g_trackerFallbackUserKey)
+    ) {
+      return g_trackerFallbackUserKey;
+    }
 
+    g_trackerFallbackUserKey = "trk_fallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     return g_trackerFallbackUserKey;
   }
 }
