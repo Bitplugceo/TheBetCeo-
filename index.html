@@ -5167,21 +5167,11 @@ const useQ1H2H = !!document.getElementById("useQ1H2H")?.checked;
 
 const has1HActivity =
   h1Line !== null ||
-  use1HH2H ||
-  hasValue("a1HScored") || hasValue("a1HAllowed") ||
-  hasValue("b1HScored") || hasValue("b1HAllowed") ||
-  hasValue("aHome1HScored") || hasValue("aHome1HAllowed") ||
-  hasValue("bAway1HScored") || hasValue("bAway1HAllowed") ||
-  hasValue("a1HH2H") || hasValue("b1HH2H");
+  use1HH2H;
 
 const hasQ1Activity =
   q1Line !== null ||
-  useQ1H2H ||
-  hasValue("aQ1Scored") || hasValue("aQ1Allowed") ||
-  hasValue("bQ1Scored") || hasValue("bQ1Allowed") ||
-  hasValue("aHomeQ1Scored") || hasValue("aHomeQ1Allowed") ||
-  hasValue("bAwayQ1Scored") || hasValue("bAwayQ1Allowed") ||
-  hasValue("aQ1H2H") || hasValue("bQ1H2H");
+  useQ1H2H;
 
 if (has1HActivity && h1Line === null) {
   markInvalid("h1Market");
@@ -6362,11 +6352,14 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
       }
     });
 
-        const finalPicks = isNba
-      ? picks
-      : isNbaOrNcaa
-        ? picks.filter(p => p.name !== "Q1 Total")
-        : picks.filter(p => p.name !== "1H Total" && p.name !== "Q1 Total");
+        const includeH1 = isNbaOrNcaa && h1Line !== null;
+const includeQ1 = isNba && q1Line !== null;
+
+const finalPicks = picks.filter(p => {
+  if (p.name === "1H Total") return includeH1;
+  if (p.name === "Q1 Total") return includeQ1;
+  return true;
+});
 
     const markets = finalPicks.map(p => ({
       _idx: p._idx,
@@ -6403,11 +6396,11 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
     pace: ftCalc.pace,
     paceGapRisk: ftCalc.paceGapRisk,
     h1PaceGapRisk: h1Calc.paceGapRisk,
-    q1PaceGapRisk: q1Calc.q1PaceGapRisk,
+    q1PaceGapRisk: q1Calc.paceGapRisk,
 
-    defensiveFloorFlag: ftCalc.defensiveFloorFlag,
-    h1DefensiveFloorFlag: h1Calc.defensiveFloorFlag,
-    q1DefensiveFloorFlag: q1Calc.q1DefensiveFloorFlag,
+defensiveFloorFlag: ftCalc.defensiveFloorFlag,
+h1DefensiveFloorFlag: h1Calc.defensiveFloorFlag,
+q1DefensiveFloorFlag: q1Calc.defensiveFloorFlag,
 
     blowoutGap: ftCalc.blowoutGap,
     volatilityBlock: ftCalc.volatilityBlock,
