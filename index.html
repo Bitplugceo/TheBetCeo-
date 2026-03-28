@@ -1551,6 +1551,21 @@ function isBetterLineForSide(side, nextLine, savedLine) {
 }
 
 function resolveLineWithMemory({ eventId, league, marketKey, currentLine }) {
+  const hasNoLine =
+    currentLine === null ||
+    currentLine === undefined ||
+    String(currentLine).trim() === "";
+
+  if (hasNoLine) {
+    return {
+      line: null,
+      originalLine: null,
+      usedMemory: false,
+      lockedSide: "",
+      savedLine: null
+    };
+  }
+
   const line = Number(currentLine);
 
   if (!eventId || !marketKey || !isFinite(line) || line <= 0) {
@@ -6420,16 +6435,20 @@ const bLineState = resolveLineWithMemory({
   currentLine: lines.bLine
 });
 
-const ftLine = ftLineState.line;
-const h1Line = h1LineState.line;
-const q1Line = q1LineState.line;
-const aLine = aLineState.line;
-const bLine = bLineState.line;
+const resolvedLines = {
+  ftLine: ftLineState.line,
+  h1Line: h1LineState.line,
+  q1Line: q1LineState.line,
+  aLine: aLineState.line,
+  bLine: bLineState.line
+};
+
+const { ftLine, h1Line, q1Line, aLine, bLine } = resolvedLines;
 
     const ftCalc = computeFTProjection({
       league,
       parsed,
-      lines,
+      lines: resolvedLines,
       injMultA: g_injA.scoringMult,
       injMultB: g_injB.scoringMult
     });
@@ -6437,7 +6456,15 @@ const bLine = bLineState.line;
     const h1Calc = compute1HProjection({
       league,
       parsed,
-      lines,
+      lines: resolvedLines,
+      injMultA: g_injA.scoringMult,
+      injMultB: g_injB.scoringMult
+    });
+
+    const q1Calc = computeQ1Projection({
+      league,
+      parsed,
+      lines: resolvedLines,
       injMultA: g_injA.scoringMult,
       injMultB: g_injB.scoringMult
     });
@@ -6694,9 +6721,7 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
       });
     }
 
-    const fixtureMeta = getCurrentFixtureMeta();
-
-        picks.forEach(p => {
+            picks.forEach(p => {
       if (!p || p.pick === "NO PLAY" || p.note) return;
 
       const memory = evaluateTeamMemoryForPick(p, fixtureMeta);
