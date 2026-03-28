@@ -3428,7 +3428,8 @@ function getTrackedLeagueBase(league) {
         return;
       }
 
-      const current = loadTrackedPicks();
+const current = loadTrackedPicks();
+const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
       let changed = false;
 
       function sameTrackedMarket(a, b) {
@@ -3447,16 +3448,21 @@ function getTrackedLeagueBase(league) {
 
         const existingIdx = current.findIndex(x => sameTrackedMarket(x, p));
 
-        if (existingIdx !== -1) {
-          if (current[existingIdx].resultStatus === "pending") {
-            current[existingIdx] = { ...current[existingIdx], ...p, signature: p.signature };
-            changed = true;
-          }
-          return;
-        }
+if (existingIdx !== -1) {
+  if (current[existingIdx].resultStatus === "pending") {
+    current[existingIdx] = { ...current[existingIdx], ...p, signature: p.signature };
+    changed = true;
+  }
+  return;
+}
+
+const archivedIdx = archived.findIndex(x => sameTrackedMarket(x, p));
+if (archivedIdx !== -1) {
+  return;
+}
 
 current.unshift(ensureTrackedPickKeys(p));
-        changed = true;
+changed = true;
       });
 
       if (changed) saveTrackedPicks(current);
@@ -4719,7 +4725,9 @@ function renderInjuryBox(boxId, contentId, inj) {
       sel.style.display = "block";
       setFixtureDay(offset);
       sel.innerHTML = '<option value="">Loading matches...</option>';
-
+sel.value = "";
+selectedTeamIds = { A: null, B: null };
+validateFetchSection();
       const leagueSlug = league === "ncaa" ? "mens-college-basketball" : "nba";
       const base = "https://site.api.espn.com/apis/site/v2/sports/basketball/" + leagueSlug;
       const targetLocalKey = getLocalDateKey(offset);
@@ -4728,15 +4736,26 @@ function renderInjuryBox(boxId, contentId, inj) {
       try {
         if (myToken !== _fixtureLoadToken) return;
 
-        const payloads = await Promise.all(queryDates.map(dateStr => {
-          const cacheKey = "fixtures:" + league + ":" + dateStr;
-          if (_fixtureCache.has(cacheKey)) return _fixtureCache.get(cacheKey);
-          const p = proxyFetch(base + "/scoreboard?dates=" + dateStr + "&limit=200").catch(err => {
-            _fixtureCache.delete(cacheKey); throw err;
-          });
-          cacheSet(_fixtureCache, cacheKey, p);
-          return p;
-        }));
+        const payloadResults = await Promise.allSettled(queryDates.map(dateStr => {
+  const cacheKey = "fixtures:" + league + ":" + dateStr;
+  if (_fixtureCache.has(cacheKey)) return _fixtureCache.get(cacheKey);
+
+  const p = proxyFetch(base + "/scoreboard?dates=" + dateStr + "&limit=200").catch(err => {
+    _fixtureCache.delete(cacheKey);
+    throw err;
+  });
+
+  cacheSet(_fixtureCache, cacheKey, p);
+  return p;
+}));
+
+const payloads = payloadResults
+  .filter(r => r.status === "fulfilled")
+  .map(r => r.value);
+
+if (!payloads.length) {
+  throw new Error("All fixture feeds failed");
+}
 
         if (myToken !== _fixtureLoadToken) return;
 
