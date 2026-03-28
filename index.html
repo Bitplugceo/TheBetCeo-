@@ -2028,12 +2028,12 @@ function buildFetchAuditIssues({
     normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
 
   if (!(sameHomeById || sameHomeByName)) {
-    errors.push("Team A no longer matches the selected fixture.");
-  }
+  issues.push("Team A no longer matches the selected fixture.");
+}
 
-  if (!(sameAwayById || sameAwayByName)) {
-    errors.push("Team B no longer matches the selected fixture.");
-  }
+if (!(sameAwayById || sameAwayByName)) {
+  issues.push("Team B no longer matches the selected fixture.");
+}
 }
 
 const requireFullModelSample = (count, label) => {
@@ -2113,17 +2113,37 @@ function validateFetchSection() {
     }
 
     if (fixtureOpt) {
-      const homeId = String(fixtureOpt.dataset.homeId || "");
-      const awayId = String(fixtureOpt.dataset.awayId || "");
+  const homeId = String(fixtureOpt.dataset.homeId || "");
+  const awayId = String(fixtureOpt.dataset.awayId || "");
+  const fixtureHome = String(fixtureOpt.dataset.home || "");
+  const fixtureAway = String(fixtureOpt.dataset.away || "");
 
-      if (homeId && String(selectedTeamIds.A || "") && String(selectedTeamIds.A) !== homeId) {
-        errors.push("Team A no longer matches the selected fixture.");
-      }
+  const sameHomeById =
+    homeId &&
+    String(selectedTeamIds.A || "") &&
+    String(selectedTeamIds.A) === homeId;
 
-      if (awayId && String(selectedTeamIds.B || "") && String(selectedTeamIds.B) !== awayId) {
-        errors.push("Team B no longer matches the selected fixture.");
-      }
-    }
+  const sameAwayById =
+    awayId &&
+    String(selectedTeamIds.B || "") &&
+    String(selectedTeamIds.B) === awayId;
+
+  const sameHomeByName =
+    !!teamAName &&
+    normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
+
+  const sameAwayByName =
+    !!teamBName &&
+    normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
+
+  if (!(sameHomeById || sameHomeByName)) {
+    errors.push("Team A no longer matches the selected fixture.");
+  }
+
+  if (!(sameAwayById || sameAwayByName)) {
+    errors.push("Team B no longer matches the selected fixture.");
+  }
+}
   }
 
   const isValid =
@@ -4923,14 +4943,6 @@ return isPreGame;
         setStatusText("❌ ESPN auto-fetch is NBA & NCAA only.", "err");
         return;
       }
-g_injA = defaultInjuryMeta();
-g_injB = defaultInjuryMeta();
-g_fetchMeta = defaultFetchMeta();
-hideInjuryBox("A");
-hideInjuryBox("B");
-clearSideFields("A");
-clearSideFields("B");
-clearH2HFields();
       const btn = document.getElementById("fetchBtn");
 btn.disabled = true;
 setFetchAuditIssues([]);
@@ -4969,9 +4981,14 @@ selectedTeamIds.B = String(teamBId);
 
         if (myToken !== _fetchToken) return;
         if (!aStats && !bStats) throw new Error("No recent schedule data found from ESPN.");
-
-  
-
+g_injA = defaultInjuryMeta();
+g_injB = defaultInjuryMeta();
+g_fetchMeta = defaultFetchMeta();
+hideInjuryBox("A");
+hideInjuryBox("B");
+clearSideFields("A");
+clearSideFields("B");
+clearH2HFields();
         const messages = [];
 
         if (aStats?.scored?.length > 0) {
