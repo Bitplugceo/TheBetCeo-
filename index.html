@@ -1973,41 +1973,37 @@ function buildFetchAuditIssues({
     }
   }
 
-  if (!(aStats?.scored?.length >= 2)) {
-    issues.push(`${teamAName || "Team A"} overall FT sample is missing or below 2 games.`);
+const requireFullModelSample = (count, label) => {
+  if (!count) {
+    issues.push(`${label} is missing.`);
+    return;
   }
 
-  if (!(bStats?.scored?.length >= 2)) {
-    issues.push(`${teamBName || "Team B"} overall FT sample is missing or below 2 games.`);
+  if (count < 5) {
+    issues.push(`${label} has only ${count} game${count === 1 ? "" : "s"} — full model needs 5.`);
   }
+};
 
-  if (!(aVenueStats?.scored?.length >= 2)) {
-    issues.push(`${teamAName || "Team A"} strict home FT sample is missing or below 2 games.`);
-  }
+requireFullModelSample(aStats?.scored?.length || 0, `${teamAName || "Team A"} overall FT sample`);
+requireFullModelSample(bStats?.scored?.length || 0, `${teamBName || "Team B"} overall FT sample`);
 
-  if (!(bVenueStats?.scored?.length >= 2)) {
-    issues.push(`${teamBName || "Team B"} strict away FT sample is missing or below 2 games.`);
-  }
+if (!(aVenueStats?.scored?.length >= 2)) {
+  issues.push(`${teamAName || "Team A"} strict home FT sample is missing or below 2 games.`);
+}
 
-  if (league === "nba" || league === "ncaa") {
-    if (!(aStats?.h1Scored?.length >= 2)) {
-      issues.push(`${teamAName || "Team A"} 1H sample is missing or below 2 games.`);
-    }
+if (!(bVenueStats?.scored?.length >= 2)) {
+  issues.push(`${teamBName || "Team B"} strict away FT sample is missing or below 2 games.`);
+}
 
-    if (!(bStats?.h1Scored?.length >= 2)) {
-      issues.push(`${teamBName || "Team B"} 1H sample is missing or below 2 games.`);
-    }
-  }
+if (league === "nba" || league === "ncaa") {
+  requireFullModelSample(aStats?.h1Scored?.length || 0, `${teamAName || "Team A"} overall 1H sample`);
+  requireFullModelSample(bStats?.h1Scored?.length || 0, `${teamBName || "Team B"} overall 1H sample`);
+}
 
-  if (league === "nba") {
-    if (!(aStats?.q1Scored?.length >= 2)) {
-      issues.push(`${teamAName || "Team A"} Q1 sample is missing or below 2 games.`);
-    }
-
-    if (!(bStats?.q1Scored?.length >= 2)) {
-      issues.push(`${teamBName || "Team B"} Q1 sample is missing or below 2 games.`);
-    }
-  }
+if (league === "nba") {
+  requireFullModelSample(aStats?.q1Scored?.length || 0, `${teamAName || "Team A"} overall Q1 sample`);
+  requireFullModelSample(bStats?.q1Scored?.length || 0, `${teamBName || "Team B"} overall Q1 sample`);
+}
 
   if ((h2hGames?.length || 0) === 0) {
     issues.push("No 2024+ H2H games were found for this matchup.");
@@ -4760,9 +4756,15 @@ function renderInjuryBox(boxId, contentId, inj) {
           const eventTime = new Date(ev.date);
           if (isNaN(eventTime.getTime())) return false;
           if (getLocalDateKeyFromISO(ev.date) !== targetLocalKey) return false;
-          const state = comp?.status?.type?.state || "";
-          const completed = comp?.status?.type?.completed || state === "post";
-          return !completed;
+          const state = String(comp?.status?.type?.state || "").toLowerCase();
+const statusName = String(comp?.status?.type?.name || "").toUpperCase();
+
+const isPreGame =
+  state === "pre" ||
+  statusName === "STATUS_SCHEDULED" ||
+  statusName === "STATUS_PRE";
+
+return isPreGame;
         }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
         if (myToken !== _fixtureLoadToken) return;
@@ -5055,7 +5057,11 @@ if (fetchAuditIssues.length) {
   messages.push("Fetch audit: tap ⚠️ to review");
 }
 
-const allGood = aStats?.scored?.length > 0 && bStats?.scored?.length > 0;
+const allGood =
+  (aStats?.scored?.length || 0) >= 5 &&
+  (bStats?.scored?.length || 0) >= 5 &&
+  (aVenueStats?.scored?.length || 0) >= 2 &&
+  (bVenueStats?.scored?.length || 0) >= 2;
         if (allGood) {
           g_lastFetchedTeams.A = normalizeTeamName(teamAName);
           g_lastFetchedTeams.B = normalizeTeamName(teamBName);
@@ -6375,55 +6381,70 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
 
 
     const trackedToSave = buildResultRows({
-      table,
-      finalPicks,
-      lockIdx,
-      fixtureMeta,
-      league,
-                  diagnostics: {
-        phase2Activation,
-        ftSampleTier: ftCalc.ftSampleTier,
-        h1SampleTier: h1Calc.h1SampleTier,
-        q1SampleTier: q1Calc.q1SampleTier,
+  table,
+  finalPicks,
+  lockIdx,
+  fixtureMeta,
+  league,
+  diagnostics: {
+    phase2Activation,
+    ftSampleTier: ftCalc.ftSampleTier,
+    h1SampleTier: h1Calc.h1SampleTier,
+    q1SampleTier: q1Calc.q1SampleTier,
 
-        ftProjectionOnly: ftCalc.ftProjectionOnly,
-        h1ProjectionOnly: h1Calc.h1ProjectionOnly,
-        q1ProjectionOnly: q1Calc.q1ProjectionOnly,
+    ftProjectionOnly: ftCalc.ftProjectionOnly,
+    h1ProjectionOnly: h1Calc.h1ProjectionOnly,
+    q1ProjectionOnly: q1Calc.q1ProjectionOnly,
 
-        ftHasH2H: ftCalc.ftHasH2H,
-        h1HasH2H: h1Calc.h1HasH2H,
-        q1HasH2H: q1Calc.q1HasH2H,
+    ftHasH2H: ftCalc.ftHasH2H,
+    h1HasH2H: h1Calc.h1HasH2H,
+    q1HasH2H: q1Calc.q1HasH2H,
 
-        pace: ftCalc.pace,
-        paceGapRisk: ftCalc.paceGapRisk,
-        h1PaceGapRisk: h1Calc.paceGapRisk,
-        q1PaceGapRisk: q1Calc.paceGapRisk,
+    pace: ftCalc.pace,
+    paceGapRisk: ftCalc.paceGapRisk,
+    h1PaceGapRisk: h1Calc.paceGapRisk,
+    q1PaceGapRisk: q1Calc.q1PaceGapRisk,
 
-        defensiveFloorFlag: ftCalc.defensiveFloorFlag,
-        h1DefensiveFloorFlag: h1Calc.defensiveFloorFlag,
-        q1DefensiveFloorFlag: q1Calc.defensiveFloorFlag,
+    defensiveFloorFlag: ftCalc.defensiveFloorFlag,
+    h1DefensiveFloorFlag: h1Calc.defensiveFloorFlag,
+    q1DefensiveFloorFlag: q1Calc.q1DefensiveFloorFlag,
 
-        blowoutGap: ftCalc.blowoutGap,
-        volatilityBlock: ftCalc.volatilityBlock,
+    blowoutGap: ftCalc.blowoutGap,
+    volatilityBlock: ftCalc.volatilityBlock,
 
-        aVol: ftCalc.aVol,
-        bVol: ftCalc.bVol,
-        aVol1: h1Calc.aVol1,
-        bVol1: h1Calc.bVol1,
-        aVolQ1: q1Calc.aVolQ1,
-        bVolQ1: q1Calc.bVolQ1,
+    aVol: ftCalc.aVol,
+    bVol: ftCalc.bVol,
+    aVol1: h1Calc.aVol1,
+    bVol1: h1Calc.bVol1,
+    aVolQ1: q1Calc.aVolQ1,
+    bVolQ1: q1Calc.bVolQ1,
 
-        injMultA: g_injA.scoringMult,
-        injMultB: g_injB.scoringMult,
+    injMultA: g_injA.scoringMult,
+    injMultB: g_injB.scoringMult,
 
-        ftFullModel: ftCalc.ftFullModel,
-        h1FullModel: h1Calc.h1FullModel,
-        q1FullModel: q1Calc.q1FullModel,
-        teamFullModel: ftCalc.teamFullModel
-      }
-    });
+    ftFullModel: ftCalc.ftFullModel,
+    h1FullModel: h1Calc.h1FullModel,
+    q1FullModel: q1Calc.q1FullModel,
+    teamFullModel: ftCalc.teamFullModel
+  }
+});
 
-    addTrackedPicks(trackedToSave);
+const actionablePicks = finalPicks.filter(p =>
+  p &&
+  p.pick !== "NO PLAY" &&
+  !p.note &&
+  isFinite(p.line) &&
+  p.line > 0
+);
+
+if (trackedToSave.length) {
+  addTrackedPicks(trackedToSave);
+} else if (actionablePicks.length) {
+  setStatusText(
+    "⚠ Picks were generated, but they were not saved to tracker because no valid fixture event is linked.",
+    "err"
+  );
+}
 
     setTimeout(() => {
       table.scrollIntoView({ behavior: "smooth", block: "start" });
