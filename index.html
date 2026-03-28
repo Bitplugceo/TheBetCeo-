@@ -5159,10 +5159,36 @@ const useFTH2H = !!document.getElementById("useFTH2H")?.checked;
 const use1HH2H = !!document.getElementById("use1HH2H")?.checked;
 const useQ1H2H = !!document.getElementById("useQ1H2H")?.checked;
 
-const wants1H = h1Line !== null || use1HH2H;
-const wantsQ1 = q1Line !== null || useQ1H2H;
+const has1HActivity =
+  h1Line !== null ||
+  use1HH2H ||
+  hasValue("a1HScored") || hasValue("a1HAllowed") ||
+  hasValue("b1HScored") || hasValue("b1HAllowed") ||
+  hasValue("aHome1HScored") || hasValue("aHome1HAllowed") ||
+  hasValue("bAway1HScored") || hasValue("bAway1HAllowed") ||
+  hasValue("a1HH2H") || hasValue("b1HH2H");
 
-  const parsed = {
+const hasQ1Activity =
+  q1Line !== null ||
+  useQ1H2H ||
+  hasValue("aQ1Scored") || hasValue("aQ1Allowed") ||
+  hasValue("bQ1Scored") || hasValue("bQ1Allowed") ||
+  hasValue("aHomeQ1Scored") || hasValue("aHomeQ1Allowed") ||
+  hasValue("bAwayQ1Scored") || hasValue("bAwayQ1Allowed") ||
+  hasValue("aQ1H2H") || hasValue("bQ1H2H");
+
+if (has1HActivity && h1Line === null) {
+  markInvalid("h1Market");
+  errors.push("1H Total: missing / invalid line");
+}
+
+if (hasQ1Activity && q1Line === null) {
+  markInvalid("q1Market");
+  errors.push("Q1 Total: missing / invalid line");
+}
+
+const wants1H = has1HActivity;
+const wantsQ1 = hasQ1Activity;
     aFTScored: parseArrayField("aFTScored", "Team A FT Scored", true),
     aFTAllowed: parseArrayField("aFTAllowed", "Team A FT Allowed", true),
     bFTScored: parseArrayField("bFTScored", "Team B FT Scored", true),
