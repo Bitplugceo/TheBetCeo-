@@ -1458,7 +1458,7 @@ const LEAGUE_FETCH_RULES = {
   nba: {
     recentSeasons: 2,
     scheduleTypes: ["2", "3"],
-    h2hScheduleTypes: ["1", "2", "3"],
+    h2hScheduleTypes: ["2", "3"],
     regulationPeriods: 4,
     includeQ1: true
   },
@@ -1578,11 +1578,12 @@ function saveEngineLineMemory() {
   }
 }
 
-function makeEngineLineMemoryKey(eventId, league, marketKey) {
+function makeEngineLineMemoryKey(eventId, league, marketKey, side = "") {
   return [
     String(eventId || "").trim(),
     String(league || "").trim(),
-    String(marketKey || "").trim()
+    String(marketKey || "").trim(),
+    String(side || "").trim().toLowerCase()
   ].join("|");
 }
 
@@ -1598,7 +1599,7 @@ function isBetterLineForSide(side, nextLine, savedLine) {
   return false;
 }
 
-function resolveLineWithMemory({ eventId, league, marketKey, currentLine }) {
+function resolveLineWithMemory({ eventId, league, marketKey, currentLine, side = "" }) {
   const hasNoLine =
     currentLine === null ||
     currentLine === undefined ||
@@ -1615,8 +1616,9 @@ function resolveLineWithMemory({ eventId, league, marketKey, currentLine }) {
   }
 
   const line = Number(currentLine);
+  const cleanSide = String(side || "").trim().toLowerCase();
 
-  if (!eventId || !marketKey || !isFinite(line) || line <= 0) {
+  if (!eventId || !marketKey || !isFinite(line) || line <= 0 || !["over", "under"].includes(cleanSide)) {
     return {
       line,
       originalLine: line,
@@ -1626,7 +1628,7 @@ function resolveLineWithMemory({ eventId, league, marketKey, currentLine }) {
     };
   }
 
-  const key = makeEngineLineMemoryKey(eventId, league, marketKey);
+  const key = makeEngineLineMemoryKey(eventId, league, marketKey, cleanSide);
   const entry = g_engineLineMemory[key];
 
   if (!entry) {
@@ -1634,34 +1636,33 @@ function resolveLineWithMemory({ eventId, league, marketKey, currentLine }) {
       line,
       originalLine: line,
       usedMemory: false,
-      lockedSide: "",
+      lockedSide: cleanSide,
       savedLine: null
     };
   }
 
   const savedLine = Number(entry.line);
-  const lockedSide = String(entry.side || "").toLowerCase();
 
-  if (!isFinite(savedLine) || savedLine <= 0 || !lockedSide) {
+  if (!isFinite(savedLine) || savedLine <= 0) {
     return {
       line,
       originalLine: line,
       usedMemory: false,
-      lockedSide: "",
+      lockedSide: cleanSide,
       savedLine: null
     };
   }
 
   let resolved = line;
 
-  if (lockedSide === "over") resolved = Math.min(line, savedLine);
-  if (lockedSide === "under") resolved = Math.max(line, savedLine);
+  if (cleanSide === "over") resolved = Math.min(line, savedLine);
+  if (cleanSide === "under") resolved = Math.max(line, savedLine);
 
   return {
     line: resolved,
     originalLine: line,
     usedMemory: Math.abs(resolved - line) > 0.001,
-    lockedSide,
+    lockedSide: cleanSide,
     savedLine
   };
 }
@@ -1683,7 +1684,7 @@ function upsertEngineLineMemory({
     return null;
   }
 
-  const key = makeEngineLineMemoryKey(eventId, league, marketKey);
+  const key = makeEngineLineMemoryKey(eventId, league, marketKey, cleanSide);
   const nowIso = new Date().toISOString();
   const existing = g_engineLineMemory[key];
 
@@ -1738,7 +1739,7 @@ function backfillLineMemoryFromTrackedPicks() {
 
     if (!eventId || !marketKey || !["over", "under"].includes(side) || !isFinite(line) || line <= 0) return;
 
-    const key = makeEngineLineMemoryKey(eventId, pick.league, marketKey);
+    const key = makeEngineLineMemoryKey(eventId, pick.league, marketKey, side);
     const existing = g_engineLineMemory[key];
 
     if (!existing) {
@@ -2558,6 +2559,11 @@ function safeText(str) {
       t.style.display = "none";
     }
 
+function invalidateFetchedAudit() {
+  setFetchAuditIssues([]);
+  resetResultsTable();
+}
+
     // V7: split status functions — text vs HTML
     function setStatusText(msg, type = "") {
       const el = document.getElementById("fetchStatus");
@@ -3032,7 +3038,7 @@ async function flushTrackerSave() {
   } catch (err) {
     g_trackerSaveFailureCount++;
     console.error("[BB Engine] tracker save failed", err);
-    setStatusText("⚠ Tracker sync failed. Local copy kept on this device.", "err");
+        console.warn("[BB Engine] tracker sync failed. Local copy kept on this device.");
     scheduleTrackerRetry();
   } finally {
     g_trackerSaveInFlight = false;
@@ -6433,6 +6439,50 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     createdAt: new Date().toISOString()
   };
 }
+function applyLineMemoryToPickRows(picks, fixtureMeta, league) {
+  if (!fixtureMeta?.eventId || !Array.isArray(picks) || !picks.length) return;
+
+  picks.forEach(p => {
+    if (!p || p.pick === "NO PLAY" || p.note) return;
+    if (!isFinite(p.line) || p.line <= 0 || !isFinite(p.proj)) return;
+
+    const side = getPickSideFromText(p.pick);
+    if (!side) return;
+
+    const marketKey = p.marketKey || getMarketKeyFromName(p.name);
+
+    const resolved = resolveLineWithMemory({
+      eventId: fixtureMeta.eventId,
+      league,
+      marketKey,
+      currentLine: p.line,
+      side
+    });
+
+    if (!resolved.usedMemory) return;
+
+    p.originalLine = resolved.originalLine;
+    p.savedLine = resolved.savedLine;
+    p.line = resolved.line;
+    p.edge = p.proj - p.line;
+
+    const refreshedPick = getPick(
+      p.edge,
+      p.line,
+      p.league,
+      p.marketType,
+      p.context || {}
+    );
+
+    if (!refreshedPick || refreshedPick === "NO PLAY") {
+      p.pick = "NO PLAY";
+      p.confidence = "—";
+      return;
+    }
+
+    p.pick = refreshedPick;
+  });
+}
 function buildResultRows({
   table,
   finalPicks,
@@ -6516,47 +6566,12 @@ async function runEngine() {
     const { parsed, lines } = validation;
 const fixtureMeta = getCurrentFixtureMeta();
 
-const ftLineState = resolveLineWithMemory({
-  eventId: fixtureMeta.eventId,
-  league,
-  marketKey: "ft",
-  currentLine: lines.ftLine
-});
-
-const h1LineState = resolveLineWithMemory({
-  eventId: fixtureMeta.eventId,
-  league,
-  marketKey: "h1",
-  currentLine: lines.h1Line
-});
-
-const q1LineState = resolveLineWithMemory({
-  eventId: fixtureMeta.eventId,
-  league,
-  marketKey: "q1",
-  currentLine: lines.q1Line
-});
-
-const aLineState = resolveLineWithMemory({
-  eventId: fixtureMeta.eventId,
-  league,
-  marketKey: "team_a",
-  currentLine: lines.aLine
-});
-
-const bLineState = resolveLineWithMemory({
-  eventId: fixtureMeta.eventId,
-  league,
-  marketKey: "team_b",
-  currentLine: lines.bLine
-});
-
 const resolvedLines = {
-  ftLine: ftLineState.line,
-  h1Line: h1LineState.line,
-  q1Line: q1LineState.line,
-  aLine: aLineState.line,
-  bLine: bLineState.line
+  ftLine: lines.ftLine,
+  h1Line: lines.h1Line,
+  q1Line: lines.q1Line,
+  aLine: lines.aLine,
+  bLine: lines.bLine
 };
 
 const { ftLine, h1Line, q1Line, aLine, bLine } = resolvedLines;
@@ -6867,7 +6882,9 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
       }
     });
 
-        const includeH1 = isNbaOrNcaa && h1Line !== null;
+            applyLineMemoryToPickRows(picks, fixtureMeta, league);
+
+    const includeH1 = isNbaOrNcaa && h1Line !== null;
 const includeQ1 = isNba && q1Line !== null;
 
 const finalPicks = picks.filter(p => {
@@ -7225,17 +7242,17 @@ if (dropB) {
       openSection("leagueSection");
             hydrateTrackedPicks().then(() => refreshTrackedPickResults());
 
-      ["useFTH2H", "use1HH2H", "useQ1H2H"].forEach(id => {
+           ["useFTH2H", "use1HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener("change", resetResultsTable);
+        if (el) el.addEventListener("change", invalidateFetchedAudit);
       });
 
-      ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"].forEach(id => {
+            ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", () => {
           const tag = document.getElementById("h2hAutoTag");
           if (tag) tag.style.display = "none";
-          resetResultsTable();
+          invalidateFetchedAudit();
         });
       });
 
@@ -7280,14 +7297,14 @@ if (dropB) {
           const tagEl = document.getElementById(tagId);
           if (tagEl) tagEl.style.display = "none";
 
-          resetResultsTable();
+                    invalidateFetchedAudit();
           updateSectionLocks();
         });
       });
 
-      ["ftMarket","teamAMarket","teamBMarket","h1Market","q1Market"].forEach(id => {
+           ["ftMarket","teamAMarket","teamBMarket","h1Market","q1Market"].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener("input", () => { resetResultsTable(); updateSectionLocks(); });
+        if (el) el.addEventListener("input", () => { invalidateFetchedAudit(); updateSectionLocks(); });
       });
 
       ["aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
