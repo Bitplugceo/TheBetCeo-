@@ -1875,27 +1875,6 @@ function getLearningTrackedPicks() {
     .map(p => ensureTrackedPickKeys(p))
     .filter(p => isPickEligibleForLearning(p));
 }
-function normalizeModelVersion(version) {
-  return String(version || "legacy").trim() || "legacy";
-}
-
-function getCurrentModelVersion() {
-  return normalizeModelVersion(ENGINE_MODEL_VERSION);
-}
-
-function isPickEligibleForLearning(pick) {
-  if (!TRACKER_LEARNING_ENABLED) return false;
-  return normalizeModelVersion(pick?.modelVersion) === getCurrentModelVersion();
-}
-
-function getLearningTrackedPicks() {
-  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
-  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
-
-  return [...active, ...archived]
-    .map(p => ensureTrackedPickKeys(p))
-    .filter(p => isPickEligibleForLearning(p));
-}
 let g_trackerDerivedState = defaultTrackerDerivedState();
 
 function makeDerivedBucket(label = "") {
@@ -2247,69 +2226,140 @@ function buildFetchAuditIssues({
   const fixtureOpt = getSelectedFixtureOption();
 
   if (fixtureOpt) {
-  const homeId = String(fixtureOpt.dataset.homeId || "");
-  const awayId = String(fixtureOpt.dataset.awayId || "");
-  const fixtureHome = String(fixtureOpt.dataset.home || "");
-  const fixtureAway = String(fixtureOpt.dataset.away || "");
+    const homeId = String(fixtureOpt.dataset.homeId || "");
+    const awayId = String(fixtureOpt.dataset.awayId || "");
+    const fixtureHome = String(fixtureOpt.dataset.home || "");
+    const fixtureAway = String(fixtureOpt.dataset.away || "");
 
-  const sameHomeById =
-    homeId &&
-    String(selectedTeamIds.A || "") &&
-    String(selectedTeamIds.A) === homeId;
+    const sameHomeById =
+      homeId &&
+      String(selectedTeamIds.A || "") &&
+      String(selectedTeamIds.A) === homeId;
 
-  const sameAwayById =
-    awayId &&
-    String(selectedTeamIds.B || "") &&
-    String(selectedTeamIds.B) === awayId;
+    const sameAwayById =
+      awayId &&
+      String(selectedTeamIds.B || "") &&
+      String(selectedTeamIds.B) === awayId;
 
-  const sameHomeByName =
-    !!teamAName &&
-    normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
+    const sameHomeByName =
+      !!teamAName &&
+      normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
 
-  const sameAwayByName =
-    !!teamBName &&
-    normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
+    const sameAwayByName =
+      !!teamBName &&
+      normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
 
-  if (!(sameHomeById || sameHomeByName)) {
-  issues.push("Team A no longer matches the selected fixture.");
-}
+    if (!(sameHomeById || sameHomeByName)) {
+      issues.push("Team A no longer matches the selected fixture.");
+    }
 
-if (!(sameAwayById || sameAwayByName)) {
-  issues.push("Team B no longer matches the selected fixture.");
-}
-}
-
-const requireFullModelSample = (count, label) => {
-  if (!count) {
-    issues.push(`${label} is missing.`);
-    return;
+    if (!(sameAwayById || sameAwayByName)) {
+      issues.push("Team B no longer matches the selected fixture.");
+    }
   }
 
-  if (count < 5) {
-    issues.push(`${label} has only ${count} game${count === 1 ? "" : "s"} — full model needs 5.`);
+  const requirePairSample = (scoredCount, allowedCount, need, label) => {
+    const scored = Number(scoredCount || 0);
+    const allowed = Number(allowedCount || 0);
+    const minCount = Math.min(scored, allowed);
+
+    if (!minCount) {
+      issues.push(`${label} is missing.`);
+      return;
+    }
+
+    if (minCount < need) {
+      issues.push(`${label} has only ${minCount} game${minCount === 1 ? "" : "s"} — full model needs ${need}.`);
+    }
+  };
+
+  requirePairSample(
+    aStats?.scored?.length,
+    aStats?.allowed?.length,
+    5,
+    `${teamAName || "Team A"} overall FT sample`
+  );
+
+  requirePairSample(
+    bStats?.scored?.length,
+    bStats?.allowed?.length,
+    5,
+    `${teamBName || "Team B"} overall FT sample`
+  );
+
+  requirePairSample(
+    aVenueStats?.scored?.length,
+    aVenueStats?.allowed?.length,
+    2,
+    `${teamAName || "Team A"} strict home FT sample`
+  );
+
+  requirePairSample(
+    bVenueStats?.scored?.length,
+    bVenueStats?.allowed?.length,
+    2,
+    `${teamBName || "Team B"} strict away FT sample`
+  );
+
+  if (league === "nba" || league === "ncaa") {
+    requirePairSample(
+      aStats?.h1Scored?.length,
+      aStats?.h1Allowed?.length,
+      5,
+      `${teamAName || "Team A"} overall 1H sample`
+    );
+
+    requirePairSample(
+      bStats?.h1Scored?.length,
+      bStats?.h1Allowed?.length,
+      5,
+      `${teamBName || "Team B"} overall 1H sample`
+    );
+
+    requirePairSample(
+      aVenueStats?.h1Scored?.length,
+      aVenueStats?.h1Allowed?.length,
+      2,
+      `${teamAName || "Team A"} strict home 1H sample`
+    );
+
+    requirePairSample(
+      bVenueStats?.h1Scored?.length,
+      bVenueStats?.h1Allowed?.length,
+      2,
+      `${teamBName || "Team B"} strict away 1H sample`
+    );
   }
-};
 
-requireFullModelSample(aStats?.scored?.length || 0, `${teamAName || "Team A"} overall FT sample`);
-requireFullModelSample(bStats?.scored?.length || 0, `${teamBName || "Team B"} overall FT sample`);
+  if (league === "nba") {
+    requirePairSample(
+      aStats?.q1Scored?.length,
+      aStats?.q1Allowed?.length,
+      5,
+      `${teamAName || "Team A"} overall Q1 sample`
+    );
 
-if (!(aVenueStats?.scored?.length >= 2)) {
-  issues.push(`${teamAName || "Team A"} strict home FT sample is missing or below 2 games.`);
-}
+    requirePairSample(
+      bStats?.q1Scored?.length,
+      bStats?.q1Allowed?.length,
+      5,
+      `${teamBName || "Team B"} overall Q1 sample`
+    );
 
-if (!(bVenueStats?.scored?.length >= 2)) {
-  issues.push(`${teamBName || "Team B"} strict away FT sample is missing or below 2 games.`);
-}
+    requirePairSample(
+      aVenueStats?.q1Scored?.length,
+      aVenueStats?.q1Allowed?.length,
+      2,
+      `${teamAName || "Team A"} strict home Q1 sample`
+    );
 
-if (league === "nba" || league === "ncaa") {
-  requireFullModelSample(aStats?.h1Scored?.length || 0, `${teamAName || "Team A"} overall 1H sample`);
-  requireFullModelSample(bStats?.h1Scored?.length || 0, `${teamBName || "Team B"} overall 1H sample`);
-}
-
-if (league === "nba") {
-  requireFullModelSample(aStats?.q1Scored?.length || 0, `${teamAName || "Team A"} overall Q1 sample`);
-  requireFullModelSample(bStats?.q1Scored?.length || 0, `${teamBName || "Team B"} overall Q1 sample`);
-}
+    requirePairSample(
+      bVenueStats?.q1Scored?.length,
+      bVenueStats?.q1Allowed?.length,
+      2,
+      `${teamBName || "Team B"} strict away Q1 sample`
+    );
+  }
 
   if ((h2hGames?.length || 0) === 0) {
     issues.push("No 2024+ H2H games were found for this matchup.");
@@ -5413,10 +5463,28 @@ if (fetchAuditIssues.length) {
 }
 
 const allGood =
-  (aStats?.scored?.length || 0) >= 5 &&
-  (bStats?.scored?.length || 0) >= 5 &&
-  (aVenueStats?.scored?.length || 0) >= 2 &&
-  (bVenueStats?.scored?.length || 0) >= 2;
+  Math.min(aStats?.scored?.length || 0, aStats?.allowed?.length || 0) >= 5 &&
+  Math.min(bStats?.scored?.length || 0, bStats?.allowed?.length || 0) >= 5 &&
+  Math.min(aVenueStats?.scored?.length || 0, aVenueStats?.allowed?.length || 0) >= 2 &&
+  Math.min(bVenueStats?.scored?.length || 0, bVenueStats?.allowed?.length || 0) >= 2 &&
+  (
+    league !== "nba" && league !== "ncaa" ||
+    (
+      Math.min(aStats?.h1Scored?.length || 0, aStats?.h1Allowed?.length || 0) >= 5 &&
+      Math.min(bStats?.h1Scored?.length || 0, bStats?.h1Allowed?.length || 0) >= 5 &&
+      Math.min(aVenueStats?.h1Scored?.length || 0, aVenueStats?.h1Allowed?.length || 0) >= 2 &&
+      Math.min(bVenueStats?.h1Scored?.length || 0, bVenueStats?.h1Allowed?.length || 0) >= 2
+    )
+  ) &&
+  (
+    league !== "nba" ||
+    (
+      Math.min(aStats?.q1Scored?.length || 0, aStats?.q1Allowed?.length || 0) >= 5 &&
+      Math.min(bStats?.q1Scored?.length || 0, bStats?.q1Allowed?.length || 0) >= 5 &&
+      Math.min(aVenueStats?.q1Scored?.length || 0, aVenueStats?.q1Allowed?.length || 0) >= 2 &&
+      Math.min(bVenueStats?.q1Scored?.length || 0, bVenueStats?.q1Allowed?.length || 0) >= 2
+    )
+  );
         if (allGood) {
           g_lastFetchedTeams.A = normalizeTeamName(teamAName);
           g_lastFetchedTeams.B = normalizeTeamName(teamBName);
@@ -6461,10 +6529,10 @@ const { ftLine, h1Line, q1Line, aLine, bLine } = resolvedLines;
       injMultB: g_injB.scoringMult
     });
 
-    const q1Calc = computeQ1Projection({
+        const q1Calc = computeQ1Projection({
       league,
       parsed,
-      lines,
+      lines: resolvedLines,
       injMultA: g_injA.scoringMult,
       injMultB: g_injB.scoringMult
     });
