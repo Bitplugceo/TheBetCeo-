@@ -2620,7 +2620,30 @@ function invalidateFetchedAudit() {
       if (normalizeId(competitor.id) === tid) return true;
       return false;
     }
+/*
+  LOCKED FETCH / AUTO-FILL SECTION
 
+  This section is intentional and should not be changed unless a real current
+  regression is proven in this exact build.
+
+  INCLUDED AS LOCKED BEHAVIOR
+  - Worker-based proxy fetch flow and timeout behavior.
+  - NBA / NCAA-only ESPN auto-fetch scope.
+  - Team lookup flow, team catalog search, fixture loading, and match selection flow.
+  - Venue-first fetching, strict home/away preference, and weak-venue projection handling.
+  - 2024+ H2H restriction, OT stripping by removing only OT points, and H2H sample gates.
+  - Injury pull behavior, fetch audit warnings, auto-fill tags, and manual override invalidation.
+  - Current fallback order, cache usage, and warning-vs-override behavior.
+
+  AUDIT RULE
+  - Do NOT change fetch flow, source scope, fallback order, venue reliability gates,
+    H2H restrictions, or warning logic unless you can prove:
+      1) runtime break,
+      2) wrong team/data being fetched,
+      3) data-loss risk,
+      4) contradiction against stated engine rules,
+      5) measurable regression in current behavior.
+*/
     function proxyFetch(url, timeoutMs = 12000) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -3929,7 +3952,31 @@ function getTrackedLeagueBase(league) {
   if (changed) saveTrackedPicks(current);
   renderTrackedPicks();
 }
+/*
+  LOCKED ENGINE CALCULATION SECTION
 
+  This section contains the live model math and should not be edited unless a
+  current measurable regression is proven.
+
+  INCLUDED AS LOCKED BEHAVIOR
+  - H2H weighting, divergence suppression, and max-weight caps.
+  - Volatility adjustment, regression, pace blending, and home-edge application.
+  - FT / 1H / Q1 / team projection formulas and venue blending rules.
+  - Anchor logic, trap filters, pick thresholds, NO PLAY gates, and suppression rules.
+  - Confidence grading, lock selection, correlated-period blocker, tracker feedback,
+    team-memory gating, and line-memory best-line protection.
+
+  AUDIT RULE
+  - Do NOT retune constants, formulas, thresholds, weights, filters, or gates
+    unless you can prove:
+      1) runtime break,
+      2) syntax error,
+      3) contradiction against the stated engine rules,
+      4) wrong calculation path in the current file,
+      5) measurable regression in outputs from the current build.
+
+  If output looks different, prove the exact broken path first before changing any constant.
+*/
     function getH2HWeight(lenA, lenB) {
   const n = Math.min(lenA || 0, lenB || 0);
   if (n < 2) return 0;
