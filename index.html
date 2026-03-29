@@ -2836,8 +2836,70 @@ function applyFlashscoreImportResult(result) {
 
 async function importFlashscoreScreenshots() {
   const league = document.getElementById("leagueSelect")?.value || "";
+
   if (!league) {
-    setFlashscoreImportStatus("Select
+    setFlashscoreImportStatus("Select a league first.", "err");
+    return;
+  }
+
+  const aFile = document.getElementById("flashAFile")?.files?.[0] || null;
+  const bFile = document.getElementById("flashBFile")?.files?.[0] || null;
+  const h2hFile = document.getElementById("flashH2HFile")?.files?.[0] || null;
+
+  if (!aFile || !bFile || !h2hFile) {
+    setFlashscoreImportStatus("Upload Team A, Team B, and H2H screenshots first.", "err");
+    return;
+  }
+
+  const btn = document.getElementById("flashscoreImportBtn");
+  if (btn) btn.disabled = true;
+
+  setFlashscoreImportStatus("Uploading screenshots...", "loading");
+
+  try {
+    const formData = new FormData();
+    formData.append("league", league);
+    formData.append("team_a_file", aFile);
+    formData.append("team_b_file", bFile);
+    formData.append("h2h_file", h2hFile);
+
+    const res = await fetch(FLASHSCORE_IMPORT_URL, {
+      method: "POST",
+      body: formData
+    });
+
+    const rawText = await res.text();
+
+    let data = null;
+    try {
+      data = rawText ? JSON.parse(rawText) : null;
+    } catch (parseErr) {
+      throw new Error("Import server returned invalid JSON.");
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.error || data?.message || `Import failed (${res.status})`);
+    }
+
+    const payload = data?.result || data?.data || data;
+
+    if (!payload) {
+      throw new Error("Import response was empty.");
+    }
+
+    applyFlashscoreImportResult(payload);
+    setFlashscoreImportStatus("Flashscore import complete.", "ok");
+    validateFetchSection();
+    accordionOpen("marketSection");
+  } catch (err) {
+    console.error("[BB Engine] Flashscore import failed", err);
+    setFlashscoreImportStatus(err?.message || "Flashscore import failed.", "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function setManualSource(side, bucket) {
 
     function setManualSource(side, bucket) {
       if (bucket) {
@@ -7668,7 +7730,10 @@ if (dropB) {
   dropB.addEventListener("mousedown", () => cancelDropClose("dropB"));
 }
       const fetchBtn = document.getElementById("fetchBtn");
-      if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
+if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
+
+const flashscoreImportBtn = document.getElementById("flashscoreImportBtn");
+if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFlashscoreScreenshots);
 
       const runBtn = document.getElementById("runBtn");
       if (runBtn) runBtn.addEventListener("click", runEngine);
