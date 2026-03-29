@@ -999,7 +999,36 @@ input,
         </optgroup>
       </select>
     </div>
+<div class="section" id="flashscoreSection">
+  <h3>📥 OCR Import <span style="font-size:11px;color:#aaa;">(All leagues)</span></h3>
 
+  <div class="flashscore-import-note">
+    Upload one or more screenshots per bucket. Put OT detail screenshots in the H2H bucket.
+  </div>
+
+  <div class="flashscore-import-grid">
+    <div>
+      <label>Team A screenshots</label>
+      <input id="flashAFile" class="flashscore-file-input" type="file" accept="image/*" multiple />
+    </div>
+
+    <div>
+      <label>Team B screenshots</label>
+      <input id="flashBFile" class="flashscore-file-input" type="file" accept="image/*" multiple />
+    </div>
+
+    <div>
+      <label>H2H / OT detail screenshots</label>
+      <input id="flashH2HFile" class="flashscore-file-input" type="file" accept="image/*" multiple />
+    </div>
+  </div>
+
+  <button class="flashscore-import-btn" id="flashscoreImportBtn" type="button">
+    Import OCR Screenshots
+  </button>
+
+  <div id="flashscoreImportStatus"></div>
+</div>
 <div class="section" id="espnSection">
   <h3>⚡ ESPN Auto-Fetch <span style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span></h3>
 
@@ -1037,36 +1066,6 @@ input,
     <div class="inj-title">Team B - Injury Report</div>
     <div id="injuryContentB"></div>
   </div>
-</div>
-<div class="section" id="flashscoreSection">
-  <h3>📥 Flashscore Screenshot Import <span style="font-size:11px;color:#aaa;">(V1 FT only)</span></h3>
-
-  <div class="flashscore-import-note">
-    Upload 3 screenshots to auto-fill the FT manual fields.
-  </div>
-
-  <div class="flashscore-import-grid">
-    <div>
-      <label>Team A last games screenshot</label>
-      <input id="flashAFile" class="flashscore-file-input" type="file" accept="image/*" />
-    </div>
-
-    <div>
-      <label>Team B last games screenshot</label>
-      <input id="flashBFile" class="flashscore-file-input" type="file" accept="image/*" />
-    </div>
-
-    <div>
-      <label>H2H screenshot</label>
-      <input id="flashH2HFile" class="flashscore-file-input" type="file" accept="image/*" />
-    </div>
-  </div>
-
-  <button class="flashscore-import-btn" id="flashscoreImportBtn" type="button">
-    Import Flashscore Screenshots
-  </button>
-
-  <div id="flashscoreImportStatus"></div>
 </div>
 <div class="section" id="marketSection">
   <h3>Market Lines</h3>
@@ -2879,14 +2878,14 @@ async function importFlashscoreScreenshots() {
     return;
   }
 
-  const aFile = document.getElementById("flashAFile")?.files?.[0] || null;
-  const bFile = document.getElementById("flashBFile")?.files?.[0] || null;
-  const h2hFile = document.getElementById("flashH2HFile")?.files?.[0] || null;
+  const aFiles = [...(document.getElementById("flashAFile")?.files || [])];
+const bFiles = [...(document.getElementById("flashBFile")?.files || [])];
+const h2hFiles = [...(document.getElementById("flashH2HFile")?.files || [])];
 
-  if (!aFile || !bFile || !h2hFile) {
-    setFlashscoreImportStatus("Upload Team A, Team B, and H2H screenshots first.", "err");
-    return;
-  }
+if (!aFiles.length || !bFiles.length || !h2hFiles.length) {
+  setFlashscoreImportStatus("Upload Team A, Team B, and H2H screenshots first.", "err");
+  return;
+}
 
   const btn = document.getElementById("flashscoreImportBtn");
   if (btn) btn.disabled = true;
@@ -2895,10 +2894,11 @@ async function importFlashscoreScreenshots() {
 
   try {
     const formData = new FormData();
-    formData.append("league", league);
-    formData.append("team_a_file", aFile);
-    formData.append("team_b_file", bFile);
-    formData.append("h2h_file", h2hFile);
+formData.append("league", league);
+
+aFiles.forEach(file => formData.append("team_a_files", file));
+bFiles.forEach(file => formData.append("team_b_files", file));
+h2hFiles.forEach(file => formData.append("h2h_files", file));
 
     const res = await fetch(FLASHSCORE_IMPORT_URL, {
       method: "POST",
