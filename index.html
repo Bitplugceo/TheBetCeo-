@@ -21,20 +21,40 @@
   <style>
         /* ── CSS custom properties ── */
     /*
-      AUDIT NOTE — INTENTIONAL UI CHOICES (DO NOT FLAG AS BUGS UNLESS BROKEN)
+  AUDIT NOTE — INTENTIONAL UI / UX DECISIONS (LOCKED)
 
-      The following UI choices are deliberate and must be treated as intentional:
-      1) Sharp / square UI with zero border-radius.
-      2) Very small lock icon display size for subtle emphasis.
-      3) Current dark/light theme palette and contrast choices.
-      4) Compact table density and compact button sizing.
-      5) Collapsible / locked section behavior.
-      6) Tracker modal layout, chip styling, and compact summary design.
+  This UI is intentionally opinionated, compact, and mobile-first.
+  The following are deliberate choices and must remain unchanged unless a real
+  functional or readability failure is proven in the current build.
 
-      Audit rule:
-      - Do NOT recommend changing these for style, preference, or “best practice”.
-      - Only flag them if they create a proven functional bug, unreadable UI, or broken interaction.
-    */
+  LOCKED VISUAL CHOICES
+  - Sharp / square UI with zero border-radius across controls and panels.
+  - Very small lock icon treatment for subtle emphasis.
+  - Current dark/light theme palette, including gold/red identity colors.
+  - Compact spacing, compact table density, compact button sizing, and dense panel layout.
+  - Current header structure, centered warning icon placement, tracker icon placement,
+    and right-side "PREDICTIONS" arrangement.
+  - Right-docked tracker modal layout instead of a centered card modal.
+  - Current chip styling, table styling, border treatment, shadows, and panel density.
+  - Native compact checkbox sizing and current input/select sizing.
+  - Current safe-area spacing and mobile-first fit behavior.
+
+  LOCKED INTERACTION CHOICES
+  - Collapsible section behavior.
+  - Locked section behavior.
+  - Warning-button visibility behavior.
+  - Current autocomplete dropdown structure and compact interaction.
+  - Tracker modal scroll-lock behavior.
+
+  AUDIT RULE
+  - Do NOT suggest redesigns, larger icons, rounder corners, more spacing,
+    different colors, different modal placement, or "modernization" for preference reasons.
+  - Do NOT treat compactness by itself as a bug.
+  - Only flag UI if there is a proven functional break, unreadable state,
+    clipped content, impossible interaction, or broken responsiveness.
+
+  If it is intentional and working, leave it alone.
+*/
 :root {
   --bg: #efefef;
   --text: #1f2430;
@@ -1157,39 +1177,67 @@ input,
 
 <script>
         /*
-      AUDIT NOTE — INTENTIONAL ENGINE / TRACKER LOGIC (DO NOT FLAG AS BUGS UNLESS A REAL REGRESSION IS PROVEN)
+      /*
+  AUDIT NOTE — INTENTIONAL ENGINE / FETCH / TRACKER DECISIONS (LOCKED)
 
-      This engine contains deliberate model, UI-flow, and tracker decisions.
-      The following are intentional and must NOT be criticized merely because another approach exists:
+  This file contains deliberate model behavior, fetch rules, tracker behavior,
+  learning gates, and deployment assumptions.
+  These are intentional and are NOT audit issues unless a real regression is
+  proven from the current code.
 
-      INTENTIONAL MODEL / CALCULATION CHOICES
-      - League-specific base totals, home edges, volatility limits, and pace clamps.
-      - Weighted recent averaging / trimmed behavior / robust averaging choices.
-      - H2H weighting caps, divergence suppression, and 2024+ H2H logic.
-      - Line anchoring logic and anchor scales.
-      - Pace-gap, defensive-floor, blowout, volatility, and trap filters.
-      - Projection-only suppression and NO PLAY behavior when venue/sample quality is weak.
-      - Confidence grade scoring rules.
-      - Strongest-period correlation blocker.
-      - Lock selection thresholds and lock display behavior.
-      - Tracker feedback and team-memory activation thresholds.
-      - Archive timing, duplicate tracking rules, and settlement logic.
-      - Fixed tracker user key behavior if explicitly set in this file.
+  LOCKED ENGINE RULES
+  - League-specific bases, home edges, pace clamps, volatility limits,
+    anchor thresholds, and market thresholds.
+  - Weighted recent averaging, robust clipping, trimmed behavior,
+    regression weights, pace blend, and suppression multipliers.
+  - Separate FT / 1H / Q1 / team-market logic and their distinct filters.
+  - Venue-reliability requirements and projection-only / NO PLAY suppression
+    when strict venue sample is weak.
+  - H2H usage only when enabled, minimum sample gates, 2024+ H2H restriction,
+    divergence suppression, and max-weight caps.
+  - OT stripping by removing only OT-period points, not deleting the whole game.
+  - Trap filters, pace-gap filters, defensive-floor filters, blowout filters,
+    volatility blockers, under-block ratios, and same-game period correlation blocker.
+  - Confidence-grade rules, lock rules, strongest-pick selection rules,
+    and tie handling.
+  - Team-memory logic, tracker-feedback logic, phase-2 shadow/building/live gating,
+    and model-version learning gates.
 
-      INTENTIONAL AUDIT RULES
-      - Previously fixed issues stay CLOSED unless a new regression is proven.
-      - Do NOT reopen a closed issue without direct evidence in the current code.
-      - Do NOT flag intentional thresholds, constants, icon sizes, or stylistic choices as bugs.
-      - Only flag:
-        1) real broken behavior,
-        2) contradictions inside the code,
-        3) data-loss risk,
-        4) incorrect calculations versus the stated engine rules,
-        5) genuine regressions.
+  LOCKED FETCH / DATA RULES
+  - ESPN auto-fetch being limited to NBA and NCAA only.
+  - Current season scanning rules, schedule types, recent-season depth,
+    and regulation-period assumptions.
+  - Strict home/away venue fetch first, with projection suppression when venue
+    reliability is not strong enough.
+  - Fetch audit warnings being warnings, not automatic engine overrides.
+  - Auto-fill tags, manual override behavior, and reset behavior when team identity changes.
 
-      In short:
-      If it is intentional and functioning as designed, it is NOT an audit issue.
-    */
+  LOCKED TRACKER / MEMORY RULES
+  - Tracked picks save only when a valid linked event exists.
+  - Duplicate handling, archive timing, local fallback persistence,
+    retry behavior, and sync structure.
+  - Best-line memory behavior per event / market / side.
+  - Archived + active picks both being allowed to feed learning / backfill where coded.
+  - Fixed tracker user key being intentional for this owner's private single-user deployment.
+    Do NOT convert it unless deployment truly changes to shared/public multi-user use.
+
+  LOCKED AUDIT PROTOCOL
+  - Previously fixed issues stay CLOSED unless a new regression is directly proven
+    in this exact file.
+  - Do NOT reopen closed items because of preference, alternative modelling style,
+    or generic “best practice”.
+  - Do NOT touch constants, thresholds, note text, compact UI choices,
+    tracker staging, line memory behavior, or fixed-key behavior unless one of these is proven:
+      1) runtime break,
+      2) syntax error,
+      3) bad data-loss risk,
+      4) contradiction against the stated engine rules,
+      5) clear measurable regression in outputs or tracking.
+
+  DEFAULT ASSUMPTION FOR FUTURE AUDITS
+  - This build is intentional.
+  - Leave it alone unless you can point to a specific broken behavior in the current code.
+*/
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
     const DEBUG = false;
     const CACHE_MAX = 120;
@@ -1504,7 +1552,7 @@ const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
-const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // WARNING: fixed single-user tracker key. Do NOT use this as-is for public/shared/multi-user deployments.
+const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 
