@@ -1102,7 +1102,7 @@ input,
 </div>
 
 <div class="section" id="h2hSection">
-<h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, NBA regular/postseason only)</span></h3>
+<h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span></h3>
 
   <label><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
   <input id="aFTH2H" placeholder="82,78,84,76,82" />
@@ -1458,11 +1458,11 @@ const LEAGUE_FETCH_RULES = {
   nba: {
     recentSeasons: 2,
     scheduleTypes: ["2", "3"],
-    h2hScheduleTypes: ["2", "3"],
+    h2hScheduleTypes: ["1", "2", "3"],
     regulationPeriods: 4,
     includeQ1: true
   },
-    ncaa: {
+  ncaa: {
     recentSeasons: 3,
     scheduleTypes: ["2", "3"],
     h2hScheduleTypes: ["2", "3"],
