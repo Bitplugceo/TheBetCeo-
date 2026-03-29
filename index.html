@@ -2908,11 +2908,12 @@ h2hFiles.forEach(file => formData.append("h2h_files", file));
     const rawText = await res.text();
 
     let data = null;
-    try {
-      data = rawText ? JSON.parse(rawText) : null;
-    } catch (parseErr) {
-      throw new Error("Import server returned invalid JSON.");
-    }
+try {
+  data = rawText ? JSON.parse(rawText) : null;
+} catch (parseErr) {
+  console.error("[BB Engine] Flashscore raw response:", rawText);
+  throw new Error("Import server returned invalid JSON: " + String(rawText).slice(0, 300));
+}
 
     if (!res.ok) {
       throw new Error(data?.error || data?.message || `Import failed (${res.status})`);
