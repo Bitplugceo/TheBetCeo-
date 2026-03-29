@@ -1102,7 +1102,7 @@ input,
 </div>
 
 <div class="section" id="h2hSection">
-  <h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped)</span></h3>
+<h3>H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, NBA regular/postseason only)</span></h3>
 
   <label><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
   <input id="aFTH2H" placeholder="82,78,84,76,82" />
@@ -4981,7 +4981,27 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
       }
     : null;
 }
+/*
+  LOCKED H2H RULE
 
+  NBA H2H here is intentionally LIMITED to official NBA game data pulled from the
+  NBA league endpoint used by this engine.
+
+  INCLUDED:
+  - NBA regular season
+  - NBA postseason (if present in schedule types)
+
+  EXCLUDED ON PURPOSE:
+  - Summer League
+  - preseason
+  - franchise-name-only mixed competitions from third-party H2H pages
+
+  Reason:
+  Some public H2H pages mix Summer League franchise results into “head-to-head”.
+  That causes false mismatches against this engine. This engine keeps NBA H2H clean.
+
+  Do not change this unless the owner explicitly gives approval code.
+*/
 async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
   const rules = LEAGUE_FETCH_RULES[leagueKey];
   if (!rules) return [];
@@ -5488,7 +5508,7 @@ if (bVenueStats?.scored?.length > 0) {
               document.getElementById("useQ1H2H").checked = true;
             }
           }
-          messages.push(`H2H: ${Math.min(h2hGames.length, 5)} games ✅`);
+messages.push(`H2H: ${Math.min(h2hGames.length, 5)} NBA games ✅`);
         } else if (h2hGames.length === 1) {
           clearH2HFields();
           const tA = String(teamAId);
@@ -5503,9 +5523,9 @@ if (bVenueStats?.scored?.length > 0) {
           document.getElementById("use1HH2H").checked = false;
           const q1Cb = document.getElementById("useQ1H2H");
           if (q1Cb) q1Cb.checked = false;
-          messages.push("H2H: 1 game found (min 2 to auto-enable)");
+messages.push("H2H: 1 NBA game found (min 2 to auto-enable)");
         } else {
-          messages.push("H2H: none found");
+messages.push("H2H: no NBA games found");
         }
 
         setStatusHTML('<span class="spinner"></span>Checking injuries...', "loading");
