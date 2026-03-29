@@ -2289,6 +2289,7 @@ function rebuildTrackerDerivedState() {
 }
 let g_trackerHydratePromise = null;
 let g_trackerSaveTimer = null;
+let g_refreshTrackedPicksInFlight = false;
 let g_trackerRetryTimer = null;
 let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
@@ -3893,7 +3894,11 @@ function getTrackedLeagueBase(league) {
     }
 
     async function refreshTrackedPickResults() {
-      const picks = loadTrackedPicks();
+  if (g_refreshTrackedPicksInFlight) return;
+  g_refreshTrackedPicksInFlight = true;
+
+  try {
+    const picks = loadTrackedPicks();
       if (!picks.length) { renderTrackedPicks(); return; }
 
       let changed = false;
@@ -3937,8 +3942,11 @@ function getTrackedLeagueBase(league) {
         saveTrackedPicks(g_trackerState.activePicks);
       }
 
-      renderTrackedPicks();
-    }
+            renderTrackedPicks();
+  } finally {
+    g_refreshTrackedPicksInFlight = false;
+  }
+}
 
     function addTrackedPicks(newPicks) {
   if (!Array.isArray(newPicks) || !newPicks.length) {
@@ -5307,7 +5315,10 @@ function renderInjuryBox(boxId, contentId, inj) {
       if (!box || !content) return;
       if (!inj.notes.length) { content.innerHTML = ""; box.style.display = "none"; return; }
       content.innerHTML = inj.notes.map(n => {
-        const cls = n.type === "out" ? "inj-out" : "inj-dtd";
+const cls =
+  n.type === "out" ? "inj-out" :
+  n.type === "dtd" ? "inj-dtd" :
+  "";
         return `<div class="${cls}">${safeText(n.text)}</div>`;
       }).join("");
       box.style.display = "block";
@@ -7272,9 +7283,10 @@ setFetchAuditIssues([]);
 closeDrop("dropA");
 closeDrop("dropB");
       const t = document.getElementById("results");
-t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
-      t.style.display = "none";
-
+if (t) {
+  t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
+  t.style.display = "none";
+}
       const fixtureSelect = document.getElementById("fixtureSelect");
       if (fixtureSelect) { fixtureSelect.innerHTML = '<option value="">— Select match —</option>'; fixtureSelect.value = ""; }
 
