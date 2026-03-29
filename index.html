@@ -5009,67 +5009,80 @@ async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
   const tA = String(teamAId);
   const tB = String(teamBId);
   const currentSeason = getCurrentSeasonYear(leagueKey);
-  const candidateMap = new Map();
+  const minDateTs = Date.parse("2024-01-01T00:00:00Z");
 
-  async function collectCandidates(scanId) {
-    for (let season = currentSeason; season >= 2024; season--) {
-      for (const stype of rules.h2hScheduleTypes) {
-        try {
-          const key = `${base}:sched:${scanId}:${season}:${stype}`;
-          const r = await (_schedCache.has(key)
-            ? _schedCache.get(key)
-            : (() => {
-                const p = proxyFetch(`${base}/teams/${scanId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
-                  _schedCache.delete(key);
-                  throw err;
-                });
-                cacheSet(_schedCache, key, p);
-                return p;
-              })());
+  const scheduleJobs = [];
 
-          const events = [
-            ...(r?.events || []),
-            ...(r?.team?.schedule?.events || [])
-          ];
-
-          for (const ev of events) {
-            const comp = ev?.competitions?.[0];
-            if (!ev?.id || !comp) continue;
-
-            const done =
-              comp?.status?.type?.completed ||
-              comp?.status?.type?.name === "STATUS_FINAL" ||
-              comp?.status?.type?.state === "post";
-
-            if (!done) continue;
-
-            const competitors = comp?.competitors || [];
-            if (competitors.length < 2) continue;
-
-            const hasA = competitors.some(c => matchesTeam(c, tA));
-            const hasB = competitors.some(c => matchesTeam(c, tB));
-            if (!hasA || !hasB) continue;
-
-            candidateMap.set(String(ev.id), {
-              id: String(ev.id),
-              date: ev?.date || comp?.date || ""
+  // Scan ONLY Team A schedule.
+  // That is enough to find A vs B games and avoids unnecessary request load.
+  for (let season = currentSeason; season >= 2024; season--) {
+    for (const stype of rules.h2hScheduleTypes) {
+      const key = `${base}:h2h-sched:${tA}:${season}:${stype}`;
+      const req = _schedCache.has(key)
+        ? _schedCache.get(key)
+        : (() => {
+            const p = proxyFetch(`${base}/teams/${teamAId}/schedule?season=${season}&seasontype=${stype}`).catch(err => {
+              _schedCache.delete(key);
+              throw err;
             });
-          }
-        } catch (e) {
-          logDebug("fetchH2HCore candidate scan failed", e);
-        }
-      }
+            cacheSet(_schedCache, key, p);
+            return p;
+          })();
+
+      scheduleJobs.push(
+        req.catch(err => {
+          logDebug("fetchH2HCore schedule scan failed", err);
+          return null;
+        })
+      );
     }
   }
 
-  await collectCandidates(teamAId);
-  await collectCandidates(teamBId);
+  const schedulePayloads = await Promise.all(scheduleJobs);
+  const candidateMap = new Map();
+
+  schedulePayloads
+    .filter(Boolean)
+    .forEach(r => {
+      const events = [
+        ...(r?.events || []),
+        ...(r?.team?.schedule?.events || [])
+      ];
+
+      events.forEach(ev => {
+        const comp = ev?.competitions?.[0];
+        if (!ev?.id || !comp) return;
+
+        const done =
+          comp?.status?.type?.completed ||
+          comp?.status?.type?.name === "STATUS_FINAL" ||
+          comp?.status?.type?.state === "post";
+
+        if (!done) return;
+
+        const competitors = comp?.competitors || [];
+        if (competitors.length < 2) return;
+
+        const hasA = competitors.some(c => matchesTeam(c, tA));
+        const hasB = competitors.some(c => matchesTeam(c, tB));
+        if (!hasA || !hasB) return;
+
+        const rawDate = ev?.date || comp?.date || "";
+        const gameTs = rawDate ? Date.parse(rawDate) : NaN;
+        if (isFinite(gameTs) && gameTs < minDateTs) return;
+
+        candidateMap.set(String(ev.id), {
+          id: String(ev.id),
+          date: rawDate
+        });
+      });
+    });
 
   if (!candidateMap.size) return [];
 
-  const refs = [...candidateMap.values()].sort((a, b) => {
-    return new Date(b.date || 0) - new Date(a.date || 0);
-  });
+  const refs = [...candidateMap.values()]
+    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+    .slice(0, 10);
 
   const summaries = await Promise.all(
     refs.map(async ref => {
@@ -5097,28 +5110,28 @@ async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
         if (!done) return null;
 
         const gameDate = hc?.date || ref.date || "";
-        if (gameDate && gameDate < "2024-01-01") return null;
+        const gameTs = gameDate ? Date.parse(gameDate) : NaN;
+        if (isFinite(gameTs) && gameTs < minDateTs) return null;
 
         const competitors = hc?.competitors || [];
         const cA = competitors.find(c => matchesTeam(c, tA));
         const cB = competitors.find(c => matchesTeam(c, tB));
         if (!cA || !cB) return null;
 
+        const lA = cA?.linescores || [];
+        const lB = cB?.linescores || [];
+
         let sA = readVal(cA?.score);
         let sB = readVal(cB?.score);
 
-        if ((!isFinite(sA) || sA <= 0) && Array.isArray(cA?.linescores) && cA.linescores.length) {
-          sA = cA.linescores.reduce((t, p) => t + readVal(p), 0);
+        if ((!isFinite(sA) || sA <= 0) && lA.length) {
+          sA = lA.reduce((t, p) => t + readVal(p), 0);
         }
-
-        if ((!isFinite(sB) || sB <= 0) && Array.isArray(cB?.linescores) && cB.linescores.length) {
-          sB = cB.linescores.reduce((t, p) => t + readVal(p), 0);
+        if ((!isFinite(sB) || sB <= 0) && lB.length) {
+          sB = lB.reduce((t, p) => t + readVal(p), 0);
         }
 
         if (!isFinite(sA) || !isFinite(sB) || sA <= 0 || sB <= 0) return null;
-
-        const lA = cA?.linescores || [];
-        const lB = cB?.linescores || [];
 
         let h1A = 0;
         let h1B = 0;
@@ -5508,7 +5521,7 @@ if (bVenueStats?.scored?.length > 0) {
               document.getElementById("useQ1H2H").checked = true;
             }
           }
-messages.push(`H2H: ${Math.min(h2hGames.length, 5)} NBA games ✅`);
+messages.push(`H2H: ${Math.min(h2hGames.length, 5)} 2024+ games ✅`);
         } else if (h2hGames.length === 1) {
           clearH2HFields();
           const tA = String(teamAId);
@@ -5523,9 +5536,9 @@ messages.push(`H2H: ${Math.min(h2hGames.length, 5)} NBA games ✅`);
           document.getElementById("use1HH2H").checked = false;
           const q1Cb = document.getElementById("useQ1H2H");
           if (q1Cb) q1Cb.checked = false;
-messages.push("H2H: 1 NBA game found (min 2 to auto-enable)");
+messages.push("H2H: 1 game found from 2024+ (min 2 to auto-enable)");
         } else {
-messages.push("H2H: no NBA games found");
+messages.push("H2H: no 2024+ games found");
         }
 
         setStatusHTML('<span class="spinner"></span>Checking injuries...', "loading");
