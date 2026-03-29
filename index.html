@@ -232,7 +232,51 @@ body.dark-mode {
   opacity: 1;
   pointer-events: auto;
 }
+.flashscore-import-note {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
 
+.flashscore-import-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.flashscore-file-input {
+  max-width: 100% !important;
+}
+
+.flashscore-import-btn {
+  background: #2f8f4a !important;
+  color: #fff !important;
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  margin: 8px 0 4px 0 !important;
+  border: none !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 6px rgba(47, 143, 74, 0.2);
+}
+
+#flashscoreImportStatus {
+  font-size: 11px;
+  margin-top: 6px;
+  min-height: 16px;
+}
+
+#flashscoreImportStatus.ok {
+  color: #2f8f4a;
+}
+
+#flashscoreImportStatus.err {
+  color: #d92d2a;
+}
+
+#flashscoreImportStatus.loading {
+  color: #d98a00;
+}
     .wrapper {
       max-width: 760px;
       margin: 10px auto;
@@ -994,7 +1038,36 @@ input,
     <div id="injuryContentB"></div>
   </div>
 </div>
+<div class="section" id="flashscoreSection">
+  <h3>📥 Flashscore Screenshot Import <span style="font-size:11px;color:#aaa;">(V1 FT only)</span></h3>
 
+  <div class="flashscore-import-note">
+    Upload 3 screenshots to auto-fill the FT manual fields.
+  </div>
+
+  <div class="flashscore-import-grid">
+    <div>
+      <label>Team A last games screenshot</label>
+      <input id="flashAFile" class="flashscore-file-input" type="file" accept="image/*" />
+    </div>
+
+    <div>
+      <label>Team B last games screenshot</label>
+      <input id="flashBFile" class="flashscore-file-input" type="file" accept="image/*" />
+    </div>
+
+    <div>
+      <label>H2H screenshot</label>
+      <input id="flashH2HFile" class="flashscore-file-input" type="file" accept="image/*" />
+    </div>
+  </div>
+
+  <button class="flashscore-import-btn" id="flashscoreImportBtn" type="button">
+    Import Flashscore Screenshots
+  </button>
+
+  <div id="flashscoreImportStatus"></div>
+</div>
 <div class="section" id="marketSection">
   <h3>Market Lines</h3>
 
@@ -1305,8 +1378,9 @@ CLOSED — DO NOT TOUCH.
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
-    const DEBUG = false;
-    const CACHE_MAX = 120;
+const DEBUG = false;
+const CACHE_MAX = 120;
+const FLASHSCORE_IMPORT_URL = WORKER_URL.replace(/\/+$/, "") + "/flashscore-import";
 
     const MODEL = {
       TEAM_WEIGHT: 0.60,
@@ -2657,7 +2731,113 @@ function invalidateFetchedAudit() {
 
     function unlockFetchBtn() {
   validateFetchSection();
+}function setFlashscoreImportStatus(msg, type = "") {
+  const el = document.getElementById("flashscoreImportStatus");
+  if (!el) return;
+  el.className = type || "";
+  el.textContent = msg || "";
 }
+
+function clearFlashscoreImportSection() {
+  ["flashAFile", "flashBFile", "flashH2HFile"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  setFlashscoreImportStatus("", "");
+}
+
+function normalizeImportedScores(arr) {
+  return (Array.isArray(arr) ? arr : [])
+    .map(v => Number(v))
+    .filter(v => isFinite(v) && v > 0)
+    .slice(0, 5)
+    .map(v => Math.round(v));
+}
+
+function setImportedArrayField(id, values) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = values.length ? values.join(",") : "";
+}
+
+function setAutoTagVisible(id, visible) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = visible ? "inline" : "none";
+}
+
+function applyFlashscoreImportResult(result) {
+  const teamAName = String(result?.teamA?.name || "").trim();
+  const teamBName = String(result?.teamB?.name || "").trim();
+
+  const aOverallScored = normalizeImportedScores(result?.teamA?.overall_scored);
+  const aOverallAllowed = normalizeImportedScores(result?.teamA?.overall_allowed);
+  const aHomeScored = normalizeImportedScores(result?.teamA?.home_scored);
+  const aHomeAllowed = normalizeImportedScores(result?.teamA?.home_allowed);
+
+  const bOverallScored = normalizeImportedScores(result?.teamB?.overall_scored);
+  const bOverallAllowed = normalizeImportedScores(result?.teamB?.overall_allowed);
+  const bAwayScored = normalizeImportedScores(result?.teamB?.away_scored);
+  const bAwayAllowed = normalizeImportedScores(result?.teamB?.away_allowed);
+
+  const h2hA = normalizeImportedScores(result?.h2h?.teamA_scored);
+  const h2hB = normalizeImportedScores(result?.h2h?.teamB_scored);
+
+  if (!aOverallScored.length || !aOverallAllowed.length || !bOverallScored.length || !bOverallAllowed.length) {
+    throw new Error("Import response is missing the core FT arrays.");
+  }
+
+  if (teamAName) {
+    const el = document.getElementById("teamAName");
+    if (el) el.value = teamAName;
+  }
+
+  if (teamBName) {
+    const el = document.getElementById("teamBName");
+    if (el) el.value = teamBName;
+  }
+
+  setImportedArrayField("aFTScored", aOverallScored);
+  setImportedArrayField("aFTAllowed", aOverallAllowed);
+  setImportedArrayField("aHomeFTScored", aHomeScored);
+  setImportedArrayField("aHomeFTAllowed", aHomeAllowed);
+
+  setImportedArrayField("bFTScored", bOverallScored);
+  setImportedArrayField("bFTAllowed", bOverallAllowed);
+  setImportedArrayField("bAwayFTScored", bAwayScored);
+  setImportedArrayField("bAwayFTAllowed", bAwayAllowed);
+
+  setImportedArrayField("aFTH2H", h2hA);
+  setImportedArrayField("bFTH2H", h2hB);
+
+  const useFTH2H = document.getElementById("useFTH2H");
+  if (useFTH2H) useFTH2H.checked = h2hA.length >= 2 && h2hB.length >= 2;
+
+  setAutoTagVisible("aAutoTag", aOverallScored.length > 0 && aOverallAllowed.length > 0);
+  setAutoTagVisible("bAutoTag", bOverallScored.length > 0 && bOverallAllowed.length > 0);
+  setAutoTagVisible("aVenueAutoTag", aHomeScored.length > 0 && aHomeAllowed.length > 0);
+  setAutoTagVisible("bVenueAutoTag", bAwayScored.length > 0 && bAwayAllowed.length > 0);
+  setAutoTagVisible("h2hAutoTag", h2hA.length >= 2 && h2hB.length >= 2);
+
+  g_fetchMeta.A.ft = {
+    source: "manual",
+    venueReliable: aHomeScored.length >= 2 && aHomeAllowed.length >= 2
+  };
+
+  g_fetchMeta.B.ft = {
+    source: "manual",
+    venueReliable: bAwayScored.length >= 2 && bAwayAllowed.length >= 2
+  };
+
+  invalidateFetchedAudit();
+  updateSectionLocks();
+  validateFetchSection();
+  accordionOpen("marketSection");
+}
+
+async function importFlashscoreScreenshots() {
+  const league = document.getElementById("leagueSelect")?.value || "";
+  if (!league) {
+    setFlashscoreImportStatus("Select
 
     function setManualSource(side, bucket) {
       if (bucket) {
@@ -2747,22 +2927,42 @@ Any suggestion made here without proof is an audit error.
     }
 
     function accordionOpen(id, keepMarketOpen = false) {
-      ["leagueSection", "espnSection", "marketSection", "teamASection", "teamAVenueSection", "teamBSection", "teamBVenueSection", "h2hSection"].forEach(sectionId => {
-        if (sectionId !== id && !(keepMarketOpen && sectionId === "marketSection")) {
-          closeSection(sectionId);
-        }
-      });
-      openSection(id);
+  [
+    "leagueSection",
+    "flashscoreSection",
+    "espnSection",
+    "marketSection",
+    "teamASection",
+    "teamAVenueSection",
+    "teamBSection",
+    "teamBVenueSection",
+    "h2hSection"
+  ].forEach(sectionId => {
+    if (sectionId !== id && !(keepMarketOpen && sectionId === "marketSection")) {
+      closeSection(sectionId);
     }
+  });
+  openSection(id);
+}
 
     function lockFrom(startId) {
-      const order = ["espnSection", "marketSection", "teamASection", "teamAVenueSection", "teamBSection", "teamBVenueSection", "h2hSection"];
-      let locking = false;
-      order.forEach(id => {
-        if (id === startId) locking = true;
-        if (locking) lockSection(id);
-      });
-    }
+  const order = [
+    "flashscoreSection",
+    "espnSection",
+    "marketSection",
+    "teamASection",
+    "teamAVenueSection",
+    "teamBSection",
+    "teamBVenueSection",
+    "h2hSection"
+  ];
+
+  let locking = false;
+  order.forEach(id => {
+    if (id === startId) locking = true;
+    if (locking) lockSection(id);
+  });
+}
 
     function parseMarketLine(val) {
   if (!val || !String(val).trim()) return null;
@@ -4412,21 +4612,34 @@ resetResultsTable();
     }
 
     function updateSectionLocks() {
-      const league = document.getElementById("leagueSelect").value;
-      const isNbaOrNcaa = league === "nba" || league === "ncaa";
-      if (!league) {
-        ["espnSection", "marketSection", "teamASection", "teamAVenueSection", "teamBSection", "teamBVenueSection", "h2hSection"].forEach(lockSection);
-        return;
-      }
-            unlockSection("marketSection");
-      unlockSection("teamASection");
-      unlockSection("teamAVenueSection");
-      unlockSection("teamBSection");
-      unlockSection("teamBVenueSection");
-      unlockSection("h2hSection");
-      if (isNbaOrNcaa) unlockSection("espnSection");
-      else lockSection("espnSection");
-    }
+  const league = document.getElementById("leagueSelect").value;
+  const isNbaOrNcaa = league === "nba" || league === "ncaa";
+
+  if (!league) {
+    [
+      "flashscoreSection",
+      "espnSection",
+      "marketSection",
+      "teamASection",
+      "teamAVenueSection",
+      "teamBSection",
+      "teamBVenueSection",
+      "h2hSection"
+    ].forEach(lockSection);
+    return;
+  }
+
+  unlockSection("flashscoreSection");
+  unlockSection("marketSection");
+  unlockSection("teamASection");
+  unlockSection("teamAVenueSection");
+  unlockSection("teamBSection");
+  unlockSection("teamBVenueSection");
+  unlockSection("h2hSection");
+
+  if (isNbaOrNcaa) unlockSection("espnSection");
+  else lockSection("espnSection");
+}
 
     function getDateKeyLocal(dateObj) {
       const d = new Date(dateObj);
