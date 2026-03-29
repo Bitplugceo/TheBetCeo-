@@ -3856,51 +3856,73 @@ function getTrackedLeagueBase(league) {
     }
 
     function addTrackedPicks(newPicks) {
-      if (!Array.isArray(newPicks) || !newPicks.length) {
-        renderTrackedPicks();
+  if (!Array.isArray(newPicks) || !newPicks.length) {
+    renderTrackedPicks();
+    return;
+  }
+
+  const current = loadTrackedPicks();
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+  let changed = false;
+
+  function sameTrackedMarketKey(a, b) {
+    return (
+      String(a.eventId || "") === String(b.eventId || "") &&
+      String(a.marketKey || "") === String(b.marketKey || "") &&
+      normalizeTeamName(a.homeTeam || "") === normalizeTeamName(b.homeTeam || "") &&
+      normalizeTeamName(a.awayTeam || "") === normalizeTeamName(b.awayTeam || "")
+    );
+  }
+
+  function sameTrackedSideKey(a, b) {
+    return (
+      sameTrackedMarketKey(a, b) &&
+      String(a.side || "") === String(b.side || "")
+    );
+  }
+
+  newPicks.forEach(raw => {
+    const p = ensureTrackedPickKeys(raw);
+    if (!p.signature) p.signature = makeTrackedSignature(p);
+
+    const existingIdx = current.findIndex(x => sameTrackedMarketKey(x, p));
+
+    if (existingIdx !== -1) {
+      const existing = current[existingIdx];
+
+      if (existing.resultStatus !== "pending") {
         return;
       }
 
-const current = loadTrackedPicks();
-const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
-      let changed = false;
+      const sameSide = sameTrackedSideKey(existing, p);
+      const sameLine = String(displayLine(existing.line)) === String(displayLine(p.line));
+      const betterLine = sameSide && isBetterLineForSide(p.side, p.line, existing.line);
 
-      function sameTrackedMarket(a, b) {
-        return (
-          String(a.eventId || "") === String(b.eventId || "") &&
-          String(a.marketKey || "") === String(b.marketKey || "") &&
-          String(displayLine(a.line)) === String(displayLine(b.line)) &&
-          String(a.side || "") === String(b.side || "") &&
-          normalizeTeamName(a.homeTeam || "") === normalizeTeamName(b.homeTeam || "") &&
-          normalizeTeamName(a.awayTeam || "") === normalizeTeamName(b.awayTeam || "")
-        );
+      if (!sameSide || sameLine || betterLine) {
+        current[existingIdx] = ensureTrackedPickKeys({
+          ...existing,
+          ...p,
+          createdAt: existing.createdAt || p.createdAt,
+          signature: p.signature
+        });
+        changed = true;
       }
 
-      newPicks.forEach(p => {
-        if (!p.signature) p.signature = makeTrackedSignature(p);
-
-        const existingIdx = current.findIndex(x => sameTrackedMarket(x, p));
-
-if (existingIdx !== -1) {
-  if (current[existingIdx].resultStatus === "pending") {
-    current[existingIdx] = { ...current[existingIdx], ...p, signature: p.signature };
-    changed = true;
-  }
-  return;
-}
-
-const archivedIdx = archived.findIndex(x => sameTrackedMarket(x, p));
-if (archivedIdx !== -1) {
-  return;
-}
-
-current.unshift(ensureTrackedPickKeys(p));
-changed = true;
-      });
-
-      if (changed) saveTrackedPicks(current);
-      renderTrackedPicks();
+      return;
     }
+
+    const archivedIdx = archived.findIndex(x => sameTrackedMarketKey(x, p));
+    if (archivedIdx !== -1) {
+      return;
+    }
+
+    current.unshift(p);
+    changed = true;
+  });
+
+  if (changed) saveTrackedPicks(current);
+  renderTrackedPicks();
+}
 
     function getH2HWeight(lenA, lenB) {
   const n = Math.min(lenA || 0, lenB || 0);
@@ -6439,49 +6461,49 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     createdAt: new Date().toISOString()
   };
 }
-function applyLineMemoryToPickRows(picks, fixtureMeta, league) {
-  if (!fixtureMeta?.eventId || !Array.isArray(picks) || !picks.length) return;
+function resolveStoredLineBeforeDecision({
+  fixtureMeta,
+  league,
+  marketKey,
+  currentLine,
+  proj,
+  marketType,
+  context = {}
+}) {
+  if (!fixtureMeta?.eventId) return currentLine;
+  if (!isFinite(currentLine) || currentLine <= 0 || !isFinite(proj)) return currentLine;
 
-  picks.forEach(p => {
-    if (!p || p.pick === "NO PLAY" || p.note) return;
-    if (!isFinite(p.line) || p.line <= 0 || !isFinite(p.proj)) return;
+  const candidates = ["over", "under"]
+    .map(side => {
+      const resolved = resolveLineWithMemory({
+        eventId: fixtureMeta.eventId,
+        league,
+        marketKey,
+        currentLine,
+        side
+      });
 
-    const side = getPickSideFromText(p.pick);
-    if (!side) return;
+      if (!resolved.usedMemory || !isFinite(resolved.line) || resolved.line <= 0) {
+        return null;
+      }
 
-    const marketKey = p.marketKey || getMarketKeyFromName(p.name);
+      const edge = proj - resolved.line;
+      const pick = getPick(edge, resolved.line, league, marketType, context);
+      const pickSide = getPickSideFromText(pick);
 
-    const resolved = resolveLineWithMemory({
-      eventId: fixtureMeta.eventId,
-      league,
-      marketKey,
-      currentLine: p.line,
-      side
-    });
+      if (!pick || pick === "NO PLAY" || pickSide !== side) {
+        return null;
+      }
 
-    if (!resolved.usedMemory) return;
+      return {
+        line: resolved.line,
+        strength: Math.abs(edge / resolved.line)
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.strength - a.strength);
 
-    p.originalLine = resolved.originalLine;
-    p.savedLine = resolved.savedLine;
-    p.line = resolved.line;
-    p.edge = p.proj - p.line;
-
-    const refreshedPick = getPick(
-      p.edge,
-      p.line,
-      p.league,
-      p.marketType,
-      p.context || {}
-    );
-
-    if (!refreshedPick || refreshedPick === "NO PLAY") {
-      p.pick = "NO PLAY";
-      p.confidence = "—";
-      return;
-    }
-
-    p.pick = refreshedPick;
-  });
+  return candidates.length ? candidates[0].line : currentLine;
 }
 function buildResultRows({
   table,
@@ -6566,7 +6588,7 @@ async function runEngine() {
     const { parsed, lines } = validation;
 const fixtureMeta = getCurrentFixtureMeta();
 
-const resolvedLines = {
+let resolvedLines = {
   ftLine: lines.ftLine,
   h1Line: lines.h1Line,
   q1Line: lines.q1Line,
@@ -6574,31 +6596,103 @@ const resolvedLines = {
   bLine: lines.bLine
 };
 
+let ftCalc = computeFTProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+let h1Calc = compute1HProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+let q1Calc = computeQ1Projection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+resolvedLines = {
+  ftLine: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "ft",
+    currentLine: resolvedLines.ftLine,
+    proj: ftCalc.ftProj,
+    marketType: "ft",
+    context: { aSc: ftCalc.aS, bSc: ftCalc.bS }
+  }),
+  h1Line: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "h1",
+    currentLine: resolvedLines.h1Line,
+    proj: h1Calc.h1Proj,
+    marketType: "h1",
+    context: { aSc: h1Calc.aS1, bSc: h1Calc.bS1 }
+  }),
+  q1Line: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "q1",
+    currentLine: resolvedLines.q1Line,
+    proj: q1Calc.q1Proj,
+    marketType: "q1",
+    context: { aSc: q1Calc.aS1Q, bSc: q1Calc.bS1Q }
+  }),
+  aLine: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "team_a",
+    currentLine: resolvedLines.aLine,
+    proj: ftCalc.projAFT,
+    marketType: "team",
+    context: { teamSc: ftCalc.aS }
+  }),
+  bLine: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "team_b",
+    currentLine: resolvedLines.bLine,
+    proj: ftCalc.projBFT,
+    marketType: "team",
+    context: { teamSc: ftCalc.bS }
+  })
+};
+
+ftCalc = computeFTProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+h1Calc = compute1HProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+q1Calc = computeQ1Projection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
 const { ftLine, h1Line, q1Line, aLine, bLine } = resolvedLines;
-
-    const ftCalc = computeFTProjection({
-      league,
-      parsed,
-      lines: resolvedLines,
-      injMultA: g_injA.scoringMult,
-      injMultB: g_injB.scoringMult
-    });
-
-    const h1Calc = compute1HProjection({
-      league,
-      parsed,
-      lines: resolvedLines,
-      injMultA: g_injA.scoringMult,
-      injMultB: g_injB.scoringMult
-    });
-
-        const q1Calc = computeQ1Projection({
-      league,
-      parsed,
-      lines: resolvedLines,
-      injMultA: g_injA.scoringMult,
-      injMultB: g_injB.scoringMult
-    });
 
     let ftPick = getPick(ftCalc.ftEdge, ftLine, league, "ft", { aSc: ftCalc.aS, bSc: ftCalc.bS });
     let h1Pick = getPick(h1Calc.h1Edge, h1Line, league, "h1", { aSc: h1Calc.aS1, bSc: h1Calc.bS1 });
@@ -6882,7 +6976,6 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
       }
     });
 
-            applyLineMemoryToPickRows(picks, fixtureMeta, league);
 
     const includeH1 = isNbaOrNcaa && h1Line !== null;
 const includeQ1 = isNba && q1Line !== null;
