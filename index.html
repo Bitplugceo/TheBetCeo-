@@ -232,28 +232,6 @@ body.dark-mode {
   box-shadow: var(--shadow);
   color: var(--text);
 }
-.section.danger-guard {
-  border: 2px solid #ff0000 !important;
-  box-shadow: 0 0 0 1px #ff0000 inset, var(--shadow) !important;
-}
-
-.section.danger-guard::before {
-  content: "DANGER — LOCKED / DO NOT EDIT";
-  display: block;
-  background: #ff0000;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.6px;
-  padding: 6px 10px;
-}
-
-.section.danger-guard .section-toggle,
-.section.danger-guard .toggle-title,
-.section.danger-guard h3,
-.section.danger-guard label {
-  color: #ff0000 !important;
-}
        .section-toggle {
       width: 100%;
       background: none !important;
@@ -454,56 +432,8 @@ input,
   overflow-y: auto;
   display: none;
 }
-.section.danger-guard {
-  border: 2px solid #ff0000 !important;
-  box-shadow: 0 0 0 1px #ff0000 inset, var(--shadow) !important;
-}
 
-.section.danger-guard::before {
-  content: "DANGER — PROTECTED SECTION";
-  display: block;
-  background: #ff0000;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.6px;
-  padding: 6px 10px;
-}
 
-.section.danger-guard .section-toggle,
-.section.danger-guard .toggle-title,
-.section.danger-guard h3,
-.section.danger-guard label {
-  color: #ff0000 !important;
-}
-
-.section.danger-guard.danger-locked .section-body {
-  background: rgba(255, 0, 0, 0.04) !important;
-}
-
-.danger-unlock-btn {
-  margin-left: 8px !important;
-  padding: 4px 8px !important;
-  background: #ff0000 !important;
-  color: #ffffff !important;
-  border: none !important;
-  font-size: 10px !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.4px !important;
-  cursor: pointer !important;
-  box-shadow: none !important;
-}
-
-.danger-unlock-btn:hover {
-  opacity: 1 !important;
-}
-
-.section.danger-guard.danger-locked input,
-.section.danger-guard.danger-locked select,
-.section.danger-guard.danger-locked textarea,
-.section.danger-guard.danger-locked button:not(.section-toggle):not(.danger-unlock-btn) {
-  cursor: not-allowed !important;
-}
   .autocomplete-list div {
   padding: 8px 10px;
   font-size: 12px;
@@ -2639,131 +2569,6 @@ function safeText(str) {
 function invalidateFetchedAudit() {
   setFetchAuditIssues([]);
   resetResultsTable();
-}
-  const DANGER_GUARD_PASSWORD = "349137";
-let g_dangerGuardUnlocked = false;
-let g_dangerGuardSectionIds = [];
-
-function setDangerSectionLocked(section, locked) {
-  if (!section) return;
-
-  section.classList.add("danger-guard");
-  section.classList.toggle("danger-locked", locked);
-
-  const controls = section.querySelectorAll("input, select, textarea, button");
-
-  controls.forEach(el => {
-    if (
-      el.classList.contains("section-toggle") ||
-      el.classList.contains("danger-unlock-btn")
-    ) return;
-
-    if (locked) {
-      if (!el.hasAttribute("data-guard-prev-disabled")) {
-        el.setAttribute("data-guard-prev-disabled", el.disabled ? "1" : "0");
-      }
-      el.disabled = true;
-    } else {
-      const prev = el.getAttribute("data-guard-prev-disabled");
-      if (prev !== null) {
-        el.disabled = prev === "1";
-        el.removeAttribute("data-guard-prev-disabled");
-      }
-    }
-  });
-}
-
-function unlockDangerSections() {
-  if (g_dangerGuardUnlocked) return;
-
-  const entered = prompt(
-    "DANGER — protected sections are locked.\nEnter password to unlock editing."
-  );
-
-  if (entered === null) return;
-
-  if (entered !== DANGER_GUARD_PASSWORD) {
-    alert("Wrong password. Protected sections stayed locked.");
-    return;
-  }
-
-  g_dangerGuardUnlocked = true;
-
-  g_dangerGuardSectionIds.forEach(id => {
-    const section = document.getElementById(id);
-    setDangerSectionLocked(section, false);
-  });
-
-  updateSectionLocks();
-  validateFetchSection();
-  alert("Protected sections unlocked for this session.");
-}
-
-function enableDangerGuard(sectionIds = []) {
-  g_dangerGuardSectionIds = [...sectionIds];
-
-  g_dangerGuardSectionIds.forEach(id => {
-    const section = document.getElementById(id);
-    if (!section) return;
-
-    section.classList.add("danger-guard");
-    setDangerSectionLocked(section, true);
-
-    const toggle = section.querySelector(".section-toggle");
-
-    if (toggle && !toggle.querySelector(".danger-unlock-btn")) {
-      const unlockBtn = document.createElement("button");
-      unlockBtn.type = "button";
-      unlockBtn.className = "danger-unlock-btn";
-      unlockBtn.textContent = "UNLOCK";
-
-      unlockBtn.addEventListener("click", e => {
-        e.preventDefault();
-        e.stopPropagation();
-        unlockDangerSections();
-      });
-
-      toggle.appendChild(unlockBtn);
-    }
-
-    if (!section.dataset.dangerGuardBound) {
-      section.addEventListener("click", e => {
-        if (!section.classList.contains("danger-locked")) return;
-        if (e.target.closest(".danger-unlock-btn")) return;
-        if (e.target.closest(".section-toggle")) return;
-
-        if (e.target.closest(".section-body") || e.target.closest("label")) {
-          e.preventDefault();
-          e.stopPropagation();
-          alert("DANGER — this section is locked. Use UNLOCK and enter the password first.");
-        }
-      }, true);
-
-      section.dataset.dangerGuardBound = "1";
-    }
-  });
-}
-function enableDangerGuard(sectionIds = []) {
-  const warningText = "DANGER — this section is locked. Do not edit/touch it unless you intentionally want to change protected data.";
-
-  sectionIds.forEach(id => {
-    const section = document.getElementById(id);
-    if (!section) return;
-
-    section.classList.add("danger-guard");
-
-    const targets = section.querySelectorAll("input, select, button, textarea");
-
-    targets.forEach(el => {
-      const warnNow = () => {
-        alert(warningText);
-      };
-
-      el.addEventListener("focus", warnNow);
-      el.addEventListener("click", warnNow);
-      el.addEventListener("touchstart", warnNow, { passive: true });
-    });
-  });
 }
     // V7: split status functions — text vs HTML
     function setStatusText(msg, type = "") {
@@ -7544,24 +7349,6 @@ if (dropB) {
       if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
       makeSectionsCollapsible();
-            enableDangerGuard([
-        "leagueSection",
-        "espnSection",
-        "marketSection",
-        "teamASection",
-        "teamAVenueSection",
-        "teamBSection",
-        "teamBVenueSection",
-        "h2hSection"
-      ]);
-enableDangerGuard([
-  "marketSection",
-  "teamASection",
-  "teamAVenueSection",
-  "teamBSection",
-  "teamBVenueSection",
-  "h2hSection"
-]);
       document.querySelectorAll(".section").forEach(s => {
         s.classList.add("collapsed");
         s.classList.remove("locked");
