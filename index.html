@@ -5782,7 +5782,6 @@ function validateInputs(league) {
     if (!enabled) {
       return null;
     }
-    clearInvalid(id);
     const raw = document.getElementById(id)?.value?.trim() || "";
     if (!raw) {
       if (required) {
