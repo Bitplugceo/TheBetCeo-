@@ -232,7 +232,28 @@ body.dark-mode {
   box-shadow: var(--shadow);
   color: var(--text);
 }
+.section.danger-guard {
+  border: 2px solid #ff0000 !important;
+  box-shadow: 0 0 0 1px #ff0000 inset, var(--shadow) !important;
+}
 
+.section.danger-guard::before {
+  content: "DANGER — LOCKED / DO NOT EDIT";
+  display: block;
+  background: #ff0000;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  padding: 6px 10px;
+}
+
+.section.danger-guard .section-toggle,
+.section.danger-guard .toggle-title,
+.section.danger-guard h3,
+.section.danger-guard label {
+  color: #ff0000 !important;
+}
        .section-toggle {
       width: 100%;
       background: none !important;
@@ -1237,6 +1258,13 @@ input,
   DEFAULT ASSUMPTION FOR FUTURE AUDITS
   - This build is intentional.
   - Leave it alone unless you can point to a specific broken behavior in the current code.
+*/
+/*
+████████████████████████████████████████████████████
+DANGER — LOCKED CALCULATION SECTION
+DO NOT EDIT THIS BLOCK UNLESS YOU INTENTIONALLY
+WANT TO CHANGE THE ENGINE
+████████████████████████████████████████████████████
 */
     const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
     const DEBUG = false;
@@ -2563,7 +2591,28 @@ function invalidateFetchedAudit() {
   setFetchAuditIssues([]);
   resetResultsTable();
 }
+function enableDangerGuard(sectionIds = []) {
+  const warningText = "DANGER — this section is locked. Do not edit/touch it unless you intentionally want to change protected data.";
 
+  sectionIds.forEach(id => {
+    const section = document.getElementById(id);
+    if (!section) return;
+
+    section.classList.add("danger-guard");
+
+    const targets = section.querySelectorAll("input, select, button, textarea");
+
+    targets.forEach(el => {
+      const warnNow = () => {
+        alert(warningText);
+      };
+
+      el.addEventListener("focus", warnNow);
+      el.addEventListener("click", warnNow);
+      el.addEventListener("touchstart", warnNow, { passive: true });
+    });
+  });
+}
     // V7: split status functions — text vs HTML
     function setStatusText(msg, type = "") {
       const el = document.getElementById("fetchStatus");
@@ -7343,7 +7392,14 @@ if (dropB) {
       if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
       makeSectionsCollapsible();
-
+enableDangerGuard([
+  "marketSection",
+  "teamASection",
+  "teamAVenueSection",
+  "teamBSection",
+  "teamBVenueSection",
+  "h2hSection"
+]);
       document.querySelectorAll(".section").forEach(s => {
         s.classList.add("collapsed");
         s.classList.remove("locked");
