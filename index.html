@@ -2764,8 +2764,45 @@ function setAutoTagVisible(id, visible) {
   const el = document.getElementById(id);
   if (el) el.style.display = visible ? "inline" : "none";
 }
+function resetFlashscoreImportRuntime() {
+  selectedTeamIds = { A: null, B: null };
+  g_lastFetchedTeams = { A: "", B: "" };
+  g_fetchMeta = defaultFetchMeta();
 
+  g_injA = defaultInjuryMeta();
+  g_injB = defaultInjuryMeta();
+  hideInjuryBox("A");
+  hideInjuryBox("B");
+
+  [
+    "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed",
+    "b1HScored", "b1HAllowed", "bQ1Scored", "bQ1Allowed",
+
+    "aHome1HScored", "aHome1HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed",
+    "bAway1HScored", "bAway1HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed",
+
+    "a1HH2H", "b1HH2H", "aQ1H2H", "bQ1H2H",
+
+    "h1Market", "q1Market"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+
+  const use1HH2H = document.getElementById("use1HH2H");
+  const useQ1H2H = document.getElementById("useQ1H2H");
+  if (use1HH2H) use1HH2H.checked = false;
+  if (useQ1H2H) useQ1H2H.checked = false;
+
+  const fixtureSelect = document.getElementById("fixtureSelect");
+  if (fixtureSelect) fixtureSelect.value = "";
+
+  setStatusText("", "");
+  setFetchInputErrors([]);
+  setFetchAuditIssues([]);
+}
 function applyFlashscoreImportResult(result) {
+  resetFlashscoreImportRuntime();
   const teamAName = String(result?.teamA?.name || "").trim();
   const teamBName = String(result?.teamB?.name || "").trim();
 
