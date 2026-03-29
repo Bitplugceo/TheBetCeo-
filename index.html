@@ -4654,17 +4654,46 @@ function getTrackedLeagueBase(league) {
     !isNaN(m.edge) &&
     m.line !== null &&
     !isNaN(m.line) &&
-    m.line > 0 &&
-    Math.abs(m.edge / m.line) >= 0.045 &&
-    m.fullModel === true
+    m.line > 0
   );
 
   if (!valid.length) return -1;
 
+  const gradeBonusMap = {
+    A: 3,
+    B: 2,
+    C: 1,
+    D: 0
+  };
+
   const best = [...valid].sort((a, b) => {
-    const ea = Math.abs(a.edge / a.line);
-    const eb = Math.abs(b.edge / b.line);
-    if (Math.abs(eb - ea) > 0.0005) return eb - ea;
+    const aEdgePct = Math.abs(a.edge / a.line) * 100;
+    const bEdgePct = Math.abs(b.edge / b.line) * 100;
+
+    const aGrade = String(a.confidence || "D").toUpperCase();
+    const bGrade = String(b.confidence || "D").toUpperCase();
+
+    const aGradeBonus = gradeBonusMap[aGrade] ?? 0;
+    const bGradeBonus = gradeBonusMap[bGrade] ?? 0;
+
+    const aFullModelBonus = a.fullModel ? 1 : 0;
+    const bFullModelBonus = b.fullModel ? 1 : 0;
+
+    const aLockScore = aEdgePct + aGradeBonus + aFullModelBonus;
+    const bLockScore = bEdgePct + bGradeBonus + bFullModelBonus;
+
+    if (Math.abs(bLockScore - aLockScore) > 0.0001) {
+      return bLockScore - aLockScore;
+    }
+
+    if (bGradeBonus !== aGradeBonus) {
+      return bGradeBonus - aGradeBonus;
+    }
+
+    if (Math.abs(bEdgePct - aEdgePct) > 0.0001) {
+      return bEdgePct - aEdgePct;
+    }
+
     return Math.abs(b.edge) - Math.abs(a.edge);
   })[0];
 
