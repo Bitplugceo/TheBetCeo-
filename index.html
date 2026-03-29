@@ -5945,9 +5945,10 @@ function getConfidenceClass(conf) {
   return "conf-none";
 }
 
-function formatEdge(val) {
-  if (!isFinite(val)) return "—";
-  return (val > 0 ? "+" : "") + val.toFixed(1);
+function formatEdge(edge, line) {
+  if (!isFinite(edge) || !isFinite(line) || line <= 0) return "—";
+  const pct = (edge / line) * 100;
+  return (pct > 0 ? "+" : "") + pct.toFixed(2) + "%";
 }
 
 function getMarketKeyFromName(name) {
@@ -6678,7 +6679,7 @@ function buildResultRows({
     row.innerHTML = `
      <td>${safeText(p.name)}</td>
 <td>${isFinite(p.proj) ? safeText(displayLine(p.proj)) : "—"}</td>
-<td>${isFinite(p.edge) ? safeText(formatEdge(p.edge)) : "—"}</td>
+<td>${isFinite(p.edge) && isFinite(p.line) ? safeText(formatEdge(p.edge, p.line)) : "—"}</td>
 <td class="${getConfidenceClass(confText)}">${safeText(confText)}</td>
 <td class="${getPredictionClass(p.pick)}">
   ${safeText(p.pick || "NO PLAY")}${isLock ? ' <span class="lock">🔒</span>' : ""}
