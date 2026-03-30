@@ -1077,16 +1077,16 @@ input,
   <div id="h1MarketSection" style="display:none;">
     <label>1H Total</label>
     <input id="h1Market" placeholder="105.5 - 110.5" />
+  </div>
 
-    <div id="h2MarketSection" style="display:none;">
-      <label>2H Total</label>
-      <input id="h2Market" placeholder="98.5 - 108.5" />
-    </div>
+  <div id="h2MarketSection" style="display:none;">
+    <label>2H Total</label>
+    <input id="h2Market" placeholder="98.5 - 108.5" />
+  </div>
 
-    <div id="q1MarketSection" style="display:none;">
-      <label>Q1 Total</label>
-      <input id="q1Market" placeholder="55.5 or 55.5 - 58.5" />
-    </div>
+  <div id="q1MarketSection" style="display:none;">
+    <label>Q1 Total</label>
+    <input id="q1Market" placeholder="55.5 or 55.5 - 58.5" />
   </div>
 
   <label>Team A Total</label>
@@ -1110,14 +1110,22 @@ input,
 
     <label>1H Allowed</label>
     <input id="a1HAllowed" placeholder="38,41,37,42,39" />
+  </div>
 
-    <div id="aQ1Section" style="display:none;">
-      <label>Q1 Scored</label>
-      <input id="aQ1Scored" placeholder="28,26,30,25,27" />
+  <div id="a2HSection" style="display:none;">
+    <label>2H Scored <span style="font-size:10px;color:#888;">(Q3+Q4 / second half)</span></label>
+    <input id="a2HScored" placeholder="43,41,44,39,40" />
 
-      <label>Q1 Allowed</label>
-      <input id="aQ1Allowed" placeholder="25,27,24,28,26" />
-    </div>
+    <label>2H Allowed</label>
+    <input id="a2HAllowed" placeholder="38,40,35,37,39" />
+  </div>
+
+  <div id="aQ1Section" style="display:none;">
+    <label>Q1 Scored</label>
+    <input id="aQ1Scored" placeholder="28,26,30,25,27" />
+
+    <label>Q1 Allowed</label>
+    <input id="aQ1Allowed" placeholder="25,27,24,28,26" />
   </div>
 </div>
 
@@ -1136,14 +1144,22 @@ input,
 
     <label>1H Allowed</label>
     <input id="b1HAllowed" placeholder="37,40,38,41,39" />
+  </div>
 
-    <div id="bQ1Section" style="display:none;">
-      <label>Q1 Scored</label>
-      <input id="bQ1Scored" placeholder="27,25,29,24,26" />
+  <div id="b2HSection" style="display:none;">
+    <label>2H Scored <span style="font-size:10px;color:#888;">(Q3+Q4 / second half)</span></label>
+    <input id="b2HScored" placeholder="41,38,39,41,39" />
 
-      <label>Q1 Allowed</label>
-      <input id="bQ1Allowed" placeholder="24,26,23,27,25" />
-    </div>
+    <label>2H Allowed</label>
+    <input id="b2HAllowed" placeholder="37,42,36,38,40" />
+  </div>
+
+  <div id="bQ1Section" style="display:none;">
+    <label>Q1 Scored</label>
+    <input id="bQ1Scored" placeholder="27,25,29,24,26" />
+
+    <label>Q1 Allowed</label>
+    <input id="bQ1Allowed" placeholder="24,26,23,27,25" />
   </div>
 </div>
 <div class="section" id="teamAVenueSection">
@@ -1160,13 +1176,20 @@ input,
     <input id="aHome1HScored" placeholder="42,38,45,40,41" />
     <label>1H Allowed</label>
     <input id="aHome1HAllowed" placeholder="38,41,37,42,39" />
+  </div>
 
-    <div id="aHomeQ1Section" style="display:none;">
-      <label>Q1 Scored</label>
-      <input id="aHomeQ1Scored" placeholder="28,26,30,25,27" />
-      <label>Q1 Allowed</label>
-      <input id="aHomeQ1Allowed" placeholder="25,27,24,28,26" />
-    </div>
+  <div id="aHome2HSection" style="display:none;">
+    <label>2H Scored <span style="font-size:10px;color:#888;">(Q3+Q4 / second half)</span></label>
+    <input id="aHome2HScored" placeholder="43,41,44,39,40" />
+    <label>2H Allowed</label>
+    <input id="aHome2HAllowed" placeholder="38,40,35,37,39" />
+  </div>
+
+  <div id="aHomeQ1Section" style="display:none;">
+    <label>Q1 Scored</label>
+    <input id="aHomeQ1Scored" placeholder="28,26,30,25,27" />
+    <label>Q1 Allowed</label>
+    <input id="aHomeQ1Allowed" placeholder="25,27,24,28,26" />
   </div>
 </div>
 
@@ -1184,13 +1207,20 @@ input,
     <input id="bAway1HScored" placeholder="40,39,42,38,41" />
     <label>1H Allowed</label>
     <input id="bAway1HAllowed" placeholder="37,40,38,41,39" />
+  </div>
 
-    <div id="bAwayQ1Section" style="display:none;">
-      <label>Q1 Scored</label>
-      <input id="bAwayQ1Scored" placeholder="27,25,29,24,26" />
-      <label>Q1 Allowed</label>
-      <input id="bAwayQ1Allowed" placeholder="24,26,23,27,25" />
-    </div>
+  <div id="bAway2HSection" style="display:none;">
+    <label>2H Scored <span style="font-size:10px;color:#888;">(Q3+Q4 / second half)</span></label>
+    <input id="bAway2HScored" placeholder="41,38,39,41,39" />
+    <label>2H Allowed</label>
+    <input id="bAway2HAllowed" placeholder="37,42,36,38,40" />
+  </div>
+
+  <div id="bAwayQ1Section" style="display:none;">
+    <label>Q1 Scored</label>
+    <input id="bAwayQ1Scored" placeholder="27,25,29,24,26" />
+    <label>Q1 Allowed</label>
+    <input id="bAwayQ1Allowed" placeholder="24,26,23,27,25" />
   </div>
 </div>
 
@@ -1205,6 +1235,12 @@ input,
     <label><input type="checkbox" id="use1HH2H" /> Use 1H H2H (min 2 games)</label>
     <input id="a1HH2H" placeholder="41,39,43,38,41" />
     <input id="b1HH2H" placeholder="39,41,38,42,39" />
+  </div>
+
+  <div id="h2h2HSection" style="display:none;">
+    <label><input type="checkbox" id="use2HH2H" /> Use 2H H2H (min 2 games)</label>
+    <input id="a2HH2H" placeholder="43,39,41,38,40" />
+    <input id="b2HH2H" placeholder="38,42,36,40,39" />
   </div>
 
   <div id="h2hQ1Section" style="display:none;">
@@ -3003,13 +3039,13 @@ function resetFlashscoreImportRuntime() {
   hideInjuryBox("B");
 
   [
-    "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed",
-    "b1HScored", "b1HAllowed", "bQ1Scored", "bQ1Allowed",
+    "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed", "aQ1Scored", "aQ1Allowed",
+    "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed", "bQ1Scored", "bQ1Allowed",
 
-    "aHome1HScored", "aHome1HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed",
-    "bAway1HScored", "bAway1HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed",
+    "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed",
+    "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed",
 
-    "a1HH2H", "b1HH2H", "aQ1H2H", "bQ1H2H",
+    "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H", "aQ1H2H", "bQ1H2H",
 
     "h1Market", "h2Market", "q1Market"
   ].forEach(id => {
@@ -3018,8 +3054,10 @@ function resetFlashscoreImportRuntime() {
   });
 
   const use1HH2H = document.getElementById("use1HH2H");
+  const use2HH2H = document.getElementById("use2HH2H");
   const useQ1H2H = document.getElementById("useQ1H2H");
   if (use1HH2H) use1HH2H.checked = false;
+  if (use2HH2H) use2HH2H.checked = false;
   if (useQ1H2H) useQ1H2H.checked = false;
 
   const fixtureSelect = document.getElementById("fixtureSelect");
@@ -3206,6 +3244,7 @@ async function importFlashscoreScreenshots() {
         g_fetchMeta[side] = {
           ft: { source: "manual", venueReliable: true },
           h1: { source: "manual", venueReliable: true },
+          h2: { source: "manual", venueReliable: true },
           q1: { source: "manual", venueReliable: true }
         };
       }
@@ -4878,13 +4917,13 @@ function getConfidenceGrade({
 const FIELD_GROUPS = {
   markets: ["ftMarket", "h1Market", "h2Market", "q1Market", "teamAMarket", "teamBMarket"],
 
-  teamAOverall: ["aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed"],
-  teamAVenue: ["aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"],
+  teamAOverall: ["aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed", "aQ1Scored", "aQ1Allowed"],
+  teamAVenue: ["aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"],
 
-  teamBOverall: ["bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "bQ1Scored", "bQ1Allowed"],
-  teamBVenue: ["bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"],
+  teamBOverall: ["bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed", "bQ1Scored", "bQ1Allowed"],
+  teamBVenue: ["bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"],
 
-  h2h: ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "aQ1H2H", "bQ1H2H"],
+  h2h: ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H", "aQ1H2H", "bQ1H2H"],
 
   autoTags: ["aAutoTag", "bAutoTag", "aVenueAutoTag", "bVenueAutoTag", "h2hAutoTag"],
 
@@ -4897,7 +4936,10 @@ const FIELD_GROUPS = {
   periodInputs: [
     "a1HScored","a1HAllowed","b1HScored","b1HAllowed",
     "aHome1HScored","aHome1HAllowed","bAway1HScored","bAway1HAllowed",
-    "a1HH2H","b1HH2H","h1Market","h2Market",
+    "a1HH2H","b1HH2H","h1Market",
+    "a2HScored","a2HAllowed","b2HScored","b2HAllowed",
+    "aHome2HScored","aHome2HAllowed","bAway2HScored","bAway2HAllowed",
+    "a2HH2H","b2HH2H","h2Market",
     "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed",
     "aHomeQ1Scored","aHomeQ1Allowed","bAwayQ1Scored","bAwayQ1Allowed",
     "q1Market","aQ1H2H","bQ1H2H"
@@ -4928,12 +4970,12 @@ function hideInjuryBox(side) {
     function clearSideFields(side) {
   const ids = side === "A"
     ? [
-        "aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "aQ1Scored", "aQ1Allowed",
-        "aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"
+        "aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed", "aQ1Scored", "aQ1Allowed",
+        "aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"
       ]
     : [
-        "bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "bQ1Scored", "bQ1Allowed",
-        "bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"
+        "bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed", "bQ1Scored", "bQ1Allowed",
+        "bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"
       ];
 
   ids.forEach(id => {
@@ -4957,15 +4999,17 @@ function hideInjuryBox(side) {
 }
 
     function clearH2HFields() {
-      ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "aQ1H2H", "bQ1H2H"].forEach(id => {
+      ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H", "aQ1H2H", "bQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
       const ftCb = document.getElementById("useFTH2H");
       const h1Cb = document.getElementById("use1HH2H");
+      const h2Cb = document.getElementById("use2HH2H");
       const q1Cb = document.getElementById("useQ1H2H");
       if (ftCb) ftCb.checked = false;
       if (h1Cb) h1Cb.checked = false;
+      if (h2Cb) h2Cb.checked = false;
       if (q1Cb) q1Cb.checked = false;
       const h2hTag = document.getElementById("h2hAutoTag");
       if (h2hTag) h2hTag.style.display = "none";
@@ -6164,6 +6208,8 @@ clearH2HFields();
             document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
           }
           if (aStats.h2Scored?.length > 0) {
+            document.getElementById("a2HScored").value = aStats.h2Scored.join(",");
+            document.getElementById("a2HAllowed").value = aStats.h2Allowed.join(",");
             messages.push(`${safeText(teamAName)} 2H: ${aStats.h2Scored.length} games ✅`);
           }
           if (aStats.q1Scored?.length > 0) {
@@ -6183,6 +6229,8 @@ if (aVenueStats?.scored?.length > 0) {
     document.getElementById("aHome1HAllowed").value = aVenueStats.h1Allowed.join(",");
   }
   if (aVenueStats.h2Scored?.length > 0) {
+    document.getElementById("aHome2HScored").value = aVenueStats.h2Scored.join(",");
+    document.getElementById("aHome2HAllowed").value = aVenueStats.h2Allowed.join(",");
     messages.push(`${safeText(teamAName)} home 2H: ${aVenueStats.h2Scored.length} games ✅`);
   }
   if (aVenueStats.q1Scored?.length > 0) {
@@ -6203,6 +6251,8 @@ if (aVenueStats?.scored?.length > 0) {
             document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
           }
           if (bStats.h2Scored?.length > 0) {
+            document.getElementById("b2HScored").value = bStats.h2Scored.join(",");
+            document.getElementById("b2HAllowed").value = bStats.h2Allowed.join(",");
             messages.push(`${safeText(teamBName)} 2H: ${bStats.h2Scored.length} games ✅`);
           }
           if (bStats.q1Scored?.length > 0) {
@@ -6222,6 +6272,8 @@ if (bVenueStats?.scored?.length > 0) {
     document.getElementById("bAway1HAllowed").value = bVenueStats.h1Allowed.join(",");
   }
   if (bVenueStats.h2Scored?.length > 0) {
+    document.getElementById("bAway2HScored").value = bVenueStats.h2Scored.join(",");
+    document.getElementById("bAway2HAllowed").value = bVenueStats.h2Allowed.join(",");
     messages.push(`${safeText(teamBName)} away 2H: ${bVenueStats.h2Scored.length} games ✅`);
   }
   if (bVenueStats.q1Scored?.length > 0) {
@@ -6288,6 +6340,9 @@ if (bVenueStats?.scored?.length > 0) {
           const h2hA2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2A : g.h2B).filter(v => v > 0);
           const h2hB2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2B : g.h2A).filter(v => v > 0);
           if (h2hA2H.length >= 2 && h2hB2H.length >= 2) {
+            document.getElementById("a2HH2H").value = h2hA2H.join(",");
+            document.getElementById("b2HH2H").value = h2hB2H.join(",");
+            document.getElementById("use2HH2H").checked = true;
             messages.push(`2H H2H: ${Math.min(h2hA2H.length, h2hB2H.length)} games ✅`);
           }
 
@@ -6541,10 +6596,11 @@ function validateInputs(league) {
 
   const useFTH2H = !!document.getElementById("useFTH2H")?.checked;
   const use1HH2H = !!document.getElementById("use1HH2H")?.checked;
+  const use2HH2H = !!document.getElementById("use2HH2H")?.checked;
   const useQ1H2H = !!document.getElementById("useQ1H2H")?.checked;
 
   const has1HActivity = h1Line !== null || use1HH2H;
-  const has2HActivity = h2Line !== null;
+  const has2HActivity = h2Line !== null || use2HH2H;
   const hasQ1Activity = q1Line !== null || useQ1H2H;
 
   if (has1HActivity && h1Line === null) {
@@ -6576,6 +6632,11 @@ function validateInputs(league) {
     b1HScored: parseArrayField("b1HScored", "Team B 1H Scored", false, wants1H),
     b1HAllowed: parseArrayField("b1HAllowed", "Team B 1H Allowed", false, wants1H),
 
+    a2HScored: parseArrayField("a2HScored", "Team A 2H Scored", false, has2HActivity),
+    a2HAllowed: parseArrayField("a2HAllowed", "Team A 2H Allowed", false, has2HActivity),
+    b2HScored: parseArrayField("b2HScored", "Team B 2H Scored", false, has2HActivity),
+    b2HAllowed: parseArrayField("b2HAllowed", "Team B 2H Allowed", false, has2HActivity),
+
     aQ1Scored: parseArrayField("aQ1Scored", "Team A Q1 Scored", false, wantsQ1),
     aQ1Allowed: parseArrayField("aQ1Allowed", "Team A Q1 Allowed", false, wantsQ1),
     bQ1Scored: parseArrayField("bQ1Scored", "Team B Q1 Scored", false, wantsQ1),
@@ -6591,6 +6652,11 @@ function validateInputs(league) {
     bAway1HScored: parseArrayField("bAway1HScored", "Team B Away 1H Scored", false, wants1H),
     bAway1HAllowed: parseArrayField("bAway1HAllowed", "Team B Away 1H Allowed", false, wants1H),
 
+    aHome2HScored: parseArrayField("aHome2HScored", "Team A Home 2H Scored", false, has2HActivity),
+    aHome2HAllowed: parseArrayField("aHome2HAllowed", "Team A Home 2H Allowed", false, has2HActivity),
+    bAway2HScored: parseArrayField("bAway2HScored", "Team B Away 2H Scored", false, has2HActivity),
+    bAway2HAllowed: parseArrayField("bAway2HAllowed", "Team B Away 2H Allowed", false, has2HActivity),
+
     aHomeQ1Scored: parseArrayField("aHomeQ1Scored", "Team A Home Q1 Scored", false, wantsQ1),
     aHomeQ1Allowed: parseArrayField("aHomeQ1Allowed", "Team A Home Q1 Allowed", false, wantsQ1),
     bAwayQ1Scored: parseArrayField("bAwayQ1Scored", "Team B Away Q1 Scored", false, wantsQ1),
@@ -6600,20 +6666,22 @@ function validateInputs(league) {
     bFTH2H: parseArrayField("bFTH2H", "Team B FT H2H", false, useFTH2H),
     a1HH2H: parseArrayField("a1HH2H", "Team A 1H H2H", false, use1HH2H),
     b1HH2H: parseArrayField("b1HH2H", "Team B 1H H2H", false, use1HH2H),
+    a2HH2H: parseArrayField("a2HH2H", "Team A 2H H2H", false, use2HH2H),
+    b2HH2H: parseArrayField("b2HH2H", "Team B 2H H2H", false, use2HH2H),
     aQ1H2H: parseArrayField("aQ1H2H", "Team A Q1 H2H", false, useQ1H2H),
     bQ1H2H: parseArrayField("bQ1H2H", "Team B Q1 H2H", false, useQ1H2H)
   };
 
-  parsed.a2HScored = getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
-  parsed.a2HAllowed = getExactFetchedSecondHalfAllowedSeries("A", "overall", parsed);
-  parsed.b2HScored = getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed);
-  parsed.b2HAllowed = getExactFetchedSecondHalfAllowedSeries("B", "overall", parsed);
-  parsed.aHome2HScored = getExactFetchedSecondHalfSeries("A", "venue", "scored", parsed);
-  parsed.aHome2HAllowed = getExactFetchedSecondHalfAllowedSeries("A", "venue", parsed);
-  parsed.bAway2HScored = getExactFetchedSecondHalfSeries("B", "venue", "scored", parsed);
-  parsed.bAway2HAllowed = getExactFetchedSecondHalfAllowedSeries("B", "venue", parsed);
-  parsed.a2HH2H = getExactFetchedSecondHalfH2HSeries("A", parsed);
-  parsed.b2HH2H = getExactFetchedSecondHalfH2HSeries("B", parsed);
+  parsed.a2HScored = parsed.a2HScored || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
+  parsed.a2HAllowed = parsed.a2HAllowed || getExactFetchedSecondHalfAllowedSeries("A", "overall", parsed);
+  parsed.b2HScored = parsed.b2HScored || getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed);
+  parsed.b2HAllowed = parsed.b2HAllowed || getExactFetchedSecondHalfAllowedSeries("B", "overall", parsed);
+  parsed.aHome2HScored = parsed.aHome2HScored || getExactFetchedSecondHalfSeries("A", "venue", "scored", parsed);
+  parsed.aHome2HAllowed = parsed.aHome2HAllowed || getExactFetchedSecondHalfAllowedSeries("A", "venue", parsed);
+  parsed.bAway2HScored = parsed.bAway2HScored || getExactFetchedSecondHalfSeries("B", "venue", "scored", parsed);
+  parsed.bAway2HAllowed = parsed.bAway2HAllowed || getExactFetchedSecondHalfAllowedSeries("B", "venue", parsed);
+  parsed.a2HH2H = parsed.a2HH2H || getExactFetchedSecondHalfH2HSeries("A", parsed);
+  parsed.b2HH2H = parsed.b2HH2H || getExactFetchedSecondHalfH2HSeries("B", parsed);
 
   const requiredFtLens = [
     parsed.aFTScored?.length || 0,
@@ -6647,6 +6715,12 @@ function validateInputs(league) {
   if (document.getElementById("use1HH2H")?.checked) {
     if ((parsed.a1HH2H?.length || 0) < 2 || (parsed.b1HH2H?.length || 0) < 2) {
       errors.push("1H H2H is checked, but both 1H H2H fields need at least 2 games.");
+    }
+  }
+
+  if (document.getElementById("use2HH2H")?.checked) {
+    if ((parsed.a2HH2H?.length || 0) < 2 || (parsed.b2HH2H?.length || 0) < 2) {
+      errors.push("2H H2H is checked, but both 2H H2H fields need at least 2 games.");
     }
   }
 
@@ -8877,7 +8951,7 @@ if (trackedToSave.length) {
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
-      ["a1HSection","b1HSection","h2h1HSection","h1MarketSection","h2MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section","aHome1HSection","bAway1HSection","aHomeQ1Section","bAwayQ1Section"].forEach(id => {
+      ["a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section","aHome1HSection","bAway1HSection","aHome2HSection","bAway2HSection","aHomeQ1Section","bAwayQ1Section"].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.style.display = "none";
 });
@@ -8934,7 +9008,7 @@ resetResultsTable();
 
       document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
 
-     ["a1HSection", "b1HSection", "h2h1HSection", "h1MarketSection", "h2MarketSection", "aHome1HSection", "bAway1HSection"].forEach(id => {
+     ["a1HSection", "b1HSection", "a2HSection", "b2HSection", "h2h1HSection", "h2h2HSection", "h1MarketSection", "h2MarketSection", "aHome1HSection", "bAway1HSection", "aHome2HSection", "bAway2HSection"].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
 });
@@ -8978,6 +9052,8 @@ resetResultsTable();
       setFieldValues(FIELD_GROUPS.h2h);
       document.getElementById("useFTH2H").checked = false;
       document.getElementById("use1HH2H").checked = false;
+      const h2Cb = document.getElementById("use2HH2H");
+      if (h2Cb) h2Cb.checked = false;
       const q1Cb = document.getElementById("useQ1H2H");
       if (q1Cb) q1Cb.checked = false;
 
@@ -9094,9 +9170,9 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
       if (espnEl) espnEl.style.display = "none";
 
       [
-        "a1HSection","b1HSection","h2h1HSection","h1MarketSection","h2MarketSection",
+        "a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection",
         "aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section",
-        "aHome1HSection","bAway1HSection","aHomeQ1Section","bAwayQ1Section"
+        "aHome1HSection","bAway1HSection","aHome2HSection","bAway2HSection","aHomeQ1Section","bAwayQ1Section"
       ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
@@ -9106,12 +9182,12 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
       openSection("leagueSection");
             hydrateTrackedPicks().then(() => refreshTrackedPickResults());
 
-           ["useFTH2H", "use1HH2H", "useQ1H2H"].forEach(id => {
+           ["useFTH2H", "use1HH2H", "use2HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("change", invalidateFetchedAudit);
       });
 
-            ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H"].forEach(id => {
+            ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","a2HH2H","b2HH2H","aQ1H2H","bQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", () => {
           const tag = document.getElementById("h2hAutoTag");
@@ -9127,6 +9203,9 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
         "a1HScored":["A","h1"], "a1HAllowed":["A","h1"],
         "aHome1HScored":["A","h1"], "aHome1HAllowed":["A","h1"],
 
+        "a2HScored":["A","h2"], "a2HAllowed":["A","h2"],
+        "aHome2HScored":["A","h2"], "aHome2HAllowed":["A","h2"],
+
         "aQ1Scored":["A","q1"], "aQ1Allowed":["A","q1"],
         "aHomeQ1Scored":["A","q1"], "aHomeQ1Allowed":["A","q1"],
 
@@ -9135,6 +9214,9 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
 
         "b1HScored":["B","h1"], "b1HAllowed":["B","h1"],
         "bAway1HScored":["B","h1"], "bAway1HAllowed":["B","h1"],
+
+        "b2HScored":["B","h2"], "b2HAllowed":["B","h2"],
+        "bAway2HScored":["B","h2"], "bAway2HAllowed":["B","h2"],
 
         "bQ1Scored":["B","q1"], "bQ1Allowed":["B","q1"],
         "bAwayQ1Scored":["B","q1"], "bAwayQ1Allowed":["B","q1"]
@@ -9177,7 +9259,7 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
         if (el) el.addEventListener("input", () => updateSectionLocks());
       });
 
-    ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","aQ1H2H","bQ1H2H","useFTH2H","use1HH2H","useQ1H2H"].forEach(id => {
+    ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","a2HH2H","b2HH2H","aQ1H2H","bQ1H2H","useFTH2H","use1HH2H","use2HH2H","useQ1H2H"].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener("input", () => updateSectionLocks());
