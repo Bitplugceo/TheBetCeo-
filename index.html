@@ -2562,6 +2562,33 @@ function buildFetchAuditIssues({
       `${teamAName || "Team A"} overall 1H sample`
     );
 
+    if (document.getElementById("h2Market")?.value?.trim()) {
+      requirePairSample(
+        aStats?.h2Scored?.length,
+        aStats?.h2Allowed?.length,
+        2,
+        `${teamAName || "Team A"} overall exact 2H sample`
+      );
+      requirePairSample(
+        bStats?.h2Scored?.length,
+        bStats?.h2Allowed?.length,
+        2,
+        `${teamBName || "Team B"} overall exact 2H sample`
+      );
+      requirePairSample(
+        aVenueStats?.h2Scored?.length,
+        aVenueStats?.h2Allowed?.length,
+        2,
+        `${teamAName || "Team A"} strict home exact 2H sample`
+      );
+      requirePairSample(
+        bVenueStats?.h2Scored?.length,
+        bVenueStats?.h2Allowed?.length,
+        2,
+        `${teamBName || "Team B"} strict away exact 2H sample`
+      );
+    }
+
     requirePairSample(
       bStats?.h1Scored?.length,
       bStats?.h1Allowed?.length,
@@ -5567,6 +5594,8 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
   const allowed10 = [];
   const h1Scored10 = [];
   const h1Allowed10 = [];
+  const h2Scored10 = [];
+  const h2Allowed10 = [];
   const q1Scored10 = [];
   const q1Allowed10 = [];
 
@@ -5576,6 +5605,8 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
       let os = ref.rawA;
       let h1m = 0;
       let h1o = 0;
+      let h2m = 0;
+      let h2o = 0;
       let q1m = 0;
       let q1o = 0;
       let gotLS = false;
@@ -5609,12 +5640,15 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
               os = parseFloat(opp.score) || os;
 
               if (rules.includeQ1) {
-                q1m = readVal(lm[0]);
-                q1o = readVal(lo[0]);
+                q1m = lm.length >= 1 ? readVal(lm[0]) : 0;
+                q1o = lo.length >= 1 ? readVal(lo[0]) : 0;
                 h1m = lm.length >= 2 ? readVal(lm[0]) + readVal(lm[1]) : 0;
                 h1o = lo.length >= 2 ? readVal(lo[0]) + readVal(lo[1]) : 0;
+                h2m = lm.length >= 4 ? readVal(lm[2]) + readVal(lm[3]) : 0;
+                h2o = lo.length >= 4 ? readVal(lo[2]) + readVal(lo[3]) : 0;
               } else {
                 [h1m, h1o] = extractFirstHalf(lm, lo);
+                [h2m, h2o] = extractSecondHalf(lm, lo);
               }
 
               [ms, os] = stripOTFromScores(ms, os, lm, lo, rules.regulationPeriods);
@@ -5632,6 +5666,8 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
         os: Math.round(os),
         h1m: gotLS && h1m > 0 ? Math.round(h1m) : null,
         h1o: gotLS && h1o > 0 ? Math.round(h1o) : null,
+        h2m: gotLS && h2m > 0 ? Math.round(h2m) : null,
+        h2o: gotLS && h2o > 0 ? Math.round(h2o) : null,
         q1m: rules.includeQ1 && gotLS && q1m > 0 ? Math.round(q1m) : null,
         q1o: rules.includeQ1 && gotLS && q1o > 0 ? Math.round(q1o) : null
       };
@@ -5647,6 +5683,11 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
       h1Allowed10.push(game.h1o);
     }
 
+    if (game.h2m !== null && game.h2o !== null) {
+      h2Scored10.push(game.h2m);
+      h2Allowed10.push(game.h2o);
+    }
+
     if (rules.includeQ1 && game.q1m !== null && game.q1o !== null) {
       q1Scored10.push(game.q1m);
       q1Allowed10.push(game.q1o);
@@ -5659,17 +5700,26 @@ async function fetchScheduleCore(base, teamId, leagueKey, requiredVenue, allowFa
         allowed: allowed10.slice(0, 5),
         h1Scored: h1Scored10.slice(0, 5),
         h1Allowed: h1Allowed10.slice(0, 5),
+        h2Scored: h2Scored10.slice(0, 5),
+        h2Allowed: h2Allowed10.slice(0, 5),
         q1Scored: q1Scored10.slice(0, 5),
         q1Allowed: q1Allowed10.slice(0, 5),
         scored10,
         allowed10,
         h1Scored10,
         h1Allowed10,
+        h2Scored10,
+        h2Allowed10,
         q1Scored10,
         q1Allowed10,
         lastGameDate: unique[0]?.date || null,
         venueReliable,
         usedVenueFallback,
+        h2VenueReliable: !!(
+          venueReliable &&
+          h2Scored10.length >= 2 &&
+          h2Allowed10.length >= 2
+        ),
         q1VenueReliable: !!(
           rules.includeQ1 &&
           venueReliable &&
@@ -5834,6 +5884,8 @@ async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
 
         let h1A = 0;
         let h1B = 0;
+        let h2A = 0;
+        let h2B = 0;
         let q1A = 0;
         let q1B = 0;
 
@@ -5843,8 +5895,11 @@ async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
             q1B = lB.length >= 1 ? readVal(lB[0]) : 0;
             h1A = lA.length >= 2 ? readVal(lA[0]) + readVal(lA[1]) : 0;
             h1B = lB.length >= 2 ? readVal(lB[0]) + readVal(lB[1]) : 0;
+            h2A = lA.length >= 4 ? readVal(lA[2]) + readVal(lA[3]) : 0;
+            h2B = lB.length >= 4 ? readVal(lB[2]) + readVal(lB[3]) : 0;
           } else {
             [h1A, h1B] = extractFirstHalf(lA, lB);
+            [h2A, h2B] = extractSecondHalf(lA, lB);
           }
 
           [sA, sB] = stripOTFromScores(sA, sB, lA, lB, rules.regulationPeriods);
@@ -5858,6 +5913,8 @@ async function fetchH2HCore(base, teamAId, teamBId, leagueKey) {
           scoreB: Math.round(sB),
           h1A: Math.round(h1A),
           h1B: Math.round(h1B),
+          h2A: Math.round(h2A),
+          h2B: Math.round(h2B),
           q1A: Math.round(q1A),
           q1B: Math.round(q1B),
           date: gameDate
@@ -6106,6 +6163,9 @@ clearH2HFields();
             document.getElementById("a1HScored").value = aStats.h1Scored.join(",");
             document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
           }
+          if (aStats.h2Scored?.length > 0) {
+            messages.push(`${safeText(teamAName)} 2H: ${aStats.h2Scored.length} games ✅`);
+          }
           if (aStats.q1Scored?.length > 0) {
             document.getElementById("aQ1Scored").value = aStats.q1Scored.join(",");
             document.getElementById("aQ1Allowed").value = aStats.q1Allowed.join(",");
@@ -6121,6 +6181,9 @@ if (aVenueStats?.scored?.length > 0) {
   if (aVenueStats.h1Scored?.length > 0) {
     document.getElementById("aHome1HScored").value = aVenueStats.h1Scored.join(",");
     document.getElementById("aHome1HAllowed").value = aVenueStats.h1Allowed.join(",");
+  }
+  if (aVenueStats.h2Scored?.length > 0) {
+    messages.push(`${safeText(teamAName)} home 2H: ${aVenueStats.h2Scored.length} games ✅`);
   }
   if (aVenueStats.q1Scored?.length > 0) {
     document.getElementById("aHomeQ1Scored").value = aVenueStats.q1Scored.join(",");
@@ -6139,6 +6202,9 @@ if (aVenueStats?.scored?.length > 0) {
             document.getElementById("b1HScored").value = bStats.h1Scored.join(",");
             document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
           }
+          if (bStats.h2Scored?.length > 0) {
+            messages.push(`${safeText(teamBName)} 2H: ${bStats.h2Scored.length} games ✅`);
+          }
           if (bStats.q1Scored?.length > 0) {
             document.getElementById("bQ1Scored").value = bStats.q1Scored.join(",");
             document.getElementById("bQ1Allowed").value = bStats.q1Allowed.join(",");
@@ -6155,6 +6221,9 @@ if (bVenueStats?.scored?.length > 0) {
     document.getElementById("bAway1HScored").value = bVenueStats.h1Scored.join(",");
     document.getElementById("bAway1HAllowed").value = bVenueStats.h1Allowed.join(",");
   }
+  if (bVenueStats.h2Scored?.length > 0) {
+    messages.push(`${safeText(teamBName)} away 2H: ${bVenueStats.h2Scored.length} games ✅`);
+  }
   if (bVenueStats.q1Scored?.length > 0) {
     document.getElementById("bAwayQ1Scored").value = bVenueStats.q1Scored.join(",");
     document.getElementById("bAwayQ1Allowed").value = bVenueStats.q1Allowed.join(",");
@@ -6168,12 +6237,14 @@ if (bVenueStats?.scored?.length > 0) {
                 g_fetchMeta.A = {
           ft: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.scored?.length >= 2) },
           h1: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.h1Scored?.length >= 2 && aVenueStats.h1Allowed?.length >= 2) },
+          h2: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.h2Scored?.length >= 2 && aVenueStats.h2Allowed?.length >= 2) },
           q1: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.q1Scored?.length >= 2 && aVenueStats.q1Allowed?.length >= 2) }
         };
 
         g_fetchMeta.B = {
           ft: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.scored?.length >= 2) },
           h1: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.h1Scored?.length >= 2 && bVenueStats.h1Allowed?.length >= 2) },
+          h2: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.h2Scored?.length >= 2 && bVenueStats.h2Allowed?.length >= 2) },
           q1: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.q1Scored?.length >= 2 && bVenueStats.q1Allowed?.length >= 2) }
         };
 
@@ -6212,6 +6283,12 @@ if (bVenueStats?.scored?.length > 0) {
             document.getElementById("a1HH2H").value = h2hA1H.join(",");
             document.getElementById("b1HH2H").value = h2hB1H.join(",");
             document.getElementById("use1HH2H").checked = true;
+          }
+
+          const h2hA2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2A : g.h2B).filter(v => v > 0);
+          const h2hB2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2B : g.h2A).filter(v => v > 0);
+          if (h2hA2H.length >= 2 && h2hB2H.length >= 2) {
+            messages.push(`2H H2H: ${Math.min(h2hA2H.length, h2hB2H.length)} games ✅`);
           }
 
           if (isNba) {
@@ -6264,6 +6341,8 @@ messages.push("H2H: no 2024+ games found");
               ftAllowed10: aStats.allowed10 || aStats.allowed || [],
               h1Scored10: aStats.h1Scored10 || aStats.h1Scored || [],
               h1Allowed10: aStats.h1Allowed10 || aStats.h1Allowed || [],
+              h2Scored10: aStats.h2Scored10 || aStats.h2Scored || [],
+              h2Allowed10: aStats.h2Allowed10 || aStats.h2Allowed || [],
               q1Scored10: aStats.q1Scored10 || aStats.q1Scored || [],
               q1Allowed10: aStats.q1Allowed10 || aStats.q1Allowed || []
             } : null,
@@ -6272,6 +6351,8 @@ messages.push("H2H: no 2024+ games found");
               ftAllowed10: aVenueStats.allowed10 || aVenueStats.allowed || [],
               h1Scored10: aVenueStats.h1Scored10 || aVenueStats.h1Scored || [],
               h1Allowed10: aVenueStats.h1Allowed10 || aVenueStats.h1Allowed || [],
+              h2Scored10: aVenueStats.h2Scored10 || aVenueStats.h2Scored || [],
+              h2Allowed10: aVenueStats.h2Allowed10 || aVenueStats.h2Allowed || [],
               q1Scored10: aVenueStats.q1Scored10 || aVenueStats.q1Scored || [],
               q1Allowed10: aVenueStats.q1Allowed10 || aVenueStats.q1Allowed || []
             } : null,
@@ -6290,6 +6371,8 @@ messages.push("H2H: no 2024+ games found");
               ftAllowed10: bStats.allowed10 || bStats.allowed || [],
               h1Scored10: bStats.h1Scored10 || bStats.h1Scored || [],
               h1Allowed10: bStats.h1Allowed10 || bStats.h1Allowed || [],
+              h2Scored10: bStats.h2Scored10 || bStats.h2Scored || [],
+              h2Allowed10: bStats.h2Allowed10 || bStats.h2Allowed || [],
               q1Scored10: bStats.q1Scored10 || bStats.q1Scored || [],
               q1Allowed10: bStats.q1Allowed10 || bStats.q1Allowed || []
             } : null,
@@ -6298,6 +6381,8 @@ messages.push("H2H: no 2024+ games found");
               ftAllowed10: bVenueStats.allowed10 || bVenueStats.allowed || [],
               h1Scored10: bVenueStats.h1Scored10 || bVenueStats.h1Scored || [],
               h1Allowed10: bVenueStats.h1Allowed10 || bVenueStats.h1Allowed || [],
+              h2Scored10: bVenueStats.h2Scored10 || bVenueStats.h2Scored || [],
+              h2Allowed10: bVenueStats.h2Allowed10 || bVenueStats.h2Allowed || [],
               q1Scored10: bVenueStats.q1Scored10 || bVenueStats.q1Scored || [],
               q1Allowed10: bVenueStats.q1Allowed10 || bVenueStats.q1Allowed || []
             } : null,
@@ -6519,6 +6604,17 @@ function validateInputs(league) {
     bQ1H2H: parseArrayField("bQ1H2H", "Team B Q1 H2H", false, useQ1H2H)
   };
 
+  parsed.a2HScored = getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
+  parsed.a2HAllowed = getExactFetchedSecondHalfAllowedSeries("A", "overall", parsed);
+  parsed.b2HScored = getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed);
+  parsed.b2HAllowed = getExactFetchedSecondHalfAllowedSeries("B", "overall", parsed);
+  parsed.aHome2HScored = getExactFetchedSecondHalfSeries("A", "venue", "scored", parsed);
+  parsed.aHome2HAllowed = getExactFetchedSecondHalfAllowedSeries("A", "venue", parsed);
+  parsed.bAway2HScored = getExactFetchedSecondHalfSeries("B", "venue", "scored", parsed);
+  parsed.bAway2HAllowed = getExactFetchedSecondHalfAllowedSeries("B", "venue", parsed);
+  parsed.a2HH2H = getExactFetchedSecondHalfH2HSeries("A", parsed);
+  parsed.b2HH2H = getExactFetchedSecondHalfH2HSeries("B", parsed);
+
   const requiredFtLens = [
     parsed.aFTScored?.length || 0,
     parsed.aFTAllowed?.length || 0,
@@ -6532,13 +6628,13 @@ function validateInputs(league) {
 
   if (h2Line !== null) {
     const secondHalfSources = [
-      parsed.a1HScored?.length || 0,
-      parsed.a1HAllowed?.length || 0,
-      parsed.b1HScored?.length || 0,
-      parsed.b1HAllowed?.length || 0
+      parsed.a2HScored?.length || 0,
+      parsed.a2HAllowed?.length || 0,
+      parsed.b2HScored?.length || 0,
+      parsed.b2HAllowed?.length || 0
     ];
     if (Math.min(...secondHalfSources) < 2) {
-      errors.push("2H Total needs valid 1H overall fields because 2H is auto-derived from FT − 1H.");
+      errors.push("2H Total needs at least 2 second-half games on both sides. ESPN auto-fetch uses exact Q3+Q4 / second-half scores when available.");
     }
   }
 
@@ -6933,6 +7029,81 @@ function deriveSecondHalfSeries(ftSeries, firstHalfSeries) {
   return out;
 }
 
+function getExactFetchedSecondHalfSeries(side, bucket, kind, parsed) {
+  const ctx = g_massacreFetchContext?.[side] || {};
+  const scope = bucket === "venue" ? (ctx.venue || {}) : (ctx.overall || {});
+  const key = kind === "scored" ? "h2Scored10" : "h2Allowed10";
+  const exact = Array.isArray(scope?.[key])
+    ? scope[key].map(Number).filter(v => isFinite(v) && v > 0)
+    : [];
+
+  if (exact.length) {
+    return exact.slice(0, 5);
+  }
+
+  const ft = side === "A"
+    ? (bucket === "venue" ? safeArr(parsed.aHomeFTScored) : safeArr(parsed.aFTScored))
+    : (bucket === "venue" ? safeArr(parsed.bAwayFTScored) : safeArr(parsed.bFTScored));
+
+  const h1 = side === "A"
+    ? (bucket === "venue" ? safeArr(parsed.aHome1HScored) : safeArr(parsed.a1HScored))
+    : (bucket === "venue" ? safeArr(parsed.bAway1HScored) : safeArr(parsed.b1HScored));
+
+  return deriveSecondHalfSeries(ft, h1);
+}
+
+function getExactFetchedSecondHalfAllowedSeries(side, bucket, parsed) {
+  const ctx = g_massacreFetchContext?.[side] || {};
+  const scope = bucket === "venue" ? (ctx.venue || {}) : (ctx.overall || {});
+  const exact = Array.isArray(scope?.h2Allowed10)
+    ? scope.h2Allowed10.map(Number).filter(v => isFinite(v) && v > 0)
+    : [];
+
+  if (exact.length) {
+    return exact.slice(0, 5);
+  }
+
+  const ft = side === "A"
+    ? (bucket === "venue" ? safeArr(parsed.aHomeFTAllowed) : safeArr(parsed.aFTAllowed))
+    : (bucket === "venue" ? safeArr(parsed.bAwayFTAllowed) : safeArr(parsed.bFTAllowed));
+
+  const h1 = side === "A"
+    ? (bucket === "venue" ? safeArr(parsed.aHome1HAllowed) : safeArr(parsed.a1HAllowed))
+    : (bucket === "venue" ? safeArr(parsed.bAway1HAllowed) : safeArr(parsed.b1HAllowed));
+
+  return deriveSecondHalfSeries(ft, h1);
+}
+
+function getExactFetchedSecondHalfH2HSeries(side, parsed) {
+  const games = Array.isArray(g_massacreFetchContext?.h2hGames) ? g_massacreFetchContext.h2hGames : [];
+  if (games.length) {
+    const fixtureHomeId = String(getCurrentFixtureMeta()?.homeId || "");
+    const out = [];
+
+    games.slice(0, 10).forEach(g => {
+      const teamAIsHome = fixtureHomeId && String(g.teamAId || "") === fixtureHomeId;
+      const value = side === "A"
+        ? (teamAIsHome ? g.h2A : g.h2B)
+        : (teamAIsHome ? g.h2B : g.h2A);
+
+      const num = Number(value);
+      if (isFinite(num) && num > 0) out.push(num);
+    });
+
+    if (out.length) return out;
+  }
+
+  const ft = side === "A"
+    ? (safeArr(document.getElementById("useFTH2H")?.checked ? parseGames("aFTH2H") : null) || [])
+    : (safeArr(document.getElementById("useFTH2H")?.checked ? parseGames("bFTH2H") : null) || []);
+
+  const h1 = side === "A"
+    ? (safeArr(document.getElementById("use1HH2H")?.checked ? parseGames("a1HH2H") : null) || [])
+    : (safeArr(document.getElementById("use1HH2H")?.checked ? parseGames("b1HH2H") : null) || []);
+
+  return deriveSecondHalfSeries(ft, h1);
+}
+
 function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1 }) {
   const supported = league === "nba" || league === "ncaa";
   const eb2H = (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 2;
@@ -6940,17 +7111,17 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const hAdj = (LEAGUE_HOME_EDGE[league] ?? LEAGUE_HOME_EDGE.unknown) * 0.375;
   const volLimit = league === "nba" ? 7 : 6;
 
-  const a2HS = deriveSecondHalfSeries(safeArr(parsed.aFTScored), safeArr(parsed.a1HScored));
-  const a2HA = deriveSecondHalfSeries(safeArr(parsed.aFTAllowed), safeArr(parsed.a1HAllowed));
-  const b2HS = deriveSecondHalfSeries(safeArr(parsed.bFTScored), safeArr(parsed.b1HScored));
-  const b2HA = deriveSecondHalfSeries(safeArr(parsed.bFTAllowed), safeArr(parsed.b1HAllowed));
+  const a2HS = safeArr(parsed.a2HScored) || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
+  const a2HA = safeArr(parsed.a2HAllowed) || getExactFetchedSecondHalfAllowedSeries("A", "overall", parsed);
+  const b2HS = safeArr(parsed.b2HScored) || getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed);
+  const b2HA = safeArr(parsed.b2HAllowed) || getExactFetchedSecondHalfAllowedSeries("B", "overall", parsed);
 
   const sampleTier = getSampleTier(a2HS, a2HA, b2HS, b2HA);
 
-  const aHome2HS = deriveSecondHalfSeries(safeArr(parsed.aHomeFTScored), safeArr(parsed.aHome1HScored));
-  const aHome2HA = deriveSecondHalfSeries(safeArr(parsed.aHomeFTAllowed), safeArr(parsed.aHome1HAllowed));
-  const bAway2HS = deriveSecondHalfSeries(safeArr(parsed.bAwayFTScored), safeArr(parsed.bAway1HScored));
-  const bAway2HA = deriveSecondHalfSeries(safeArr(parsed.bAwayFTAllowed), safeArr(parsed.bAway1HAllowed));
+  const aHome2HS = safeArr(parsed.aHome2HScored) || getExactFetchedSecondHalfSeries("A", "venue", "scored", parsed);
+  const aHome2HA = safeArr(parsed.aHome2HAllowed) || getExactFetchedSecondHalfAllowedSeries("A", "venue", parsed);
+  const bAway2HS = safeArr(parsed.bAway2HScored) || getExactFetchedSecondHalfSeries("B", "venue", "scored", parsed);
+  const bAway2HA = safeArr(parsed.bAway2HAllowed) || getExactFetchedSecondHalfAllowedSeries("B", "venue", parsed);
 
   const h2VenueReliableA = hasMinGames(aHome2HS) && hasMinGames(aHome2HA);
   const h2VenueReliableB = hasMinGames(bAway2HS) && hasMinGames(bAway2HA);
@@ -7004,11 +7175,9 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   projA2H = blendProjection(projA2H, venueProjA, "h2");
   projB2H = blendProjection(projB2H, venueProjB, "h2");
 
-  const a2HH2H = deriveSecondHalfSeries(safeArr(parsed.aFTH2H), safeArr(parsed.a1HH2H));
-  const b2HH2H = deriveSecondHalfSeries(safeArr(parsed.bFTH2H), safeArr(parsed.b1HH2H));
+  const a2HH2H = safeArr(parsed.a2HH2H) || getExactFetchedSecondHalfH2HSeries("A", parsed);
+  const b2HH2H = safeArr(parsed.b2HH2H) || getExactFetchedSecondHalfH2HSeries("B", parsed);
   const h2HasH2H = !!(
-    document.getElementById("useFTH2H")?.checked &&
-    document.getElementById("use1HH2H")?.checked &&
     a2HH2H.length >= 2 &&
     b2HH2H.length >= 2
   );
@@ -7264,12 +7433,16 @@ function getMassacreTeamContext(side, parsed) {
         ftAllowed: safeArr(parsed.aFTAllowed) || [],
         h1Scored: safeArr(parsed.a1HScored) || [],
         h1Allowed: safeArr(parsed.a1HAllowed) || [],
+        h2Scored: safeArr(parsed.a2HScored) || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed),
+        h2Allowed: safeArr(parsed.a2HAllowed) || getExactFetchedSecondHalfAllowedSeries("A", "overall", parsed),
         q1Scored: safeArr(parsed.aQ1Scored) || [],
         q1Allowed: safeArr(parsed.aQ1Allowed) || [],
         venueFTScored: safeArr(parsed.aHomeFTScored) || [],
         venueFTAllowed: safeArr(parsed.aHomeFTAllowed) || [],
         venueH1Scored: safeArr(parsed.aHome1HScored) || [],
         venueH1Allowed: safeArr(parsed.aHome1HAllowed) || [],
+        venueH2Scored: safeArr(parsed.aHome2HScored) || getExactFetchedSecondHalfSeries("A", "venue", "scored", parsed),
+        venueH2Allowed: safeArr(parsed.aHome2HAllowed) || getExactFetchedSecondHalfAllowedSeries("A", "venue", parsed),
         venueQ1Scored: safeArr(parsed.aHomeQ1Scored) || [],
         venueQ1Allowed: safeArr(parsed.aHomeQ1Allowed) || []
       }
@@ -7278,12 +7451,16 @@ function getMassacreTeamContext(side, parsed) {
         ftAllowed: safeArr(parsed.bFTAllowed) || [],
         h1Scored: safeArr(parsed.b1HScored) || [],
         h1Allowed: safeArr(parsed.b1HAllowed) || [],
+        h2Scored: safeArr(parsed.b2HScored) || getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed),
+        h2Allowed: safeArr(parsed.b2HAllowed) || getExactFetchedSecondHalfAllowedSeries("B", "overall", parsed),
         q1Scored: safeArr(parsed.bQ1Scored) || [],
         q1Allowed: safeArr(parsed.bQ1Allowed) || [],
         venueFTScored: safeArr(parsed.bAwayFTScored) || [],
         venueFTAllowed: safeArr(parsed.bAwayFTAllowed) || [],
         venueH1Scored: safeArr(parsed.bAway1HScored) || [],
         venueH1Allowed: safeArr(parsed.bAway1HAllowed) || [],
+        venueH2Scored: safeArr(parsed.bAway2HScored) || getExactFetchedSecondHalfSeries("B", "venue", "scored", parsed),
+        venueH2Allowed: safeArr(parsed.bAway2HAllowed) || getExactFetchedSecondHalfAllowedSeries("B", "venue", parsed),
         venueQ1Scored: safeArr(parsed.bAwayQ1Scored) || [],
         venueQ1Allowed: safeArr(parsed.bAwayQ1Allowed) || []
       };
@@ -7297,6 +7474,8 @@ function getMassacreTeamContext(side, parsed) {
     ftAllowed10: Array.isArray(overall.ftAllowed10) && overall.ftAllowed10.length ? overall.ftAllowed10 : data.ftAllowed,
     h1Scored10: Array.isArray(overall.h1Scored10) && overall.h1Scored10.length ? overall.h1Scored10 : data.h1Scored,
     h1Allowed10: Array.isArray(overall.h1Allowed10) && overall.h1Allowed10.length ? overall.h1Allowed10 : data.h1Allowed,
+    h2Scored10: Array.isArray(overall.h2Scored10) && overall.h2Scored10.length ? overall.h2Scored10 : data.h2Scored,
+    h2Allowed10: Array.isArray(overall.h2Allowed10) && overall.h2Allowed10.length ? overall.h2Allowed10 : data.h2Allowed,
     q1Scored10: Array.isArray(overall.q1Scored10) && overall.q1Scored10.length ? overall.q1Scored10 : data.q1Scored,
     q1Allowed10: Array.isArray(overall.q1Allowed10) && overall.q1Allowed10.length ? overall.q1Allowed10 : data.q1Allowed,
 
@@ -7304,6 +7483,8 @@ function getMassacreTeamContext(side, parsed) {
     venueFTAllowed10: Array.isArray(venue.ftAllowed10) && venue.ftAllowed10.length ? venue.ftAllowed10 : data.venueFTAllowed,
     venueH1Scored10: Array.isArray(venue.h1Scored10) && venue.h1Scored10.length ? venue.h1Scored10 : data.venueH1Scored,
     venueH1Allowed10: Array.isArray(venue.h1Allowed10) && venue.h1Allowed10.length ? venue.h1Allowed10 : data.venueH1Allowed,
+    venueH2Scored10: Array.isArray(venue.h2Scored10) && venue.h2Scored10.length ? venue.h2Scored10 : data.venueH2Scored,
+    venueH2Allowed10: Array.isArray(venue.h2Allowed10) && venue.h2Allowed10.length ? venue.h2Allowed10 : data.venueH2Allowed,
     venueQ1Scored10: Array.isArray(venue.q1Scored10) && venue.q1Scored10.length ? venue.q1Scored10 : data.venueQ1Scored,
     venueQ1Allowed10: Array.isArray(venue.q1Allowed10) && venue.q1Allowed10.length ? venue.q1Allowed10 : data.venueQ1Allowed,
 
@@ -7311,12 +7492,16 @@ function getMassacreTeamContext(side, parsed) {
     ftAllowed5: data.ftAllowed,
     h1Scored5: data.h1Scored,
     h1Allowed5: data.h1Allowed,
+    h2Scored5: data.h2Scored,
+    h2Allowed5: data.h2Allowed,
     q1Scored5: data.q1Scored,
     q1Allowed5: data.q1Allowed,
     venueFTScored5: data.venueFTScored,
     venueFTAllowed5: data.venueFTAllowed,
     venueH1Scored5: data.venueH1Scored,
     venueH1Allowed5: data.venueH1Allowed,
+    venueH2Scored5: data.venueH2Scored,
+    venueH2Allowed5: data.venueH2Allowed,
     venueQ1Scored5: data.venueQ1Scored,
     venueQ1Allowed5: data.venueQ1Allowed,
     lastGameDate: ctx.lastGameDate || "",
@@ -7340,11 +7525,10 @@ function getMassacreH2HSeries(marketKey, fixtureMeta) {
       };
     }
     if (marketKey === "h2") {
-      const ftA = safeArr(document.getElementById("useFTH2H")?.checked ? parseGames("aFTH2H") : null) || [];
-      const ftB = safeArr(document.getElementById("useFTH2H")?.checked ? parseGames("bFTH2H") : null) || [];
-      const h1A = safeArr(document.getElementById("use1HH2H")?.checked ? parseGames("a1HH2H") : null) || [];
-      const h1B = safeArr(document.getElementById("use1HH2H")?.checked ? parseGames("b1HH2H") : null) || [];
-      return { A: deriveSecondHalfSeries(ftA, h1A), B: deriveSecondHalfSeries(ftB, h1B) };
+      return {
+        A: getExactFetchedSecondHalfH2HSeries("A", {}),
+        B: getExactFetchedSecondHalfH2HSeries("B", {})
+      };
     }
     if (marketKey === "q1") {
       return {
@@ -7402,18 +7586,18 @@ function getMassacreMarketWindowSet(marketKey, parsed, fixtureMeta) {
       venueBScored: B.venueH1Scored10, venueBAllowed: B.venueH1Allowed10
     },
     h2: {
-      overallA10Scored: deriveSecondHalfSeries(A.ftScored10, A.h1Scored10),
-      overallA10Allowed: deriveSecondHalfSeries(A.ftAllowed10, A.h1Allowed10),
-      overallB10Scored: deriveSecondHalfSeries(B.ftScored10, B.h1Scored10),
-      overallB10Allowed: deriveSecondHalfSeries(B.ftAllowed10, B.h1Allowed10),
-      overallA5Scored: deriveSecondHalfSeries(A.ftScored5, A.h1Scored5),
-      overallA5Allowed: deriveSecondHalfSeries(A.ftAllowed5, A.h1Allowed5),
-      overallB5Scored: deriveSecondHalfSeries(B.ftScored5, B.h1Scored5),
-      overallB5Allowed: deriveSecondHalfSeries(B.ftAllowed5, B.h1Allowed5),
-      venueAScored: deriveSecondHalfSeries(A.venueFTScored10, A.venueH1Scored10),
-      venueAAllowed: deriveSecondHalfSeries(A.venueFTAllowed10, A.venueH1Allowed10),
-      venueBScored: deriveSecondHalfSeries(B.venueFTScored10, B.venueH1Scored10),
-      venueBAllowed: deriveSecondHalfSeries(B.venueFTAllowed10, B.venueH1Allowed10)
+      overallA10Scored: A.h2Scored10,
+      overallA10Allowed: A.h2Allowed10,
+      overallB10Scored: B.h2Scored10,
+      overallB10Allowed: B.h2Allowed10,
+      overallA5Scored: A.h2Scored5,
+      overallA5Allowed: A.h2Allowed5,
+      overallB5Scored: B.h2Scored5,
+      overallB5Allowed: B.h2Allowed5,
+      venueAScored: A.venueH2Scored10,
+      venueAAllowed: A.venueH2Allowed10,
+      venueBScored: B.venueH2Scored10,
+      venueBAllowed: B.venueH2Allowed10
     },
     q1: {
       overallA10Scored: A.q1Scored10, overallA10Allowed: A.q1Allowed10,
