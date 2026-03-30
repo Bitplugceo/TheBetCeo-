@@ -1818,7 +1818,7 @@ Any suggestion made here without proof is an audit error.
 */
     const TRACKED_PICKS_LIMIT = 500;
 const TRACKER_ARCHIVED_LIMIT = 2000;
-const TRACKER_ARCHIVE_AFTER_HOURS = 36;
+const TRACKER_ARCHIVE_AFTER_HOURS = 10;
 const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tracker-state";
 const TRACKER_USER_KEY_STORAGE = "bb_engine_tracker_user_key";
 const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
@@ -2886,6 +2886,22 @@ function invalidateFetchedAudit() {
       el.className = type || "";
       el.innerHTML = html || "";
     }
+
+function buildCompactFetchStatus(messages = [], fetchAuditIssues = []) {
+  const clean = (messages || []).map(m => String(m || "").trim()).filter(Boolean);
+  const h2hOnly = clean.filter(m => /^H2H:/i.test(m));
+  let summary = h2hOnly.length ? h2hOnly[h2hOnly.length - 1] : (clean[clean.length - 1] || "");
+
+  if (!summary && fetchAuditIssues.length) {
+    summary = "Fetch audit: tap ⚠️ to review";
+  }
+
+  if (summary && fetchAuditIssues.length) {
+    summary += " • tap ⚠️";
+  }
+
+  return summary;
+}
 
     function unlockFetchBtn() {
   validateFetchSection();
@@ -3988,9 +4004,14 @@ function renderTrackedPicks() {
 
   if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl) return;
 
+  const archivedChanged = archiveExpiredTrackedPicks();
+  if (archivedChanged) {
+    scheduleTrackerSave();
+  }
+
   const activePicks = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   const archivedPicks = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
-    const allPicks = [...activePicks, ...archivedPicks];
+  const allPicks = [...activePicks, ...archivedPicks];
   rebuildTrackerStats();
   renderTrackerAnalytics();
   const stats = g_trackerState.stats || {
@@ -4029,9 +4050,17 @@ function renderTrackedPicks() {
   marketSummaryEl.innerHTML = chips.join("");
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
-    if (!allPicks.length) {
+  if (!allPicks.length) {
     emptyEl.style.display = "block";
     emptyEl.textContent = "No tracked picks saved yet.";
+    wrapEl.style.display = "none";
+    bodyEl.innerHTML = "";
+    return;
+  }
+
+  if (!activePicks.length) {
+    emptyEl.style.display = "block";
+    emptyEl.textContent = "No active tracked picks right now.";
     wrapEl.style.display = "none";
     bodyEl.innerHTML = "";
     return;
@@ -4040,10 +4069,7 @@ function renderTrackedPicks() {
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  const rows = [
-    ...activePicks.map(p => ({ ...p, _archived: false })),
-    ...archivedPicks.map(p => ({ ...p, _archived: true }))
-  ];
+  const rows = [...activePicks];
 
   bodyEl.innerHTML = rows.map(p => {
     const status = String(p.resultStatus || "pending").toLowerCase();
@@ -4058,7 +4084,7 @@ function renderTrackedPicks() {
         ? "—"
         : (p.edgePct > 0 ? "+" : "") + Number(p.edgePct).toFixed(2) + "%";
 
-    const statusLabel = status.toUpperCase() + (p._archived ? " • ARCHIVED" : "");
+    const statusLabel = status.toUpperCase();
 
     return `
       <tr>
@@ -7122,9 +7148,6 @@ const fetchAuditIssues = buildFetchAuditIssues({
 });
 
 setFetchAuditIssues(fetchAuditIssues);
-if (fetchAuditIssues.length) {
-  messages.push("Fetch audit: tap ⚠️ to review");
-}
 
 const allGood =
   Math.min(aStats?.scored?.length || 0, aStats?.allowed?.length || 0) >= 5 &&
@@ -7155,8 +7178,9 @@ const allGood =
           updateSectionLocks();
         }
 
+const compactFetchStatus = buildCompactFetchStatus(messages, fetchAuditIssues);
 setStatusHTML(
-  messages.map(m => `<div>${m}</div>`).join(""),
+  compactFetchStatus ? `<div>${compactFetchStatus}</div>` : "",
   allGood && !fetchAuditIssues.length ? "ok" : "err"
 );
      } catch (e) {
@@ -10000,7 +10024,13 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
 
       lockFrom("espnSection");
       openSection("leagueSection");
-            refreshTrackerInBackground(false);
+      refreshTrackerInBackground(false);
+
+      window.addEventListener("focus", () => refreshTrackerInBackground(true));
+      window.addEventListener("pageshow", () => refreshTrackerInBackground(true));
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) refreshTrackerInBackground(true);
+      });
 
            ["useFTH2H", "use1HH2H", "use2HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
