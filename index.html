@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v7" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v7" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v7" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -1457,7 +1457,8 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v6";
+    const APP_BUILD_VERSION = "tracker_cleanup_v7";
+const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const DEBUG = false;
 const CACHE_MAX = 120;
@@ -3641,6 +3642,59 @@ function normalizeTrackerState(raw) {
   return g_trackerState;
 }
 
+function isStandaloneDisplayMode() {
+  try {
+    return !!(window.navigator.standalone || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches));
+  } catch (err) {
+    return !!window.navigator.standalone;
+  }
+}
+
+function ensureFreshStandaloneBuild() {
+  try {
+    if (!isStandaloneDisplayMode()) return false;
+
+    const seenBuild = sessionStorage.getItem(STANDALONE_BUILD_MARKER) || "";
+    const url = new URL(window.location.href);
+    const hasBuild = url.searchParams.get("_build") === APP_BUILD_VERSION;
+
+    if (seenBuild === APP_BUILD_VERSION && hasBuild) return false;
+
+    sessionStorage.setItem(STANDALONE_BUILD_MARKER, APP_BUILD_VERSION);
+
+    if (!hasBuild) {
+      url.searchParams.set("_build", APP_BUILD_VERSION);
+      url.searchParams.set("_ts", String(Date.now()));
+      window.location.replace(url.toString());
+      return true;
+    }
+  } catch (err) {
+    console.error("[BB Engine] ensureFreshStandaloneBuild failed", err);
+  }
+
+  return false;
+}
+
+async function forceTrackerSaveNow() {
+  clearTrackerFollowupRefresh();
+
+  if (g_trackerSaveTimer) {
+    clearTimeout(g_trackerSaveTimer);
+    g_trackerSaveTimer = null;
+  }
+
+  g_trackerState.updatedAt = new Date().toISOString();
+  saveTrackerStateToLocal();
+  g_trackerSaveVersion = Math.max(g_trackerSaveVersion + 1, g_trackerPersistedVersion + 1);
+
+  try {
+    await flushTrackerSave();
+  } catch (err) {
+    console.error("[BB Engine] forceTrackerSaveNow failed", err);
+  }
+}
+
+
 function withTrackerCacheBust(url) {
   try {
     const u = new URL(url, window.location.href);
@@ -3755,12 +3809,12 @@ if (localState) {
         (Array.isArray(data.state?.archivedPicks) && data.state.archivedPicks.length > 0);
 
       if (hadLocalState && !serverHasState) {
-        scheduleTrackerSave();
+        await forceTrackerSaveNow();
         return g_trackerState;
       }
 
       if (localUpdatedAt > serverUpdatedAt) {
-        scheduleTrackerSave();
+        await forceTrackerSaveNow();
         return g_trackerState;
       }
 
@@ -3890,6 +3944,7 @@ function saveTrackedPicks(picks) {
 
   rebuildTrackerStats();
   scheduleTrackerSave();
+  Promise.resolve().then(() => forceTrackerSaveNow());
 }
 
 
@@ -9559,15 +9614,6 @@ applyTrackerFeedbackToPickRows(picks, phase2Activation);
         if (Math.abs(bStrength - aStrength) > 0.0005) return bStrength - aStrength;
         return Math.abs(b.edge || 0) - Math.abs(a.edge || 0);
       });
-
-      const keepIdx = activePeriodPicks[0]._idx;
-
-            activePeriodPicks.forEach(p => {
-        if (p._idx === keepIdx) return;
-        p.pick = "NO PLAY";
-        p.confidence = "—";
-        p.note = "Blocked: correlated with stronger same-game period pick";
-      });
     }
 
             picks.forEach(p => {
@@ -9898,6 +9944,8 @@ validateFetchSection();
     })();
 
     document.addEventListener("DOMContentLoaded", () => {
+      if (ensureFreshStandaloneBuild()) return;
+
       openSection("leagueSection");
 
       const themeToggleBtn = document.getElementById("themeToggleBtn");
