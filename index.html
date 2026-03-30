@@ -1457,7 +1457,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v5";
+    const APP_BUILD_VERSION = "tracker_cleanup_v6";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const DEBUG = false;
 const CACHE_MAX = 120;
@@ -2119,7 +2119,7 @@ function getTrackerUserKey() {
 }
 
 function getTrackerLocalStateKey() {
-  return TRACKER_LOCAL_STATE_PREFIX + getTrackerUserKey();
+  return TRACKER_LOCAL_STATE_PREFIX + APP_BUILD_VERSION + "_" + getTrackerUserKey();
 }
 
 function loadTrackerStateFromLocal() {
@@ -2491,6 +2491,7 @@ function rebuildTrackerDerivedState() {
   return g_trackerDerivedState;
 }
 let g_trackerHydratePromise = null;
+let g_trackerFollowupTimer = null;
 let g_trackerSaveTimer = null;
 let g_refreshTrackedPicksInFlight = false;
 let g_trackerRetryTimer = null;
@@ -3640,13 +3641,28 @@ function normalizeTrackerState(raw) {
   return g_trackerState;
 }
 
+function withTrackerCacheBust(url) {
+  try {
+    const u = new URL(url, window.location.href);
+    u.searchParams.set("_build", APP_BUILD_VERSION);
+    u.searchParams.set("_ts", String(Date.now()));
+    return u.toString();
+  } catch (err) {
+    const joiner = String(url).includes("?") ? "&" : "?";
+    return String(url) + joiner + "_build=" + encodeURIComponent(APP_BUILD_VERSION) + "&_ts=" + Date.now();
+  }
+}
+
 async function fetchTrackerJson(url, options = {}, timeoutMs = TRACKER_NETWORK_TIMEOUT_MS) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const method = String(options?.method || "GET").toUpperCase();
+  const finalUrl = method === "GET" ? withTrackerCacheBust(url) : url;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(finalUrl, {
       ...options,
+      cache: "no-store",
       signal: ctrl.signal
     });
 
@@ -3676,6 +3692,21 @@ function primeTrackerStateForRun() {
   }
 
   renderTrackedPicks();
+}
+
+function clearTrackerFollowupRefresh() {
+  if (g_trackerFollowupTimer) {
+    clearTimeout(g_trackerFollowupTimer);
+    g_trackerFollowupTimer = null;
+  }
+}
+
+function queueTrackerFollowupRefresh(delayMs = 1200) {
+  clearTrackerFollowupRefresh();
+  g_trackerFollowupTimer = setTimeout(() => {
+    g_trackerFollowupTimer = null;
+    refreshTrackerInBackground(true);
+  }, delayMs);
 }
 
 function refreshTrackerInBackground(forceHydrate = false) {
@@ -3988,13 +4019,16 @@ function openTrackerModal() {
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 
+  primeTrackerStateForRun();
   refreshTrackerInBackground(true);
+  queueTrackerFollowupRefresh(1200);
 }
 
 function closeTrackerModal() {
   const modal = document.getElementById("trackerModal");
   if (!modal) return;
 
+  clearTrackerFollowupRefresh();
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
   unlockPageBehindTracker();
