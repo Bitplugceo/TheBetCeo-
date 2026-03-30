@@ -1791,6 +1791,7 @@ const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
+const TRACKER_NETWORK_TIMEOUT_MS = 6000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
@@ -3579,6 +3580,51 @@ function normalizeTrackerState(raw) {
   return g_trackerState;
 }
 
+async function fetchTrackerJson(url, options = {}, timeoutMs = TRACKER_NETWORK_TIMEOUT_MS) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: ctrl.signal
+    });
+
+    const text = await res.text();
+    let data = null;
+
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (err) {
+      if (res.ok) throw new Error("Tracker returned invalid JSON");
+    }
+
+    return { res, data };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function primeTrackerStateForRun() {
+  const localState = loadTrackerStateFromLocal();
+
+  if (localState) {
+    normalizeTrackerState(localState);
+    backfillLineMemoryFromTrackedPicks();
+  } else {
+    rebuildTrackerDerivedState();
+  }
+
+  renderTrackedPicks();
+}
+
+function refreshTrackerInBackground(forceHydrate = false) {
+  Promise.resolve()
+    .then(() => hydrateTrackedPicks(forceHydrate))
+    .then(() => refreshTrackedPickResults())
+    .catch(err => console.error("[BB Engine] background tracker refresh failed", err));
+}
+
 async function hydrateTrackedPicks(force = false) {
   if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
@@ -3598,15 +3644,16 @@ if (localState) {
 }
 
     try {
-      const res = await fetch(TRACKER_API_URL, {
-        method: "GET",
-        cache: "no-store",
-        headers: getTrackerHeaders(false)
-      });
+      const { res, data } = await fetchTrackerJson(
+        TRACKER_API_URL,
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: getTrackerHeaders(false)
+        }
+      );
 
       if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
-
-      const data = await res.json();
       if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
 
             const localUpdatedAt = Date.parse(g_trackerState?.updatedAt || "") || 0;
@@ -3653,17 +3700,20 @@ saveTrackerStateToLocal();
 }
 
 async function pushTrackerStateToServer(stateSnapshot) {
-  const res = await fetch(TRACKER_API_URL, {
-    method: "POST",
-    headers: getTrackerHeaders(true),
-    body: JSON.stringify(stateSnapshot)
-  });
+  const { res, data } = await fetchTrackerJson(
+    TRACKER_API_URL,
+    {
+      method: "POST",
+      headers: getTrackerHeaders(true),
+      body: JSON.stringify(stateSnapshot)
+    }
+  );
 
   if (!res.ok) {
     throw new Error("Tracker POST failed (" + res.status + ")");
   }
 
-  return res.json();
+  return data;
 }
 
 function scheduleTrackerSave() {
@@ -3878,7 +3928,7 @@ function openTrackerModal() {
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 
-  hydrateTrackedPicks(true).then(() => refreshTrackedPickResults());
+  refreshTrackerInBackground(true);
 }
 
 function closeTrackerModal() {
@@ -4508,34 +4558,46 @@ function getTrackedLeagueBase(league) {
 
   try {
     const picks = loadTrackedPicks();
-      if (!picks.length) { renderTrackedPicks(); return; }
+    if (!picks.length) {
+      renderTrackedPicks();
+      return;
+    }
 
-      let changed = false;
-      const eventCache = new Map();
-      const pendingPicks = picks.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
+    let changed = false;
+    const pendingPicks = picks.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
 
-      for (const pick of pendingPicks) {
-        if (!pick || !pick.eventId) continue;
-        const base = getTrackedLeagueBase(pick.league);
-        if (!base) continue;
+    if (pendingPicks.length) {
+      const eventEntries = [...new Map(
+        pendingPicks
+          .map(p => {
+            const base = getTrackedLeagueBase(p.league);
+            if (!base) return null;
+            const cacheKey = `${p.league}:${p.eventId}`;
+            return [cacheKey, { cacheKey, base, eventId: p.eventId }];
+          })
+          .filter(Boolean)
+      ).values()];
 
-        const cacheKey = `${pick.league}:${pick.eventId}`;
-        let dataPromise = eventCache.get(cacheKey);
-        if (!dataPromise) {
-          dataPromise = proxyFetch(`${base}/summary?event=${pick.eventId}`).catch(() => null);
-          eventCache.set(cacheKey, dataPromise);
-        }
+      const eventResults = await Promise.all(
+        eventEntries.map(async entry => {
+          const data = await proxyFetch(`${entry.base}/summary?event=${entry.eventId}`).catch(() => null);
+          return [entry.cacheKey, data];
+        })
+      );
 
-        const data = await dataPromise;
+      const eventMap = new Map(eventResults);
+
+      pendingPicks.forEach(pick => {
+        const data = eventMap.get(`${pick.league}:${pick.eventId}`);
         const competition = data?.header?.competitions?.[0];
-        if (!competition) continue;
+        if (!competition) return;
 
         const isFinal =
           competition?.status?.type?.completed ||
           competition?.status?.type?.state === "post" ||
           competition?.status?.type?.name === "STATUS_FINAL";
 
-        if (!isFinal) continue;
+        if (!isFinal) return;
 
         const settled = settleTrackedPickFromCompetition(pick, competition);
         if (settled !== "pending" && pick.resultStatus !== settled) {
@@ -4543,15 +4605,16 @@ function getTrackedLeagueBase(league) {
           pick.settledAt = new Date().toISOString();
           changed = true;
         }
-      }
+      });
+    }
 
-                  const archivedChanged = archiveExpiredTrackedPicks();
+    const archivedChanged = archiveExpiredTrackedPicks();
 
-      if (changed || archivedChanged) {
-        saveTrackedPicks(g_trackerState.activePicks);
-      }
+    if (changed || archivedChanged) {
+      saveTrackedPicks(g_trackerState.activePicks);
+    }
 
-            renderTrackedPicks();
+    renderTrackedPicks();
   } finally {
     g_refreshTrackedPicksInFlight = false;
   }
@@ -8318,8 +8381,8 @@ async function runEngine() {
   if (runBtn) runBtn.disabled = true;
 
   try {
-    await hydrateTrackedPicks();
-    await refreshTrackedPickResults();
+    primeTrackerStateForRun();
+    refreshTrackerInBackground(false);
     if (!table) return;
 
     table.style.display = "table";
@@ -9180,7 +9243,7 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
 
       lockFrom("espnSection");
       openSection("leagueSection");
-            hydrateTrackedPicks().then(() => refreshTrackedPickResults());
+            refreshTrackerInBackground(false);
 
            ["useFTH2H", "use1HH2H", "use2HH2H", "useQ1H2H"].forEach(id => {
         const el = document.getElementById(id);
