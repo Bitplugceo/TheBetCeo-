@@ -880,6 +880,10 @@ input,
 #trackedPicksTable {
   margin-top: 0;
 }
+
+#intelSection {
+  display: none !important;
+}
   </style>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -1453,7 +1457,8 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+    const APP_BUILD_VERSION = "tracker_cleanup_v5";
+const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const DEBUG = false;
 const CACHE_MAX = 120;
 const FLASHSCORE_IMPORT_URL = "";
@@ -4037,14 +4042,13 @@ function renderTrackedPicks() {
   const marketKeys = ["ft", "h1", "h2", "q1", "team_a", "team_b"];
 
   const chips = marketKeys.map(key => {
-    const group = allPicks.filter(p => p.marketKey === key);
+    const group = activePicks.filter(p => p.marketKey === key);
     if (!group.length) return "";
 
-    const w = group.filter(p => p.resultStatus === "win").length;
-    const l = group.filter(p => p.resultStatus === "loss").length;
-    const ps = group.filter(p => p.resultStatus === "push").length;
+    const pending = group.filter(p => String(p.resultStatus || "pending").toLowerCase() === "pending").length;
+    if (!pending) return "";
 
-    return `<div class="tracker-market-chip">${marketLabels[key]} ${w}-${l}-${ps}</div>`;
+    return `<div class="tracker-market-chip">${marketLabels[key]} ${pending}</div>`;
   }).filter(Boolean);
 
   marketSummaryEl.innerHTML = chips.join("");
@@ -4053,6 +4057,8 @@ function renderTrackedPicks() {
   if (!allPicks.length) {
     emptyEl.style.display = "block";
     emptyEl.textContent = "No tracked picks saved yet.";
+    marketSummaryEl.style.display = "none";
+    marketSummaryEl.innerHTML = "";
     wrapEl.style.display = "none";
     bodyEl.innerHTML = "";
     return;
@@ -4061,6 +4067,8 @@ function renderTrackedPicks() {
   if (!activePicks.length) {
     emptyEl.style.display = "block";
     emptyEl.textContent = "No active tracked picks right now.";
+    marketSummaryEl.style.display = "none";
+    marketSummaryEl.innerHTML = "";
     wrapEl.style.display = "none";
     bodyEl.innerHTML = "";
     return;
@@ -4103,88 +4111,8 @@ function renderTrackedPicks() {
 function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
-
-    const total = Number(g_trackerState?.stats?.total || 0);
-
-  if (!total) {
-    panel.style.display = "none";
-    panel.innerHTML = "";
-    return;
-  }
-
-  const activation = getPhase2ActivationState();
-  const derived = g_trackerDerivedState || defaultTrackerDerivedState();
-  const settled = Number(derived?.settledPicks || 0);
-
-  const marketSideSignals = Array.isArray(derived?.signalBoards?.marketSides)
-    ? derived.signalBoards.marketSides.length
-    : 0;
-
-  const profileSignals = Array.isArray(derived?.signalBoards?.profiles)
-    ? derived.signalBoards.profiles.length
-    : 0;
-
-  const teamSignals = Array.isArray(derived?.signalBoards?.teams)
-    ? derived.signalBoards.teams.length
-    : 0;
-
-  const matchupSignals = Array.isArray(derived?.signalBoards?.matchups)
-    ? derived.signalBoards.matchups.length
-    : 0;
-
-  const modeText = String(activation.phase2Mode || "auto").toUpperCase();
-
-  const trackerText = activation.phase2Mode === "frozen"
-    ? "FROZEN"
-    : activation.trackerFeedbackLive
-      ? "LIVE"
-      : activation.phase2Mode === "shadow"
-        ? "SHADOW"
-        : "BUILDING";
-
-  const teamText = activation.phase2Mode === "frozen"
-    ? "FROZEN"
-    : activation.teamMemoryLive
-      ? "LIVE"
-      : activation.phase2Mode === "shadow"
-        ? "SHADOW"
-        : "BUILDING";
-
-  let summaryText = "Phase 2 is collecting data.";
-  if (activation.phase2Mode === "frozen") {
-    summaryText = `Tracker learning is frozen. Only model version "${getCurrentModelVersion()}" will be allowed to learn after you switch learning on.`;
-  } else if (activation.phase2Mode === "shadow") {
-    summaryText = "Phase 2 is in shadow mode. Signals are tracked, but picks are not being changed live.";
-  } else if (activation.trackerFeedbackLive && activation.teamMemoryLive) {
-    summaryText = "Phase 2 is fully live.";
-  } else if (activation.trackerFeedbackLive) {
-    summaryText = "Tracker feedback is live. Team memory is still building.";
-  } else if (activation.teamMemoryLive) {
-    summaryText = "Team memory is live. Tracker feedback is still building.";
-  } else {
-    summaryText = "Phase 2 is waiting for more settled picks and stronger signal coverage.";
-  }
-
-  panel.style.display = "block";
-  panel.innerHTML = `
-    <div class="tracker-analytics-title">Phase 2 Status</div>
-
-    <div class="tracker-chip-row">
-      <div class="tracker-market-chip">Mode ${safeText(modeText)}</div>
-      <div class="tracker-market-chip">Learning Settled ${settled}</div>
-      <div class="tracker-market-chip">Tracker ${safeText(trackerText)}</div>
-      <div class="tracker-market-chip">Team Memory ${safeText(teamText)}</div>
-    </div>
-
-    <div class="tracker-chip-row">
-      <div class="tracker-market-chip">Market-side ${marketSideSignals}</div>
-      <div class="tracker-market-chip">Profiles ${profileSignals}</div>
-      <div class="tracker-market-chip">Teams ${teamSignals}</div>
-      <div class="tracker-market-chip">Matchups ${matchupSignals}</div>
-    </div>
-
-    <div class="tracker-recommendation">${safeText(summaryText)}</div>
-  `;
+  panel.style.display = "none";
+  panel.innerHTML = "";
 }
 function clampNumber(val, min, max) {
   return Math.max(min, Math.min(max, val));
