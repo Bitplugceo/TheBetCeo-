@@ -1479,29 +1479,29 @@ const MODEL_TUNING = {
 
 const MASSACRE_TUNING = {
   modelCountFloor: 3,
-  monteCarloRuns: { nba: 12000, ncaa: 16000, other: 9000 },
+  monteCarloRuns: { nba: 6500, ncaa: 9000, other: 5000 },
   maxModelRange: { ft: 22, h1: 13, h2: 13, q1: 8, team: 12 },
   thresholds: {
     nba: {
-      ft:   { sim: 59, brutality: 64, agreement: 3, convergence: 2 },
-      h1:   { sim: 58, brutality: 61, agreement: 3, convergence: 2 },
-      h2:   { sim: 58, brutality: 61, agreement: 3, convergence: 2 },
-      q1:   { sim: 57, brutality: 58, agreement: 2, convergence: 1 },
-      team: { sim: 57, brutality: 58, agreement: 2, convergence: 1 }
+      ft:   { sim: 57, brutality: 60, agreement: 2, convergence: 0 },
+      h1:   { sim: 56, brutality: 57, agreement: 2, convergence: 0 },
+      h2:   { sim: 56, brutality: 57, agreement: 2, convergence: 0 },
+      q1:   { sim: 55, brutality: 55, agreement: 1, convergence: -1 },
+      team: { sim: 55, brutality: 55, agreement: 1, convergence: -1 }
     },
     ncaa: {
-      ft:   { sim: 61, brutality: 66, agreement: 3, convergence: 2 },
-      h1:   { sim: 60, brutality: 63, agreement: 3, convergence: 2 },
-      h2:   { sim: 60, brutality: 63, agreement: 3, convergence: 2 },
-      q1:   { sim: 59, brutality: 60, agreement: 2, convergence: 1 },
-      team: { sim: 58, brutality: 60, agreement: 2, convergence: 1 }
+      ft:   { sim: 59, brutality: 62, agreement: 2, convergence: 0 },
+      h1:   { sim: 58, brutality: 59, agreement: 2, convergence: 0 },
+      h2:   { sim: 58, brutality: 59, agreement: 2, convergence: 0 },
+      q1:   { sim: 56, brutality: 56, agreement: 1, convergence: -1 },
+      team: { sim: 56, brutality: 56, agreement: 1, convergence: -1 }
     },
     other: {
-      ft:   { sim: 58, brutality: 60, agreement: 3, convergence: 2 },
-      h1:   { sim: 57, brutality: 57, agreement: 2, convergence: 1 },
-      h2:   { sim: 57, brutality: 57, agreement: 2, convergence: 1 },
-      q1:   { sim: 56, brutality: 55, agreement: 2, convergence: 1 },
-      team: { sim: 56, brutality: 55, agreement: 2, convergence: 1 }
+      ft:   { sim: 57, brutality: 58, agreement: 2, convergence: 0 },
+      h1:   { sim: 56, brutality: 55, agreement: 1, convergence: -1 },
+      h2:   { sim: 56, brutality: 55, agreement: 1, convergence: -1 },
+      q1:   { sim: 55, brutality: 53, agreement: 1, convergence: -1 },
+      team: { sim: 55, brutality: 53, agreement: 1, convergence: -1 }
     }
   }
 };
@@ -4421,9 +4421,10 @@ function getAllSettledTrackedPicks() {
 }
 
 function getPickSideFromText(text) {
-  const raw = String(text || "");
-  if (raw.startsWith("OVER")) return "over";
-  if (raw.startsWith("UNDER")) return "under";
+  const raw = String(text || "").trim().toUpperCase();
+  const normalized = raw.startsWith("LEAN ") ? raw.slice(5).trim() : raw;
+  if (normalized.startsWith("OVER")) return "over";
+  if (normalized.startsWith("UNDER")) return "under";
   return "";
 }
 
@@ -7410,9 +7411,14 @@ function blendProjection(baseProj, venueProj, bucket) {
   return baseProj * w.model + venueProj * w.venue;
 }
 
-function getPredictionClass(pick) {
+function getDisplayedPredictionText(pick, recommendationTier = "") {
+  if (!pick || pick === "NO PLAY") return "NO PLAY";
+  return recommendationTier === "lean" ? `LEAN ${pick}` : pick;
+}
+
+function getPredictionClass(pick, recommendationTier = "") {
   if (!pick || pick === "NO PLAY") return "pred-noplay";
-  return pick.startsWith("OVER") ? "pred-over" : "pred-under";
+  return getPickSideFromText(pick) === "under" ? "pred-under" : "pred-over";
 }
 
 function getConfidenceClass(conf) {
@@ -8629,6 +8635,137 @@ function evaluateMassacreForPick(pickRow, league, parsed, fixtureMeta) {
   };
 }
 
+function getMassacreProfile(diag, pickRow, league) {
+  const marketKey = diag?.marketKey || getMarketKeyFromName(pickRow?.name);
+  const thresholds = getMassacreThresholdBucket(league, marketKey);
+  const rangeLimit = getMassacreModelRangeLimit(marketKey);
+  const edgePct = isFinite(Number(pickRow?.edge)) && isFinite(Number(pickRow?.line)) && Number(pickRow.line) > 0
+    ? Math.abs((Number(pickRow.edge) / Number(pickRow.line)) * 100)
+    : 0;
+
+  const simGap = Math.max(0, Number(thresholds.sim || 0) - Number(diag?.simPct || 0));
+  const brutalityGap = Math.max(0, Number(thresholds.brutality || 0) - Number(diag?.brutalityScore || 0));
+  const agreementGap = Math.max(0, Number(thresholds.agreement || 0) - Number(diag?.agreement || 0));
+  const convergenceGap = Math.max(0, Number(thresholds.convergence || 0) - Number(diag?.alignedConvergence || 0));
+  const rangeGap = Math.max(0, Number(diag?.modelRange || 0) - Number(rangeLimit || 0));
+
+  const reasons = { severe: [], moderate: [], mild: [] };
+
+  if ((diag?.modelCount || 0) < 2) reasons.severe.push("thin model stack");
+  else if ((diag?.modelCount || 0) < MASSACRE_TUNING.modelCountFloor) reasons.moderate.push("thin model stack");
+
+  if (simGap > 5.5) reasons.severe.push(`sim ${Number(diag?.simPct || 0).toFixed(1)}%`);
+  else if (simGap > 2.5) reasons.moderate.push(`sim ${Number(diag?.simPct || 0).toFixed(1)}%`);
+  else if (simGap > 0) reasons.mild.push(`sim ${Number(diag?.simPct || 0).toFixed(1)}%`);
+
+  if (brutalityGap > 14) reasons.severe.push(`score ${Number(diag?.brutalityScore || 0).toFixed(0)}`);
+  else if (brutalityGap > 7) reasons.moderate.push(`score ${Number(diag?.brutalityScore || 0).toFixed(0)}`);
+  else if (brutalityGap > 0) reasons.mild.push(`score ${Number(diag?.brutalityScore || 0).toFixed(0)}`);
+
+  if (agreementGap > 1) reasons.moderate.push(`agreement ${Number(diag?.agreement || 0)}/${Number(diag?.modelCount || 0)}`);
+  else if (agreementGap > 0) reasons.mild.push(`agreement ${Number(diag?.agreement || 0)}/${Number(diag?.modelCount || 0)}`);
+
+  if (convergenceGap > 4.5) reasons.severe.push(`convergence ${Number(diag?.alignedConvergence || 0)}`);
+  else if (convergenceGap > 2) reasons.moderate.push(`convergence ${Number(diag?.alignedConvergence || 0)}`);
+  else if (convergenceGap > 0) reasons.mild.push(`convergence ${Number(diag?.alignedConvergence || 0)}`);
+
+  if (rangeGap > 6) reasons.severe.push(`range ${Number(diag?.modelRange || 0).toFixed(1)}`);
+  else if (rangeGap > 2.5) reasons.moderate.push(`range ${Number(diag?.modelRange || 0).toFixed(1)}`);
+  else if (rangeGap > 0) reasons.mild.push(`range ${Number(diag?.modelRange || 0).toFixed(1)}`);
+
+  const strongEdge = edgePct >= 6;
+  const premiumEdge = edgePct >= 8;
+  const extremeConflict =
+    Number(diag?.agreement || 0) === 0 &&
+    Number(diag?.disagreement || 0) >= 2 &&
+    Number(diag?.alignedConvergence || 0) <= (Number(thresholds.convergence || 0) - 3);
+
+  const hardBlock =
+    (diag?.modelCount || 0) < 2 ||
+    extremeConflict ||
+    (simGap > 6 && brutalityGap > 10) ||
+    (rangeGap > 7 && agreementGap > 0 && edgePct < 7.5) ||
+    (reasons.severe.length >= 2 && !premiumEdge);
+
+  const leanOnly = !hardBlock && (
+    reasons.severe.length >= 1 ||
+    reasons.moderate.length >= 2 ||
+    (reasons.moderate.length >= 1 && !strongEdge) ||
+    (reasons.mild.length >= 2 && edgePct < 6.75)
+  );
+
+  const cautionOnly = !hardBlock && !leanOnly && (reasons.moderate.length > 0 || reasons.mild.length > 0);
+  const cautionReasons = [...reasons.moderate, ...reasons.mild].slice(0, 3);
+  const rescueEligible = !extremeConflict && edgePct >= 5 && simGap <= 3 && brutalityGap <= 10 && (diag?.modelCount || 0) >= 2;
+  const rescueScore =
+    edgePct * 5 +
+    Math.max(0, Number(diag?.simPct || 0) - 50) +
+    Math.max(0, Number(diag?.brutalityScore || 0) - 45) -
+    rangeGap * 2 -
+    Math.max(0, convergenceGap - 1) * 2;
+
+  return {
+    marketKey,
+    thresholds,
+    edgePct,
+    simGap,
+    brutalityGap,
+    agreementGap,
+    convergenceGap,
+    rangeGap,
+    reasons,
+    hardBlock,
+    leanOnly,
+    cautionOnly,
+    cautionReasons,
+    rescueEligible,
+    rescueScore,
+    strongEdge,
+    premiumEdge
+  };
+}
+
+function rescueBestMassacreLean(picks) {
+  if (!Array.isArray(picks) || !picks.length) return;
+
+  const hasPlayOrLean = picks.some(p =>
+    p &&
+    typeof p.pick === "string" &&
+    p.pick !== "NO PLAY" &&
+    (!p.note || p.recommendationTier === "lean")
+  );
+
+  if (hasPlayOrLean) return;
+
+  const candidate = [...picks]
+    .filter(p =>
+      p &&
+      p.massacreProfile?.rescueEligible &&
+      p.massacreOriginalPick &&
+      p.massacreDecision === "blocked"
+    )
+    .sort((a, b) => {
+      const aScore = Number(a.massacreProfile?.rescueScore || 0);
+      const bScore = Number(b.massacreProfile?.rescueScore || 0);
+      if (Math.abs(bScore - aScore) > 0.001) return bScore - aScore;
+      return Math.abs((Number(b.edge || 0) / Math.max(1, Number(b.line || 1))) * 100) -
+        Math.abs((Number(a.edge || 0) / Math.max(1, Number(a.line || 1))) * 100);
+    })[0];
+
+  if (!candidate) return;
+
+  const reasons = [
+    ...((candidate.massacreProfile?.cautionReasons || []).slice(0, 2)),
+    ...((candidate.massacreProfile?.reasons?.severe || []).slice(0, 1))
+  ].filter(Boolean);
+
+  candidate.pick = candidate.massacreOriginalPick;
+  candidate.recommendationTier = "lean";
+  candidate.confidence = "—";
+  candidate.note = "Best on slate lean: " + (reasons.length ? reasons.join(" • ") : "gate softened");
+  candidate.massacreDecision = "lean_rescue";
+}
+
 function applyMassacreFrameworkToPicks(picks, league, parsed, fixtureMeta) {
   if (!Array.isArray(picks)) return;
 
@@ -8638,23 +8775,45 @@ function applyMassacreFrameworkToPicks(picks, league, parsed, fixtureMeta) {
     const side = getPickSideFromText(p.pick);
     if (!side) return;
 
+    const originalPick = p.pick;
     const diag = evaluateMassacreForPick(p, league, parsed, fixtureMeta);
-    p.massacre = diag;
-    p.lockStrength = diag.lockStrength;
+    const profile = getMassacreProfile(diag, p, league);
 
-    if (diag.failedReasons.length) {
+    p.massacre = diag;
+    p.massacreProfile = profile;
+    p.massacreOriginalPick = originalPick;
+    p.lockStrength = diag.lockStrength;
+    p.recommendationTier = p.recommendationTier || "play";
+
+    if (profile.hardBlock) {
       p.pick = "NO PLAY";
       p.confidence = "—";
-      p.note = "Massacre gate: " + diag.failedReasons.slice(0, 3).join(" • ");
+      p.note = "Massacre gate: " + [...profile.reasons.severe, ...profile.cautionReasons].slice(0, 3).join(" • ");
+      p.massacreDecision = "blocked";
       return;
     }
 
-    if (diag.brutalityScore >= 78 && diag.simPct >= 64 && diag.agreement >= 4) {
+    if (profile.leanOnly) {
+      p.pick = originalPick;
+      p.recommendationTier = "lean";
+      p.confidence = "—";
+      p.note = "Lean only: " + [...profile.reasons.severe, ...profile.cautionReasons].slice(0, 3).join(" • ");
+      p.massacreDecision = "lean";
+      return;
+    }
+
+    p.massacreDecision = profile.cautionOnly ? "caution" : "pass";
+
+    if (diag.brutalityScore >= 78 && diag.simPct >= (profile.thresholds.sim + 4) && diag.agreement >= Math.max(2, profile.thresholds.agreement)) {
       p.confidence = bumpConfidenceGrade(p.confidence, 1);
-    } else if (diag.brutalityScore < 68 || diag.simPct < 61) {
+    } else if (profile.cautionOnly) {
+      p.confidence = bumpConfidenceGrade(p.confidence, -1);
+    } else if (diag.brutalityScore < (profile.thresholds.brutality - 4) || diag.simPct < (profile.thresholds.sim - 2)) {
       p.confidence = bumpConfidenceGrade(p.confidence, -1);
     }
   });
+
+  rescueBestMassacreLean(picks);
 }
 
 
@@ -8670,7 +8829,8 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
 }
 
   const marketKey = getMarketKeyFromName(pickRow.name);
-  const side = pickRow.pick.startsWith("OVER") ? "over" : "under";
+  const side = getPickSideFromText(pickRow.pick);
+  if (!side) return null;
   const grade = String(pickRow.confidence || "—").toUpperCase();
   const isABQualified = grade === "A" || grade === "B";
 
@@ -8937,6 +9097,7 @@ function buildResultRows({
   finalPicks.forEach(p => {
     const isLock = p._idx === lockIdx && p.pick !== "NO PLAY" && !p.note;
     const confText = p.pick === "NO PLAY" || p.note ? "—" : (p.confidence || "—");
+    const displayPrediction = getDisplayedPredictionText(p.pick, p.recommendationTier || "");
 
     const row = table.insertRow();
     row.innerHTML = `
@@ -8944,8 +9105,8 @@ function buildResultRows({
 <td>${isFinite(p.proj) ? safeText(displayLine(p.proj)) : "—"}</td>
 <td>${isFinite(p.edge) && isFinite(p.line) ? safeText(formatEdge(p.edge, p.line)) : "—"}</td>
 <td class="${getConfidenceClass(confText)}">${safeText(confText)}</td>
-<td class="${getPredictionClass(p.pick)}">
-  ${safeText(p.pick || "NO PLAY")}${isLock ? ' <span class="lock">🔒</span>' : ""}
+<td class="${getPredictionClass(p.pick, p.recommendationTier || "")}">
+  ${safeText(displayPrediction)}${isLock ? ' <span class="lock">🔒</span>' : ""}
   ${p.note ? `<small class="error-note">${safeText(p.note)}</small>` : ""}
 </td>
     `;
