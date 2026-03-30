@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v8" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v8" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v8" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v9" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v9" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v9" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -1457,12 +1457,13 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v8";
+    const APP_BUILD_VERSION = "tracker_cleanup_v9";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
+const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
 const DEBUG = false;
 const CACHE_MAX = 120;
-const FLASHSCORE_IMPORT_URL = "";
+const FLASHSCORE_IMPORT_URL = WORKER_BASE_URL + "/flashscore-import";
 
     const MODEL = {
       TEAM_WEIGHT: 0.60,
@@ -1825,7 +1826,7 @@ Any suggestion made here without proof is an audit error.
     const TRACKED_PICKS_LIMIT = 500;
 const TRACKER_ARCHIVED_LIMIT = 2000;
 const TRACKER_ARCHIVE_AFTER_HOURS = 10;
-const TRACKER_API_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/tracker-state";
+const TRACKER_API_URL = WORKER_BASE_URL + "/tracker-state";
 const TRACKER_USER_KEY_STORAGE = "bb_engine_tracker_user_key";
 const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
@@ -1835,7 +1836,7 @@ const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
-const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
+const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
 
 const ENGINE_LINE_MEMORY_STORAGE = "bb_engine_line_memory_v1";
 let g_engineLineMemory = loadEngineLineMemory();
@@ -3797,6 +3798,30 @@ async function forceTrackerSaveNow() {
     await flushTrackerSave();
   } catch (err) {
     console.error("[BB Engine] forceTrackerSaveNow failed", err);
+  }
+}
+
+function queueTrackerKeepaliveSave() {
+  try {
+    syncLineMemoryIntoTrackerState();
+    g_trackerState.updatedAt = new Date().toISOString();
+    saveTrackerStateToLocal();
+
+    if (isTrackerStateMeaningfullyEmpty(g_trackerState)) return;
+
+    const payload = JSON.stringify(g_trackerState);
+
+    fetch(TRACKER_API_URL, {
+      method: "POST",
+      headers: getTrackerHeaders(true),
+      body: payload,
+      keepalive: true,
+      cache: "no-store"
+    }).catch(err => {
+      console.error("[BB Engine] tracker keepalive save failed", err);
+    });
+  } catch (err) {
+    console.error("[BB Engine] queueTrackerKeepaliveSave failed", err);
   }
 }
 
@@ -10160,8 +10185,16 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
 
       window.addEventListener("focus", () => refreshTrackerInBackground(true));
       window.addEventListener("pageshow", () => refreshTrackerInBackground(true));
+      window.addEventListener("online", () => refreshTrackerInBackground(true));
+      window.addEventListener("pagehide", () => queueTrackerKeepaliveSave());
+      window.addEventListener("beforeunload", () => queueTrackerKeepaliveSave());
       document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) refreshTrackerInBackground(true);
+        if (document.hidden) {
+          queueTrackerKeepaliveSave();
+          return;
+        }
+
+        refreshTrackerInBackground(true);
       });
 
            ["useFTH2H", "use1HH2H", "use2HH2H", "useQ1H2H"].forEach(id => {
