@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v7" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v7" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v7" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v8" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v8" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v8" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -1457,7 +1457,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v7";
+    const APP_BUILD_VERSION = "tracker_cleanup_v8";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const DEBUG = false;
@@ -1831,10 +1831,11 @@ const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
-const TRACKER_NETWORK_TIMEOUT_MS = 6000;
+const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
+const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
 
 const ENGINE_LINE_MEMORY_STORAGE = "bb_engine_line_memory_v1";
 let g_engineLineMemory = loadEngineLineMemory();
@@ -1850,12 +1851,19 @@ function loadEngineLineMemory() {
   }
 }
 
+function syncLineMemoryIntoTrackerState() {
+  if (!g_trackerState || typeof g_trackerState !== "object") return;
+  g_trackerState.lineMemory = JSON.parse(JSON.stringify(g_engineLineMemory || {}));
+}
+
 function saveEngineLineMemory() {
   try {
     localStorage.setItem(ENGINE_LINE_MEMORY_STORAGE, JSON.stringify(g_engineLineMemory));
   } catch (err) {
     console.error("[BB Engine] saveEngineLineMemory failed", err);
   }
+
+  syncLineMemoryIntoTrackerState();
 }
 
 function makeEngineLineMemoryKey(eventId, league, marketKey, side = "") {
@@ -2001,6 +2009,58 @@ function upsertEngineLineMemory({
   return existing;
 }
 
+function mergeLineMemoryFromSource(source = {}) {
+  if (!source || typeof source !== "object") return false;
+
+  let dirty = false;
+
+  Object.entries(source).forEach(([key, entry]) => {
+    if (!entry || typeof entry !== "object") return;
+
+    const cleanSide = String(entry.side || "").toLowerCase();
+    const cleanLine = Number(entry.line);
+    const eventId = String(entry.eventId || "").trim();
+    const marketKey = String(entry.marketKey || "").trim();
+
+    if (!eventId || !marketKey || !["over", "under"].includes(cleanSide) || !isFinite(cleanLine) || cleanLine <= 0) {
+      return;
+    }
+
+    const existing = g_engineLineMemory[key];
+
+    if (!existing) {
+      g_engineLineMemory[key] = {
+        eventId,
+        eventDate: entry.eventDate || "",
+        league: entry.league || "",
+        marketKey,
+        side: cleanSide,
+        line: cleanLine,
+        homeTeam: entry.homeTeam || "",
+        awayTeam: entry.awayTeam || "",
+        createdAt: entry.createdAt || new Date().toISOString(),
+        updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString()
+      };
+      dirty = true;
+      return;
+    }
+
+    if (String(existing.side || "").toLowerCase() !== cleanSide) return;
+
+    if (isBetterLineForSide(cleanSide, cleanLine, existing.line)) {
+      existing.line = cleanLine;
+      existing.eventDate = entry.eventDate || existing.eventDate || "";
+      existing.homeTeam = entry.homeTeam || existing.homeTeam || "";
+      existing.awayTeam = entry.awayTeam || existing.awayTeam || "";
+      existing.updatedAt = entry.updatedAt || new Date().toISOString();
+      dirty = true;
+    }
+  });
+
+  if (dirty) saveEngineLineMemory();
+  return dirty;
+}
+
 function backfillLineMemoryFromTrackedPicks() {
   const active = Array.isArray(g_trackerState?.activePicks) ? g_trackerState.activePicks : [];
   const archived = Array.isArray(g_trackerState?.archivedPicks) ? g_trackerState.archivedPicks : [];
@@ -2119,14 +2179,42 @@ function getTrackerUserKey() {
   }
 }
 
+function getTrackerLocalStateStableKey() {
+  return TRACKER_LOCAL_STATE_PREFIX + getTrackerUserKey();
+}
+
+function getTrackerLocalStateBuildKey(buildKey = APP_BUILD_VERSION) {
+  return TRACKER_LOCAL_STATE_PREFIX + String(buildKey || "") + "_" + getTrackerUserKey();
+}
+
 function getTrackerLocalStateKey() {
-  return TRACKER_LOCAL_STATE_PREFIX + APP_BUILD_VERSION + "_" + getTrackerUserKey();
+  return getTrackerLocalStateStableKey();
+}
+
+function getTrackerLocalStateCandidateKeys() {
+  const keys = [
+    getTrackerLocalStateStableKey(),
+    getTrackerLocalStateBuildKey(APP_BUILD_VERSION)
+  ];
+
+  TRACKER_LEGACY_BUILD_KEYS.forEach(buildKey => {
+    keys.push(getTrackerLocalStateBuildKey(buildKey));
+  });
+
+  return [...new Set(keys.filter(Boolean))];
 }
 
 function loadTrackerStateFromLocal() {
   try {
-    const raw = localStorage.getItem(getTrackerLocalStateKey());
-    return raw ? JSON.parse(raw) : null;
+    for (const key of getTrackerLocalStateCandidateKeys()) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+
+    return null;
   } catch (err) {
     console.error("[BB Engine] loadTrackerStateFromLocal failed", err);
     return null;
@@ -2135,7 +2223,16 @@ function loadTrackerStateFromLocal() {
 
 function saveTrackerStateToLocal() {
   try {
-    localStorage.setItem(getTrackerLocalStateKey(), JSON.stringify(g_trackerState));
+    syncLineMemoryIntoTrackerState();
+    const payload = JSON.stringify(g_trackerState);
+
+    getTrackerLocalStateCandidateKeys().forEach(key => {
+      try {
+        localStorage.setItem(key, payload);
+      } catch (err) {
+        console.error("[BB Engine] saveTrackerStateToLocal failed for key", key, err);
+      }
+    });
   } catch (err) {
     console.error("[BB Engine] saveTrackerStateToLocal failed", err);
   }
@@ -2162,7 +2259,8 @@ let g_trackerState = {
     losses: 0,
     pushes: 0
   },
-  updatedAt: null
+  updatedAt: null,
+  lineMemory: {}
 };
 function defaultTrackerDerivedState() {
   return {
@@ -3621,6 +3719,10 @@ function rebuildTrackerStats() {
 }
 
 function normalizeTrackerState(raw) {
+  const remoteLineMemory = raw?.lineMemory && typeof raw.lineMemory === "object"
+    ? raw.lineMemory
+    : {};
+
   g_trackerState = {
     activePicks: Array.isArray(raw?.activePicks)
       ? raw.activePicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKED_PICKS_LIMIT)
@@ -3635,9 +3737,12 @@ function normalizeTrackerState(raw) {
       losses: Number(raw?.stats?.losses) || 0,
       pushes: Number(raw?.stats?.pushes) || 0
     },
-    updatedAt: raw?.updatedAt || null
+    updatedAt: raw?.updatedAt || null,
+    lineMemory: remoteLineMemory
   };
 
+  mergeLineMemoryFromSource(remoteLineMemory);
+  syncLineMemoryIntoTrackerState();
   rebuildTrackerStats();
   return g_trackerState;
 }
@@ -3677,6 +3782,7 @@ function ensureFreshStandaloneBuild() {
 
 async function forceTrackerSaveNow() {
   clearTrackerFollowupRefresh();
+  syncLineMemoryIntoTrackerState();
 
   if (g_trackerSaveTimer) {
     clearTimeout(g_trackerSaveTimer);
@@ -3844,7 +3950,21 @@ saveTrackerStateToLocal();
   return g_trackerHydratePromise;
 }
 
+function isTrackerStateMeaningfullyEmpty(state) {
+  const active = Array.isArray(state?.activePicks) ? state.activePicks.length : 0;
+  const archived = Array.isArray(state?.archivedPicks) ? state.archivedPicks.length : 0;
+  const total = Number(state?.stats?.total || 0);
+  const settled = Number(state?.stats?.settled || 0);
+  return active === 0 && archived === 0 && total === 0 && settled === 0;
+}
+
 async function pushTrackerStateToServer(stateSnapshot) {
+  syncLineMemoryIntoTrackerState();
+
+  if (isTrackerStateMeaningfullyEmpty(stateSnapshot)) {
+    return { ok: true, state: g_trackerState };
+  }
+
   const { res, data } = await fetchTrackerJson(
     TRACKER_API_URL,
     {
@@ -3862,6 +3982,7 @@ async function pushTrackerStateToServer(stateSnapshot) {
 }
 
 function scheduleTrackerSave() {
+  syncLineMemoryIntoTrackerState();
   g_trackerState.updatedAt = new Date().toISOString();
   saveTrackerStateToLocal();
   g_trackerSaveVersion++;
@@ -3894,6 +4015,7 @@ async function flushTrackerSave() {
   g_trackerSaveTimer = null;
 
   const saveVersion = g_trackerSaveVersion;
+  syncLineMemoryIntoTrackerState();
   const stateSnapshot = JSON.parse(JSON.stringify(g_trackerState));
 
   try {
