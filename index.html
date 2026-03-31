@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VCF Cleaner</title>
+  <title>VCF Split & Deduplicate</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 24px;
-      background: #0f1115;
+      background: #0b1020;
       color: #ffffff;
     }
 
@@ -25,13 +25,13 @@
 
     p {
       color: #c7c7c7;
-      line-height: 1.5;
+      line-height: 1.55;
     }
 
     .card {
-      background: #171a21;
-      border: 1px solid #2a2f3a;
-      border-radius: 14px;
+      background: #131a2b;
+      border: 1px solid #2a3552;
+      border-radius: 16px;
       padding: 18px;
       margin-top: 18px;
     }
@@ -40,6 +40,7 @@
       display: block;
       margin: 14px 0 8px;
       font-weight: bold;
+      font-size: 15px;
     }
 
     input[type="file"],
@@ -47,45 +48,37 @@
       width: 100%;
       box-sizing: border-box;
       padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #343a46;
-      background: #0f1115;
+      border-radius: 12px;
+      border: 1px solid #34415f;
+      background: #0a0f1d;
       color: white;
     }
 
     button {
       margin-top: 18px;
       width: 100%;
-      padding: 14px;
+      padding: 15px;
       border: 0;
-      border-radius: 12px;
-      background: #2f81f7;
+      border-radius: 14px;
+      background: #3b82f6;
       color: white;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: bold;
       cursor: pointer;
     }
 
-    button:hover {
-      opacity: 0.95;
-    }
-
     .secondary {
-      background: #238636;
-    }
-
-    .muted {
-      color: #9aa4b2;
-      font-size: 14px;
+      background: #22c55e;
     }
 
     .result {
       margin-top: 16px;
       padding: 14px;
       border-radius: 12px;
-      background: #0f1115;
-      border: 1px solid #2a2f3a;
+      background: #0a0f1d;
+      border: 1px solid #2a3552;
       white-space: pre-line;
+      line-height: 1.55;
     }
 
     .hidden {
@@ -93,18 +86,19 @@
     }
 
     .small {
+      color: #9fb0d1;
       font-size: 13px;
-      color: #9aa4b2;
-      margin-top: 8px;
+      margin-top: 10px;
+      line-height: 1.5;
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>VCF Cleaner</h1>
+    <h1>VCF Split & Deduplicate</h1>
     <p>
-      Upload your contacts VCF file, remove duplicates, and optionally keep only numbers
-      that appear in your own WhatsApp number list.
+      Upload your VCF file. This tool will split every multi-number contact into separate contacts,
+      keep only one number per contact card, and remove duplicate numbers from the entire file.
     </p>
 
     <div class="card">
@@ -114,16 +108,15 @@
       <label for="countryCode">2. Default country code (optional)</label>
       <input id="countryCode" type="text" placeholder="Example: 234 for Nigeria" />
 
-      <label for="waFile">3. Upload WhatsApp numbers list (optional)</label>
-      <input id="waFile" type="file" accept=".txt,.csv" />
-
       <div class="small">
-        Example WhatsApp list format:
-        <br />+2348012345678
-        <br />08031234567
+        Example:
+        <br>Ade with 3 numbers becomes:
+        <br>Ade_1
+        <br>Ade_2
+        <br>Ade_3
       </div>
 
-      <button id="cleanBtn">Clean My VCF</button>
+      <button id="cleanBtn">Process VCF</button>
 
       <div id="result" class="result hidden"></div>
 
@@ -159,17 +152,25 @@
           }
         }
       }
+
       return cards;
     }
 
-    function propName(line) {
+    function basePropName(line) {
       const beforeColon = line.split(":", 1)[0] || "";
-      return beforeColon.split(";", 1)[0].toUpperCase();
+      const beforeSemi = beforeColon.split(";", 1)[0].toUpperCase();
+      const parts = beforeSemi.split(".");
+      return parts[parts.length - 1];
     }
 
     function propValue(line) {
       const idx = line.indexOf(":");
       return idx >= 0 ? line.slice(idx + 1) : "";
+    }
+
+    function beforeColon(line) {
+      const idx = line.indexOf(":");
+      return idx >= 0 ? line.slice(0, idx) : line;
     }
 
     function normalizePhone(raw, defaultCountryCode) {
@@ -197,22 +198,34 @@
       return (plus ? "+" : "") + digits;
     }
 
-    function unique(arr) {
-      return [...new Set(arr)];
+    function displayNameFromN(nValue) {
+      if (!nValue) return "";
+      const parts = nValue.split(";");
+      const family = (parts[0] || "").trim();
+      const given = (parts[1] || "").trim();
+      const additional = (parts[2] || "").trim();
+      const prefix = (parts[3] || "").trim();
+      const suffix = (parts[4] || "").trim();
+
+      return [prefix, given, additional, family, suffix].filter(Boolean).join(" ").trim();
+    }
+
+    function makeSafeName(name) {
+      const cleaned = String(name || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      return cleaned || "Contact";
     }
 
     function parseCard(lines, defaultCountryCode) {
       let version = "3.0";
       let fn = "";
       let n = "";
-      const telLines = [];
-      const emailLines = [];
+      const telEntries = [];
       const otherLines = [];
-      const telKeys = [];
-      const emailKeys = [];
 
       for (const line of lines) {
-        const name = propName(line);
+        const name = basePropName(line);
 
         if (name === "BEGIN" || name === "END") continue;
 
@@ -223,108 +236,49 @@
         } else if (name === "N") {
           n = propValue(line);
         } else if (name === "TEL") {
-          telLines.push(line);
-          const key = normalizePhone(propValue(line), defaultCountryCode);
-          if (key) telKeys.push(key);
-        } else if (name === "EMAIL") {
-          emailLines.push(line);
-          const key = propValue(line).trim().toLowerCase();
-          if (key) emailKeys.push(key);
+          const rawPhone = propValue(line);
+          const normalized = normalizePhone(rawPhone, defaultCountryCode);
+          if (normalized) {
+            telEntries.push({
+              originalLine: line,
+              normalized
+            });
+          }
         } else {
           otherLines.push(line);
         }
       }
 
+      const baseName = makeSafeName(fn || displayNameFromN(n));
+
       return {
         version,
         fn,
         n,
-        telLines,
-        emailLines,
-        otherLines,
-        telKeys: unique(telKeys),
-        emailKeys: unique(emailKeys)
+        baseName,
+        telEntries,
+        otherLines
       };
     }
 
-    function samePerson(a, b) {
-      if (a.telKeys.some(x => b.telKeys.includes(x))) return true;
-      if (a.emailKeys.some(x => b.emailKeys.includes(x))) return true;
-
-      const aName = (a.fn || a.n || "").trim().toLowerCase();
-      const bName = (b.fn || b.n || "").trim().toLowerCase();
-
-      if (aName && bName && !a.telKeys.length && !b.telKeys.length && !a.emailKeys.length && !b.emailKeys.length) {
-        return aName === bName;
-      }
-
-      return false;
+    function buildTelLine(originalLine, normalizedNumber) {
+      return `${beforeColon(originalLine)}:${normalizedNumber}`;
     }
 
-    function mergeCards(base, incoming, defaultCountryCode) {
-      if (!base.fn && incoming.fn) base.fn = incoming.fn;
-      if (!base.n && incoming.n) base.n = incoming.n;
-
-      const seenTel = new Set(base.telKeys);
-      for (const line of incoming.telLines) {
-        const key = normalizePhone(propValue(line), defaultCountryCode);
-        if (key && !seenTel.has(key)) {
-          base.telLines.push(line);
-          base.telKeys.push(key);
-          seenTel.add(key);
-        }
-      }
-
-      const seenEmail = new Set(base.emailKeys);
-      for (const line of incoming.emailLines) {
-        const key = propValue(line).trim().toLowerCase();
-        if (key && !seenEmail.has(key)) {
-          base.emailLines.push(line);
-          base.emailKeys.push(key);
-          seenEmail.add(key);
-        }
-      }
-
-      const seenOther = new Set(base.otherLines);
-      for (const line of incoming.otherLines) {
-        if (!seenOther.has(line)) {
-          base.otherLines.push(line);
-          seenOther.add(line);
-        }
-      }
+    function buildNLine(name) {
+      return `${name};;;;`;
     }
 
     function renderCard(card) {
-      const out = ["BEGIN:VCARD", `VERSION:${card.version}`];
-      if (card.fn) out.push(`FN:${card.fn}`);
-      if (card.n) out.push(`N:${card.n}`);
-      out.push(...card.telLines);
-      out.push(...card.emailLines);
+      const out = [];
+      out.push("BEGIN:VCARD");
+      out.push(`VERSION:${card.version}`);
+      out.push(`FN:${card.fn}`);
+      out.push(`N:${card.n}`);
+      out.push(card.telLine);
       out.push(...card.otherLines);
       out.push("END:VCARD");
       return out.join("\n");
-    }
-
-    function parseWhatsAppList(text, defaultCountryCode, fileName) {
-      const allowed = new Set();
-      const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-
-      if (fileName.toLowerCase().endsWith(".csv")) {
-        for (const line of lines) {
-          const parts = line.split(",");
-          for (const part of parts) {
-            const num = normalizePhone(part, defaultCountryCode);
-            if (num) allowed.add(num);
-          }
-        }
-      } else {
-        for (const line of lines) {
-          const num = normalizePhone(line, defaultCountryCode);
-          if (num) allowed.add(num);
-        }
-      }
-
-      return allowed;
     }
 
     function readFileText(file) {
@@ -350,7 +304,6 @@
 
     document.getElementById("cleanBtn").addEventListener("click", async () => {
       const vcfFile = document.getElementById("vcfFile").files[0];
-      const waFile = document.getElementById("waFile").files[0];
       const defaultCountryCode = document.getElementById("countryCode").value.trim();
       const resultBox = document.getElementById("result");
       const downloadBtn = document.getElementById("downloadBtn");
@@ -365,41 +318,76 @@
         const rawCards = splitCards(vcfText);
         const parsedCards = rawCards.map(card => parseCard(card, defaultCountryCode));
 
-        const merged = [];
+        const seenNumbers = new Set();
+        const outputCards = [];
+
+        let cardsWithoutNumber = 0;
+        let duplicateNumbersRemoved = 0;
+        let splitContactsCount = 0;
+
         for (const card of parsedCards) {
-          let found = null;
-          for (const existing of merged) {
-            if (samePerson(existing, card)) {
-              found = existing;
-              break;
+          const localSeen = new Set();
+          const uniqueNumbersInsideCard = [];
+
+          for (const tel of card.telEntries) {
+            if (!localSeen.has(tel.normalized)) {
+              localSeen.add(tel.normalized);
+              uniqueNumbersInsideCard.push(tel);
+            } else {
+              duplicateNumbersRemoved++;
             }
           }
 
-          if (!found) {
-            merged.push(card);
-          } else {
-            mergeCards(found, card, defaultCountryCode);
+          if (uniqueNumbersInsideCard.length === 0) {
+            cardsWithoutNumber++;
+            continue;
           }
+
+          const freshNumbers = [];
+          for (const tel of uniqueNumbersInsideCard) {
+            if (!seenNumbers.has(tel.normalized)) {
+              seenNumbers.add(tel.normalized);
+              freshNumbers.push(tel);
+            } else {
+              duplicateNumbersRemoved++;
+            }
+          }
+
+          if (freshNumbers.length === 0) {
+            continue;
+          }
+
+          if (freshNumbers.length > 1) {
+            splitContactsCount++;
+          }
+
+          const shouldSuffix = freshNumbers.length > 1;
+
+          freshNumbers.forEach((tel, index) => {
+            const finalName = shouldSuffix
+              ? `${card.baseName}_${index + 1}`
+              : card.baseName;
+
+            outputCards.push({
+              version: card.version,
+              fn: finalName,
+              n: buildNLine(finalName),
+              telLine: buildTelLine(tel.originalLine, tel.normalized),
+              otherLines: [...card.otherLines]
+            });
+          });
         }
 
-        let kept = merged;
-        let waCountText = "";
-
-        if (waFile) {
-          const waText = await readFileText(waFile);
-          const allowed = parseWhatsAppList(waText, defaultCountryCode, waFile.name);
-          kept = merged.filter(card => card.telKeys.some(num => allowed.has(num)));
-          waCountText = `After WhatsApp-list filter: ${kept.length}`;
-        }
-
-        cleanedVcfText = kept.map(renderCard).join("\n") + "\n";
+        cleanedVcfText = outputCards.map(renderCard).join("\n") + "\n";
 
         resultBox.classList.remove("hidden");
         resultBox.textContent =
-          `Input cards: ${parsedCards.length}\n` +
-          `After dedupe: ${merged.length}\n` +
-          (waCountText ? waCountText + `\n` : "") +
-          `Ready to download: cleaned.vcf`;
+          `Input contact cards: ${parsedCards.length}\n` +
+          `Output contact cards: ${outputCards.length}\n` +
+          `Duplicate numbers removed: ${duplicateNumbersRemoved}\n` +
+          `Source contacts split into separate cards: ${splitContactsCount}\n` +
+          `Cards skipped with no valid number: ${cardsWithoutNumber}\n` +
+          `Ready to download: cleaned_one_number_only.vcf`;
 
         downloadBtn.classList.remove("hidden");
       } catch (err) {
@@ -414,7 +402,7 @@
         alert("Nothing to download yet.");
         return;
       }
-      downloadFile("cleaned.vcf", cleanedVcfText);
+      downloadFile("cleaned_one_number_only.vcf", cleanedVcfText);
     });
   </script>
 </body>
