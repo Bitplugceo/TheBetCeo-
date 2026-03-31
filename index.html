@@ -140,10 +140,11 @@
       <div class="section-title">Step 2 — Remove numbers permanently</div>
 
       <label for="removeBox">Paste numbers to remove</label>
-      <textarea id="removeBox" placeholder="Paste one number per line, or paste mixed text containing numbers. Example:
-+2349071268074
-09071268074
-2349071268074"></textarea>
+      <textarea id="removeBox" placeholder="Paste numbers exactly as seen in screenshot. Example:
++234 903 759 7294
++27 73 560 1152
++229 58 35 64 80
+09071268074"></textarea>
 
       <button id="removeBtn">Remove Numbers Permanently</button>
       <button id="downloadBtn" class="secondary">Save Current VCF to Files</button>
@@ -304,44 +305,79 @@
       return idx >= 0 ? line.slice(idx + 1) : "";
     }
 
+    function digitsOnly(raw) {
+      return String(raw || "").replace(/\D/g, "");
+    }
+
     function normalizePhone(raw) {
       raw = String(raw || "").trim();
       if (!raw) return "";
 
-      let digits = raw.replace(/\D/g, "");
+      let digits = digitsOnly(raw);
       if (!digits) return "";
 
       if (raw.startsWith("00")) {
         digits = digits.slice(2);
       }
 
-      // Nigeria local: 0907xxxxxxx -> +234907xxxxxxx
+      // Nigeria local 0XXXXXXXXXX -> 234XXXXXXXXXX
       if (digits.length === 11 && digits.startsWith("0")) {
         digits = "234" + digits.slice(1);
       }
 
-      // Nigeria without plus: 234907xxxxxxx -> +234907xxxxxxx
+      // 234XXXXXXXXXX -> +234XXXXXXXXXX
       if (digits.length === 13 && digits.startsWith("234")) {
         return "+" + digits;
       }
 
-      // Explicit international with plus
+      // Already international with +
       if (raw.startsWith("+")) {
         return "+" + digits;
       }
 
-      // International-looking without plus
+      // Looks international without +
       if (digits.length > 11 && !digits.startsWith("0")) {
         return "+" + digits;
       }
 
-      // Fallback local if it does not fit above
       return digits;
     }
 
+    function buildMatchKeys(raw) {
+      const keys = new Set();
+      const rawText = String(raw || "").trim();
+      const digits = digitsOnly(rawText);
+      if (!digits) return keys;
+
+      keys.add(digits);
+      keys.add("+" + digits);
+
+      const normalized = normalizePhone(rawText);
+      if (normalized) {
+        keys.add(normalized);
+        keys.add(digitsOnly(normalized));
+      }
+
+      // Nigeria cross-match helpers
+      if (digits.startsWith("234") && digits.length === 13) {
+        const local = "0" + digits.slice(3);
+        keys.add(local);
+        keys.add("+" + digits);
+        keys.add(digits);
+      }
+
+      if (digits.startsWith("0") && digits.length === 11) {
+        const intl = "234" + digits.slice(1);
+        keys.add(intl);
+        keys.add("+" + intl);
+      }
+
+      return keys;
+    }
+
     function parseCard(lines) {
-      let telNumbers = [];
       let fn = "";
+      const tels = [];
 
       for (const line of lines) {
         const name = basePropName(line);
@@ -349,33 +385,41 @@
         if (name === "FN") {
           fn = propValue(line).trim();
         } else if (name === "TEL") {
-          const num = normalizePhone(propValue(line));
-          if (num) telNumbers.push(num);
+          const rawValue = propValue(line);
+          const normalized = normalizePhone(rawValue);
+          if (normalized) {
+            tels.push({
+              raw: rawValue,
+              normalized,
+              keys: [...buildMatchKeys(rawValue)]
+            });
+          }
         }
       }
 
       return {
         lines: [...lines],
         fn,
-        telNumbers
+        tels
       };
     }
 
     function rebuildCard(card) {
-      const remainingSet = new Set(card.telNumbers);
+      const remainingNormalized = new Set(card.tels.map(t => t.normalized));
+      const usedNormalized = new Set();
       const rebuilt = [];
-      const alreadyUsed = new Set();
 
       for (const line of card.lines) {
         const name = basePropName(line);
 
         if (name === "TEL") {
-          const num = normalizePhone(propValue(line));
-          if (!num) continue;
+          const rawValue = propValue(line);
+          const normalized = normalizePhone(rawValue);
+          if (!normalized) continue;
 
-          if (remainingSet.has(num) && !alreadyUsed.has(num)) {
+          if (remainingNormalized.has(normalized) && !usedNormalized.has(normalized)) {
             rebuilt.push(line);
-            alreadyUsed.add(num);
+            usedNormalized.add(normalized);
           }
         } else {
           rebuilt.push(line);
@@ -430,15 +474,24 @@
     }
 
     function extractNumbersFromText(text) {
-      const matches = text.match(/\+?\d[\d\s().-]{5,}\d/g) || [];
-      const set = new Set();
+      const matches = text.match(/\+?\d[\d\s().-]{3,}\d/g) || [];
+      const map = new Map();
 
       for (const match of matches) {
-        const normalized = normalizePhone(match);
-        if (normalized) set.add(normalized);
+        const cleaned = match.trim();
+        const keys = [...buildMatchKeys(cleaned)];
+        const normalized = normalizePhone(cleaned);
+
+        if (keys.length) {
+          map.set(cleaned, {
+            raw: cleaned,
+            normalized,
+            keys
+          });
+        }
       }
 
-      return [...set];
+      return [...map.values()];
     }
 
     function chunkCards(cards, size) {
@@ -454,7 +507,7 @@
     }
 
     function showStatus(extra = "") {
-      const totalNumbers = state.cards.reduce((sum, card) => sum + card.telNumbers.length, 0);
+      const totalNumbers = state.cards.reduce((sum, card) => sum + card.tels.length, 0);
 
       const lines = [
         `Saved contact cards: ${state.cards.length}`,
@@ -483,7 +536,7 @@
         const rawCards = splitCards(text);
         const parsedCards = rawCards.map(parseCard);
 
-        state.cards = parsedCards.filter(card => card.telNumbers.length > 0);
+        state.cards = parsedCards.filter(card => card.tels.length > 0);
         state.originalCards = parsedCards.length;
         state.lastActionMessage = "Original VCF saved successfully.";
 
@@ -507,40 +560,50 @@
         return;
       }
 
-      const removalNumbers = extractNumbersFromText(text);
-      if (!removalNumbers.length) {
+      const removalEntries = extractNumbersFromText(text);
+      if (!removalEntries.length) {
         alert("No valid numbers were found in what you pasted.");
         return;
       }
 
-      const removeSet = new Set(removalNumbers);
+      const removeKeys = new Set();
+      for (const entry of removalEntries) {
+        for (const key of entry.keys) {
+          removeKeys.add(key);
+        }
+      }
 
       let numbersRemoved = 0;
       let cardsDeleted = 0;
-      let notFoundCount = 0;
 
       const updatedCards = [];
 
       for (const card of state.cards) {
-        const beforeCount = card.telNumbers.length;
-        const remainingNumbers = card.telNumbers.filter(num => !removeSet.has(num));
-        const removedHere = beforeCount - remainingNumbers.length;
+        const remainingTels = [];
 
-        numbersRemoved += removedHere;
+        for (const tel of card.tels) {
+          const telKeys = tel.keys || [];
+          const matched = telKeys.some(key => removeKeys.has(key));
 
-        if (remainingNumbers.length === 0) {
+          if (matched) {
+            numbersRemoved++;
+          } else {
+            remainingTels.push(tel);
+          }
+        }
+
+        if (remainingTels.length === 0) {
           cardsDeleted++;
           continue;
         }
 
         updatedCards.push({
           ...card,
-          telNumbers: remainingNumbers
+          tels: remainingTels
         });
       }
 
-      notFoundCount = removalNumbers.length - numbersRemoved;
-      if (notFoundCount < 0) notFoundCount = 0;
+      const notFoundCount = Math.max(0, removalEntries.length - numbersRemoved);
 
       state.cards = updatedCards;
       state.lastActionMessage = "Numbers removed successfully.";
@@ -550,7 +613,7 @@
 
         showStatus(
           `Done.\n` +
-          `Unique numbers found in pasted text: ${removalNumbers.length}\n` +
+          `Unique numbers found in pasted text: ${removalEntries.length}\n` +
           `Phone numbers removed from file: ${numbersRemoved}\n` +
           `Numbers not found in current saved file: ${notFoundCount}\n` +
           `Empty contact cards deleted: ${cardsDeleted}\n` +
