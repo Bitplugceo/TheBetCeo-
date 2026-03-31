@@ -74,8 +74,17 @@
       cursor: pointer;
     }
 
+    button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
     .secondary {
       background: #22c55e;
+    }
+
+    .zipbtn {
+      background: #8b5cf6;
     }
 
     .danger {
@@ -121,8 +130,8 @@
       <input id="vcfFile" type="file" accept=".vcf,text/vcard" />
 
       <div class="small">
-        This version does not use a country-code input.
-        It keeps the current cleaned VCF saved on this device/browser until you clear it.
+        This version keeps the current cleaned VCF saved on this device/browser
+        until you clear it.
       </div>
 
       <button id="processBtn">Process Original VCF</button>
@@ -144,16 +153,25 @@
 
       <button id="removeBtn">Remove Pasted Numbers</button>
       <button id="downloadBtn" class="secondary">Download Current VCF</button>
+      <button id="downloadZipBtn" class="zipbtn">Download ZIP (2000 Each)</button>
       <button id="clearBtn" class="danger">Clear Saved Session</button>
+
+      <div class="small">
+        ZIP download splits the current saved VCF into files of 2000 contacts each,
+        then downloads all parts inside one ZIP file.
+      </div>
 
       <div id="result" class="result">Loading saved session...</div>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
   <script>
     const DB_NAME = "vcfCleanerDB";
     const STORE_NAME = "appState";
     const STATE_KEY = "mainState";
+    const SPLIT_SIZE = 2000;
 
     let state = {
       cards: [],
@@ -421,8 +439,7 @@
       });
     }
 
-    function downloadFile(filename, content) {
-      const blob = new Blob([content], { type: "text/vcard;charset=utf-8" });
+    function downloadBlob(filename, blob) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -431,6 +448,11 @@
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+    }
+
+    function downloadFile(filename, content) {
+      const blob = new Blob([content], { type: "text/vcard;charset=utf-8" });
+      downloadBlob(filename, blob);
     }
 
     function processInitialVcf(vcfText) {
@@ -520,6 +542,14 @@
       return [...set];
     }
 
+    function chunkCards(cards, size) {
+      const chunks = [];
+      for (let i = 0; i < cards.length; i += size) {
+        chunks.push(cards.slice(i, i + size));
+      }
+      return chunks;
+    }
+
     function updateResult(message) {
       document.getElementById("result").textContent = message;
     }
@@ -564,7 +594,10 @@
 
         await saveState();
 
-        showCurrentStatus("Original VCF processed and saved successfully.\nYour current VCF will stay here until you press Clear Saved Session.");
+        showCurrentStatus(
+          "Original VCF processed and saved successfully.\n" +
+          "Your current VCF will stay here until you press Clear Saved Session."
+        );
       } catch (err) {
         updateResult("Error: " + (err.message || String(err)));
       }
@@ -625,6 +658,93 @@
 
       const vcfText = buildVcf(state.cards);
       downloadFile("final_cleaned_contacts.vcf", vcfText);
+    });
+
+    document.getElementById("downloadZipBtn").addEventListener("click", async () => {
+      if (!state.cards.length) {
+        alert("There is no saved VCF to download yet.");
+        return;
+      }
+
+      if (typeof JSZip === "undefined") {
+        updateResult("Error: ZIP library failed to load. Refresh the page and try again.");
+        return;
+      }
+
+      const button = document.getElementById("downloadZipBtn");
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = "Preparing ZIP...";
+
+      try {
+        const chunks = chunkCards(state.cards, SPLIT_SIZE);
+        const zip = new JSZip();
+
+        chunks.forEach((chunk, index) => {
+          const start = (index * SPLIT_SIZE) + 1;
+          const end = start + chunk.length - 1;
+          const filename =
+            `contacts_part_${String(index + 1).padStart(3, "0")}_` +
+            `${start}-${end}.vcf`;
+
+          zip.file(filename, buildVcf(chunk));
+        });
+
+        zip.file(
+          "summary.txt",
+          [
+            "VCF Cleaner Export",
+            `Total saved contacts: ${state.cards.length}`,
+            `Split size: ${SPLIT_SIZE}`,
+            `Total files in ZIP: ${chunks.length}`,
+            "",
+            "Files included:",
+            ...chunks.map((chunk, index) => {
+              const start = (index * SPLIT_SIZE) + 1;
+              const end = start + chunk.length - 1;
+              return `contacts_part_${String(index + 1).padStart(3, "0")}_${start}-${end}.vcf`;
+            })
+          ].join("\n")
+        );
+
+        updateResult(
+          `Preparing ZIP...\n` +
+          `Current saved cards: ${state.cards.length}\n` +
+          `Split size: ${SPLIT_SIZE}\n` +
+          `Files to create: ${chunks.length}`
+        );
+
+        const blob = await zip.generateAsync(
+          {
+            type: "blob",
+            compression: "DEFLATE",
+            compressionOptions: { level: 6 }
+          },
+          function(metadata) {
+            updateResult(
+              `Preparing ZIP...\n` +
+              `Current saved cards: ${state.cards.length}\n` +
+              `Split size: ${SPLIT_SIZE}\n` +
+              `Files to create: ${chunks.length}\n` +
+              `Progress: ${metadata.percent.toFixed(0)}%`
+            );
+          }
+        );
+
+        downloadBlob("final_cleaned_contacts_split_2000_each.zip", blob);
+
+        showCurrentStatus(
+          `ZIP ready.\n` +
+          `Total files inside ZIP: ${chunks.length}\n` +
+          `Each VCF file contains up to ${SPLIT_SIZE} contacts.\n` +
+          `Downloaded: final_cleaned_contacts_split_2000_each.zip`
+        );
+      } catch (err) {
+        updateResult("Error: " + (err.message || String(err)));
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
     });
 
     document.getElementById("clearBtn").addEventListener("click", async () => {
