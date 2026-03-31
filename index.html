@@ -3526,6 +3526,11 @@ Any suggestion made here without proof is an audit error.
 }
 
     function parseMarketLine(val) {
+  const meta = parseMarketRangeMeta(val);
+  return meta ? meta.mid : null;
+}
+
+function parseMarketRangeMeta(val) {
   if (!val || !String(val).trim()) return null;
   const raw = normalizeDashes(String(val).trim());
   const normalizeLine = num => Math.round(num * 2) / 2;
@@ -3535,16 +3540,157 @@ Any suggestion made here without proof is an audit error.
     const a = parseFloat(rangeMatch[1]);
     const b = parseFloat(rangeMatch[2]);
     if (!isFinite(a) || !isFinite(b) || a <= 0 || b <= 0 || b < a) return null;
-    return normalizeLine((a + b) / 2);
+    return {
+      raw,
+      low: normalizeLine(a),
+      high: normalizeLine(b),
+      mid: normalizeLine((a + b) / 2),
+      isRange: true
+    };
   }
 
   const singleMatch = raw.match(/^(\d{1,3}(?:\.\d+)?)$/);
   if (singleMatch) {
     const x = parseFloat(singleMatch[1]);
-    return isFinite(x) && x > 0 ? normalizeLine(x) : null;
+    if (!isFinite(x) || x <= 0) return null;
+    const line = normalizeLine(x);
+    return {
+      raw,
+      low: line,
+      high: line,
+      mid: line,
+      isRange: false
+    };
   }
 
   return null;
+}
+
+function floorToHalf(val) {
+  return Math.floor(Number(val) * 2) / 2;
+}
+
+function ceilToHalf(val) {
+  return Math.ceil(Number(val) * 2) / 2;
+}
+
+function getSmartLineCushion(league, marketKey) {
+  if (marketKey === "ft") return league === "nba" ? 2.0 : 2.5;
+  if (marketKey === "h1" || marketKey === "h2") return league === "nba" ? 1.0 : 1.5;
+  if (marketKey === "q1") return 0.5;
+  if (marketKey === "team_a" || marketKey === "team_b") return league === "nba" ? 1.5 : 2.0;
+  return 0;
+}
+
+function getRawMarketInputMap() {
+  return {
+    ft: document.getElementById("ftMarket")?.value || "",
+    h1: document.getElementById("h1Market")?.value || "",
+    h2: document.getElementById("h2Market")?.value || "",
+    q1: document.getElementById("q1Market")?.value || "",
+    team_a: document.getElementById("teamAMarket")?.value || "",
+    team_b: document.getElementById("teamBMarket")?.value || ""
+  };
+}
+
+function applySmartLineToPick(pickRow, rawInput, league) {
+  if (!pickRow) return pickRow;
+
+  const decisionLine = isFinite(pickRow.line) ? Number(pickRow.line) : null;
+  const baseEdge = isFinite(pickRow.edge) ? Number(pickRow.edge) : NaN;
+  const baseMeta = {
+    applied: false,
+    reason: "mid_only",
+    smartLine: decisionLine,
+    mid: decisionLine,
+    low: decisionLine,
+    high: decisionLine,
+    cushion: 0
+  };
+
+  if (
+    pickRow.note ||
+    pickRow.pick === "NO PLAY" ||
+    !isFinite(pickRow.proj) ||
+    !isFinite(decisionLine) ||
+    decisionLine <= 0
+  ) {
+    return {
+      ...pickRow,
+      decisionLine,
+      trackerLine: decisionLine,
+      displayLineUsed: decisionLine,
+      displayEdge: baseEdge,
+      smartLineMeta: baseMeta
+    };
+  }
+
+  const marketKey = pickRow.marketKey || getMarketKeyFromName(pickRow.name);
+  const side = getPickSideFromText(pickRow.pick);
+  const rangeMeta = parseMarketRangeMeta(rawInput);
+
+  if (!rangeMeta || !rangeMeta.isRange || !side) {
+    return {
+      ...pickRow,
+      decisionLine,
+      trackerLine: decisionLine,
+      displayLineUsed: decisionLine,
+      displayEdge: baseEdge,
+      smartLineMeta: {
+        ...baseMeta,
+        ...(rangeMeta || {})
+      }
+    };
+  }
+
+  const cushion = getSmartLineCushion(league, marketKey);
+  let smartLine = null;
+
+  if (side === "over") {
+    const candidate = floorToHalf(Number(pickRow.proj) - cushion);
+    if (isFinite(candidate) && candidate >= rangeMeta.mid) {
+      smartLine = Math.min(rangeMeta.high, Math.max(rangeMeta.low, candidate));
+    }
+  } else if (side === "under") {
+    const candidate = ceilToHalf(Number(pickRow.proj) + cushion);
+    if (isFinite(candidate) && candidate <= rangeMeta.mid) {
+      smartLine = Math.max(rangeMeta.low, Math.min(rangeMeta.high, candidate));
+    }
+  }
+
+  if (!isFinite(smartLine) || smartLine <= 0 || Math.abs(smartLine - decisionLine) < 0.001) {
+    return {
+      ...pickRow,
+      decisionLine,
+      trackerLine: decisionLine,
+      displayLineUsed: decisionLine,
+      displayEdge: baseEdge,
+      smartLineMeta: {
+        ...rangeMeta,
+        applied: false,
+        side,
+        smartLine: decisionLine,
+        cushion
+      }
+    };
+  }
+
+  const sideText = side === "over" ? "OVER" : "UNDER";
+  return {
+    ...pickRow,
+    decisionLine,
+    trackerLine: smartLine,
+    displayLineUsed: smartLine,
+    displayEdge: isFinite(pickRow.proj) ? Number(pickRow.proj) - smartLine : baseEdge,
+    displayPick: `${sideText} ${displayLine(smartLine)}`,
+    smartLineMeta: {
+      ...rangeMeta,
+      applied: true,
+      side,
+      smartLine,
+      cushion
+    }
+  };
 }
 
     function hasValue(id) {
@@ -4731,25 +4877,20 @@ function getTrackedLeagueBase(league) {
 
       const home = competitors.find(c => c.homeAway === "home") || competitors[0];
       const away = competitors.find(c => c.homeAway === "away") || competitors[1];
-      let homeScore = parseFloat(home?.score);
-      let awayScore = parseFloat(away?.score);
+      const finalHomeScore = parseFloat(home?.score);
+      const finalAwayScore = parseFloat(away?.score);
       const homeLines = home?.linescores || [];
       const awayLines = away?.linescores || [];
-      const regulationPeriods = pick.league === "nba" ? 4 : 2;
-
-      if (isFinite(homeScore) && isFinite(awayScore) && homeLines.length && awayLines.length) {
-        [homeScore, awayScore] = stripOTFromScores(homeScore, awayScore, homeLines, awayLines, regulationPeriods);
-      }
 
       let actual = NaN;
 
       if (pick.marketKey === "ft") {
-        if (!isFinite(homeScore) || !isFinite(awayScore)) return "pending";
-        actual = homeScore + awayScore;
+        if (!isFinite(finalHomeScore) || !isFinite(finalAwayScore)) return "pending";
+        actual = finalHomeScore + finalAwayScore;
       } else if (pick.marketKey === "team_a") {
-        actual = isNaN(homeScore) ? NaN : homeScore;
+        actual = isNaN(finalHomeScore) ? NaN : finalHomeScore;
       } else if (pick.marketKey === "team_b") {
-        actual = isNaN(awayScore) ? NaN : awayScore;
+        actual = isNaN(finalAwayScore) ? NaN : finalAwayScore;
       } else if (pick.marketKey === "h1") {
         if (pick.league === "ncaa") {
           if (!homeLines.length || !awayLines.length) return "pending";
@@ -9156,6 +9297,9 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
   const gameBlowoutGap = Number(diagnostics?.blowoutGap || 0);
   const gameVolatilityBlock = !!diagnostics?.volatilityBlock;
 
+  const trackedLine = isFinite(pickRow.trackerLine) ? Number(pickRow.trackerLine) : Number(pickRow.line);
+  const trackedEdge = isFinite(pickRow.displayEdge) ? Number(pickRow.displayEdge) : Number(pickRow.edge);
+
   const memoryProfileKey = [
     league || "unknown",
     marketKey || "other",
@@ -9186,11 +9330,14 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     awayId: fixtureMeta.awayId || "",
     marketKey,
     marketName: pickRow.name,
-    line: pickRow.line,
+    line: trackedLine,
+    decisionLine: isFinite(pickRow.decisionLine) ? Number(pickRow.decisionLine) : Number(pickRow.line),
+    smartLineApplied: !!pickRow.smartLineMeta?.applied,
+    smartLineMeta: pickRow.smartLineMeta || null,
     side,
-    predictionText: pickRow.pick,
-    edge: pickRow.edge,
-    edgePct: isFinite(pickRow.edge) && pickRow.line ? (pickRow.edge / pickRow.line) * 100 : null,
+    predictionText: pickRow.displayPick || pickRow.pick,
+    edge: trackedEdge,
+    edgePct: isFinite(trackedEdge) && trackedLine ? (trackedEdge / trackedLine) * 100 : null,
         confidence: grade,
     confidenceGrade: grade,
     modelVersion: getCurrentModelVersion(),
@@ -9287,14 +9434,18 @@ function buildResultRows({
     const confText = p.pick === "NO PLAY" || p.note ? "—" : (p.confidence || "—");
     const displayPrediction = getDisplayedPredictionText(p.pick, p.recommendationTier || "");
 
+    const shownLine = isFinite(p.displayLineUsed) ? p.displayLineUsed : p.line;
+    const shownEdge = isFinite(p.displayEdge) ? p.displayEdge : p.edge;
+    const shownPrediction = p.displayPick || displayPrediction;
+
     const row = table.insertRow();
     row.innerHTML = `
      <td>${safeText(p.name)}</td>
 <td>${isFinite(p.proj) ? safeText(displayLine(p.proj)) : "—"}</td>
-<td>${isFinite(p.edge) && isFinite(p.line) ? safeText(formatEdge(p.edge, p.line)) : "—"}</td>
+<td>${isFinite(shownEdge) && isFinite(shownLine) ? safeText(formatEdge(shownEdge, shownLine)) : "—"}</td>
 <td class="${getConfidenceClass(confText)}">${safeText(confText)}</td>
 <td class="${getPredictionClass(p.pick, p.recommendationTier || "")}">
-  ${safeText(displayPrediction)}${isLock ? ' <span class="lock">🔒</span>' : ""}
+  ${safeText(shownPrediction)}${isLock ? ' <span class="lock">🔒</span>' : ""}
   ${p.note ? `<small class="error-note">${safeText(p.note)}</small>` : ""}
 </td>
     `;
@@ -9813,12 +9964,17 @@ const finalPicks = picks.filter(p => {
   return true;
 });
 
+const rawMarketInputs = getRawMarketInputMap();
+const finalPicksForDisplay = finalPicks.map(p =>
+  applySmartLineToPick(p, rawMarketInputs[p.marketKey] || "", league)
+);
+
 persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league);
 
-    const markets = finalPicks.map(p => ({
+    const markets = finalPicksForDisplay.map(p => ({
       _idx: p._idx,
-      edge: p.edge,
-      line: p.line,
+      edge: isFinite(p.displayEdge) ? p.displayEdge : p.edge,
+      line: isFinite(p.displayLineUsed) ? p.displayLineUsed : p.line,
       pick: p.pick,
       fullModel: p.fullModel,
       confidence: p.confidence,
@@ -9830,7 +9986,7 @@ persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league);
 
     const trackedToSave = buildResultRows({
   table,
-  finalPicks,
+  finalPicks: finalPicksForDisplay,
   lockIdx,
   fixtureMeta,
   league,
@@ -9886,12 +10042,12 @@ q1DefensiveFloorFlag: q1Calc.defensiveFloorFlag,
   }
 });
 
-const actionablePicks = finalPicks.filter(p =>
+const actionablePicks = finalPicksForDisplay.filter(p =>
   p &&
   p.pick !== "NO PLAY" &&
   !p.note &&
-  isFinite(p.line) &&
-  p.line > 0
+  isFinite(p.displayLineUsed ?? p.line) &&
+  (p.displayLineUsed ?? p.line) > 0
 );
 
 if (trackedToSave.length) {
