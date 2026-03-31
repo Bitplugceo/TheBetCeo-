@@ -305,21 +305,39 @@
     }
 
     function normalizePhone(raw) {
-      raw = String(raw || "").trim();
-      if (!raw) return "";
+  raw = String(raw || "").trim();
+  if (!raw) return "";
 
-      let plus = raw.startsWith("+");
-      let digits = raw.replace(/\D/g, "");
+  let digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
 
-      if (!digits) return "";
+  if (raw.startsWith("00")) {
+    digits = digits.slice(2);
+  }
 
-      if (raw.startsWith("00")) {
-        digits = digits.slice(2);
-        plus = true;
-      }
+  // Nigeria local numbers: 0XXXXXXXXXX -> +234XXXXXXXXXX
+  if (digits.length === 11 && digits.startsWith("0")) {
+    digits = "234" + digits.slice(1);
+  }
 
-      return (plus ? "+" : "") + digits;
-    }
+  // Already Nigeria without plus: 234XXXXXXXXXX
+  if (digits.length === 13 && digits.startsWith("234")) {
+    return "+" + digits;
+  }
+
+  // Keep other international numbers with +
+  if (raw.startsWith("+")) {
+    return "+" + digits;
+  }
+
+  // If it already looks international but had no +
+  if (digits.length > 11 && !digits.startsWith("0")) {
+    return "+" + digits;
+  }
+
+  // Fallback local
+  return digits;
+}
 
     function parseCard(lines) {
       let telNumbers = [];
