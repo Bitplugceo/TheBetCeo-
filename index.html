@@ -140,11 +140,12 @@
       <div class="section-title">Step 2 — Remove numbers permanently</div>
 
       <label for="removeBox">Paste numbers to remove</label>
-      <textarea id="removeBox" placeholder="Paste numbers exactly as seen in screenshot. Example:
+      <textarea id="removeBox" placeholder="Paste numbers exactly as seen. Examples:
 +234 903 759 7294
+810 069 2480
+09071268074
 +27 73 560 1152
-+229 58 35 64 80
-09071268074"></textarea>
++229 58 35 64 80"></textarea>
 
       <button id="removeBtn">Remove Numbers Permanently</button>
       <button id="downloadBtn" class="secondary">Save Current VCF to Files</button>
@@ -195,8 +196,7 @@
 
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, "readwrite");
-        const store = tx.objectStore(STORE_NAME);
-        store.put(state, STATE_KEY);
+        tx.objectStore(STORE_NAME).put(state, STATE_KEY);
 
         tx.oncomplete = function() {
           db.close();
@@ -215,8 +215,7 @@
 
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, "readonly");
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.get(STATE_KEY);
+        const req = tx.objectStore(STORE_NAME).get(STATE_KEY);
 
         req.onsuccess = function() {
           db.close();
@@ -240,8 +239,7 @@
 
       return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, "readwrite");
-        const store = tx.objectStore(STORE_NAME);
-        store.delete(STATE_KEY);
+        tx.objectStore(STORE_NAME).delete(STATE_KEY);
 
         tx.oncomplete = function() {
           db.close();
@@ -320,22 +318,26 @@
         digits = digits.slice(2);
       }
 
-      // Nigeria local 0XXXXXXXXXX -> 234XXXXXXXXXX
+      if (digits.startsWith("2340") && digits.length === 14) {
+        digits = "234" + digits.slice(4);
+      }
+
       if (digits.length === 11 && digits.startsWith("0")) {
         digits = "234" + digits.slice(1);
       }
 
-      // 234XXXXXXXXXX -> +234XXXXXXXXXX
+      if (digits.length === 10 && /^[789]\d{9}$/.test(digits)) {
+        digits = "234" + digits;
+      }
+
       if (digits.length === 13 && digits.startsWith("234")) {
         return "+" + digits;
       }
 
-      // Already international with +
       if (raw.startsWith("+")) {
         return "+" + digits;
       }
 
-      // Looks international without +
       if (digits.length > 11 && !digits.startsWith("0")) {
         return "+" + digits;
       }
@@ -349,6 +351,7 @@
       const digits = digitsOnly(rawText);
       if (!digits) return keys;
 
+      keys.add(rawText);
       keys.add(digits);
       keys.add("+" + digits);
 
@@ -358,18 +361,42 @@
         keys.add(digitsOnly(normalized));
       }
 
-      // Nigeria cross-match helpers
       if (digits.startsWith("234") && digits.length === 13) {
-        const local = "0" + digits.slice(3);
-        keys.add(local);
+        const local11 = "0" + digits.slice(3);
+        const local10 = digits.slice(3);
+        keys.add(local11);
+        keys.add(local10);
         keys.add("+" + digits);
-        keys.add(digits);
+
+        const malformed2340 = "2340" + digits.slice(3);
+        keys.add(malformed2340);
+        keys.add("+" + malformed2340);
+      }
+
+      if (digits.startsWith("2340") && digits.length === 14) {
+        const corrected = "234" + digits.slice(4);
+        const local11 = "0" + corrected.slice(3);
+        const local10 = corrected.slice(3);
+        keys.add(corrected);
+        keys.add("+" + corrected);
+        keys.add(local11);
+        keys.add(local10);
       }
 
       if (digits.startsWith("0") && digits.length === 11) {
         const intl = "234" + digits.slice(1);
         keys.add(intl);
         keys.add("+" + intl);
+        keys.add(digits.slice(1));
+        keys.add("2340" + digits.slice(1));
+      }
+
+      if (digits.length === 10 && /^[789]\d{9}$/.test(digits)) {
+        const intl = "234" + digits;
+        keys.add("0" + digits);
+        keys.add(intl);
+        keys.add("+" + intl);
+        keys.add("2340" + digits);
       }
 
       return keys;
@@ -474,7 +501,7 @@
     }
 
     function extractNumbersFromText(text) {
-      const matches = text.match(/\+?\d[\d\s().-]{3,}\d/g) || [];
+      const matches = text.match(/\+?\d[\d\s().-]{2,}\d/g) || [];
       const map = new Map();
 
       for (const match of matches) {
@@ -582,9 +609,7 @@
         const remainingTels = [];
 
         for (const tel of card.tels) {
-          const telKeys = tel.keys || [];
-          const matched = telKeys.some(key => removeKeys.has(key));
-
+          const matched = (tel.keys || []).some(key => removeKeys.has(key));
           if (matched) {
             numbersRemoved++;
           } else {
