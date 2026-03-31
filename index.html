@@ -129,11 +129,6 @@
       <label for="vcfFile">Upload VCF file</label>
       <input id="vcfFile" type="file" accept=".vcf,text/vcard" />
 
-      <div class="small">
-        This version keeps the current cleaned VCF saved on this device/browser
-        until you clear it.
-      </div>
-
       <button id="processBtn">Process Original VCF</button>
     </div>
 
@@ -142,8 +137,8 @@
 
       <label for="removeBox">Paste numbers to delete</label>
       <textarea id="removeBox" placeholder="Paste one number per line, or paste mixed text containing numbers. Example:
-08035147790
 +2348012345678
++2348091112222
 +447700900123"></textarea>
 
       <div class="small">
@@ -152,13 +147,13 @@
       </div>
 
       <button id="removeBtn">Remove Pasted Numbers</button>
-      <button id="downloadBtn" class="secondary">Download Current VCF</button>
-      <button id="downloadZipBtn" class="zipbtn">Download ZIP (2000 Each)</button>
+      <button id="downloadBtn" class="secondary">Save Current VCF to Files</button>
+      <button id="downloadZipBtn" class="zipbtn">Save ZIP to Files (2000 Each)</button>
       <button id="clearBtn" class="danger">Clear Saved Session</button>
 
       <div class="small">
-        ZIP download splits the current saved VCF into files of 2000 contacts each,
-        then downloads all parts inside one ZIP file.
+        ZIP save splits the current saved VCF into files of 2000 contacts each,
+        then saves all parts inside one ZIP file.
       </div>
 
       <div id="result" class="result">Loading saved session...</div>
@@ -439,7 +434,21 @@
       });
     }
 
-    function downloadBlob(filename, blob) {
+    async function saveBlobToFile(filename, blob) {
+      const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: filename
+          });
+          return;
+        } catch (err) {
+          if (err && err.name === "AbortError") return;
+        }
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -447,12 +456,17 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
     }
 
-    function downloadFile(filename, content) {
+    async function downloadBlob(filename, blob) {
+      await saveBlobToFile(filename, blob);
+    }
+
+    async function downloadFile(filename, content) {
       const blob = new Blob([content], { type: "text/vcard;charset=utf-8" });
-      downloadBlob(filename, blob);
+      await saveBlobToFile(filename, blob);
     }
 
     function processInitialVcf(vcfText) {
@@ -650,14 +664,19 @@
       }
     });
 
-    document.getElementById("downloadBtn").addEventListener("click", () => {
+    document.getElementById("downloadBtn").addEventListener("click", async () => {
       if (!state.cards.length) {
         alert("There is no saved VCF to download yet.");
         return;
       }
 
-      const vcfText = buildVcf(state.cards);
-      downloadFile("final_cleaned_contacts.vcf", vcfText);
+      try {
+        const vcfText = buildVcf(state.cards);
+        await downloadFile("final_cleaned_contacts.vcf", vcfText);
+        showCurrentStatus("Current VCF prepared.\nChoose 'Save to Files' in the iPhone share sheet.");
+      } catch (err) {
+        updateResult("Error: " + (err.message || String(err)));
+      }
     });
 
     document.getElementById("downloadZipBtn").addEventListener("click", async () => {
@@ -731,13 +750,13 @@
           }
         );
 
-        downloadBlob("final_cleaned_contacts_split_2000_each.zip", blob);
+        await downloadBlob("final_cleaned_contacts_split_2000_each.zip", blob);
 
         showCurrentStatus(
-          `ZIP ready.\n` +
+          `ZIP prepared.\n` +
           `Total files inside ZIP: ${chunks.length}\n` +
           `Each VCF file contains up to ${SPLIT_SIZE} contacts.\n` +
-          `Downloaded: final_cleaned_contacts_split_2000_each.zip`
+          `Choose 'Save to Files' in the iPhone share sheet.`
         );
       } catch (err) {
         updateResult("Error: " + (err.message || String(err)));
