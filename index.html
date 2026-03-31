@@ -118,8 +118,8 @@
   <div class="wrap">
     <h1>VCF Number Remover</h1>
     <p>
-      Upload your original VCF once. Then paste numbers to remove. The tool deletes only those
-      phone numbers from the saved file. If a contact has no phone number left, that contact is deleted.
+      Upload your original VCF once. Then paste numbers to remove. The tool removes matching phone lines
+      from the saved file. If a contact has no phone number left, that contact card is deleted.
       The updated file stays saved until you clear the session.
     </p>
 
@@ -141,11 +141,12 @@
 
       <label for="removeBox">Paste numbers to remove</label>
       <textarea id="removeBox" placeholder="Paste numbers exactly as seen. Examples:
-+234 903 759 7294
++234 2 348 1612
+2 348 1612
++234 901 892 75
+0901 892 75
 810 069 2480
-09071268074
-+27 73 560 1152
-+229 58 35 64 80"></textarea>
++27 73 560 1152"></textarea>
 
       <button id="removeBtn">Remove Numbers Permanently</button>
       <button id="downloadBtn" class="secondary">Save Current VCF to Files</button>
@@ -307,6 +308,16 @@
       return String(raw || "").replace(/\D/g, "");
     }
 
+    function removeLeadingCountryArtifacts(digits) {
+      let d = digits;
+
+      if (d.startsWith("2340") && d.length >= 14) {
+        d = "234" + d.slice(4);
+      }
+
+      return d;
+    }
+
     function normalizePhone(raw) {
       raw = String(raw || "").trim();
       if (!raw) return "";
@@ -318,9 +329,7 @@
         digits = digits.slice(2);
       }
 
-      if (digits.startsWith("2340") && digits.length === 14) {
-        digits = "234" + digits.slice(4);
-      }
+      digits = removeLeadingCountryArtifacts(digits);
 
       if (digits.length === 11 && digits.startsWith("0")) {
         digits = "234" + digits.slice(1);
@@ -345,13 +354,23 @@
       return digits;
     }
 
+    function lastDigitsKey(digits, count) {
+      if (!digits) return "";
+      return digits.slice(-count);
+    }
+
     function buildMatchKeys(raw) {
       const keys = new Set();
       const rawText = String(raw || "").trim();
-      const digits = digitsOnly(rawText);
+      let digits = digitsOnly(rawText);
       if (!digits) return keys;
 
+      const spacedCompact = rawText.replace(/\s+/g, " ").trim();
       keys.add(rawText);
+      keys.add(spacedCompact);
+
+      digits = removeLeadingCountryArtifacts(digits);
+
       keys.add(digits);
       keys.add("+" + digits);
 
@@ -373,22 +392,13 @@
         keys.add("+" + malformed2340);
       }
 
-      if (digits.startsWith("2340") && digits.length === 14) {
-        const corrected = "234" + digits.slice(4);
-        const local11 = "0" + corrected.slice(3);
-        const local10 = corrected.slice(3);
-        keys.add(corrected);
-        keys.add("+" + corrected);
-        keys.add(local11);
-        keys.add(local10);
-      }
-
       if (digits.startsWith("0") && digits.length === 11) {
-        const intl = "234" + digits.slice(1);
+        const local10 = digits.slice(1);
+        const intl = "234" + local10;
+        keys.add(local10);
         keys.add(intl);
         keys.add("+" + intl);
-        keys.add(digits.slice(1));
-        keys.add("2340" + digits.slice(1));
+        keys.add("2340" + local10);
       }
 
       if (digits.length === 10 && /^[789]\d{9}$/.test(digits)) {
@@ -398,6 +408,14 @@
         keys.add("+" + intl);
         keys.add("2340" + digits);
       }
+
+      const d8 = lastDigitsKey(digits, 8);
+      const d7 = lastDigitsKey(digits, 7);
+      const d6 = lastDigitsKey(digits, 6);
+
+      if (d8) keys.add("LAST8:" + d8);
+      if (d7) keys.add("LAST7:" + d7);
+      if (d6) keys.add("LAST6:" + d6);
 
       return keys;
     }
@@ -414,10 +432,13 @@
         } else if (name === "TEL") {
           const rawValue = propValue(line);
           const normalized = normalizePhone(rawValue);
-          if (normalized) {
+          const digits = digitsOnly(rawValue);
+
+          if (normalized || digits) {
             tels.push({
               raw: rawValue,
-              normalized,
+              normalized: normalized || digits,
+              digits: removeLeadingCountryArtifacts(digits),
               keys: [...buildMatchKeys(rawValue)]
             });
           }
@@ -431,10 +452,29 @@
       };
     }
 
+    function telStillExistsAfterRemoval(tel, remainingTels, usedIndexes) {
+      for (let i = 0; i < remainingTels.length; i++) {
+        if (usedIndexes.has(i)) continue;
+        if (remainingTels[i].normalized === tel.normalized && remainingTels[i].raw === tel.raw) {
+          usedIndexes.add(i);
+          return true;
+        }
+      }
+
+      for (let i = 0; i < remainingTels.length; i++) {
+        if (usedIndexes.has(i)) continue;
+        if (remainingTels[i].normalized === tel.normalized) {
+          usedIndexes.add(i);
+          return true;
+        }
+      }
+
+      return false;
+    }
+
     function rebuildCard(card) {
-      const remainingNormalized = new Set(card.tels.map(t => t.normalized));
-      const usedNormalized = new Set();
       const rebuilt = [];
+      const usedIndexes = new Set();
 
       for (const line of card.lines) {
         const name = basePropName(line);
@@ -442,11 +482,13 @@
         if (name === "TEL") {
           const rawValue = propValue(line);
           const normalized = normalizePhone(rawValue);
-          if (!normalized) continue;
+          const telProbe = {
+            raw: rawValue,
+            normalized: normalized || digitsOnly(rawValue)
+          };
 
-          if (remainingNormalized.has(normalized) && !usedNormalized.has(normalized)) {
+          if (telStillExistsAfterRemoval(telProbe, card.tels, usedIndexes)) {
             rebuilt.push(line);
-            usedNormalized.add(normalized);
           }
         } else {
           rebuilt.push(line);
@@ -501,18 +543,20 @@
     }
 
     function extractNumbersFromText(text) {
-      const matches = text.match(/\+?\d[\d\s().-]{2,}\d/g) || [];
+      const matches = text.match(/\+?\d[\d\s().-]{1,}\d/g) || [];
       const map = new Map();
 
       for (const match of matches) {
         const cleaned = match.trim();
         const keys = [...buildMatchKeys(cleaned)];
         const normalized = normalizePhone(cleaned);
+        const digits = removeLeadingCountryArtifacts(digitsOnly(cleaned));
 
         if (keys.length) {
           map.set(cleaned, {
             raw: cleaned,
-            normalized,
+            normalized: normalized || digits,
+            digits,
             keys
           });
         }
@@ -548,6 +592,24 @@
       }
 
       updateResult(lines.join("\n"));
+    }
+
+    function telMatchesRemoval(tel, removeKeys) {
+      const telKeys = tel.keys || [];
+      if (telKeys.some(key => removeKeys.has(key))) return true;
+
+      const digits = tel.digits || digitsOnly(tel.raw);
+      if (!digits) return false;
+
+      const d8 = lastDigitsKey(digits, 8);
+      const d7 = lastDigitsKey(digits, 7);
+      const d6 = lastDigitsKey(digits, 6);
+
+      if (d8 && removeKeys.has("LAST8:" + d8)) return true;
+      if (d7 && removeKeys.has("LAST7:" + d7)) return true;
+      if (d6 && removeKeys.has("LAST6:" + d6)) return true;
+
+      return false;
     }
 
     document.getElementById("processBtn").addEventListener("click", async () => {
@@ -609,8 +671,7 @@
         const remainingTels = [];
 
         for (const tel of card.tels) {
-          const matched = (tel.keys || []).some(key => removeKeys.has(key));
-          if (matched) {
+          if (telMatchesRemoval(tel, removeKeys)) {
             numbersRemoved++;
           } else {
             remainingTels.push(tel);
