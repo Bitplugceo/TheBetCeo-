@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VCF Split, Deduplicate & Remove Numbers</title>
+  <title>VCF Cleaner</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -44,7 +44,6 @@
     }
 
     input[type="file"],
-    input[type="text"],
     textarea {
       width: 100%;
       box-sizing: border-box;
@@ -83,10 +82,6 @@
       background: #dc2626;
     }
 
-    .muted {
-      background: #334155;
-    }
-
     .result {
       margin-top: 16px;
       padding: 14px;
@@ -95,10 +90,6 @@
       border: 1px solid #2a3552;
       white-space: pre-line;
       line-height: 1.55;
-    }
-
-    .hidden {
-      display: none;
     }
 
     .small {
@@ -120,7 +111,7 @@
     <p>
       Upload your VCF once, split multi-number contacts into separate contacts,
       remove duplicate numbers globally, then keep pasting numbers you want removed.
-      The current cleaned file stays saved in this browser until you clear it.
+      The current cleaned VCF stays saved in this browser until you press Clear Saved Session.
     </p>
 
     <div class="card">
@@ -129,12 +120,9 @@
       <label for="vcfFile">Upload VCF file</label>
       <input id="vcfFile" type="file" accept=".vcf,text/vcard" />
 
-      <label for="countryCode">Default country code (optional)</label>
-      <input id="countryCode" type="text" placeholder="Example: 234 for Nigeria" />
-
       <div class="small">
-        This does not delete other countries. It only helps match local numbers like
-        0803... to +234803...
+        This version does not use a country-code input.
+        It keeps the current cleaned VCF saved on this device/browser until you clear it.
       </div>
 
       <button id="processBtn">Process Original VCF</button>
@@ -145,35 +133,135 @@
 
       <label for="removeBox">Paste numbers to delete</label>
       <textarea id="removeBox" placeholder="Paste one number per line, or paste mixed text containing numbers. Example:
+08035147790
 +2348012345678
-08031234567
 +447700900123"></textarea>
 
       <div class="small">
-        Every time you paste numbers here and tap remove, the page deletes them from
-        the currently saved cleaned file and replaces it with the newer version.
+        Each time you tap Remove Pasted Numbers, the page removes those numbers from the
+        currently saved VCF and saves the updated file again automatically.
       </div>
 
       <button id="removeBtn">Remove Pasted Numbers</button>
       <button id="downloadBtn" class="secondary">Download Current VCF</button>
       <button id="clearBtn" class="danger">Clear Saved Session</button>
 
-      <div id="result" class="result"></div>
+      <div id="result" class="result">Loading saved session...</div>
     </div>
   </div>
 
   <script>
-    const STORAGE_KEY = "vcfCleanerState_v2";
+    const DB_NAME = "vcfCleanerDB";
+    const STORE_NAME = "appState";
+    const STATE_KEY = "mainState";
 
     let state = {
-      defaultCountryCode: "",
       cards: [],
       sourceInputCards: 0,
       initialOutputCards: 0,
       duplicateNumbersRemoved: 0,
       splitContactsCount: 0,
-      cardsWithoutNumber: 0
+      cardsWithoutNumber: 0,
+      lastActionMessage: ""
     };
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+
+        request.onupgradeneeded = function(event) {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+
+        request.onsuccess = function() {
+          resolve(request.result);
+        };
+
+        request.onerror = function() {
+          reject(request.error || new Error("Failed to open database."));
+        };
+      });
+    }
+
+    async function saveState() {
+      const db = await openDb();
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.put(state, STATE_KEY);
+
+        tx.oncomplete = function() {
+          db.close();
+          resolve();
+        };
+
+        tx.onerror = function() {
+          db.close();
+          reject(tx.error || new Error("Failed to save session."));
+        };
+      });
+    }
+
+    async function loadState() {
+      const db = await openDb();
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(STATE_KEY);
+
+        req.onsuccess = function() {
+          db.close();
+          if (req.result && Array.isArray(req.result.cards)) {
+            state = req.result;
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        };
+
+        req.onerror = function() {
+          db.close();
+          reject(req.error || new Error("Failed to load session."));
+        };
+      });
+    }
+
+    async function clearSavedState() {
+      const db = await openDb();
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(STATE_KEY);
+
+        tx.oncomplete = function() {
+          db.close();
+          resolve();
+        };
+
+        tx.onerror = function() {
+          db.close();
+          reject(tx.error || new Error("Failed to clear session."));
+        };
+      });
+    }
+
+    function resetState() {
+      state = {
+        cards: [],
+        sourceInputCards: 0,
+        initialOutputCards: 0,
+        duplicateNumbersRemoved: 0,
+        splitContactsCount: 0,
+        cardsWithoutNumber: 0,
+        lastActionMessage: ""
+      };
+    }
 
     function unfoldVcardText(text) {
       return text.replace(/\r?\n[ \t]/g, "");
@@ -221,7 +309,7 @@
       return idx >= 0 ? line.slice(0, idx) : line;
     }
 
-    function normalizePhone(raw, defaultCountryCode) {
+    function normalizePhone(raw) {
       raw = String(raw || "").trim();
       if (!raw) return "";
 
@@ -233,14 +321,6 @@
       if (raw.startsWith("00")) {
         digits = digits.slice(2);
         plus = true;
-      }
-
-      if (defaultCountryCode) {
-        const cc = String(defaultCountryCode).replace(/\D/g, "");
-        if (digits.startsWith("0") && digits.length >= 10) {
-          digits = cc + digits.slice(1);
-          plus = true;
-        }
       }
 
       return (plus ? "+" : "") + digits;
@@ -263,7 +343,7 @@
       return cleaned || "Contact";
     }
 
-    function parseCard(lines, defaultCountryCode) {
+    function parseCard(lines) {
       let version = "3.0";
       let fn = "";
       let n = "";
@@ -283,7 +363,7 @@
           n = propValue(line);
         } else if (name === "TEL") {
           const rawPhone = propValue(line);
-          const normalized = normalizePhone(rawPhone, defaultCountryCode);
+          const normalized = normalizePhone(rawPhone);
           if (normalized) {
             telEntries.push({
               originalLine: line,
@@ -353,9 +433,9 @@
       URL.revokeObjectURL(url);
     }
 
-    function processInitialVcf(vcfText, defaultCountryCode) {
+    function processInitialVcf(vcfText) {
       const rawCards = splitCards(vcfText);
-      const parsedCards = rawCards.map(card => parseCard(card, defaultCountryCode));
+      const parsedCards = rawCards.map(card => parseCard(card));
 
       const seenNumbers = new Set();
       const outputCards = [];
@@ -426,49 +506,18 @@
       };
     }
 
-    function extractNumbersFromText(text, defaultCountryCode) {
+    function extractNumbersFromText(text) {
       const matches = text.match(/\+?\d[\d\s().-]{5,}\d/g) || [];
       const set = new Set();
 
       for (const match of matches) {
-        const normalized = normalizePhone(match, defaultCountryCode);
+        const normalized = normalizePhone(match);
         if (normalized) {
           set.add(normalized);
         }
       }
 
       return [...set];
-    }
-
-    function saveState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
-    function loadState() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return false;
-
-      try {
-        const parsed = JSON.parse(raw);
-        if (!parsed || !Array.isArray(parsed.cards)) return false;
-        state = parsed;
-        return true;
-      } catch {
-        return false;
-      }
-    }
-
-    function clearState() {
-      localStorage.removeItem(STORAGE_KEY);
-      state = {
-        defaultCountryCode: "",
-        cards: [],
-        sourceInputCards: 0,
-        initialOutputCards: 0,
-        duplicateNumbersRemoved: 0,
-        splitContactsCount: 0,
-        cardsWithoutNumber: 0
-      };
     }
 
     function updateResult(message) {
@@ -495,7 +544,6 @@
 
     document.getElementById("processBtn").addEventListener("click", async () => {
       const vcfFile = document.getElementById("vcfFile").files[0];
-      const defaultCountryCode = document.getElementById("countryCode").value.trim();
 
       if (!vcfFile) {
         alert("Please upload your VCF file first.");
@@ -504,24 +552,25 @@
 
       try {
         const vcfText = await readFileText(vcfFile);
-        const processed = processInitialVcf(vcfText, defaultCountryCode);
+        const processed = processInitialVcf(vcfText);
 
-        state.defaultCountryCode = defaultCountryCode;
         state.cards = processed.cards;
         state.sourceInputCards = processed.sourceInputCards;
         state.initialOutputCards = processed.initialOutputCards;
         state.duplicateNumbersRemoved = processed.duplicateNumbersRemoved;
         state.splitContactsCount = processed.splitContactsCount;
         state.cardsWithoutNumber = processed.cardsWithoutNumber;
+        state.lastActionMessage = "Original VCF processed and saved successfully.";
 
-        saveState();
-        showCurrentStatus("Original VCF loaded and saved in browser.");
+        await saveState();
+
+        showCurrentStatus("Original VCF processed and saved successfully.\nYour current VCF will stay here until you press Clear Saved Session.");
       } catch (err) {
         updateResult("Error: " + (err.message || String(err)));
       }
     });
 
-    document.getElementById("removeBtn").addEventListener("click", () => {
+    document.getElementById("removeBtn").addEventListener("click", async () => {
       if (!state.cards.length) {
         alert("Load and process your VCF first.");
         return;
@@ -533,7 +582,7 @@
         return;
       }
 
-      const removalNumbers = extractNumbersFromText(text, state.defaultCountryCode);
+      const removalNumbers = extractNumbersFromText(text);
 
       if (!removalNumbers.length) {
         alert("No valid numbers were found in what you pasted.");
@@ -545,15 +594,27 @@
       state.cards = state.cards.filter(card => !removeSet.has(card.normalizedTel));
       const removed = before - state.cards.length;
 
-      saveState();
-
-      showCurrentStatus(
+      state.lastActionMessage =
+        `Done.\n` +
         `Numbers found in pasted text: ${removalNumbers.length}\n` +
         `Cards removed in this batch: ${removed}\n` +
-        `Saved file replaced with newest version.`
-      );
+        `Current VCF updated and saved successfully.`;
 
-      document.getElementById("removeBox").value = "";
+      try {
+        await saveState();
+
+        showCurrentStatus(
+          `Done.\n` +
+          `Numbers found in pasted text: ${removalNumbers.length}\n` +
+          `Cards removed in this batch: ${removed}\n` +
+          `Current VCF updated and saved successfully.\n` +
+          `It will stay saved until you press Clear Saved Session.`
+        );
+
+        document.getElementById("removeBox").value = "";
+      } catch (err) {
+        updateResult("Error: " + (err.message || String(err)));
+      }
     });
 
     document.getElementById("downloadBtn").addEventListener("click", () => {
@@ -566,23 +627,34 @@
       downloadFile("final_cleaned_contacts.vcf", vcfText);
     });
 
-    document.getElementById("clearBtn").addEventListener("click", () => {
+    document.getElementById("clearBtn").addEventListener("click", async () => {
       const ok = confirm("Clear the saved session and remove the current stored VCF from this browser?");
       if (!ok) return;
 
-      clearState();
-      document.getElementById("vcfFile").value = "";
-      document.getElementById("countryCode").value = "";
-      document.getElementById("removeBox").value = "";
-      updateResult("Saved session cleared.");
+      try {
+        await clearSavedState();
+        resetState();
+        document.getElementById("vcfFile").value = "";
+        document.getElementById("removeBox").value = "";
+        updateResult("Saved session cleared.");
+      } catch (err) {
+        updateResult("Error: " + (err.message || String(err)));
+      }
     });
 
-    if (loadState()) {
-      document.getElementById("countryCode").value = state.defaultCountryCode || "";
-      showCurrentStatus("Saved session restored from this browser.");
-    } else {
-      updateResult("No saved VCF yet. Upload and process your original VCF first.");
-    }
+    (async function init() {
+      try {
+        const hasSaved = await loadState();
+        if (hasSaved && state.cards.length) {
+          showCurrentStatus("Saved session restored.\nYour current VCF is still here and ready.");
+        } else {
+          resetState();
+          updateResult("No saved VCF yet. Upload and process your original VCF first.");
+        }
+      } catch (err) {
+        updateResult("Error: " + (err.message || String(err)));
+      }
+    })();
   </script>
 </body>
 </html>
