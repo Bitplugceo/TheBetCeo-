@@ -8009,11 +8009,17 @@ const { ftLine, h1Line, h2Line, aLine, bLine } = resolvedLines;
     if (h1Calc.h1SampleTier === "insufficient") h1Pick = "NO PLAY";
     if (h2Calc.h2SampleTier === "insufficient") h2Pick = "NO PLAY";
 
-    const ftTrap = false;
-    const h1Trap = false;
-    const h2Trap = false;
-    const aTrap = false;
-    const bTrap = false;
+    const ftTrap = ftPick !== "NO PLAY" && detectTrap(ftCalc.ftEdge, ftLine, ftPick, league, "ft", (ftCalc.aVol || 0) + (ftCalc.bVol || 0));
+    const h1Trap = h1Pick !== "NO PLAY" && detectTrap(h1Calc.h1Edge, h1Line, h1Pick, league, "h1", (h1Calc.aVol1 || 0) + (h1Calc.bVol1 || 0));
+    const h2Trap = h2Pick !== "NO PLAY" && detectTrap(h2Calc.h2Edge, h2Line, h2Pick, league, "h2", (h2Calc.aVol2 || 0) + (h2Calc.bVol2 || 0));
+    const aTrap = aPick !== "NO PLAY" && detectTrap(ftCalc.aEdge, aLine, aPick, league, "team", ftCalc.aVol || 0);
+    const bTrap = bPick !== "NO PLAY" && detectTrap(ftCalc.bEdge, bLine, bPick, league, "team", ftCalc.bVol || 0);
+
+    if (ftTrap) ftPick = "NO PLAY";
+    if (h1Trap) h1Pick = "NO PLAY";
+    if (h2Trap) h2Pick = "NO PLAY";
+    if (aTrap) aPick = "NO PLAY";
+    if (bTrap) bPick = "NO PLAY";
 
 const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
     const h1Note = h1Calc.h1Note || h1Calc.h1ProjectionNote || null;
