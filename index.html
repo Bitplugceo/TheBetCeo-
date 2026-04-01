@@ -4815,6 +4815,7 @@ function getTrackedLeagueBase(league) {
           if (homeLines.length < 4 || awayLines.length < 4) return "pending";
           actual = sumLineScores(homeLines.slice(2, 4), 2) + sumLineScores(awayLines.slice(2, 4), 2);
         }
+      }
 
       if (!isFinite(actual)) return "pending";
       const line = Number(pick.line);
