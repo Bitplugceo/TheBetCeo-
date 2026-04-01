@@ -1105,10 +1105,10 @@ input,
   <input id="bFormIntel" style="max-width:100%;" placeholder="Form +1.4 | Off +2.1 | Def -0.6" readonly />
 
   <label>Team A Spread Profile</label>
-  <input id="aSpreadIntel" style="max-width:100%;" placeholder="Overall +3.4 | Venue +4.1" readonly />
+  <input id="aSpreadIntel" style="max-width:100%;" placeholder="Overall +3.4" readonly />
 
   <label>Team B Spread Profile</label>
-  <input id="bSpreadIntel" style="max-width:100%;" placeholder="Overall -1.8 | Venue -0.9" readonly />
+  <input id="bSpreadIntel" style="max-width:100%;" placeholder="Overall -1.8" readonly />
 
   <label>Team A Total Hit Profile</label>
   <input id="aHitIntel" style="max-width:100%;" placeholder="Over 226.5 60% | Over 238.5 35%" readonly />
@@ -5102,6 +5102,11 @@ function setDisplayValues(ids, displayValue) {
   });
 }
 
+function setAutoTagVisible(id, visible) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = visible ? "inline" : "none";
+}
+
 function hideInjuryBox(side) {
   const box = document.getElementById(side === "A" ? "injuryBoxA" : "injuryBoxB");
   const content = document.getElementById(side === "A" ? "injuryContentA" : "injuryContentB");
@@ -7275,7 +7280,7 @@ function getMassacreTeamContext(side, parsed) {
 
   const ctx = g_massacreFetchContext?.[side] || {};
   const overall = ctx.overall || {};
-  const venue = ctx.venue || {};
+  const venue = {};
 
   return {
     ftScored10: Array.isArray(overall.ftScored10) && overall.ftScored10.length ? overall.ftScored10 : data.ftScored,
