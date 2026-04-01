@@ -491,7 +491,6 @@ input,
   display: none;
 }
 
-
   .autocomplete-list div {
   padding: 8px 10px;
   font-size: 12px;
@@ -1088,11 +1087,6 @@ input,
     <input id="h2Market" placeholder="98.5 - 108.5" />
   </div>
 
-  <div id="q1MarketSection" style="display:none;">
-    <label>Q1 Total</label>
-    <input id="q1Market" placeholder="55.5 or 55.5 - 58.5" />
-  </div>
-
   <label>Team A Total</label>
   <input id="teamAMarket" placeholder="75.5 - 79.5" />
 
@@ -1124,13 +1118,6 @@ input,
     <input id="a2HAllowed" placeholder="38,40,35,37,39" />
   </div>
 
-  <div id="aQ1Section" style="display:none;">
-    <label>Q1 Scored</label>
-    <input id="aQ1Scored" placeholder="28,26,30,25,27" />
-
-    <label>Q1 Allowed</label>
-    <input id="aQ1Allowed" placeholder="25,27,24,28,26" />
-  </div>
 </div>
 
 <div class="section" id="teamBSection">
@@ -1158,13 +1145,6 @@ input,
     <input id="b2HAllowed" placeholder="37,42,36,38,40" />
   </div>
 
-  <div id="bQ1Section" style="display:none;">
-    <label>Q1 Scored</label>
-    <input id="bQ1Scored" placeholder="27,25,29,24,26" />
-
-    <label>Q1 Allowed</label>
-    <input id="bQ1Allowed" placeholder="24,26,23,27,25" />
-  </div>
 </div>
 <div class="section" id="teamAVenueSection">
   <h3 style="font-size:14px;margin-bottom:8px;">Team A - Actual Home Last 5 <span class="autofill-indicator" id="aVenueAutoTag">✅ Auto-filled</span></h3>
@@ -1189,12 +1169,6 @@ input,
     <input id="aHome2HAllowed" placeholder="38,40,35,37,39" />
   </div>
 
-  <div id="aHomeQ1Section" style="display:none;">
-    <label>Q1 Scored</label>
-    <input id="aHomeQ1Scored" placeholder="28,26,30,25,27" />
-    <label>Q1 Allowed</label>
-    <input id="aHomeQ1Allowed" placeholder="25,27,24,28,26" />
-  </div>
 </div>
 
 <div class="section" id="teamBVenueSection">
@@ -1220,12 +1194,6 @@ input,
     <input id="bAway2HAllowed" placeholder="37,42,36,38,40" />
   </div>
 
-  <div id="bAwayQ1Section" style="display:none;">
-    <label>Q1 Scored</label>
-    <input id="bAwayQ1Scored" placeholder="27,25,29,24,26" />
-    <label>Q1 Allowed</label>
-    <input id="bAwayQ1Allowed" placeholder="24,26,23,27,25" />
-  </div>
 </div>
 
 <div class="section" id="h2hSection">
@@ -1247,11 +1215,6 @@ input,
     <input id="b2HH2H" placeholder="38,42,36,40,39" />
   </div>
 
-  <div id="h2hQ1Section" style="display:none;">
-    <label><input type="checkbox" id="useQ1H2H" /> Use Q1 H2H (min 2 games)</label>
-    <input id="aQ1H2H" placeholder="27,25,29,24,26" />
-    <input id="bQ1H2H" placeholder="24,26,23,27,25" />
-  </div>
 </div>
 
 <div class="section" id="intelSection">
@@ -1272,14 +1235,6 @@ input,
 
   <label>Team B Spread Profile</label>
   <input id="bSpreadIntel" style="max-width:100%;" placeholder="Overall -1.8 | Venue -0.9" readonly />
-
-  <div id="intelQuarterWrap" style="display:none;">
-    <label>Team A Quarter Spread Profile</label>
-    <input id="aQuarterIntel" style="max-width:100%;" placeholder="Q1 +2.9 | Q2 +0.4 | Q3 -0.1 | Q4 +1.6" readonly />
-
-    <label>Team B Quarter Spread Profile</label>
-    <input id="bQuarterIntel" style="max-width:100%;" placeholder="Q1 +0.9 | Q2 +1.2 | Q3 -3.0 | Q4 +1.3" readonly />
-  </div>
 
   <label>Team A Total Hit Profile</label>
   <input id="aHitIntel" style="max-width:100%;" placeholder="Over 226.5 60% | Over 238.5 35%" readonly />
@@ -2788,35 +2743,6 @@ function buildFetchAuditIssues({
     );
   }
 
-  if (league === "nba") {
-    requirePairSample(
-      aStats?.q1Scored?.length,
-      aStats?.q1Allowed?.length,
-      5,
-      `${teamAName || "Team A"} overall Q1 sample`
-    );
-
-    requirePairSample(
-      bStats?.q1Scored?.length,
-      bStats?.q1Allowed?.length,
-      5,
-      `${teamBName || "Team B"} overall Q1 sample`
-    );
-
-    requirePairSample(
-      aVenueStats?.q1Scored?.length,
-      aVenueStats?.q1Allowed?.length,
-      2,
-      `${teamAName || "Team A"} strict home Q1 sample`
-    );
-
-    requirePairSample(
-      bVenueStats?.q1Scored?.length,
-      bVenueStats?.q1Allowed?.length,
-      2,
-      `${teamBName || "Team B"} strict away Q1 sample`
-    );
-  }
 
   if ((h2hGames?.length || 0) === 0) {
     issues.push("No 2024+ H2H games were found for this matchup.");
@@ -3044,20 +2970,6 @@ function setAutoTagVisible(id, visible) {
   const el = document.getElementById(id);
   if (el) el.style.display = visible ? "inline" : "none";
 }
-function setInputValueSafe(id, value = "") {
-  const el = document.getElementById(id);
-  if (el) el.value = value;
-}
-
-function setCheckedSafe(id, checked) {
-  const el = document.getElementById(id);
-  if (el) el.checked = !!checked;
-}
-
-function setDisplaySafe(id, displayValue) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = displayValue;
-}
 function readImageFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -3210,15 +3122,15 @@ function resetFlashscoreImportRuntime() {
   hideInjuryBox("B");
 
   [
-    "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed", "aQ1Scored", "aQ1Allowed",
-    "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed", "bQ1Scored", "bQ1Allowed",
+    "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed",
+    "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed",
 
-    "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed",
-    "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed",
+    "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed",
+    "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed",
 
-    "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H", "aQ1H2H", "bQ1H2H",
+    "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H",
 
-    "h1Market", "h2Market", "q1Market"
+    "h1Market", "h2Market"
   ].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = "";
@@ -3226,10 +3138,8 @@ function resetFlashscoreImportRuntime() {
 
   const use1HH2H = document.getElementById("use1HH2H");
   const use2HH2H = document.getElementById("use2HH2H");
-  const useQ1H2H = document.getElementById("useQ1H2H");
   if (use1HH2H) use1HH2H.checked = false;
   if (use2HH2H) use2HH2H.checked = false;
-  if (useQ1H2H) useQ1H2H.checked = false;
 
   const fixtureSelect = document.getElementById("fixtureSelect");
   if (fixtureSelect) fixtureSelect.value = "";
@@ -3591,7 +3501,6 @@ function ceilToHalf(val) {
 function getSmartLineCushion(league, marketKey) {
   if (marketKey === "ft") return league === "nba" ? 2.0 : 2.5;
   if (marketKey === "h1" || marketKey === "h2") return league === "nba" ? 1.0 : 1.5;
-  if (marketKey === "q1") return 0.5;
   if (marketKey === "team_a" || marketKey === "team_b") return league === "nba" ? 1.5 : 2.0;
   return 0;
 }
@@ -3601,7 +3510,6 @@ function getRawMarketInputMap() {
     ft: document.getElementById("ftMarket")?.value || "",
     h1: document.getElementById("h1Market")?.value || "",
     h2: document.getElementById("h2Market")?.value || "",
-    q1: document.getElementById("q1Market")?.value || "",
     team_a: document.getElementById("teamAMarket")?.value || "",
     team_b: document.getElementById("teamBMarket")?.value || ""
   };
@@ -3805,7 +3713,6 @@ function trimmedAvg(arr) {
       return a && !a.err ? a : null;
     }
 
-
     function displayLine(val) {
       if (val === null || val === undefined || isNaN(val)) return "—";
       return (Math.round(val * 2) / 2).toFixed(1);
@@ -3984,7 +3891,6 @@ function queueTrackerKeepaliveSave() {
     console.error("[BB Engine] queueTrackerKeepaliveSave failed", err);
   }
 }
-
 
 function withTrackerCacheBust(url) {
   try {
@@ -4254,7 +4160,6 @@ function saveTrackedPicks(picks) {
   Promise.resolve().then(() => forceTrackerSaveNow());
 }
 
-
   function archiveExpiredTrackedPicks() {
   const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
   if (!active.length) return false;
@@ -4410,8 +4315,8 @@ function renderTrackedPicks() {
     scheduleTrackerSave();
   }
 
-  const activePicks = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
-  const archivedPicks = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+  const activePicks = (Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : []).filter(p => p?.marketKey !== "q1");
+  const archivedPicks = (Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : []).filter(p => p?.marketKey !== "q1");
   const allPicks = [...activePicks, ...archivedPicks];
   rebuildTrackerStats();
   renderTrackerAnalytics();
@@ -4430,12 +4335,11 @@ function renderTrackedPicks() {
     ft: "FT",
     h1: "1H",
     h2: "2H",
-    q1: "Q1",
     team_a: "Team A",
     team_b: "Team B"
   };
 
-  const marketKeys = ["ft", "h1", "h2", "q1", "team_a", "team_b"];
+  const marketKeys = ["ft", "h1", "h2", "team_a", "team_b"];
 
   const chips = marketKeys.map(key => {
     const group = activePicks.filter(p => p.marketKey === key);
@@ -4923,10 +4827,6 @@ function getTrackedLeagueBase(league) {
           if (homeLines.length < 4 || awayLines.length < 4) return "pending";
           actual = sumLineScores(homeLines.slice(2, 4), 2) + sumLineScores(awayLines.slice(2, 4), 2);
         }
-      } else if (pick.marketKey === "q1") {
-        if (homeLines.length < 1 || awayLines.length < 1) return "pending";
-        actual = sumLineScores(homeLines, 1) + sumLineScores(awayLines, 1);
-      }
 
       if (!isFinite(actual)) return "pending";
       const line = Number(pick.line);
@@ -5161,7 +5061,7 @@ function getTrackedLeagueBase(league) {
       return { ft:[110,220], h1:[52,115], h2:[52,115], q1:null, team:[48,120] };
     }
 
-    function validateLines(league, ftLine, h1Line, h2Line, q1Line, aLine, bLine) {
+    function validateLines(league, ftLine, h1Line, h2Line, aLine, bLine) {
       const bands = getLineSanityBands(league);
       const errs = [];
       function chk(val, band, label) {
@@ -5172,7 +5072,6 @@ function getTrackedLeagueBase(league) {
       chk(ftLine, bands.ft, league.toUpperCase() + " FT total");
       chk(h1Line, bands.h1, league.toUpperCase() + " 1H total");
       chk(h2Line, bands.h2, league.toUpperCase() + " 2H total");
-      chk(q1Line, bands.q1, league.toUpperCase() + " Q1 total");
       chk(aLine, bands.team, league.toUpperCase() + " Team A total");
       chk(bLine, bands.team, league.toUpperCase() + " Team B total");
       return errs;
@@ -5461,10 +5360,6 @@ function buildLooseParsedState() {
     a2HAllowed: readLooseSeries("a2HAllowed"),
     b2HScored: readLooseSeries("b2HScored"),
     b2HAllowed: readLooseSeries("b2HAllowed"),
-    aQ1Scored: readLooseSeries("aQ1Scored"),
-    aQ1Allowed: readLooseSeries("aQ1Allowed"),
-    bQ1Scored: readLooseSeries("bQ1Scored"),
-    bQ1Allowed: readLooseSeries("bQ1Allowed"),
     aHomeFTScored: readLooseSeries("aHomeFTScored"),
     aHomeFTAllowed: readLooseSeries("aHomeFTAllowed"),
     bAwayFTScored: readLooseSeries("bAwayFTScored"),
@@ -5476,11 +5371,7 @@ function buildLooseParsedState() {
     aHome2HScored: readLooseSeries("aHome2HScored"),
     aHome2HAllowed: readLooseSeries("aHome2HAllowed"),
     bAway2HScored: readLooseSeries("bAway2HScored"),
-    bAway2HAllowed: readLooseSeries("bAway2HAllowed"),
-    aHomeQ1Scored: readLooseSeries("aHomeQ1Scored"),
-    aHomeQ1Allowed: readLooseSeries("aHomeQ1Allowed"),
-    bAwayQ1Scored: readLooseSeries("bAwayQ1Scored"),
-    bAwayQ1Allowed: readLooseSeries("bAwayQ1Allowed")
+    bAway2HAllowed: readLooseSeries("bAway2HAllowed")
   };
 }
 
@@ -5733,14 +5624,12 @@ function updateIntelligencePack(leagueOverride = "", linesOverride = null, parse
   const league = leagueOverride || document.getElementById("leagueSelect")?.value || "";
   const fields = [
     "aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel",
-    "aQuarterIntel", "bQuarterIntel", "aHitIntel", "bHitIntel"
+    "aHitIntel", "bHitIntel"
   ];
 
   if (!league) {
     setFieldValues(fields, "");
     setAutoTagVisible("intelAutoTag", false);
-    const wrap = document.getElementById("intelQuarterWrap");
-    if (wrap) wrap.style.display = "none";
     return null;
   }
 
@@ -5748,7 +5637,6 @@ function updateIntelligencePack(leagueOverride = "", linesOverride = null, parse
     ftLine: parseMarketLine(document.getElementById("ftMarket")?.value || ""),
     h1Line: parseMarketLine(document.getElementById("h1Market")?.value || ""),
     h2Line: parseMarketLine(document.getElementById("h2Market")?.value || ""),
-    q1Line: parseMarketLine(document.getElementById("q1Market")?.value || ""),
     aLine: parseMarketLine(document.getElementById("teamAMarket")?.value || ""),
     bLine: parseMarketLine(document.getElementById("teamBMarket")?.value || "")
   };
@@ -5759,21 +5647,15 @@ function updateIntelligencePack(leagueOverride = "", linesOverride = null, parse
   const bFormIntel = document.getElementById("bFormIntel");
   const aSpreadIntel = document.getElementById("aSpreadIntel");
   const bSpreadIntel = document.getElementById("bSpreadIntel");
-  const aQuarterIntel = document.getElementById("aQuarterIntel");
-  const bQuarterIntel = document.getElementById("bQuarterIntel");
   const aHitIntel = document.getElementById("aHitIntel");
   const bHitIntel = document.getElementById("bHitIntel");
-  const quarterWrap = document.getElementById("intelQuarterWrap");
 
   if (aFormIntel) aFormIntel.value = pack.teamA.summary;
   if (bFormIntel) bFormIntel.value = pack.teamB.summary;
   if (aSpreadIntel) aSpreadIntel.value = pack.teamA.spreadSummary;
   if (bSpreadIntel) bSpreadIntel.value = pack.teamB.spreadSummary;
-  if (aQuarterIntel) aQuarterIntel.value = pack.teamA.quarterProfile;
-  if (bQuarterIntel) bQuarterIntel.value = pack.teamB.quarterProfile;
   if (aHitIntel) aHitIntel.value = pack.teamA.hitProfile;
   if (bHitIntel) bHitIntel.value = pack.teamB.hitProfile;
-  if (quarterWrap) quarterWrap.style.display = pack.hasQuarterProfile ? "block" : "none";
 
   setAutoTagVisible("intelAutoTag", !!pack.hasAnyData);
   return pack;
@@ -5830,25 +5712,19 @@ function applyIntelligenceLayerToPicks(picks, intelligencePack, league) {
 }
 
 const FIELD_GROUPS = {
-  markets: ["ftMarket", "h1Market", "h2Market", "q1Market", "teamAMarket", "teamBMarket"],
+  markets: ["ftMarket", "h1Market", "h2Market", "teamAMarket", "teamBMarket"],
 
-  teamAOverall: ["aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed", "aQ1Scored", "aQ1Allowed"],
-  teamAVenue: ["aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"],
+  teamAOverall: ["aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed"],
+  teamAVenue: ["aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed"],
 
-  teamBOverall: ["bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed", "bQ1Scored", "bQ1Allowed"],
-  teamBVenue: ["bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"],
+  teamBOverall: ["bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed"],
+  teamBVenue: ["bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed"],
 
-  h2h: ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H", "aQ1H2H", "bQ1H2H"],
+  h2h: ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H"],
 
-  intelFields: ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aQuarterIntel", "bQuarterIntel", "aHitIntel", "bHitIntel"],
+  intelFields: ["aFormIntel", "bFormIntel", "aSpreadIntel", "bSpreadIntel", "aHitIntel", "bHitIntel"],
 
   autoTags: ["aAutoTag", "bAutoTag", "aVenueAutoTag", "bVenueAutoTag", "h2hAutoTag", "intelAutoTag"],
-
-  q1Inputs: [
-    "aQ1Scored", "aQ1Allowed", "bQ1Scored", "bQ1Allowed",
-    "aHomeQ1Scored", "aHomeQ1Allowed", "bAwayQ1Scored", "bAwayQ1Allowed",
-    "q1Market", "aQ1H2H", "bQ1H2H"
-  ],
 
   periodInputs: [
     "a1HScored","a1HAllowed","b1HScored","b1HAllowed",
@@ -5856,10 +5732,7 @@ const FIELD_GROUPS = {
     "a1HH2H","b1HH2H","h1Market",
     "a2HScored","a2HAllowed","b2HScored","b2HAllowed",
     "aHome2HScored","aHome2HAllowed","bAway2HScored","bAway2HAllowed",
-    "a2HH2H","b2HH2H","h2Market",
-    "aQ1Scored","aQ1Allowed","bQ1Scored","bQ1Allowed",
-    "aHomeQ1Scored","aHomeQ1Allowed","bAwayQ1Scored","bAwayQ1Allowed",
-    "q1Market","aQ1H2H","bQ1H2H"
+    "a2HH2H","b2HH2H","h2Market"
   ]
 };
 
@@ -5887,12 +5760,12 @@ function hideInjuryBox(side) {
     function clearSideFields(side) {
   const ids = side === "A"
     ? [
-        "aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed", "aQ1Scored", "aQ1Allowed",
-        "aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed", "aHomeQ1Scored", "aHomeQ1Allowed"
+        "aFTScored", "aFTAllowed", "a1HScored", "a1HAllowed", "a2HScored", "a2HAllowed",
+        "aHomeFTScored", "aHomeFTAllowed", "aHome1HScored", "aHome1HAllowed", "aHome2HScored", "aHome2HAllowed"
       ]
     : [
-        "bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed", "bQ1Scored", "bQ1Allowed",
-        "bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed", "bAwayQ1Scored", "bAwayQ1Allowed"
+        "bFTScored", "bFTAllowed", "b1HScored", "b1HAllowed", "b2HScored", "b2HAllowed",
+        "bAwayFTScored", "bAwayFTAllowed", "bAway1HScored", "bAway1HAllowed", "bAway2HScored", "bAway2HAllowed"
       ];
 
   ids.forEach(id => {
@@ -5916,18 +5789,16 @@ function hideInjuryBox(side) {
 }
 
     function clearH2HFields() {
-      ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H", "aQ1H2H", "bQ1H2H"].forEach(id => {
+      ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
       const ftCb = document.getElementById("useFTH2H");
       const h1Cb = document.getElementById("use1HH2H");
       const h2Cb = document.getElementById("use2HH2H");
-      const q1Cb = document.getElementById("useQ1H2H");
       if (ftCb) ftCb.checked = false;
       if (h1Cb) h1Cb.checked = false;
       if (h2Cb) h2Cb.checked = false;
-      if (q1Cb) q1Cb.checked = false;
       const h2hTag = document.getElementById("h2hAutoTag");
       if (h2hTag) h2hTag.style.display = "none";
     }
@@ -7167,120 +7038,85 @@ clearH2HFields();
         const messages = [];
 
         if (aStats?.scored?.length > 0) {
-          setImportedArrayField("aFTScored", aStats.scored);
-          setImportedArrayField("aFTAllowed", aStats.allowed);
-
+          document.getElementById("aFTScored").value = aStats.scored.join(",");
+          document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
           if (aStats.h1Scored?.length > 0) {
-            setImportedArrayField("a1HScored", aStats.h1Scored);
-            setImportedArrayField("a1HAllowed", aStats.h1Allowed);
+            document.getElementById("a1HScored").value = aStats.h1Scored.join(",");
+            document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
           }
-
           if (aStats.h2Scored?.length > 0) {
-            setImportedArrayField("a2HScored", aStats.h2Scored);
-            setImportedArrayField("a2HAllowed", aStats.h2Allowed);
+            document.getElementById("a2HScored").value = aStats.h2Scored.join(",");
+            document.getElementById("a2HAllowed").value = aStats.h2Allowed.join(",");
             messages.push(`${safeText(teamAName)} 2H: ${aStats.h2Scored.length} games ✅`);
           }
-
-          if (aStats.q1Scored?.length > 0) {
-            setImportedArrayField("aQ1Scored", aStats.q1Scored);
-            setImportedArrayField("aQ1Allowed", aStats.q1Allowed);
-          }
-
-          setAutoTagVisible("aAutoTag", true);
+          document.getElementById("aAutoTag").style.display = "inline";
           messages.push(`${safeText(teamAName)}: ${aStats.scored.length} games ✅`);
         } else {
           messages.push(`${safeText(teamAName)}: no data ❌`);
         }
-
-        if (aVenueStats?.scored?.length > 0) {
-          setImportedArrayField("aHomeFTScored", aVenueStats.scored);
-          setImportedArrayField("aHomeFTAllowed", aVenueStats.allowed);
-
-          if (aVenueStats.h1Scored?.length > 0) {
-            setImportedArrayField("aHome1HScored", aVenueStats.h1Scored);
-            setImportedArrayField("aHome1HAllowed", aVenueStats.h1Allowed);
-          }
-
-          if (aVenueStats.h2Scored?.length > 0) {
-            setImportedArrayField("aHome2HScored", aVenueStats.h2Scored);
-            setImportedArrayField("aHome2HAllowed", aVenueStats.h2Allowed);
-            messages.push(`${safeText(teamAName)} home 2H: ${aVenueStats.h2Scored.length} games ✅`);
-          }
-
-          if (aVenueStats.q1Scored?.length > 0) {
-            setImportedArrayField("aHomeQ1Scored", aVenueStats.q1Scored);
-            setImportedArrayField("aHomeQ1Allowed", aVenueStats.q1Allowed);
-          }
-
-          setAutoTagVisible("aVenueAutoTag", true);
-          messages.push(`${safeText(teamAName)} home: ${aVenueStats.scored.length} games ✅`);
-        } else {
-          messages.push(`${safeText(teamAName)} home: no data ❌`);
-        }
-
+if (aVenueStats?.scored?.length > 0) {
+  document.getElementById("aHomeFTScored").value = aVenueStats.scored.join(",");
+  document.getElementById("aHomeFTAllowed").value = aVenueStats.allowed.join(",");
+  if (aVenueStats.h1Scored?.length > 0) {
+    document.getElementById("aHome1HScored").value = aVenueStats.h1Scored.join(",");
+    document.getElementById("aHome1HAllowed").value = aVenueStats.h1Allowed.join(",");
+  }
+  if (aVenueStats.h2Scored?.length > 0) {
+    document.getElementById("aHome2HScored").value = aVenueStats.h2Scored.join(",");
+    document.getElementById("aHome2HAllowed").value = aVenueStats.h2Allowed.join(",");
+    messages.push(`${safeText(teamAName)} home 2H: ${aVenueStats.h2Scored.length} games ✅`);
+  }
+  const tag = document.getElementById("aVenueAutoTag");
+  if (tag) tag.style.display = "inline";
+  messages.push(`${safeText(teamAName)} home: ${aVenueStats.scored.length} games ✅`);
+} else {
+  messages.push(`${safeText(teamAName)} home: no data ❌`);
+}
         if (bStats?.scored?.length > 0) {
-          setImportedArrayField("bFTScored", bStats.scored);
-          setImportedArrayField("bFTAllowed", bStats.allowed);
-
+          document.getElementById("bFTScored").value = bStats.scored.join(",");
+          document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
           if (bStats.h1Scored?.length > 0) {
-            setImportedArrayField("b1HScored", bStats.h1Scored);
-            setImportedArrayField("b1HAllowed", bStats.h1Allowed);
+            document.getElementById("b1HScored").value = bStats.h1Scored.join(",");
+            document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
           }
-
           if (bStats.h2Scored?.length > 0) {
-            setImportedArrayField("b2HScored", bStats.h2Scored);
-            setImportedArrayField("b2HAllowed", bStats.h2Allowed);
+            document.getElementById("b2HScored").value = bStats.h2Scored.join(",");
+            document.getElementById("b2HAllowed").value = bStats.h2Allowed.join(",");
             messages.push(`${safeText(teamBName)} 2H: ${bStats.h2Scored.length} games ✅`);
           }
-
-          if (bStats.q1Scored?.length > 0) {
-            setImportedArrayField("bQ1Scored", bStats.q1Scored);
-            setImportedArrayField("bQ1Allowed", bStats.q1Allowed);
-          }
-
-          setAutoTagVisible("bAutoTag", true);
+          document.getElementById("bAutoTag").style.display = "inline";
           messages.push(`${safeText(teamBName)}: ${bStats.scored.length} games ✅`);
         } else {
           messages.push(`${safeText(teamBName)}: no data ❌`);
         }
-
-        if (bVenueStats?.scored?.length > 0) {
-          setImportedArrayField("bAwayFTScored", bVenueStats.scored);
-          setImportedArrayField("bAwayFTAllowed", bVenueStats.allowed);
-
-          if (bVenueStats.h1Scored?.length > 0) {
-            setImportedArrayField("bAway1HScored", bVenueStats.h1Scored);
-            setImportedArrayField("bAway1HAllowed", bVenueStats.h1Allowed);
-          }
-
-          if (bVenueStats.h2Scored?.length > 0) {
-            setImportedArrayField("bAway2HScored", bVenueStats.h2Scored);
-            setImportedArrayField("bAway2HAllowed", bVenueStats.h2Allowed);
-            messages.push(`${safeText(teamBName)} away 2H: ${bVenueStats.h2Scored.length} games ✅`);
-          }
-
-          if (bVenueStats.q1Scored?.length > 0) {
-            setImportedArrayField("bAwayQ1Scored", bVenueStats.q1Scored);
-            setImportedArrayField("bAwayQ1Allowed", bVenueStats.q1Allowed);
-          }
-
-          setAutoTagVisible("bVenueAutoTag", true);
-          messages.push(`${safeText(teamBName)} away: ${bVenueStats.scored.length} games ✅`);
-        } else {
-          messages.push(`${safeText(teamBName)} away: no data ❌`);
-        }
+if (bVenueStats?.scored?.length > 0) {
+  document.getElementById("bAwayFTScored").value = bVenueStats.scored.join(",");
+  document.getElementById("bAwayFTAllowed").value = bVenueStats.allowed.join(",");
+  if (bVenueStats.h1Scored?.length > 0) {
+    document.getElementById("bAway1HScored").value = bVenueStats.h1Scored.join(",");
+    document.getElementById("bAway1HAllowed").value = bVenueStats.h1Allowed.join(",");
+  }
+  if (bVenueStats.h2Scored?.length > 0) {
+    document.getElementById("bAway2HScored").value = bVenueStats.h2Scored.join(",");
+    document.getElementById("bAway2HAllowed").value = bVenueStats.h2Allowed.join(",");
+    messages.push(`${safeText(teamBName)} away 2H: ${bVenueStats.h2Scored.length} games ✅`);
+  }
+  const tag = document.getElementById("bVenueAutoTag");
+  if (tag) tag.style.display = "inline";
+  messages.push(`${safeText(teamBName)} away: ${bVenueStats.scored.length} games ✅`);
+} else {
+  messages.push(`${safeText(teamBName)} away: no data ❌`);
+}
                 g_fetchMeta.A = {
           ft: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.scored?.length >= 2) },
           h1: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.h1Scored?.length >= 2 && aVenueStats.h1Allowed?.length >= 2) },
-          h2: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.h2Scored?.length >= 2 && aVenueStats.h2Allowed?.length >= 2) },
-          q1: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.q1Scored?.length >= 2 && aVenueStats.q1Allowed?.length >= 2) }
+          h2: { source: "espn", venueReliable: !!(aVenueStats && aVenueStats.h2Scored?.length >= 2 && aVenueStats.h2Allowed?.length >= 2) }
         };
 
         g_fetchMeta.B = {
           ft: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.scored?.length >= 2) },
           h1: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.h1Scored?.length >= 2 && bVenueStats.h1Allowed?.length >= 2) },
-          h2: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.h2Scored?.length >= 2 && bVenueStats.h2Allowed?.length >= 2) },
-          q1: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.q1Scored?.length >= 2 && bVenueStats.q1Allowed?.length >= 2) }
+          h2: { source: "espn", venueReliable: !!(bVenueStats && bVenueStats.h2Scored?.length >= 2 && bVenueStats.h2Allowed?.length >= 2) }
         };
 
                 if (!aVenueStats) messages.push(`${safeText(teamAName)} home: strict venue sample missing ⚠️`);
@@ -7307,52 +7143,37 @@ clearH2HFields();
             if (normalizeId(g.teamAId) === tA) { h2hA.push(g.scoreA); h2hB.push(g.scoreB); }
             else { h2hA.push(g.scoreB); h2hB.push(g.scoreA); }
           }
-          setImportedArrayField("aFTH2H", h2hA);
-          setImportedArrayField("bFTH2H", h2hB);
-          setCheckedSafe("useFTH2H", true);
-          setAutoTagVisible("h2hAutoTag", true);
+          document.getElementById("aFTH2H").value = h2hA.join(",");
+          document.getElementById("bFTH2H").value = h2hB.join(",");
+          document.getElementById("useFTH2H").checked = true;
+          document.getElementById("h2hAutoTag").style.display = "inline";
 
           const h2hA1H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h1A : g.h1B).filter(v => v > 0);
           const h2hB1H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h1B : g.h1A).filter(v => v > 0);
           if (h2hA1H.length >= 2 && h2hB1H.length >= 2) {
-            setImportedArrayField("a1HH2H", h2hA1H);
-            setImportedArrayField("b1HH2H", h2hB1H);
-            setCheckedSafe("use1HH2H", true);
+            document.getElementById("a1HH2H").value = h2hA1H.join(",");
+            document.getElementById("b1HH2H").value = h2hB1H.join(",");
+            document.getElementById("use1HH2H").checked = true;
           }
 
           const h2hA2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2A : g.h2B).filter(v => v > 0);
           const h2hB2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2B : g.h2A).filter(v => v > 0);
           if (h2hA2H.length >= 2 && h2hB2H.length >= 2) {
-            setImportedArrayField("a2HH2H", h2hA2H);
-            setImportedArrayField("b2HH2H", h2hB2H);
-            setCheckedSafe("use2HH2H", true);
+            document.getElementById("a2HH2H").value = h2hA2H.join(",");
+            document.getElementById("b2HH2H").value = h2hB2H.join(",");
+            document.getElementById("use2HH2H").checked = true;
             messages.push(`2H H2H: ${Math.min(h2hA2H.length, h2hB2H.length)} games ✅`);
           }
 
-          if (isNba) {
-            const h2hAQ1 = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.q1A : g.q1B).filter(v => v > 0);
-            const h2hBQ1 = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.q1B : g.q1A).filter(v => v > 0);
-            if (h2hAQ1.length >= 2 && h2hBQ1.length >= 2) {
-              setImportedArrayField("aQ1H2H", h2hAQ1);
-              setImportedArrayField("bQ1H2H", h2hBQ1);
-              setCheckedSafe("useQ1H2H", true);
-            }
-          }
 messages.push(`H2H: ${Math.min(h2hGames.length, 5)} 2024+ games ✅`);
         } else if (h2hGames.length === 1) {
           clearH2HFields();
           const tA = String(teamAId);
           const g = h2hGames[0];
-          setInputValueSafe("aFTH2H", normalizeId(g.teamAId) === tA ? g.scoreA : g.scoreB);
-          setInputValueSafe("bFTH2H", normalizeId(g.teamAId) === tA ? g.scoreB : g.scoreA);
-          if (isNba && (g.q1A > 0 || g.q1B > 0)) {
-            setInputValueSafe("aQ1H2H", normalizeId(g.teamAId) === tA ? g.q1A : g.q1B);
-            setInputValueSafe("bQ1H2H", normalizeId(g.teamAId) === tA ? g.q1B : g.q1A);
-          }
-          setCheckedSafe("useFTH2H", false);
-          setCheckedSafe("use1HH2H", false);
-          const q1Cb = document.getElementById("useQ1H2H");
-          if (q1Cb) q1Cb.checked = false;
+          document.getElementById("aFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreA : g.scoreB;
+          document.getElementById("bFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreB : g.scoreA;
+          document.getElementById("useFTH2H").checked = false;
+          document.getElementById("use1HH2H").checked = false;;
 messages.push("H2H: 1 game found from 2024+ (min 2 to auto-enable)");
         } else {
 messages.push("H2H: no 2024+ games found");
@@ -7467,7 +7288,6 @@ updateIntelligencePack(league, {
   ftLine: parseMarketLine(document.getElementById("ftMarket")?.value || ""),
   h1Line: parseMarketLine(document.getElementById("h1Market")?.value || ""),
   h2Line: parseMarketLine(document.getElementById("h2Market")?.value || ""),
-  q1Line: parseMarketLine(document.getElementById("q1Market")?.value || ""),
   aLine: parseMarketLine(document.getElementById("teamAMarket")?.value || ""),
   bLine: parseMarketLine(document.getElementById("teamBMarket")?.value || "")
 });
@@ -7498,15 +7318,6 @@ const allGood =
       Math.min(aVenueStats?.h1Scored?.length || 0, aVenueStats?.h1Allowed?.length || 0) >= 2 &&
       Math.min(bVenueStats?.h1Scored?.length || 0, bVenueStats?.h1Allowed?.length || 0) >= 2
     )
-  ) &&
-  (
-    league !== "nba" ||
-    (
-      Math.min(aStats?.q1Scored?.length || 0, aStats?.q1Allowed?.length || 0) >= 5 &&
-      Math.min(bStats?.q1Scored?.length || 0, bStats?.q1Allowed?.length || 0) >= 5 &&
-      Math.min(aVenueStats?.q1Scored?.length || 0, aVenueStats?.q1Allowed?.length || 0) >= 2 &&
-      Math.min(bVenueStats?.q1Scored?.length || 0, bVenueStats?.q1Allowed?.length || 0) >= 2
-    )
   );
         if (allGood) {
           g_lastFetchedTeams.A = normalizeTeamName(teamAName);
@@ -7535,7 +7346,6 @@ setStatusHTML(
     }
 
   // V11: Run button disabled during execution via try/finally
-
 
 function validateInputs(league) {
   const errors = [];
@@ -7606,16 +7416,13 @@ function validateInputs(league) {
 
   const h1Line = parseOptionalLine("h1Market");
   const h2Line = parseOptionalLine("h2Market");
-  const q1Line = parseOptionalLine("q1Market");
 
   const useFTH2H = !!document.getElementById("useFTH2H")?.checked;
   const use1HH2H = !!document.getElementById("use1HH2H")?.checked;
   const use2HH2H = !!document.getElementById("use2HH2H")?.checked;
-  const useQ1H2H = !!document.getElementById("useQ1H2H")?.checked;
 
   const has1HActivity = h1Line !== null || use1HH2H;
   const has2HActivity = h2Line !== null || use2HH2H;
-  const hasQ1Activity = q1Line !== null || useQ1H2H;
 
   if (has1HActivity && h1Line === null) {
     markInvalid("h1Market");
@@ -7627,13 +7434,7 @@ function validateInputs(league) {
     errors.push("2H Total: missing / invalid line");
   }
 
-  if (hasQ1Activity && q1Line === null) {
-    markInvalid("q1Market");
-    errors.push("Q1 Total: missing / invalid line");
-  }
-
   const wants1H = has1HActivity || has2HActivity;
-  const wantsQ1 = hasQ1Activity;
 
   const parsed = {
     aFTScored: parseArrayField("aFTScored", "Team A FT Scored", true),
@@ -7651,11 +7452,6 @@ function validateInputs(league) {
     b2HScored: parseArrayField("b2HScored", "Team B 2H Scored", false, has2HActivity),
     b2HAllowed: parseArrayField("b2HAllowed", "Team B 2H Allowed", false, has2HActivity),
 
-    aQ1Scored: parseArrayField("aQ1Scored", "Team A Q1 Scored", false, wantsQ1),
-    aQ1Allowed: parseArrayField("aQ1Allowed", "Team A Q1 Allowed", false, wantsQ1),
-    bQ1Scored: parseArrayField("bQ1Scored", "Team B Q1 Scored", false, wantsQ1),
-    bQ1Allowed: parseArrayField("bQ1Allowed", "Team B Q1 Allowed", false, wantsQ1),
-
     aHomeFTScored: parseArrayField("aHomeFTScored", "Team A Home FT Scored"),
     aHomeFTAllowed: parseArrayField("aHomeFTAllowed", "Team A Home FT Allowed"),
     bAwayFTScored: parseArrayField("bAwayFTScored", "Team B Away FT Scored"),
@@ -7671,19 +7467,12 @@ function validateInputs(league) {
     bAway2HScored: parseArrayField("bAway2HScored", "Team B Away 2H Scored", false, has2HActivity),
     bAway2HAllowed: parseArrayField("bAway2HAllowed", "Team B Away 2H Allowed", false, has2HActivity),
 
-    aHomeQ1Scored: parseArrayField("aHomeQ1Scored", "Team A Home Q1 Scored", false, wantsQ1),
-    aHomeQ1Allowed: parseArrayField("aHomeQ1Allowed", "Team A Home Q1 Allowed", false, wantsQ1),
-    bAwayQ1Scored: parseArrayField("bAwayQ1Scored", "Team B Away Q1 Scored", false, wantsQ1),
-    bAwayQ1Allowed: parseArrayField("bAwayQ1Allowed", "Team B Away Q1 Allowed", false, wantsQ1),
-
     aFTH2H: parseArrayField("aFTH2H", "Team A FT H2H", false, useFTH2H),
     bFTH2H: parseArrayField("bFTH2H", "Team B FT H2H", false, useFTH2H),
     a1HH2H: parseArrayField("a1HH2H", "Team A 1H H2H", false, use1HH2H),
     b1HH2H: parseArrayField("b1HH2H", "Team B 1H H2H", false, use1HH2H),
     a2HH2H: parseArrayField("a2HH2H", "Team A 2H H2H", false, use2HH2H),
     b2HH2H: parseArrayField("b2HH2H", "Team B 2H H2H", false, use2HH2H),
-    aQ1H2H: parseArrayField("aQ1H2H", "Team A Q1 H2H", false, useQ1H2H),
-    bQ1H2H: parseArrayField("bQ1H2H", "Team B Q1 H2H", false, useQ1H2H)
   };
 
   parsed.a2HScored = parsed.a2HScored || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
@@ -7738,13 +7527,7 @@ function validateInputs(league) {
     }
   }
 
-  if (document.getElementById("useQ1H2H")?.checked) {
-    if ((parsed.aQ1H2H?.length || 0) < 2 || (parsed.bQ1H2H?.length || 0) < 2) {
-      errors.push("Q1 H2H is checked, but both Q1 H2H fields need at least 2 games.");
-    }
-  }
-
-  validateLines(league, ftLine, h1Line, h2Line, q1Line, aLine, bLine).forEach(msg => errors.push(msg));
+  validateLines(league, ftLine, h1Line, h2Line, aLine, bLine).forEach(msg => errors.push(msg));
 
   if (errors.length) {
     return {
@@ -7756,7 +7539,7 @@ function validateInputs(league) {
   return {
     ok: true,
     parsed,
-    lines: { ftLine, h1Line, h2Line, q1Line, aLine, bLine }
+    lines: { ftLine, h1Line, h2Line, aLine, bLine }
   };
 }
 
@@ -7799,7 +7582,6 @@ function getMarketKeyFromName(name) {
   if (name === "FT Total") return "ft";
   if (name === "1H Total") return "h1";
   if (name === "2H Total") return "h2";
-  if (name === "Q1 Total") return "q1";
   if (name === "Team A Total") return "team_a";
   if (name === "Team B Total") return "team_b";
   return "other";
@@ -8107,7 +7889,6 @@ const h2hB = weightedRecentAverage(b1HH2H);
   };
 }
 
-
 function deriveSecondHalfSeries(ftSeries, firstHalfSeries) {
   const ft = Array.isArray(ftSeries) ? ftSeries : [];
   const h1 = Array.isArray(firstHalfSeries) ? firstHalfSeries : [];
@@ -8342,152 +8123,10 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   };
 }
 
-function computeQ1Projection({ league, parsed, lines, injMultA = 1, injMultB = 1 }) {
-  const supported = league === "nba";
-  const ebQ1 = (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 4;
-const cl = getEffectivePaceClamp(league);
-const homeAdj = (LEAGUE_HOME_EDGE[league] ?? LEAGUE_HOME_EDGE.unknown) * 0.18;
-const volLimit = 4.5;
-
-  const aQ1S = safeArr(parsed.aQ1Scored) || [];
-  const aQ1A = safeArr(parsed.aQ1Allowed) || [];
-  const bQ1S = safeArr(parsed.bQ1Scored) || [];
-  const bQ1A = safeArr(parsed.bQ1Allowed) || [];
-
-  const sampleTier = getSampleTier(aQ1S, aQ1A, bQ1S, bQ1A);
-
-    const q1VenueReliableA =
-    hasMinGames(safeArr(parsed.aHomeQ1Scored)) &&
-    hasMinGames(safeArr(parsed.aHomeQ1Allowed));
-
-  const q1VenueReliableB =
-    hasMinGames(safeArr(parsed.bAwayQ1Scored)) &&
-    hasMinGames(safeArr(parsed.bAwayQ1Allowed));
-
-  const projectionOnly = !(q1VenueReliableA && q1VenueReliableB);
-  const projectionNote = projectionOnly ? "Weak Q1 venue sample — projection only" : null;
-  const note =
-    !supported ? "Q1 market not available for this league" :
-    sampleTier === "insufficient" ? "Insufficient Q1 sample — need 2+ games" :
-    sampleTier === "thin" ? "Thin Q1 sample — projection only" :
-    null;
-
-  if (!supported || sampleTier === "insufficient") {
-    return {
-      q1Proj: NaN,
-      q1Edge: NaN,
-      aS1Q: NaN, aA1Q: NaN, bS1Q: NaN, bA1Q: NaN,
-      aVolQ1: NaN, bVolQ1: NaN,
-      q1SampleTier: sampleTier,
-      q1HasH2H: false,
-      q1Note: note,
-      q1ProjectionOnly: projectionOnly,
-      q1ProjectionNote: projectionNote,
-      q1FullModel: false,
-      paceGapRisk: false,
-      defensiveFloorFlag: false
-    };
-  }
-
-  const aS1Q = avgOrNaN(aQ1S);
-  const aA1Q = avgOrNaN(aQ1A);
-  const bS1Q = avgOrNaN(bQ1S);
-  const bA1Q = avgOrNaN(bQ1A);
-
-  let projAQ1 = MODEL.TEAM_WEIGHT * aS1Q + MODEL.OPP_WEIGHT * bA1Q;
-  let projBQ1 = MODEL.TEAM_WEIGHT * bS1Q + MODEL.OPP_WEIGHT * aA1Q;
-
-  const aHomeS = avgOrNaN(safeArr(parsed.aHomeQ1Scored));
-  const aHomeA = avgOrNaN(safeArr(parsed.aHomeQ1Allowed));
-  const bAwayS = avgOrNaN(safeArr(parsed.bAwayQ1Scored));
-  const bAwayA = avgOrNaN(safeArr(parsed.bAwayQ1Allowed));
-
-  const venueProjA = isFinite(aHomeS) && isFinite(bAwayA)
-    ? MODEL.TEAM_WEIGHT * aHomeS + MODEL.OPP_WEIGHT * bAwayA
-    : NaN;
-
-  const venueProjB = isFinite(bAwayS) && isFinite(aHomeA)
-    ? MODEL.TEAM_WEIGHT * bAwayS + MODEL.OPP_WEIGHT * aHomeA
-    : NaN;
-
-  projAQ1 = blendProjection(projAQ1, venueProjA, "q1");
-  projBQ1 = blendProjection(projBQ1, venueProjB, "q1");
-
-  const aQ1H2H = safeArr(parsed.aQ1H2H) || [];
-  const bQ1H2H = safeArr(parsed.bQ1H2H) || [];
-  const q1HasH2H = !!(document.getElementById("useQ1H2H")?.checked && aQ1H2H.length >= 2 && bQ1H2H.length >= 2);
-
-  if (q1HasH2H) {
-    let w = getH2HWeight(aQ1H2H.length, bQ1H2H.length);
-const h2hA = weightedRecentAverage(aQ1H2H);
-const h2hB = weightedRecentAverage(bQ1H2H);
-    const currentTotal = projAQ1 + projBQ1;
-    const h2hTotal = h2hA + h2hB;
-
-    if (isFinite(currentTotal) && isFinite(h2hTotal) && currentTotal > 0) {
-      if (Math.abs(h2hTotal - currentTotal) / currentTotal > MODEL.H2H_DIVERGE_THRESHOLD) {
-        w *= 0.5;
-      }
-      projAQ1 = projAQ1 * (1 - w) + h2hA * w;
-      projBQ1 = projBQ1 * (1 - w) + h2hB * w;
-    }
-  }
-
-  let aVolQ1 = (stdDev(aQ1S) + stdDev(aQ1A)) / 2;
-  let bVolQ1 = (stdDev(bQ1S) + stdDev(bQ1A)) / 2;
-
-  projAQ1 = applyVolatility(projAQ1, aVolQ1, volLimit);
-  projBQ1 = applyVolatility(projBQ1, bVolQ1, volLimit);
-
-  projAQ1 = projAQ1 * MODEL.REGRESSION_WEIGHT + (ebQ1 / 2) * MODEL.BASELINE_WEIGHT;
-  projBQ1 = projBQ1 * MODEL.REGRESSION_WEIGHT + (ebQ1 / 2) * MODEL.BASELINE_WEIGHT;
-
-  const rawPaceQ1 = (aS1Q + aA1Q + bS1Q + bA1Q) / (2 * ebQ1);
-const paceQ1 = Math.max(cl.min, Math.min(cl.max, rawPaceQ1));
-
-  projAQ1 *= MODEL.PACE_BLEND + paceQ1 / 2;
-  projBQ1 *= MODEL.PACE_BLEND + paceQ1 / 2;
-
-  projAQ1 *= injMultA;
-  projBQ1 *= injMultB;
-
-  projAQ1 += homeAdj;
-  projBQ1 -= homeAdj;
-
-  let q1Proj = projAQ1 + projBQ1;
-  const paceGapRisk = Math.abs((aS1Q + aA1Q) - (bS1Q + bA1Q)) > 5;
-  const defensiveFloorFlag = aA1Q < 18 || bA1Q < 18;
-
-  if (isFinite(q1Proj)) {
-    if (paceGapRisk) q1Proj *= MODEL.PACE_SUPPRESS;
-    if (defensiveFloorFlag) q1Proj *= 0.97;
-    q1Proj = anchorProjection(q1Proj, lines.q1Line, league, "q1");
-  }
-
-  const q1Edge = lines.q1Line !== null && isFinite(q1Proj) ? q1Proj - lines.q1Line : NaN;
-  const q1FullModel = sampleTier === "full" && !projectionOnly && isFinite(q1Proj);
-
-  return {
-    q1Proj,
-    q1Edge,
-    aS1Q, aA1Q, bS1Q, bA1Q,
-    aVolQ1, bVolQ1,
-    q1SampleTier: sampleTier,
-    q1HasH2H,
-    q1Note: note,
-    q1ProjectionOnly: projectionOnly,
-    q1ProjectionNote: projectionNote,
-    q1FullModel,
-    paceGapRisk,
-    defensiveFloorFlag
-  };
-}
 function getMarketVolLimit(league, marketKey) {
   if (marketKey === "h1" || marketKey === "h2") return league === "nba" ? 7 : 6;
-  if (marketKey === "q1") return 4.5;
   return LEAGUE_VOL_LIMITS[league] || LEAGUE_VOL_LIMITS.unknown;
 }
-
 
 function getMassacreThresholdBucket(league, marketKey) {
   const leagueBucket =
@@ -9176,339 +8815,6 @@ function applyMassacreFrameworkToPicks(picks, league, parsed, fixtureMeta) {
   rescueBestMassacreLean(picks);
 }
 
-
-function validateSimpleTeamTotalInputs() {
-  const errors = [];
-
-  function markInvalid(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.borderColor = "#c91920";
-  }
-
-  function clearInvalid(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.borderColor = "";
-  }
-
-  function parseRequiredLine(id, label) {
-    clearInvalid(id);
-    const val = parseMarketLine(document.getElementById(id)?.value || "");
-    if (val === null) {
-      markInvalid(id);
-      errors.push(`${label}: missing / invalid line`);
-    }
-    return val;
-  }
-
-  function parseRequiredSeries(id, label, minGames) {
-    clearInvalid(id);
-    const raw = document.getElementById(id)?.value?.trim() || "";
-    if (!raw) {
-      markInvalid(id);
-      errors.push(`${label}: missing data`);
-      return [];
-    }
-    const parsed = parseGames(id);
-    if (parsed && parsed.err) {
-      markInvalid(id);
-      errors.push(`${label}: ${parsed.err}`);
-      return [];
-    }
-    if (!Array.isArray(parsed) || parsed.length < minGames) {
-      markInvalid(id);
-      errors.push(`${label}: need at least ${minGames} games`);
-      return [];
-    }
-    return parsed;
-  }
-
-  function parseOptionalSeries(id) {
-    clearInvalid(id);
-    const raw = document.getElementById(id)?.value?.trim() || "";
-    if (!raw) return [];
-    const parsed = parseGames(id);
-    if (parsed && parsed.err) return [];
-    return Array.isArray(parsed) ? parsed : [];
-  }
-
-  const teamAName = document.getElementById("teamAName")?.value?.trim() || "";
-  const teamBName = document.getElementById("teamBName")?.value?.trim() || "";
-
-  if (!teamAName || !teamBName) {
-    errors.push("Enter both team names first.");
-  }
-
-  const parsed = {
-    aFTScored: parseRequiredSeries("aFTScored", "Team A overall FT scored", 3),
-    bFTScored: parseRequiredSeries("bFTScored", "Team B overall FT scored", 3),
-    aHomeFTScored: parseRequiredSeries("aHomeFTScored", "Team A home FT scored", 2),
-    bAwayFTScored: parseRequiredSeries("bAwayFTScored", "Team B away FT scored", 2),
-    aHomeFTAllowed: parseRequiredSeries("aHomeFTAllowed", "Team A home FT allowed", 2),
-    bAwayFTAllowed: parseRequiredSeries("bAwayFTAllowed", "Team B away FT allowed", 2),
-    aFTH2H: parseOptionalSeries("aFTH2H"),
-    bFTH2H: parseOptionalSeries("bFTH2H")
-  };
-
-  const lines = {
-    aLine: parseRequiredLine("teamAMarket", "Team A Total"),
-    bLine: parseRequiredLine("teamBMarket", "Team B Total")
-  };
-
-  return {
-    ok: errors.length === 0,
-    parsed,
-    lines,
-    errorHtml: errors.map(x => "• " + safeText(x)).join("<br>")
-  };
-}
-
-function blendSelectorProjection(parts) {
-  const active = parts.filter(p => isFinite(p?.value) && isFinite(p?.weight) && p.weight > 0);
-  if (!active.length) return NaN;
-  const totalWeight = active.reduce((sum, p) => sum + p.weight, 0);
-  if (!totalWeight) return NaN;
-  return active.reduce((sum, p) => sum + p.value * (p.weight / totalWeight), 0);
-}
-
-function getTeamTotalSelectorSnapshot(side, parsed, fixtureMeta) {
-  const isA = side === "A";
-  const marketKey = isA ? "team_a" : "team_b";
-  const marketName = isA ? "Team A Total" : "Team B Total";
-  const teamName = isA ? (fixtureMeta?.homeTeam || document.getElementById("teamAName")?.value?.trim() || "Team A") : (fixtureMeta?.awayTeam || document.getElementById("teamBName")?.value?.trim() || "Team B");
-  const venueScores = isA ? (parsed.aHomeFTScored || []) : (parsed.bAwayFTScored || []);
-  const overallScores = isA ? (parsed.aFTScored || []) : (parsed.bFTScored || []);
-  const opponentVenueAllowed = isA ? (parsed.bAwayFTAllowed || []) : (parsed.aHomeFTAllowed || []);
-  const h2hScores = isA ? (parsed.aFTH2H || []) : (parsed.bFTH2H || []);
-  const injury = isA ? g_injA : g_injB;
-
-  return {
-    side,
-    marketKey,
-    marketName,
-    teamName,
-    venueScores,
-    overallScores,
-    opponentVenueAllowed,
-    h2hScores,
-    injury,
-    venueAvg: avgOrNaN(venueScores),
-    overallAvg: avgOrNaN(overallScores),
-    opponentVenueAllowedAvg: avgOrNaN(opponentVenueAllowed),
-    h2hAvg: h2hScores.length ? avgOrNaN(h2hScores) : NaN
-  };
-}
-
-function getSimpleSelectorConfidence(absEdge, support, penalties) {
-  if (absEdge >= 8 && support >= 4 && penalties === 0) return "A";
-  if (absEdge >= 6 && support >= 3 && penalties <= 1) return "B";
-  if (absEdge >= 4.5 && support >= 2 && penalties <= 1) return "C";
-  return "D";
-}
-
-function evaluateTeamTotalCandidate(direction, snapshot, currentLine, league, fixtureMeta) {
-  const resolved = resolveLineWithMemory({
-    eventId: fixtureMeta?.eventId,
-    league,
-    marketKey: snapshot.marketKey,
-    currentLine,
-    side: direction
-  });
-
-  const line = isFinite(resolved?.line) ? Number(resolved.line) : Number(currentLine);
-  const venueAvg = Number(snapshot.venueAvg);
-  const overallAvg = Number(snapshot.overallAvg);
-  const oppAllowedAvg = Number(snapshot.opponentVenueAllowedAvg);
-  const h2hAvg = Number(snapshot.h2hAvg);
-  const injury = snapshot.injury || defaultInjuryMeta();
-
-  const projection = blendSelectorProjection([
-    { value: venueAvg, weight: 0.45 },
-    { value: overallAvg, weight: 0.20 },
-    { value: oppAllowedAvg, weight: 0.20 },
-    { value: h2hAvg, weight: 0.15 }
-  ]);
-
-  const components = [venueAvg, overallAvg, oppAllowedAvg, h2hAvg].filter(v => isFinite(v));
-  const supportChecks = [venueAvg, overallAvg, oppAllowedAvg].filter(v => isFinite(v));
-  if (isFinite(h2hAvg)) supportChecks.push(h2hAvg);
-
-  let support = 0;
-  supportChecks.forEach(v => {
-    if (direction === "over" && v > line) support++;
-    if (direction === "under" && v < line) support++;
-  });
-
-  if (direction === "under" && injury.scoringMult < 0.94) {
-    support++;
-  }
-
-  let penalties = 0;
-  let hardBlock = false;
-  const reasons = [];
-
-  const recentPool = [...(snapshot.venueScores || []).slice(0, 5), ...(snapshot.overallScores || []).slice(0, 5)];
-  const uglyMissCount = recentPool.filter(v => direction === "over" ? Number(v) <= line - 8 : Number(v) >= line + 8).length;
-  const hardMissCount = recentPool.filter(v => direction === "over" ? Number(v) <= line - 12 : Number(v) >= line + 12).length;
-
-  if (uglyMissCount >= 2) {
-    penalties++;
-    reasons.push("recent ugly misses");
-  }
-
-  if (hardMissCount >= 2) {
-    hardBlock = true;
-    reasons.push("recent hard misses");
-  }
-
-  if (components.length >= 2) {
-    const divergence = Math.max(...components) - Math.min(...components);
-    if (divergence > 14) {
-      penalties++;
-      reasons.push("split divergence high");
-    }
-    if (divergence > 22) {
-      hardBlock = true;
-      reasons.push("split divergence extreme");
-    }
-  }
-
-  const againstCount = components.filter(v => direction === "over" ? v <= line - 5 : v >= line + 5).length;
-  if (againstCount >= 2) {
-    hardBlock = true;
-    reasons.push("core values against side");
-  }
-
-  if (injury.highUncertainty || injury.unknownImpactCount >= 2) {
-    penalties++;
-    reasons.push("injury uncertainty");
-  }
-
-  if (direction === "over" && injury.scoringMult < 0.94) {
-    penalties++;
-    reasons.push("team offense injury hit");
-  }
-
-  if (direction === "over" && injury.scoringMult < 0.88) {
-    hardBlock = true;
-    reasons.push("heavy injury suppression");
-  }
-
-  const edge = isFinite(projection) && isFinite(line) ? projection - line : NaN;
-  const minEdge = isFinite(h2hAvg) ? 4.5 : 6.0;
-  const supportRequired = supportChecks.length >= 4 ? 3 : 2;
-  const directionalEdgePass = direction === "over" ? edge >= minEdge : edge <= -minEdge;
-  const qualified = isFinite(edge) && !hardBlock && directionalEdgePass && support >= supportRequired && penalties <= 1;
-  const absEdge = Math.abs(edge);
-  const qualityScore = (isFinite(absEdge) ? absEdge : 0) + support * 1.35 - penalties * 1.75 + (isFinite(h2hAvg) ? 0.5 : 0);
-  const pick = qualified ? `${direction === "over" ? "OVER" : "UNDER"} ${displayLine(line)}` : "NO PLAY";
-
-  return {
-    name: snapshot.marketName,
-    marketKey: snapshot.marketKey,
-    marketType: "team",
-    league,
-    context: { teamSc: overallAvg },
-    side: direction,
-    teamName: snapshot.teamName,
-    line,
-    proj: projection,
-    edge,
-    pick,
-    confidence: qualified ? getSimpleSelectorConfidence(absEdge, support, penalties) : "—",
-    note: qualified ? null : `Selector gate: ${reasons[0] || "no clean edge"}`,
-    fullModel: qualified,
-    support,
-    supportRequired,
-    penalties,
-    qualityScore,
-    hardBlock,
-    h2hPresent: isFinite(h2hAvg),
-    components: {
-      venueAvg,
-      overallAvg,
-      oppAllowedAvg,
-      h2hAvg
-    }
-  };
-}
-
-function chooseBestSimpleTeamTotalPick(parsed, lines, league, fixtureMeta) {
-  const teamASnapshot = getTeamTotalSelectorSnapshot("A", parsed, fixtureMeta);
-  const teamBSnapshot = getTeamTotalSelectorSnapshot("B", parsed, fixtureMeta);
-
-  const candidates = [
-    evaluateTeamTotalCandidate("over", teamASnapshot, lines.aLine, league, fixtureMeta),
-    evaluateTeamTotalCandidate("under", teamASnapshot, lines.aLine, league, fixtureMeta),
-    evaluateTeamTotalCandidate("over", teamBSnapshot, lines.bLine, league, fixtureMeta),
-    evaluateTeamTotalCandidate("under", teamBSnapshot, lines.bLine, league, fixtureMeta)
-  ].sort((a, b) => b.qualityScore - a.qualityScore);
-
-  const qualified = candidates.filter(c => c.pick !== "NO PLAY" && !c.note);
-
-  if (!qualified.length) {
-    const fallback = candidates[0];
-    return {
-      picks: [{
-        _idx: 0,
-        name: "FT Team Total",
-        marketKey: "ft_selector",
-        marketType: "team",
-        league,
-        context: {},
-        line: fallback?.line ?? NaN,
-        proj: fallback?.proj ?? NaN,
-        edge: fallback?.edge ?? NaN,
-        pick: "NO PLAY",
-        confidence: "—",
-        note: fallback?.hardBlock ? "NO PLAY: ugly miss blocker" : "NO PLAY: no clean team-total edge",
-        fullModel: false,
-        recommendationTier: "play",
-        lockStrength: 0,
-        selectorDiagnostics: { candidates }
-      }],
-      diagnostics: { candidates, selected: null }
-    };
-  }
-
-  const best = qualified[0];
-  const second = qualified[1] || null;
-
-  if (second && (best.qualityScore - second.qualityScore) < 1.5) {
-    return {
-      picks: [{
-        _idx: 0,
-        name: "FT Team Total",
-        marketKey: "ft_selector",
-        marketType: "team",
-        league,
-        context: {},
-        line: best.line,
-        proj: best.proj,
-        edge: best.edge,
-        pick: "NO PLAY",
-        confidence: "—",
-        note: "NO PLAY: top two sides too close",
-        fullModel: false,
-        recommendationTier: "play",
-        lockStrength: 0,
-        selectorDiagnostics: { candidates }
-      }],
-      diagnostics: { candidates, selected: null }
-    };
-  }
-
-  best._idx = 0;
-  best.note = null;
-  best.recommendationTier = "play";
-  best.lockStrength = Math.max(0, Number(best.qualityScore || 0) * 0.05);
-  best.selectorDiagnostics = { candidates };
-
-  return {
-    picks: [best],
-    diagnostics: { candidates, selected: best }
-  };
-}
-
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
   if (
   !pickRow ||
@@ -9842,6 +9148,9 @@ async function runEngine() {
     table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
     const league = document.getElementById("leagueSelect")?.value || "";
+    const isNba = league === "nba";
+    const isNbaOrNcaa = league === "nba" || league === "ncaa";
+
     if (!league) {
       showRunError(table, "⚠ Select a league first.");
       return;
@@ -9855,26 +9164,415 @@ async function runEngine() {
       return;
     }
 
-    const validation = validateSimpleTeamTotalInputs();
+    const validation = validateInputs(league);
     if (!validation.ok) {
       showRunError(table, validation.errorHtml);
       return;
     }
 
     const { parsed, lines } = validation;
-    const fixtureMeta = getCurrentFixtureMeta();
+const fixtureMeta = getCurrentFixtureMeta();
 
-    const selectorResult = chooseBestSimpleTeamTotalPick(parsed, lines, league, fixtureMeta);
-    const finalPicks = selectorResult.picks || [];
-    const rawMarketInputs = getRawMarketInputMap();
-    const finalPicksForDisplay = finalPicks.map(p =>
-      applySmartLineToPick(p, rawMarketInputs[p.marketKey] || "", league)
-    );
+let resolvedLines = {
+  ftLine: lines.ftLine,
+  h1Line: lines.h1Line,
+  h2Line: lines.h2Line,
+  aLine: lines.aLine,
+  bLine: lines.bLine
+};
 
-    persistLineMemoryFromFinalPicks(finalPicksForDisplay, fixtureMeta, league);
+let ftCalc = computeFTProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
 
-    const markets = finalPicksForDisplay.map((p, idx) => ({
-      _idx: idx,
+let h1Calc = compute1HProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+let h2Calc = compute2HProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+resolvedLines = {
+  ftLine: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "ft",
+    currentLine: resolvedLines.ftLine,
+    proj: ftCalc.ftProj,
+    marketType: "ft",
+    context: { aSc: ftCalc.aS, bSc: ftCalc.bS }
+  }),
+  h1Line: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "h1",
+    currentLine: resolvedLines.h1Line,
+    proj: h1Calc.h1Proj,
+    marketType: "h1",
+    context: { aSc: h1Calc.aS1, bSc: h1Calc.bS1 }
+  }),
+  h2Line: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "h2",
+    currentLine: resolvedLines.h2Line,
+    proj: h2Calc.h2Proj,
+    marketType: "h2",
+    context: { aSc: h2Calc.aS2, bSc: h2Calc.bS2 }
+  }),
+  aLine: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "team_a",
+    currentLine: resolvedLines.aLine,
+    proj: ftCalc.projAFT,
+    marketType: "team",
+    context: { teamSc: ftCalc.aS }
+  }),
+  bLine: resolveStoredLineBeforeDecision({
+    fixtureMeta,
+    league,
+    marketKey: "team_b",
+    currentLine: resolvedLines.bLine,
+    proj: ftCalc.projBFT,
+    marketType: "team",
+    context: { teamSc: ftCalc.bS }
+  })
+};
+
+ftCalc = computeFTProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+h1Calc = compute1HProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+h2Calc = compute2HProjection({
+  league,
+  parsed,
+  lines: resolvedLines,
+  injMultA: g_injA.scoringMult,
+  injMultB: g_injB.scoringMult
+});
+
+const { ftLine, h1Line, h2Line, aLine, bLine } = resolvedLines;
+
+    let ftPick = getPick(ftCalc.ftEdge, ftLine, league, "ft", { aSc: ftCalc.aS, bSc: ftCalc.bS });
+    let h1Pick = getPick(h1Calc.h1Edge, h1Line, league, "h1", { aSc: h1Calc.aS1, bSc: h1Calc.bS1 });
+    let h2Pick = getPick(h2Calc.h2Edge, h2Line, league, "h2", { aSc: h2Calc.aS2, bSc: h2Calc.bS2 });
+    let aPick = getPick(ftCalc.aEdge, aLine, league, "team", { teamSc: ftCalc.aS });
+    let bPick = getPick(ftCalc.bEdge, bLine, league, "team", { teamSc: ftCalc.bS });
+
+    if (
+      typeof ftPick === "string" &&
+      ftPick.startsWith("OVER") &&
+      (ftCalc.paceGapRisk || ftCalc.defensiveFloorFlag || ftCalc.blowoutGap > 20 || ftCalc.volatilityBlock)
+    ) {
+      ftPick = "NO PLAY";
+    }
+
+    const ftTrap = ftPick !== "NO PLAY" && detectTrap(ftCalc.ftEdge, ftLine, ftPick, league, "ft", (ftCalc.aVol || 0) + (ftCalc.bVol || 0));
+    const h1Trap = h1Pick !== "NO PLAY" && detectTrap(h1Calc.h1Edge, h1Line, h1Pick, league, "h1", (h1Calc.aVol1 || 0) + (h1Calc.bVol1 || 0));
+    const h2Trap = h2Pick !== "NO PLAY" && detectTrap(h2Calc.h2Edge, h2Line, h2Pick, league, "h2", (h2Calc.aVol2 || 0) + (h2Calc.bVol2 || 0));
+    const aTrap = aPick !== "NO PLAY" && detectTrap(ftCalc.aEdge, aLine, aPick, league, "team", ftCalc.aVol || 0);
+    const bTrap = bPick !== "NO PLAY" && detectTrap(ftCalc.bEdge, bLine, bPick, league, "team", ftCalc.bVol || 0);
+
+    if (ftTrap) ftPick = "NO PLAY";
+    if (h1Trap) h1Pick = "NO PLAY";
+    if (h2Trap) h2Pick = "NO PLAY";
+    if (aTrap) aPick = "NO PLAY";
+    if (bTrap) bPick = "NO PLAY";
+
+    if (ftCalc.ftSampleTier !== "full") {
+      ftPick = "NO PLAY";
+      aPick = "NO PLAY";
+      bPick = "NO PLAY";
+    }
+
+    if (h1Calc.h1SampleTier !== "full") h1Pick = "NO PLAY";
+    if (h2Calc.h2SampleTier !== "full") h2Pick = "NO PLAY";
+
+    if (ftCalc.ftProjectionOnly) {
+      ftPick = "NO PLAY";
+      aPick = "NO PLAY";
+      bPick = "NO PLAY";
+    }
+
+    if (h1Calc.h1ProjectionOnly) h1Pick = "NO PLAY";
+    if (h2Calc.h2ProjectionOnly) h2Pick = "NO PLAY";
+
+    const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
+    const h1Note = h1Calc.h1Note || h1Calc.h1ProjectionNote || null;
+    const h2Note = h2Calc.h2Note || h2Calc.h2ProjectionNote || null;
+
+    const sharedInjuryNotes = [...(g_injA.notes || []), ...(g_injB.notes || [])];
+
+    const ftConfidence = getConfidenceGrade({
+      pick: ftPick,
+      note: ftNote,
+      line: ftLine,
+      edge: ftCalc.ftEdge,
+      sampleTier: ftCalc.ftSampleTier,
+      projectionOnly: ftCalc.ftProjectionOnly,
+      fullModel: ftCalc.ftFullModel,
+      trap: ftTrap,
+      hasH2H: ftCalc.ftHasH2H,
+      volatility: Math.max(ftCalc.aVol || 0, ftCalc.bVol || 0),
+      volLimit: ftCalc.vl,
+      injuryNotes: sharedInjuryNotes,
+      paceGapRisk: ftCalc.paceGapRisk,
+      defensiveFloorFlag: ftCalc.defensiveFloorFlag,
+      blowoutGap: ftCalc.blowoutGap,
+      marketKey: "ft"
+    });
+
+    const h1Confidence = getConfidenceGrade({
+      pick: h1Pick,
+      note: h1Note,
+      line: h1Line,
+      edge: h1Calc.h1Edge,
+      sampleTier: h1Calc.h1SampleTier,
+      projectionOnly: h1Calc.h1ProjectionOnly,
+      fullModel: h1Calc.h1FullModel,
+      trap: h1Trap,
+      hasH2H: h1Calc.h1HasH2H,
+      volatility: Math.max(h1Calc.aVol1 || 0, h1Calc.bVol1 || 0),
+      volLimit: league === "nba" ? 7 : 6,
+      injuryNotes: sharedInjuryNotes,
+      paceGapRisk: h1Calc.paceGapRisk,
+      defensiveFloorFlag: h1Calc.defensiveFloorFlag,
+      marketKey: "h1"
+    });
+
+    const h2Confidence = getConfidenceGrade({
+      pick: h2Pick,
+      note: h2Note,
+      line: h2Line,
+      edge: h2Calc.h2Edge,
+      sampleTier: h2Calc.h2SampleTier,
+      projectionOnly: h2Calc.h2ProjectionOnly,
+      fullModel: h2Calc.h2FullModel,
+      trap: h2Trap,
+      hasH2H: h2Calc.h2HasH2H,
+      volatility: Math.max(h2Calc.aVol2 || 0, h2Calc.bVol2 || 0),
+      volLimit: league === "nba" ? 7 : 6,
+      injuryNotes: sharedInjuryNotes,
+      paceGapRisk: h2Calc.paceGapRisk,
+      defensiveFloorFlag: h2Calc.defensiveFloorFlag,
+      marketKey: "h2"
+    });
+
+    const aConfidence = getConfidenceGrade({
+      pick: aPick,
+      note: ftNote,
+      line: aLine,
+      edge: ftCalc.aEdge,
+      sampleTier: ftCalc.ftSampleTier,
+      projectionOnly: ftCalc.ftProjectionOnly,
+      fullModel: ftCalc.teamFullModel,
+      trap: aTrap,
+      hasH2H: ftCalc.ftHasH2H,
+      volatility: ftCalc.aVol,
+      volLimit: ftCalc.vl,
+      injuryNotes: g_injA.notes || [],
+      marketKey: "team_a"
+    });
+
+    const bConfidence = getConfidenceGrade({
+      pick: bPick,
+      note: ftNote,
+      line: bLine,
+      edge: ftCalc.bEdge,
+      sampleTier: ftCalc.ftSampleTier,
+      projectionOnly: ftCalc.ftProjectionOnly,
+      fullModel: ftCalc.teamFullModel,
+      trap: bTrap,
+      hasH2H: ftCalc.ftHasH2H,
+      volatility: ftCalc.bVol,
+      volLimit: ftCalc.vl,
+      injuryNotes: g_injB.notes || [],
+      marketKey: "team_b"
+    });
+
+    const intelligencePack = updateIntelligencePack(league, resolvedLines, parsed) || computeIntelligencePack(league, resolvedLines, parsed);
+
+    const picks = [
+  {
+    _idx: 0,
+    name: "FT Total",
+    marketKey: "ft",
+    marketType: "ft",
+    league,
+    context: { aSc: ftCalc.aS, bSc: ftCalc.bS },
+    line: ftLine,
+    proj: ftCalc.ftProj,
+    edge: ftCalc.ftEdge,
+    pick: ftPick,
+    confidence: ftConfidence,
+    note: ftNote,
+    fullModel: ftCalc.ftFullModel
+  },
+  {
+    _idx: 1,
+    name: "1H Total",
+    marketKey: "h1",
+    marketType: "h1",
+    league,
+    context: { aSc: h1Calc.aS1, bSc: h1Calc.bS1 },
+    line: h1Line,
+    proj: h1Calc.h1Proj,
+    edge: h1Calc.h1Edge,
+    pick: h1Pick,
+    confidence: h1Confidence,
+    note: h1Note,
+    fullModel: h1Calc.h1FullModel
+  },
+  {
+    _idx: 2,
+    name: "2H Total",
+    marketKey: "h2",
+    marketType: "h2",
+    league,
+    context: { aSc: h2Calc.aS2, bSc: h2Calc.bS2 },
+    line: h2Line,
+    proj: h2Calc.h2Proj,
+    edge: h2Calc.h2Edge,
+    pick: h2Pick,
+    confidence: h2Confidence,
+    note: h2Note,
+    fullModel: h2Calc.h2FullModel
+  },
+  {
+    _idx: 3,
+    name: "Team A Total",
+    marketKey: "team_a",
+    marketType: "team",
+    league,
+    context: { teamSc: ftCalc.aS },
+    line: aLine,
+    proj: ftCalc.projAFT,
+    edge: ftCalc.aEdge,
+    pick: aPick,
+    confidence: aConfidence,
+    note: ftNote,
+    fullModel: ftCalc.teamFullModel
+  },
+  {
+    _idx: 4,
+    name: "Team B Total",
+    marketKey: "team_b",
+    marketType: "team",
+    league,
+    context: { teamSc: ftCalc.bS },
+    line: bLine,
+    proj: ftCalc.projBFT,
+    edge: ftCalc.bEdge,
+    pick: bPick,
+    confidence: bConfidence,
+    note: ftNote,
+    fullModel: ftCalc.teamFullModel
+  }
+];
+const phase2Activation = getPhase2ActivationState();
+applyIntelligenceLayerToPicks(picks, intelligencePack, league);
+applyMassacreFrameworkToPicks(picks, league, parsed, fixtureMeta);
+applyTrackerFeedbackToPickRows(picks, phase2Activation);
+    const activePeriodPicks = picks
+      .filter(p =>
+        ["FT Total", "1H Total", "2H Total"].includes(p.name) &&
+        !p.note &&
+        typeof p.pick === "string" &&
+        p.pick !== "NO PLAY" &&
+        p.line !== null &&
+        p.line > 0
+      );
+
+    if (activePeriodPicks.length > 1) {
+      activePeriodPicks.sort((a, b) => {
+        const aStrength = (Math.abs((a.edge || 0) / a.line) * 100) + (Number(a.lockStrength) || 0);
+        const bStrength = (Math.abs((b.edge || 0) / b.line) * 100) + (Number(b.lockStrength) || 0);
+        if (Math.abs(bStrength - aStrength) > 0.0005) return bStrength - aStrength;
+        return Math.abs(b.edge || 0) - Math.abs(a.edge || 0);
+      });
+    }
+
+            picks.forEach(p => {
+      if (!p || p.pick === "NO PLAY" || p.note) return;
+
+      const memory = evaluateTeamMemoryForPick(p, fixtureMeta);
+      if (!memory) return;
+
+      const flaggedTeams = memory.flaggedTeams.map(t => ({
+        teamKey: t.teamKey,
+        wins: t.wins,
+        losses: t.losses,
+        sample: t.sample,
+        winRate: Number((t.winRate * 100).toFixed(1)),
+        level: t.level
+      }));
+
+      p.teamMemory = {
+        mode: phase2Activation.teamMemoryLive ? "live" : "shadow",
+        wouldBlock: !!memory.shouldBlock,
+        wouldDowngrade: !!memory.shouldDowngrade,
+        flaggedTeams
+      };
+
+            if (!phase2Activation.teamMemoryLive) {
+        return;
+      }
+
+      if (memory.shouldBlock) {
+        p.pick = "NO PLAY";
+        p.confidence = "—";
+        p.note = "Blocked: team memory";
+        return;
+      }
+
+      if (memory.shouldDowngrade) {
+        p.confidence = downgradeConfidenceGrade(p.confidence);
+      }
+    });
+
+    const includeH1 = isNbaOrNcaa && h1Line !== null;
+const includeH2 = isNbaOrNcaa && h2Line !== null;
+const finalPicks = picks.filter(p => {
+  if (p.name === "1H Total") return includeH1;
+  if (p.name === "2H Total") return includeH2;
+  return true;
+});
+
+const rawMarketInputs = getRawMarketInputMap();
+const finalPicksForDisplay = finalPicks.map(p =>
+  applySmartLineToPick(p, rawMarketInputs[p.marketKey] || "", league)
+);
+
+persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league);
+
+    const markets = finalPicksForDisplay.map(p => ({
+      _idx: p._idx,
       edge: isFinite(p.displayEdge) ? p.displayEdge : p.edge,
       line: isFinite(p.displayLineUsed) ? p.displayLineUsed : p.line,
       pick: p.pick,
@@ -9883,66 +9581,79 @@ async function runEngine() {
       note: p.note,
       lockStrength: p.lockStrength
     }));
-
     const lockIdx = selectLock(markets);
 
     const trackedToSave = buildResultRows({
-      table,
-      finalPicks: finalPicksForDisplay,
-      lockIdx,
-      fixtureMeta,
-      league,
-      diagnostics: {
-        phase2Activation: null,
-        ftSampleTier: "selector",
-        h1SampleTier: "inactive",
-        h2SampleTier: "inactive",
-        q1SampleTier: "inactive",
-        ftProjectionOnly: false,
-        h1ProjectionOnly: true,
-        h2ProjectionOnly: true,
-        q1ProjectionOnly: true,
-        ftHasH2H: !!selectorResult?.diagnostics?.selected?.h2hPresent,
-        h1HasH2H: false,
-        h2HasH2H: false,
-        q1HasH2H: false,
-        aVol: NaN,
-        bVol: NaN,
-        aVol1: NaN,
-        bVol1: NaN,
-        aVol2: NaN,
-        bVol2: NaN,
-        aVolQ1: NaN,
-        bVolQ1: NaN,
-        injMultA: g_injA.scoringMult,
-        injMultB: g_injB.scoringMult,
-        ftFullModel: !!selectorResult?.diagnostics?.selected,
-        h1FullModel: false,
-        h2FullModel: false,
-        q1FullModel: false,
-        teamFullModel: !!selectorResult?.diagnostics?.selected,
-        selectorDiagnostics: selectorResult?.diagnostics || null
-      }
-    });
+  table,
+  finalPicks: finalPicksForDisplay,
+  lockIdx,
+  fixtureMeta,
+  league,
+  diagnostics: {
+    phase2Activation,
+    ftSampleTier: ftCalc.ftSampleTier,
+    h1SampleTier: h1Calc.h1SampleTier,
+    h2SampleTier: h2Calc.h2SampleTier,
+    ftProjectionOnly: ftCalc.ftProjectionOnly,
+    h1ProjectionOnly: h1Calc.h1ProjectionOnly,
+    h2ProjectionOnly: h2Calc.h2ProjectionOnly,
+    ftHasH2H: ftCalc.ftHasH2H,
+    h1HasH2H: h1Calc.h1HasH2H,
+    h2HasH2H: h2Calc.h2HasH2H,
+    pace: ftCalc.pace,
+    paceGapRisk: ftCalc.paceGapRisk,
+    h1PaceGapRisk: h1Calc.paceGapRisk,
+    h2PaceGapRisk: h2Calc.paceGapRisk,
+defensiveFloorFlag: ftCalc.defensiveFloorFlag,
+h1DefensiveFloorFlag: h1Calc.defensiveFloorFlag,
+h2DefensiveFloorFlag: h2Calc.defensiveFloorFlag,
+    blowoutGap: ftCalc.blowoutGap,
+    volatilityBlock: ftCalc.volatilityBlock,
 
-    if (trackedToSave.length) {
-      addTrackedPicks(trackedToSave);
-    } else if (finalPicksForDisplay.some(p => p && p.pick !== "NO PLAY" && !p.note)) {
-      setStatusText(
-        "⚠ Pick was generated, but it was not saved to tracker because no valid fixture event is linked.",
-        "err"
-      );
-    }
+    aVol: ftCalc.aVol,
+    bVol: ftCalc.bVol,
+    aVol1: h1Calc.aVol1,
+    bVol1: h1Calc.bVol1,
+    aVol2: h2Calc.aVol2,
+    bVol2: h2Calc.bVol2,
+    injMultA: g_injA.scoringMult,
+    injMultB: g_injB.scoringMult,
+
+    ftFullModel: ftCalc.ftFullModel,
+    h1FullModel: h1Calc.h1FullModel,
+    h2FullModel: h2Calc.h2FullModel,
+    teamFullModel: ftCalc.teamFullModel,
+    intelligencePackSummary: intelligencePack
+  }
+});
+
+const actionablePicks = finalPicksForDisplay.filter(p =>
+  p &&
+  p.pick !== "NO PLAY" &&
+  !p.note &&
+  isFinite(p.displayLineUsed ?? p.line) &&
+  (p.displayLineUsed ?? p.line) > 0
+);
+
+if (trackedToSave.length) {
+  addTrackedPicks(trackedToSave);
+} else if (actionablePicks.length) {
+  setStatusText(
+    "⚠ Picks were generated, but they were not saved to tracker because no valid fixture event is linked.",
+    "err"
+  );
+}
 
     setTimeout(() => {
       table.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
+
   } catch (err) {
     console.error("[BB Engine] runEngine failed", err);
     if (table) {
       table.style.display = "table";
       table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
-      showRunError(table, "⚠ Unexpected selector error. Check the latest edit.");
+      showRunError(table, "⚠ Unexpected engine error. Check the latest edit.");
     }
   } finally {
     if (runBtn) runBtn.disabled = false;
@@ -9979,7 +9690,7 @@ async function runEngine() {
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
-      ["a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection","aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section","aHome1HSection","bAway1HSection","aHome2HSection","bAway2HSection","aHomeQ1Section","bAwayQ1Section"].forEach(id => {
+      ["a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection","aHome1HSection","bAway1HSection","aHome2HSection","bAway2HSection"].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.style.display = "none";
 });
@@ -10042,18 +9753,7 @@ resetResultsTable();
   if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
 });
 
-     ["aQ1Section", "bQ1Section", "q1MarketSection", "h2hQ1Section", "aHomeQ1Section", "bAwayQ1Section"].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.style.display = isNba ? "block" : "none";
-});
-
-      if (!isNba) {
-              setFieldValues(FIELD_GROUPS.q1Inputs);
-        const q1Cb = document.getElementById("useQ1H2H");
-        if (q1Cb) q1Cb.checked = false;
-      }
-
-            if (!isNbaOrNcaa) {
+                 if (!isNbaOrNcaa) {
         setFieldValues(FIELD_GROUPS.periodInputs);
 
         ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(id => {
@@ -10062,8 +9762,6 @@ resetResultsTable();
         });
 
         document.getElementById("use1HH2H").checked = false;
-        const q1Cb = document.getElementById("useQ1H2H");
-        if (q1Cb) q1Cb.checked = false;
       }
 
       _fetchToken++;
@@ -10083,8 +9781,6 @@ resetResultsTable();
       document.getElementById("use1HH2H").checked = false;
       const h2Cb = document.getElementById("use2HH2H");
       if (h2Cb) h2Cb.checked = false;
-      const q1Cb = document.getElementById("useQ1H2H");
-      if (q1Cb) q1Cb.checked = false;
 
           setDisplayValues(FIELD_GROUPS.autoTags, "none");
 
@@ -10202,8 +9898,7 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
 
       [
         "a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection",
-        "aQ1Section","bQ1Section","q1MarketSection","h2hQ1Section",
-        "aHome1HSection","bAway1HSection","aHome2HSection","bAway2HSection","aHomeQ1Section","bAwayQ1Section"
+        "aHome1HSection","bAway1HSection","aHome2HSection","bAway2HSection"
       ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = "none";
@@ -10227,12 +9922,12 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
         refreshTrackerInBackground(true);
       });
 
-           ["useFTH2H", "use1HH2H", "use2HH2H", "useQ1H2H"].forEach(id => {
+           ["useFTH2H", "use1HH2H", "use2HH2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("change", invalidateFetchedAudit);
       });
 
-            ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","a2HH2H","b2HH2H","aQ1H2H","bQ1H2H"].forEach(id => {
+            ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","a2HH2H","b2HH2H"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", () => {
           const tag = document.getElementById("h2hAutoTag");
@@ -10251,9 +9946,6 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
         "a2HScored":["A","h2"], "a2HAllowed":["A","h2"],
         "aHome2HScored":["A","h2"], "aHome2HAllowed":["A","h2"],
 
-        "aQ1Scored":["A","q1"], "aQ1Allowed":["A","q1"],
-        "aHomeQ1Scored":["A","q1"], "aHomeQ1Allowed":["A","q1"],
-
         "bFTScored":["B","ft"], "bFTAllowed":["B","ft"],
         "bAwayFTScored":["B","ft"], "bAwayFTAllowed":["B","ft"],
 
@@ -10263,8 +9955,6 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
         "b2HScored":["B","h2"], "b2HAllowed":["B","h2"],
         "bAway2HScored":["B","h2"], "bAway2HAllowed":["B","h2"],
 
-        "bQ1Scored":["B","q1"], "bQ1Allowed":["B","q1"],
-        "bAwayQ1Scored":["B","q1"], "bAwayQ1Allowed":["B","q1"]
       };
 
             Object.entries(bucketMap).forEach(([id, [side, bucket]]) => {
@@ -10294,18 +9984,18 @@ if (flashscoreImportBtn) flashscoreImportBtn.addEventListener("click", importFla
         });
       });
 
-           ["ftMarket","teamAMarket","teamBMarket","h1Market","h2Market","q1Market"].forEach(id => {
+           ["ftMarket","teamAMarket","teamBMarket","h1Market","h2Market"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", () => { invalidateFetchedAudit(); updateSectionLocks(); updateIntelligencePack(); });
       });
 
-      ["aFTScored","aFTAllowed","a1HScored","a1HAllowed","aQ1Scored","aQ1Allowed",
-       "bFTScored","bFTAllowed","b1HScored","b1HAllowed","bQ1Scored","bQ1Allowed"].forEach(id => {
+      ["aFTScored","aFTAllowed","a1HScored","a1HAllowed",
+       "bFTScored","bFTAllowed","b1HScored","b1HAllowed"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", () => updateSectionLocks());
       });
 
-    ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","a2HH2H","b2HH2H","aQ1H2H","bQ1H2H","useFTH2H","use1HH2H","use2HH2H","useQ1H2H"].forEach(id => {
+    ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","a2HH2H","b2HH2H","useFTH2H","use1HH2H","use2HH2H"].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener("input", () => { updateSectionLocks(); updateIntelligencePack(); });
