@@ -2563,6 +2563,61 @@ const LEAGUE_FETCH_RULES = {
 }
 
     let g_fetchMeta = defaultFetchMeta();
+
+const g_h2hManualPreference = { ft: null, h1: null, h2: null };
+
+function getH2HFieldIds(kind) {
+  const map = {
+    ft: ["aFTH2H", "bFTH2H", "useFTH2H"],
+    h1: ["a1HH2H", "b1HH2H", "use1HH2H"],
+    h2: ["a2HH2H", "b2HH2H", "use2HH2H"]
+  };
+  return map[String(kind || "").toLowerCase()] || null;
+}
+
+function getH2HInputCount(kind) {
+  const ids = getH2HFieldIds(kind);
+  if (!ids) return 0;
+  const [aId, bId] = ids;
+  const parseCount = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    return String(el.value || "")
+      .split(/[\s,]+/)
+      .map(v => v.trim())
+      .filter(v => v !== "" && !Number.isNaN(Number(v))).length;
+  };
+  return Math.min(parseCount(aId), parseCount(bId));
+}
+
+function syncH2HCheckbox(kind, forceAuto = false) {
+  const ids = getH2HFieldIds(kind);
+  if (!ids) return;
+  const [, , cbId] = ids;
+  const cb = document.getElementById(cbId);
+  if (!cb) return;
+
+  const minCount = getH2HInputCount(kind);
+  const canEnable = minCount >= 2;
+  const pref = g_h2hManualPreference[kind];
+
+  if (!canEnable) {
+    cb.checked = false;
+    return;
+  }
+
+  if (pref === false && !forceAuto) {
+    cb.checked = false;
+    return;
+  }
+
+  cb.checked = true;
+}
+
+function syncAllH2HCheckboxes(forceAuto = false) {
+  ["ft", "h1", "h2"].forEach(kind => syncH2HCheckbox(kind, forceAuto));
+}
+
     let g_injA = defaultInjuryMeta();
     let g_injB = defaultInjuryMeta();
 
@@ -6361,20 +6416,16 @@ function hideInjuryBox(side) {
   hideInjuryBox(side);
 }
 
-    function clearH2HFields() {
-      ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = "";
-      });
-      const ftCb = document.getElementById("useFTH2H");
-      const h1Cb = document.getElementById("use1HH2H");
-      const h2Cb = document.getElementById("use2HH2H");
-      if (ftCb) ftCb.checked = false;
-      if (h1Cb) h1Cb.checked = false;
-      if (h2Cb) h2Cb.checked = false;
-      const h2hTag = document.getElementById("h2hAutoTag");
-      if (h2hTag) h2hTag.style.display = "none";
-    }
+
+function clearH2HFields() {
+  ["aFTH2H", "bFTH2H", "a1HH2H", "b1HH2H", "a2HH2H", "b2HH2H"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  syncAllH2HCheckboxes(false);
+  const h2hTag = document.getElementById("h2hAutoTag");
+  if (h2hTag) h2hTag.style.display = "none";
+}
 
     function clearAutoFill(changedSide = null) {
 _fetchToken++;
@@ -7600,7 +7651,7 @@ clearH2HFields();
           }
           document.getElementById("aFTH2H").value = h2hA.join(",");
           document.getElementById("bFTH2H").value = h2hB.join(",");
-          document.getElementById("useFTH2H").checked = true;
+          syncH2HCheckbox("ft", false);
           document.getElementById("h2hAutoTag").style.display = "inline";
 
           const h2hA1H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h1A : g.h1B).filter(v => v > 0);
@@ -7608,7 +7659,7 @@ clearH2HFields();
           if (h2hA1H.length >= 2 && h2hB1H.length >= 2) {
             document.getElementById("a1HH2H").value = h2hA1H.join(",");
             document.getElementById("b1HH2H").value = h2hB1H.join(",");
-            document.getElementById("use1HH2H").checked = true;
+            syncH2HCheckbox("h1", false);
           }
 
           const h2hA2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2A : g.h2B).filter(v => v > 0);
@@ -7616,7 +7667,7 @@ clearH2HFields();
           if (h2hA2H.length >= 2 && h2hB2H.length >= 2) {
             document.getElementById("a2HH2H").value = h2hA2H.join(",");
             document.getElementById("b2HH2H").value = h2hB2H.join(",");
-            document.getElementById("use2HH2H").checked = true;
+            syncH2HCheckbox("h2", false);
             messages.push(`2H H2H: ${Math.min(h2hA2H.length, h2hB2H.length)} games ✅`);
           }
 
@@ -7627,8 +7678,7 @@ messages.push(`H2H: ${Math.min(h2hGames.length, 5)} 2024+ games ✅`);
           const g = h2hGames[0];
           document.getElementById("aFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreA : g.scoreB;
           document.getElementById("bFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreB : g.scoreA;
-          document.getElementById("useFTH2H").checked = false;
-          document.getElementById("use1HH2H").checked = false;;
+          syncAllH2HCheckboxes(false);
 messages.push("H2H: 1 game found from 2024+ (min 2 to auto-enable)");
         } else {
 messages.push("H2H: no 2024+ games found");
@@ -9810,7 +9860,7 @@ resetResultsTable();
           if (el) el.style.display = "none";
         });
 
-        document.getElementById("use1HH2H").checked = false;
+        syncH2HCheckbox("h1", false);
       }
 
       _fetchToken++;
@@ -9824,10 +9874,7 @@ resetResultsTable();
              setFieldValues(FIELD_GROUPS.teamAOverall);
       setFieldValues(FIELD_GROUPS.teamBOverall);
       setFieldValues(FIELD_GROUPS.h2h);
-      document.getElementById("useFTH2H").checked = false;
-      document.getElementById("use1HH2H").checked = false;
-      const h2Cb = document.getElementById("use2HH2H");
-      if (h2Cb) h2Cb.checked = false;
+      syncAllH2HCheckboxes(false);
 
           setDisplayValues(FIELD_GROUPS.autoTags, "none");
 
@@ -9969,17 +10016,25 @@ if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
         refreshTrackerInBackground(true);
       });
 
-           ["useFTH2H", "use1HH2H", "use2HH2H"].forEach(id => {
+           [["useFTH2H","ft"], ["use1HH2H","h1"], ["use2HH2H","h2"]].forEach(([id, kind]) => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener("change", invalidateFetchedAudit);
+        if (el) el.addEventListener("change", () => {
+          g_h2hManualPreference[kind] = el.checked;
+          invalidateFetchedAudit();
+          updateSectionLocks();
+          updateIntelligencePack();
+        });
       });
 
-            ["aFTH2H","bFTH2H","a1HH2H","b1HH2H","a2HH2H","b2HH2H"].forEach(id => {
+            [["aFTH2H","ft"],["bFTH2H","ft"],["a1HH2H","h1"],["b1HH2H","h1"],["a2HH2H","h2"],["b2HH2H","h2"]].forEach(([id, kind]) => {
         const el = document.getElementById(id);
         if (el) el.addEventListener("input", () => {
           const tag = document.getElementById("h2hAutoTag");
           if (tag) tag.style.display = "none";
+          syncH2HCheckbox(kind, false);
           invalidateFetchedAudit();
+          updateSectionLocks();
+          updateIntelligencePack();
         });
       });
 
@@ -10034,6 +10089,7 @@ if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 setFetchInputErrors([]);
 setFetchAuditIssues([]);
 validateFetchSection();
+syncAllH2HCheckboxes(false);
 updateIntelligencePack();
     });
   </script>
