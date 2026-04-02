@@ -2618,6 +2618,10 @@ function syncAllH2HCheckboxes(forceAuto = false) {
   ["ft", "h1", "h2"].forEach(kind => syncH2HCheckbox(kind, forceAuto));
 }
 
+function queueH2HCheckboxSync(forceAuto = false) {
+  setTimeout(() => syncAllH2HCheckboxes(forceAuto), 0);
+}
+
     let g_injA = defaultInjuryMeta();
     let g_injB = defaultInjuryMeta();
 
@@ -6422,7 +6426,17 @@ function clearH2HFields() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
-  syncAllH2HCheckboxes(false);
+
+  g_h2hManualPreference.ft = null;
+  g_h2hManualPreference.h1 = null;
+  g_h2hManualPreference.h2 = null;
+
+  ["useFTH2H","use1HH2H","use2HH2H"].forEach(id => {
+    const cb = document.getElementById(id);
+    if (cb) cb.checked = false;
+  });
+
+  syncAllH2HCheckboxes(true);
   const h2hTag = document.getElementById("h2hAutoTag");
   if (h2hTag) h2hTag.style.display = "none";
 }
@@ -7652,6 +7666,7 @@ clearH2HFields();
           document.getElementById("aFTH2H").value = h2hA.join(",");
           document.getElementById("bFTH2H").value = h2hB.join(",");
           syncH2HCheckbox("ft", false);
+          queueH2HCheckboxSync(false);
           document.getElementById("h2hAutoTag").style.display = "inline";
 
           const h2hA1H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h1A : g.h1B).filter(v => v > 0);
@@ -7660,6 +7675,7 @@ clearH2HFields();
             document.getElementById("a1HH2H").value = h2hA1H.join(",");
             document.getElementById("b1HH2H").value = h2hB1H.join(",");
             syncH2HCheckbox("h1", false);
+            queueH2HCheckboxSync(false);
           }
 
           const h2hA2H = h2hGames.slice(0, 5).map(g => normalizeId(g.teamAId) === tA ? g.h2A : g.h2B).filter(v => v > 0);
@@ -7668,6 +7684,7 @@ clearH2HFields();
             document.getElementById("a2HH2H").value = h2hA2H.join(",");
             document.getElementById("b2HH2H").value = h2hB2H.join(",");
             syncH2HCheckbox("h2", false);
+            queueH2HCheckboxSync(false);
             messages.push(`2H H2H: ${Math.min(h2hA2H.length, h2hB2H.length)} games ✅`);
           }
 
@@ -7679,6 +7696,7 @@ messages.push(`H2H: ${Math.min(h2hGames.length, 5)} 2024+ games ✅`);
           document.getElementById("aFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreA : g.scoreB;
           document.getElementById("bFTH2H").value = normalizeId(g.teamAId) === tA ? g.scoreB : g.scoreA;
           syncAllH2HCheckboxes(false);
+          queueH2HCheckboxSync(false);
 messages.push("H2H: 1 game found from 2024+ (min 2 to auto-enable)");
         } else {
 messages.push("H2H: no 2024+ games found");
@@ -8004,7 +8022,6 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const eb = LEAGUE_BASES[league] || LEAGUE_BASES.unknown;
   const cl = getEffectivePaceClamp(league);
   const vl = LEAGUE_VOL_LIMITS[league] || LEAGUE_VOL_LIMITS.unknown;
-  const hAdj = LEAGUE_HOME_EDGE[league] ?? LEAGUE_HOME_EDGE.unknown;
 
   const aFTS = safeArr(parsed.aFTScored) || [];
   const bFTS = safeArr(parsed.bFTScored) || [];
@@ -8053,20 +8070,8 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const h2hA = ftHasH2H ? avgOrNaN(h2ha) : NaN;
   const h2hB = ftHasH2H ? avgOrNaN(h2hb) : NaN;
 
-  let projAFT = ftHasH2H && isFinite(h2hA) ? (baseAFT * 0.65) + (h2hA * 0.35) : baseAFT;
-  let projBFT = ftHasH2H && isFinite(h2hB) ? (baseBFT * 0.65) + (h2hB * 0.35) : baseBFT;
-
-  const rawPace = (aS + bS) / eb;
-  const pace = Math.max(cl.min, Math.min(cl.max, rawPace));
-
-  projAFT *= MODEL.PACE_BLEND + pace / 2;
-  projBFT *= MODEL.PACE_BLEND + pace / 2;
-
-  projAFT *= injMultA;
-  projBFT *= injMultB;
-
-  projAFT += hAdj;
-  projBFT -= hAdj;
+  const projAFT = ftHasH2H && isFinite(h2hA) ? (baseAFT * 0.65) + (h2hA * 0.35) : baseAFT;
+  const projBFT = ftHasH2H && isFinite(h2hB) ? (baseBFT * 0.65) + (h2hB * 0.35) : baseBFT;
 
   const ftProj = projAFT + projBFT;
   const ftEdge = lines.ftLine !== null && isFinite(ftProj) ? ftProj - lines.ftLine : NaN;
@@ -8082,7 +8087,7 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     projAFT, projBFT, ftProj,
     ftEdge, aEdge, bEdge,
     aVol: NaN, bVol: NaN,
-    pace,
+    pace: NaN,
     paceGapRisk: false,
     defensiveFloorFlag: false,
     blowoutGap: Math.abs(projAFT - projBFT),
@@ -8101,7 +8106,6 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const supported = league === "nba" || league === "ncaa";
   const eb1H = (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 2;
   const cl = getEffectivePaceClamp(league);
-  const hAdj = (LEAGUE_HOME_EDGE[league] ?? LEAGUE_HOME_EDGE.unknown) * 0.375;
 
   const a1HS = safeArr(parsed.a1HScored) || [];
   const b1HS = safeArr(parsed.b1HScored) || [];
@@ -8146,20 +8150,8 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const h2hA = h1HasH2H ? avgOrNaN(a1HH2H) : NaN;
   const h2hB = h1HasH2H ? avgOrNaN(b1HH2H) : NaN;
 
-  let projA1H = h1HasH2H && isFinite(h2hA) ? (baseA1H * 0.65) + (h2hA * 0.35) : baseA1H;
-  let projB1H = h1HasH2H && isFinite(h2hB) ? (baseB1H * 0.65) + (h2hB * 0.35) : baseB1H;
-
-  const rawPace1H = (aS1 + bS1) / eb1H;
-  const pace1 = Math.max(cl.min, Math.min(cl.max, rawPace1H));
-
-  projA1H *= MODEL.PACE_BLEND + pace1 / 2;
-  projB1H *= MODEL.PACE_BLEND + pace1 / 2;
-
-  projA1H *= injMultA;
-  projB1H *= injMultB;
-
-  projA1H += hAdj;
-  projB1H -= hAdj;
+  const projA1H = h1HasH2H && isFinite(h2hA) ? (baseA1H * 0.65) + (h2hA * 0.35) : baseA1H;
+  const projB1H = h1HasH2H && isFinite(h2hB) ? (baseB1H * 0.65) + (h2hB * 0.35) : baseB1H;
 
   const h1Proj = projA1H + projB1H;
   const h1Edge = lines.h1Line !== null && isFinite(h1Proj) ? h1Proj - lines.h1Line : NaN;
@@ -8252,7 +8244,6 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const supported = league === "nba" || league === "ncaa";
   const eb2H = (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 2;
   const cl = getEffectivePaceClamp(league);
-  const hAdj = (LEAGUE_HOME_EDGE[league] ?? LEAGUE_HOME_EDGE.unknown) * 0.375;
 
   const a2HS = safeArr(parsed.a2HScored) || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
   const b2HS = safeArr(parsed.b2HScored) || getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed);
@@ -8292,25 +8283,13 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
 
   const a2HH2H = safeArr(parsed.a2HH2H) || getExactFetchedSecondHalfH2HSeries("A", parsed);
   const b2HH2H = safeArr(parsed.b2HH2H) || getExactFetchedSecondHalfH2HSeries("B", parsed);
-  const h2HasH2H = !!(a2HH2H.length >= 2 && b2HH2H.length >= 2);
+  const h2HasH2H = !!(document.getElementById("use2HH2H")?.checked && a2HH2H.length >= 2 && b2HH2H.length >= 2);
 
   const h2hA = h2HasH2H ? avgOrNaN(a2HH2H) : NaN;
   const h2hB = h2HasH2H ? avgOrNaN(b2HH2H) : NaN;
 
-  let projA2H = h2HasH2H && isFinite(h2hA) ? (baseA2H * 0.65) + (h2hA * 0.35) : baseA2H;
-  let projB2H = h2HasH2H && isFinite(h2hB) ? (baseB2H * 0.65) + (h2hB * 0.35) : baseB2H;
-
-  const rawPace2H = (aS2 + bS2) / eb2H;
-  const pace2 = Math.max(cl.min, Math.min(cl.max, rawPace2H));
-
-  projA2H *= MODEL.PACE_BLEND + pace2 / 2;
-  projB2H *= MODEL.PACE_BLEND + pace2 / 2;
-
-  projA2H *= injMultA;
-  projB2H *= injMultB;
-
-  projA2H += hAdj;
-  projB2H -= hAdj;
+  const projA2H = h2HasH2H && isFinite(h2hA) ? (baseA2H * 0.65) + (h2hA * 0.35) : baseA2H;
+  const projB2H = h2HasH2H && isFinite(h2hB) ? (baseB2H * 0.65) + (h2hB * 0.35) : baseB2H;
 
   const h2Proj = projA2H + projB2H;
   const h2Edge = lines.h2Line !== null && isFinite(h2Proj) ? h2Proj - lines.h2Line : NaN;
@@ -9771,6 +9750,9 @@ if (trackedToSave.length) {
       g_lastFetchedTeams = { A: "", B: "" };
       g_fetchMeta = defaultFetchMeta();
       g_massacreFetchContext = defaultMassacreFetchContext();
+      g_h2hManualPreference.ft = null;
+      g_h2hManualPreference.h1 = null;
+      g_h2hManualPreference.h2 = null;
 
       const ls = document.getElementById("leagueSelect");
       if (ls) ls.value = "";
@@ -9868,6 +9850,9 @@ resetResultsTable();
       g_lastFetchedTeams = { A: "", B: "" };
       g_fetchMeta = defaultFetchMeta();
       g_massacreFetchContext = defaultMassacreFetchContext();
+      g_h2hManualPreference.ft = null;
+      g_h2hManualPreference.h1 = null;
+      g_h2hManualPreference.h2 = null;
 
       ["teamAName", "teamBName"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
@@ -10028,13 +10013,19 @@ if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 
             [["aFTH2H","ft"],["bFTH2H","ft"],["a1HH2H","h1"],["b1HH2H","h1"],["a2HH2H","h2"],["b2HH2H","h2"]].forEach(([id, kind]) => {
         const el = document.getElementById(id);
-        if (el) el.addEventListener("input", () => {
+        if (!el) return;
+
+        const handleH2HInputSync = () => {
           const tag = document.getElementById("h2hAutoTag");
           if (tag) tag.style.display = "none";
-          syncH2HCheckbox(kind, false);
+          queueH2HCheckboxSync(false);
           invalidateFetchedAudit();
           updateSectionLocks();
           updateIntelligencePack();
+        };
+
+        ["input","change","paste","blur"].forEach(evt => {
+          el.addEventListener(evt, handleH2HInputSync);
         });
       });
 
@@ -10090,6 +10081,7 @@ setFetchInputErrors([]);
 setFetchAuditIssues([]);
 validateFetchSection();
 syncAllH2HCheckboxes(false);
+queueH2HCheckboxSync(false);
 updateIntelligencePack();
     });
   </script>
