@@ -5873,7 +5873,19 @@ function getTrackedLeagueBase(league) {
     }
 
     function detectTrap(edge, line, pick, league, marketType, vol) {
-      return false;
+      if (!line || isNaN(edge) || line <= 0 || !pick || pick === "NO PLAY") return false;
+      const pct = Math.abs(edge / line);
+      if (pct < TRAP_RULES.minEdgePct) return true;
+
+      let bad = 0;
+      const volLimit = getTrapVolThreshold(marketType, league);
+      if (pct > TRAP_RULES.extremeEdgePct) bad++;
+      if (vol && vol > volLimit) bad++;
+      if (marketType === "ft" && pick.includes("UNDER")) {
+        if (league === "nba" && line < TRAP_RULES.lowLineUnder.nba) bad++;
+        else if (league === "ncaa" && line < TRAP_RULES.lowLineUnder.ncaa) bad++;
+      }
+      return bad >= 2;
     }
 
     function selectLock(markets) {
