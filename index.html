@@ -808,29 +808,37 @@ input,
 }
 
 .tracker-analytics-panel {
-  padding: 16px;
+  padding: 14px;
   border-bottom: 1px solid var(--panel-border);
-  background: linear-gradient(180deg, rgba(20, 126, 57, 0.06) 0%, rgba(255,255,255,0) 100%);
+  background:
+    linear-gradient(180deg, rgba(217,31,38,0.04) 0%, rgba(23,144,63,0.05) 38%, rgba(255,255,255,0) 100%);
+}
+
+body.dark-mode .tracker-analytics-panel {
+  background:
+    linear-gradient(180deg, rgba(217,31,38,0.10) 0%, rgba(23,144,63,0.08) 38%, rgba(0,0,0,0) 100%);
 }
 
 .tracker-analytics-title {
-  margin-bottom: 10px;
+  margin-bottom: 4px;
   color: var(--tracker-strong);
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
 }
 
 .tracker-report-subtitle {
-  margin: 0 0 14px 0;
+  margin: 0 0 12px 0;
   color: var(--tracker-subtext);
   font-size: 11px;
+  line-height: 1.35;
   font-weight: 700;
 }
 
 .tracker-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
@@ -838,40 +846,46 @@ input,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 12px;
-  background: var(--tracker-chip-bg);
-  border: 1px solid var(--tracker-chip-border);
+  padding: 9px 11px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f7f9 100%);
+  border: 1px solid #d9dee5;
   color: var(--tracker-strong);
   font-size: 11px;
   font-weight: 800;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+body.dark-mode .tracker-market-chip {
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  border-color: #2f3338;
 }
 
 .tracker-market-chip.good {
-  background: rgba(47, 143, 74, 0.1);
-  border-color: rgba(47, 143, 74, 0.35);
+  background: linear-gradient(180deg, rgba(47,143,74,0.16) 0%, rgba(47,143,74,0.08) 100%);
+  border-color: rgba(47, 143, 74, 0.38);
   color: #1e6e39;
 }
 
 .tracker-market-chip.warn {
-  background: rgba(217, 138, 0, 0.1);
-  border-color: rgba(217, 138, 0, 0.35);
+  background: linear-gradient(180deg, rgba(217,138,0,0.16) 0%, rgba(217,138,0,0.08) 100%);
+  border-color: rgba(217, 138, 0, 0.36);
   color: #9a6200;
 }
 
 .tracker-market-chip.neutral {
-  background: rgba(58, 64, 76, 0.06);
+  background: linear-gradient(180deg, rgba(58, 64, 76, 0.07) 0%, rgba(58, 64, 76, 0.03) 100%);
 }
 
 body.dark-mode .tracker-market-chip.good {
   color: #8fe29b;
-  background: rgba(47, 143, 74, 0.18);
-  border-color: rgba(143, 226, 155, 0.2);
+  background: linear-gradient(180deg, rgba(47,143,74,0.25) 0%, rgba(47,143,74,0.14) 100%);
+  border-color: rgba(143, 226, 155, 0.24);
 }
 
 body.dark-mode .tracker-market-chip.warn {
   color: #ffcf73;
-  background: rgba(217, 138, 0, 0.16);
-  border-color: rgba(255, 207, 115, 0.18);
+  background: linear-gradient(180deg, rgba(217,138,0,0.22) 0%, rgba(217,138,0,0.12) 100%);
+  border-color: rgba(255, 207, 115, 0.22);
 }
 
 .tracker-report-grid {
@@ -882,24 +896,35 @@ body.dark-mode .tracker-market-chip.warn {
 }
 
 .tracker-report-card {
-  border: 1px solid var(--tracker-chip-border);
-  background: var(--tracker-chip-bg);
+  border: 1px solid #d9dee5;
+  border-top: 3px solid #d91f26;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
   padding: 12px;
   min-width: 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+}
+
+body.dark-mode .tracker-report-card {
+  border-color: #2f3338;
+  border-top-color: #d91f26;
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  box-shadow: none;
 }
 
 .tracker-report-card.hero {
-  background: linear-gradient(135deg, #17903f 0%, #0f6f30 100%);
+  background: linear-gradient(135deg, #15963f 0%, #0f6f30 100%);
   border-color: #0f6f30;
+  border-top-color: #0f6f30;
   color: #fff;
+  box-shadow: 0 6px 18px rgba(15,111,48,0.22);
 }
 
 .tracker-report-label {
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-weight: 900;
+  letter-spacing: 0.7px;
   text-transform: uppercase;
-  opacity: 0.8;
+  opacity: 0.82;
   margin-bottom: 6px;
 }
 
@@ -908,8 +933,8 @@ body.dark-mode .tracker-market-chip.warn {
 }
 
 .tracker-report-value {
-  font-size: 21px;
-  line-height: 1.1;
+  font-size: 22px;
+  line-height: 1.08;
   font-weight: 900;
   color: inherit;
 }
@@ -920,28 +945,36 @@ body.dark-mode .tracker-market-chip.warn {
   line-height: 1.35;
   font-weight: 700;
   color: inherit;
-  opacity: 0.95;
+  opacity: 0.96;
 }
 
 .tracker-report-section {
   margin-top: 12px;
-  border: 1px solid var(--tracker-chip-border);
-  background: var(--tracker-chip-bg);
+  border: 1px solid #d9dee5;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.025);
+}
+
+body.dark-mode .tracker-report-section {
+  border-color: #2f3338;
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  box-shadow: none;
 }
 
 .tracker-report-section-head {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--tracker-chip-border);
-  background: rgba(23, 144, 63, 0.08);
-  color: var(--tracker-strong);
+  border-bottom: 1px solid #d9dee5;
+  background: linear-gradient(90deg, #3a404c 0%, #2f3440 100%);
+  color: #fff;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
 }
 
 body.dark-mode .tracker-report-section-head {
-  background: rgba(23, 144, 63, 0.14);
+  border-bottom-color: #2f3338;
+  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
 }
 
 .tracker-report-section-body {
@@ -979,14 +1012,23 @@ body.dark-mode .tracker-report-section-head {
   background: #3a404c;
 }
 
+body.dark-mode .tracker-report-dot.neutral {
+  background: #d4af37;
+}
+
 .tracker-recommendation {
   padding: 14px;
-  background: var(--tracker-chip-bg);
-  border: 1px solid var(--tracker-chip-border);
+  background: linear-gradient(180deg, #ffffff 0%, #f7f8fa 100%);
+  border: 1px solid #d9dee5;
   color: var(--tracker-strong);
   font-size: 12px;
   line-height: 1.5;
   font-weight: 700;
+}
+
+body.dark-mode .tracker-recommendation {
+  background: linear-gradient(180deg, #171717 0%, #121212 100%);
+  border-color: #2f3338;
 }
 
 @media (max-width: 560px) {
@@ -4113,7 +4155,7 @@ function renderTrackerAnalytics() {
   panel.style.display = g_trackerInsightsOpen ? "block" : "none";
   panel.innerHTML = `
     <div class="tracker-analytics-title">Tracker Report 📊</div>
-    <div class="tracker-report-subtitle">Compact daily view with checkpoint signals, team-by-team learning, and league/market performance.</div>
+    <div class="tracker-report-subtitle">Cleaner daily view with team-by-team learning, checkpoint progress, and simple market notes.</div>
     <div class="tracker-chip-row">${summaryChips}</div>
 
     <div class="tracker-report-grid">
@@ -4145,7 +4187,7 @@ function renderTrackerAnalytics() {
         <div class="tracker-report-list">
           <div class="tracker-report-item"><span class="tracker-report-dot ${settled >= trackerMin ? "good" : "warn"}"></span><span>${safeText(checkpointLine)}</span></div>
           <div class="tracker-report-item"><span class="tracker-report-dot neutral"></span><span>${priorVersions.length
-            ? `Version view: ${safeText(String(priorVersions.length + 1))} versions tracked · combined record ${safeText(formatRecord(settledAcrossVersions.wins, settledAcrossVersions.losses, settledAcrossVersions.pushes))} (${safeText(formatPct(settledAcrossVersions.winPct))}).`
+            ? `Version view: ${safeText(String(priorVersions.length + 1))} versions tracked · combined ${safeText(formatRecord(settledAcrossVersions.wins, settledAcrossVersions.losses, settledAcrossVersions.pushes))} (${safeText(formatPct(settledAcrossVersions.winPct))}).`
             : "Version view: first tracked version only."}</span></div>
         </div>
       </div>
@@ -4163,7 +4205,7 @@ function renderTrackerAnalytics() {
     </div>
 
     <div class="tracker-report-section">
-      <div class="tracker-report-section-head">Teams</div>
+      <div class="tracker-report-section-head">Teams one by one</div>
       <div class="tracker-report-section-body">
         <div class="tracker-chip-row">
           ${teamStrongRows.length ? teamStrongRows.map(row => `
@@ -4173,7 +4215,7 @@ function renderTrackerAnalytics() {
         <div class="tracker-report-list">
           ${teamWatchRows.length ? teamWatchRows.map(row => `
             <div class="tracker-report-item"><span class="tracker-report-dot warn"></span><span>Watch ${safeText(row.label)}: ${safeText(formatRecord(row.wins, row.losses, row.pushes))} (${safeText(formatPct(row.winRate))}).</span></div>
-          `).join("") : '<div class="tracker-report-item"><span class="tracker-report-dot neutral"></span><span>Tracker is already watching teams one by one. More settled picks will make the team notes stronger.</span></div>'}
+          `).join("") : '<div class="tracker-report-item"><span class="tracker-report-dot neutral"></span><span>Yes — tracker is checking teams one by one already. More settled picks will make those team notes stronger.</span></div>'}
         </div>
       </div>
     </div>
