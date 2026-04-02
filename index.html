@@ -1044,6 +1044,103 @@ body.dark-mode .tracker-recommendation {
   font-weight: 700;
 }
 
+.tracker-analytics-panel {
+  padding: 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+}
+
+body.dark-mode .tracker-analytics-panel {
+  background: var(--tracker-summary-bg);
+}
+
+.tracker-report-subtitle {
+  margin: 0 0 10px 0;
+  color: var(--tracker-subtext);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.tracker-report-inline-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.tracker-report-table-wrap {
+  margin: 0;
+}
+
+.tracker-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--panel);
+}
+
+.tracker-report-table th,
+.tracker-report-table td {
+  border: 1px solid var(--table-border);
+  padding: 8px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tracker-report-table th {
+  background: var(--table-head);
+  color: #fff;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.tracker-report-table td {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.tracker-report-table td.num,
+.tracker-report-table th.num {
+  text-align: center;
+  width: 58px;
+}
+
+.tracker-report-table td.rate,
+.tracker-report-table th.rate {
+  text-align: center;
+  white-space: nowrap;
+  width: 86px;
+}
+
+.tracker-report-table td.note {
+  color: var(--tracker-subtext);
+  font-weight: 700;
+}
+
+.tracker-report-mini-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.tracker-report-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tracker-report-empty-row {
+  color: var(--tracker-subtext);
+}
+
+@media (min-width: 700px) {
+  .tracker-report-mini-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .tracker-hidden {
   display: none !important;
 }
@@ -1352,13 +1449,14 @@ body.dark-mode .tracker-recommendation {
       </div>
           <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
 <div class="tracker-market-summary" id="trackerMarketSummary"></div>
-<div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
-
-<div id="trackerEmpty" class="tracker-empty">
-  No tracked picks saved yet.
-</div>
 
 <div class="tracker-body-scroll" id="trackedPicksWrap">
+  <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
+
+  <div id="trackerEmpty" class="tracker-empty">
+    No tracked picks saved yet.
+  </div>
+
   <div class="table-wrap tracker-table-wrap">
     <table id="trackedPicksTable">
       <thead>
@@ -3921,7 +4019,7 @@ function renderTrackedPicks() {
 
   const pendingCount = activePicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
   summaryEl.textContent =
-    `${activePicks.length} active • ${stats.settled} settled • ${stats.wins}-${stats.losses}-${stats.pushes}`;
+    `${activePicks.length} active • ${stats.settled} settled • ${stats.wins} wins • ${stats.losses} losses • ${stats.pushes} pushes`;
 
   const marketLabels = {
     ft: "FT",
@@ -4016,17 +4114,13 @@ function renderTrackerAnalytics() {
 
   function marketLabel(key) {
     const map = {
-      ft: "FT Totals",
-      h1: "1H Totals",
-      h2: "2H Totals",
-      team_a: "Team A Totals",
-      team_b: "Team B Totals"
+      ft: "FT Total",
+      h1: "1H Total",
+      h2: "2H Total",
+      team_a: "Team A Total",
+      team_b: "Team B Total"
     };
     return map[String(key || "")] || String(key || "Other");
-  }
-
-  function formatRecord(wins, losses, pushes) {
-    return `${wins}-${losses}-${pushes}`;
   }
 
   function formatPct(value) {
@@ -4073,6 +4167,25 @@ function renderTrackerAnalytics() {
       .filter(row => row.settled >= minSettled);
   }
 
+  function summaryRow(label, record) {
+    return `
+      <tr>
+        <td>${safeText(label)}</td>
+        <td class="num">${Number(record?.wins || 0)}</td>
+        <td class="num">${Number(record?.losses || 0)}</td>
+        <td class="num">${Number(record?.pushes || 0)}</td>
+        <td class="rate">${safeText(formatPct(record?.winPct))}</td>
+      </tr>
+    `;
+  }
+
+  function statusFromTeamRow(row) {
+    if (!row || Number(row.settled || 0) < 2) return "Building";
+    if (Number(row.winRate || 0) >= 70) return "Strong";
+    if (Number(row.winRate || 0) <= 50) return "Watch";
+    return "Steady";
+  }
+
   const marketRows = buildGroupedRows(
     learningPicks,
     pick => pick.marketKey || "other",
@@ -4092,16 +4205,10 @@ function renderTrackerAnalytics() {
     .map(([key, bucket]) => ({ key, ...bucket }))
     .filter(row => Number(row.settled || 0) >= 1)
     .sort((a, b) => {
-      const pctDiff = Number(b.winRate || -1) - Number(a.winRate || -1);
-      if (pctDiff !== 0) return pctDiff;
-      return Number(b.settled || 0) - Number(a.settled || 0);
+      const settledDiff = Number(b.settled || 0) - Number(a.settled || 0);
+      if (settledDiff !== 0) return settledDiff;
+      return Number(b.winRate || -1) - Number(a.winRate || -1);
     });
-
-  const teamStrongRows = teamRows.filter(row => Number(row.settled || 0) >= 2).slice(0, 4);
-  const teamWatchRows = [...teamRows]
-    .reverse()
-    .filter(row => Number(row.settled || 0) >= 2)
-    .slice(0, 3);
 
   const lockSettled = learningPicks.filter(p => !!p.isLock);
   const overallRecord = buildRecord(learningPicks);
@@ -4126,23 +4233,44 @@ function renderTrackerAnalytics() {
   const settledAcrossVersions = buildRecord(allSettledAcrossVersions);
   const checkpointLeft = Math.max(0, trackerMin - settled);
   const checkpointStatus = settled >= trackerMin ? "Review ready" : "Building";
-  const checkpointLine = settled >= trackerMin
-    ? `Checkpoint reached at ${settled}/${trackerMin} settled.`
-    : `${settled}/${trackerMin} settled · ${checkpointLeft} more needed.`;
 
-  const noticeItems = [];
+  const noticeRows = [];
   if (bestMarket) {
-    noticeItems.push({ tone: "good", text: `Best market so far: ${bestMarket.label} ${formatRecord(bestMarket.wins, bestMarket.losses, bestMarket.pushes)} (${formatPct(bestMarket.winPct)}).` });
+    noticeRows.push({
+      signal: "Best market",
+      text: `${bestMarket.label} is leading right now.`,
+      detail: `${bestMarket.wins} wins, ${bestMarket.losses} losses, ${bestMarket.pushes} pushes`,
+      rate: formatPct(bestMarket.winPct)
+    });
   }
   if (weakMarket && bestMarket && weakMarket.key !== bestMarket.key) {
-    noticeItems.push({ tone: "warn", text: `Needs watching: ${weakMarket.label} ${formatRecord(weakMarket.wins, weakMarket.losses, weakMarket.pushes)} (${formatPct(weakMarket.winPct)}).` });
+    noticeRows.push({
+      signal: "Needs watching",
+      text: `${weakMarket.label} is the weakest tracked market so far.`,
+      detail: `${weakMarket.wins} wins, ${weakMarket.losses} losses, ${weakMarket.pushes} pushes`,
+      rate: formatPct(weakMarket.winPct)
+    });
   }
   if (bestLeague) {
-    noticeItems.push({ tone: "neutral", text: `Best league so far: ${bestLeague.label} ${formatRecord(bestLeague.wins, bestLeague.losses, bestLeague.pushes)} (${formatPct(bestLeague.winPct)}).` });
+    noticeRows.push({
+      signal: "Best league",
+      text: `${bestLeague.label} is leading so far.`,
+      detail: `${bestLeague.wins} wins, ${bestLeague.losses} losses, ${bestLeague.pushes} pushes`,
+      rate: formatPct(bestLeague.winPct)
+    });
   }
-  if (!noticeItems.length) {
-    noticeItems.push({ tone: "neutral", text: "Tracker is still collecting enough settled picks to show a strong pattern." });
+  if (!noticeRows.length) {
+    noticeRows.push({
+      signal: "Building",
+      text: "Tracker is still collecting enough settled picks to form a strong read.",
+      detail: `${settled} settled so far`,
+      rate: "—"
+    });
   }
+
+  const teamDisplayRows = teamRows.slice(0, 8);
+  const marketDisplayRows = marketRows.slice(0, 5);
+  const leagueDisplayRows = leagueRows.slice(0, 5);
 
   const summaryChips = [
     `<span class="tracker-market-chip neutral">${safeText(dayLabel)}</span>`,
@@ -4155,40 +4283,58 @@ function renderTrackerAnalytics() {
   panel.style.display = g_trackerInsightsOpen ? "block" : "none";
   panel.innerHTML = `
     <div class="tracker-analytics-title">Tracker Report 📊</div>
-    <div class="tracker-report-subtitle">Cleaner daily view with team-by-team learning, checkpoint progress, and simple market notes.</div>
-    <div class="tracker-chip-row">${summaryChips}</div>
+    <div class="tracker-report-subtitle">Simple daily report, checkpoint progress, and team-by-team learning.</div>
+    <div class="tracker-report-badge-row">${summaryChips}</div>
 
-    <div class="tracker-report-grid">
-      <div class="tracker-report-card hero">
-        <div class="tracker-report-label">Overall</div>
-        <div class="tracker-report-value">${safeText(formatRecord(overallRecord.wins, overallRecord.losses, overallRecord.pushes))}</div>
-        <div class="tracker-report-sub">Win rate ${safeText(formatPct(overallRecord.winPct))}</div>
-      </div>
-      <div class="tracker-report-card">
-        <div class="tracker-report-label">Today</div>
-        <div class="tracker-report-value">${safeText(formatRecord(todayRecord.wins, todayRecord.losses, todayRecord.pushes))}</div>
-        <div class="tracker-report-sub">Today rate ${safeText(formatPct(todayRecord.winPct))}</div>
-      </div>
-      <div class="tracker-report-card">
-        <div class="tracker-report-label">Last 24h</div>
-        <div class="tracker-report-value">${safeText(formatRecord(last24Record.wins, last24Record.losses, last24Record.pushes))}</div>
-        <div class="tracker-report-sub">24h rate ${safeText(formatPct(last24Record.winPct))}</div>
-      </div>
-      <div class="tracker-report-card">
-        <div class="tracker-report-label">Locks</div>
-        <div class="tracker-report-value">${safeText(formatRecord(lockRecord.wins, lockRecord.losses, lockRecord.pushes))}</div>
-        <div class="tracker-report-sub">Lock rate ${safeText(formatPct(lockRecord.winPct))}</div>
+    <div class="tracker-report-section">
+      <div class="tracker-report-section-head">Daily summary</div>
+      <div class="tracker-report-section-body">
+        <div class="table-wrap tracker-report-table-wrap">
+          <table class="tracker-report-table">
+            <thead>
+              <tr>
+                <th>View</th>
+                <th class="num">Wins</th>
+                <th class="num">Losses</th>
+                <th class="num">Pushes</th>
+                <th class="rate">Win rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${summaryRow("Overall", overallRecord)}
+              ${summaryRow("Today", todayRecord)}
+              ${summaryRow("Last 24h", last24Record)}
+              ${summaryRow("Locks", lockRecord)}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <div class="tracker-report-section">
       <div class="tracker-report-section-head">Checkpoint</div>
       <div class="tracker-report-section-body">
-        <div class="tracker-report-list">
-          <div class="tracker-report-item"><span class="tracker-report-dot ${settled >= trackerMin ? "good" : "warn"}"></span><span>${safeText(checkpointLine)}</span></div>
-          <div class="tracker-report-item"><span class="tracker-report-dot neutral"></span><span>${priorVersions.length
-            ? `Version view: ${safeText(String(priorVersions.length + 1))} versions tracked · combined ${safeText(formatRecord(settledAcrossVersions.wins, settledAcrossVersions.losses, settledAcrossVersions.pushes))} (${safeText(formatPct(settledAcrossVersions.winPct))}).`
-            : "Version view: first tracked version only."}</span></div>
+        <div class="table-wrap tracker-report-table-wrap">
+          <table class="tracker-report-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th class="num">Settled</th>
+                <th class="num">Needed</th>
+                <th>Version view</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${safeText(checkpointStatus)}</td>
+                <td class="num">${settled}</td>
+                <td class="num">${checkpointLeft}</td>
+                <td>${priorVersions.length
+                  ? `${safeText(String(priorVersions.length + 1))} versions tracked • ${settledAcrossVersions.wins} wins, ${settledAcrossVersions.losses} losses, ${settledAcrossVersions.pushes} pushes`
+                  : "First tracked version only"}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -4196,46 +4342,135 @@ function renderTrackerAnalytics() {
     <div class="tracker-report-section">
       <div class="tracker-report-section-head">What tracker notices</div>
       <div class="tracker-report-section-body">
-        <div class="tracker-report-list">
-          ${noticeItems.map(item => `
-            <div class="tracker-report-item"><span class="tracker-report-dot ${safeText(item.tone)}"></span><span>${safeText(item.text)}</span></div>
-          `).join("")}
+        <div class="table-wrap tracker-report-table-wrap">
+          <table class="tracker-report-table">
+            <thead>
+              <tr>
+                <th>Signal</th>
+                <th>Current read</th>
+                <th>Record</th>
+                <th class="rate">Win rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${noticeRows.map(row => `
+                <tr>
+                  <td>${safeText(row.signal)}</td>
+                  <td>${safeText(row.text)}</td>
+                  <td>${safeText(row.detail)}</td>
+                  <td class="rate">${safeText(row.rate)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <div class="tracker-report-section">
-      <div class="tracker-report-section-head">Teams one by one</div>
-      <div class="tracker-report-section-body">
-        <div class="tracker-chip-row">
-          ${teamStrongRows.length ? teamStrongRows.map(row => `
-            <span class="tracker-market-chip good">${safeText(row.label)} ${safeText(formatRecord(row.wins, row.losses, row.pushes))}</span>
-          `).join("") : '<span class="tracker-market-chip neutral">No strong team signal yet</span>'}
-        </div>
-        <div class="tracker-report-list">
-          ${teamWatchRows.length ? teamWatchRows.map(row => `
-            <div class="tracker-report-item"><span class="tracker-report-dot warn"></span><span>Watch ${safeText(row.label)}: ${safeText(formatRecord(row.wins, row.losses, row.pushes))} (${safeText(formatPct(row.winRate))}).</span></div>
-          `).join("") : '<div class="tracker-report-item"><span class="tracker-report-dot neutral"></span><span>Yes — tracker is checking teams one by one already. More settled picks will make those team notes stronger.</span></div>'}
+    <div class="tracker-report-inline-grid">
+      <div class="tracker-report-section">
+        <div class="tracker-report-section-head">Teams one by one</div>
+        <div class="tracker-report-section-body">
+          <div class="table-wrap tracker-report-table-wrap">
+            <table class="tracker-report-table">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th class="num">Wins</th>
+                  <th class="num">Losses</th>
+                  <th class="num">Pushes</th>
+                  <th class="rate">Win rate</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${teamDisplayRows.length ? teamDisplayRows.map(row => `
+                  <tr>
+                    <td>${safeText(row.label || row.key || "Unknown")}</td>
+                    <td class="num">${Number(row.wins || 0)}</td>
+                    <td class="num">${Number(row.losses || 0)}</td>
+                    <td class="num">${Number(row.pushes || 0)}</td>
+                    <td class="rate">${safeText(formatPct(row.winRate))}</td>
+                    <td>${safeText(statusFromTeamRow(row))}</td>
+                  </tr>
+                `).join("") : `
+                  <tr>
+                    <td colspan="6" class="tracker-report-empty-row">Tracker is checking teams one by one already. More settled picks will make this table stronger.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="tracker-report-section">
-      <div class="tracker-report-section-head">Markets & leagues</div>
-      <div class="tracker-report-section-body">
-        <div class="tracker-chip-row">
-          ${marketRows.length ? marketRows.map(row => `
-            <span class="tracker-market-chip ${row === bestMarket ? "good" : (weakMarket && row.key === weakMarket.key ? "warn" : "neutral")}">
-              ${safeText(row.label)} ${safeText(formatRecord(row.wins, row.losses, row.pushes))}
-            </span>
-          `).join("") : '<span class="tracker-market-chip neutral">No settled market data yet</span>'}
+      <div class="tracker-report-mini-grid">
+        <div class="tracker-report-section">
+          <div class="tracker-report-section-head">Markets</div>
+          <div class="tracker-report-section-body">
+            <div class="table-wrap tracker-report-table-wrap">
+              <table class="tracker-report-table">
+                <thead>
+                  <tr>
+                    <th>Market</th>
+                    <th class="num">Wins</th>
+                    <th class="num">Losses</th>
+                    <th class="num">Pushes</th>
+                    <th class="rate">Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${marketDisplayRows.length ? marketDisplayRows.map(row => `
+                    <tr>
+                      <td>${safeText(row.label)}</td>
+                      <td class="num">${Number(row.wins || 0)}</td>
+                      <td class="num">${Number(row.losses || 0)}</td>
+                      <td class="num">${Number(row.pushes || 0)}</td>
+                      <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                    </tr>
+                  `).join("") : `
+                    <tr>
+                      <td colspan="5" class="tracker-report-empty-row">No settled market data yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <div class="tracker-chip-row" style="margin-bottom:0;">
-          ${leagueRows.length ? leagueRows.slice(0, 6).map(row => `
-            <span class="tracker-market-chip neutral">
-              ${safeText(row.label)} ${safeText(formatRecord(row.wins, row.losses, row.pushes))}
-            </span>
-          `).join("") : '<span class="tracker-market-chip neutral">No settled league data yet</span>'}
+
+        <div class="tracker-report-section">
+          <div class="tracker-report-section-head">Leagues</div>
+          <div class="tracker-report-section-body">
+            <div class="table-wrap tracker-report-table-wrap">
+              <table class="tracker-report-table">
+                <thead>
+                  <tr>
+                    <th>League</th>
+                    <th class="num">Wins</th>
+                    <th class="num">Losses</th>
+                    <th class="num">Pushes</th>
+                    <th class="rate">Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${leagueDisplayRows.length ? leagueDisplayRows.map(row => `
+                    <tr>
+                      <td>${safeText(row.label)}</td>
+                      <td class="num">${Number(row.wins || 0)}</td>
+                      <td class="num">${Number(row.losses || 0)}</td>
+                      <td class="num">${Number(row.pushes || 0)}</td>
+                      <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                    </tr>
+                  `).join("") : `
+                    <tr>
+                      <td colspan="5" class="tracker-report-empty-row">No settled league data yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
