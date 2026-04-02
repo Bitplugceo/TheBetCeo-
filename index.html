@@ -1141,6 +1141,395 @@ body.dark-mode .tracker-analytics-panel {
   }
 }
 
+
+/* === tracker analytics redesign === */
+.tracker-analytics-panel {
+  padding: 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+}
+.tracker-analytics-shell {
+  display: grid;
+  gap: 12px;
+}
+.tracker-analytics-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tracker-analytics-heading {
+  display: grid;
+  gap: 4px;
+}
+.tracker-analytics-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tracker-analytics-title {
+  margin: 0;
+  color: var(--tracker-strong);
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.05;
+}
+.tracker-analytics-subtitle {
+  margin: 0;
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.tracker-analytics-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tracker-analytics-tab {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--tracker-strong);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.tracker-analytics-tab.active {
+  background: var(--tracker-head-bg);
+  color: var(--tracker-head-text);
+  border-color: var(--tracker-head-bg);
+}
+.tracker-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.tracker-kpi-card {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+.tracker-kpi-card.featured {
+  background: linear-gradient(135deg, #17973f 0%, #127731 100%);
+  border-color: #17973f;
+  color: #fff;
+}
+body.dark-mode .tracker-kpi-card.featured {
+  background: linear-gradient(135deg, #167d35 0%, #115f29 100%);
+  border-color: #167d35;
+}
+.tracker-kpi-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tracker-kpi-card.featured .tracker-kpi-label,
+.tracker-kpi-card.featured .tracker-kpi-sub {
+  color: rgba(255,255,255,0.9);
+}
+.tracker-kpi-value {
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--tracker-strong);
+}
+.tracker-kpi-card.featured .tracker-kpi-value {
+  color: #fff;
+}
+.tracker-kpi-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tracker-subtext);
+  line-height: 1.35;
+}
+.tracker-analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.tracker-analytics-card {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+}
+.tracker-analytics-card-head {
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--table-border);
+  background: linear-gradient(90deg, var(--tracker-head-bg) 0%, #434b5a 100%);
+  color: var(--tracker-head-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+body.dark-mode .tracker-analytics-card-head {
+  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
+}
+.tracker-analytics-card-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+}
+.tracker-analytics-card-meta {
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.82);
+}
+.tracker-analytics-card-body {
+  padding: 12px;
+}
+.tracker-mini-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.tracker-mini-stat {
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+.tracker-mini-stat .name {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.tracker-mini-stat .value {
+  color: var(--tracker-strong);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.tracker-mini-stat .sub {
+  color: var(--tracker-subtext);
+  font-size: 11px;
+  font-weight: 700;
+}
+.tracker-bar-chart {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  min-height: 180px;
+  padding-top: 8px;
+}
+.tracker-bar-col {
+  display: grid;
+  gap: 8px;
+}
+.tracker-bar-stage {
+  height: 130px;
+  border: 1px solid var(--table-border);
+  background:
+    linear-gradient(to top, transparent 24%, rgba(0,0,0,0.04) 24%, rgba(0,0,0,0.04) 25%, transparent 25%, transparent 49%, rgba(0,0,0,0.04) 49%, rgba(0,0,0,0.04) 50%, transparent 50%, transparent 74%, rgba(0,0,0,0.04) 74%, rgba(0,0,0,0.04) 75%, transparent 75%),
+    var(--panel-soft);
+  display: flex;
+  align-items: flex-end;
+  padding: 8px;
+}
+body.dark-mode .tracker-bar-stage {
+  background:
+    linear-gradient(to top, transparent 24%, rgba(255,255,255,0.05) 24%, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 49%, rgba(255,255,255,0.05) 49%, rgba(255,255,255,0.05) 50%, transparent 50%, transparent 74%, rgba(255,255,255,0.05) 74%, rgba(255,255,255,0.05) 75%, transparent 75%),
+    var(--panel-soft);
+}
+.tracker-bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #4ea9ff 0%, #2976d6 100%);
+  min-height: 6px;
+}
+.tracker-bar-fill.warn {
+  background: linear-gradient(180deg, #f0ad2f 0%, #d98a00 100%);
+}
+.tracker-bar-fill.good {
+  background: linear-gradient(180deg, #31be5e 0%, #17973f 100%);
+}
+.tracker-bar-fill.soft {
+  background: linear-gradient(180deg, #75a8f8 0%, #4b80d6 100%);
+}
+.tracker-bar-label {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.tracker-bar-value {
+  color: var(--tracker-strong);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+.tracker-bar-meta {
+  color: var(--tracker-subtext);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.tracker-progress-card {
+  display: grid;
+  gap: 12px;
+}
+.tracker-progress-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tracker-progress-value {
+  color: var(--tracker-strong);
+  font-size: 30px;
+  font-weight: 900;
+  line-height: 1;
+}
+.tracker-progress-sub {
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+}
+.tracker-progress-track {
+  height: 10px;
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+}
+.tracker-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #31be5e 0%, #17973f 100%);
+}
+.tracker-insight-list {
+  display: grid;
+  gap: 10px;
+}
+.tracker-insight-row {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.tracker-insight-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  background: #31be5e;
+}
+.tracker-insight-dot.warn {
+  background: #d98a00;
+}
+.tracker-insight-dot.neutral {
+  background: #4b5568;
+}
+.tracker-insight-text strong {
+  display: block;
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 2px;
+}
+.tracker-insight-text span {
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.tracker-analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--panel);
+}
+.tracker-analytics-table th,
+.tracker-analytics-table td {
+  border: 1px solid var(--table-border);
+  padding: 8px 7px;
+  text-align: left;
+  vertical-align: top;
+}
+.tracker-analytics-table th {
+  background: var(--table-head);
+  color: #fff;
+  font-weight: 800;
+}
+.tracker-analytics-table td {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 700;
+}
+.tracker-analytics-table td.num,
+.tracker-analytics-table th.num,
+.tracker-analytics-table td.rate,
+.tracker-analytics-table th.rate {
+  text-align: center;
+  white-space: nowrap;
+}
+.tracker-analytics-table td.note {
+  color: var(--tracker-subtext);
+}
+.tracker-line-list {
+  display: grid;
+  gap: 10px;
+}
+.tracker-line-row {
+  display: grid;
+  gap: 6px;
+}
+.tracker-line-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tracker-line-name {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+.tracker-line-meta {
+  color: var(--tracker-subtext);
+  font-size: 11px;
+  font-weight: 700;
+}
+.tracker-line-track {
+  height: 8px;
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+}
+.tracker-line-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ea9ff 0%, #2976d6 100%);
+}
+.tracker-table-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+.tracker-empty-note {
+  color: var(--tracker-subtext);
+  font-size: 12px;
+  font-weight: 700;
+}
+@media (min-width: 720px) {
+  .tracker-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .tracker-analytics-grid.two {
+    grid-template-columns: 1.2fr 1fr;
+  }
+  .tracker-table-grid.two {
+    grid-template-columns: 1.2fr 1fr;
+  }
+}
+
 .tracker-hidden {
   display: none !important;
 }
@@ -4093,6 +4482,7 @@ function renderTrackedPicks() {
   }).join("");
 }
 
+
 function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
@@ -4111,6 +4501,7 @@ function renderTrackerAnalytics() {
 
   const settled = Number(derived?.settledPicks || 0);
   const trackerMin = Number(TRACKER_POLICY?.reviewCheckpointSettled || PHASE2_ACTIVATION_RULES?.trackerFeedback?.minSettled || 20);
+  const activeCount = Array.isArray(g_trackerState?.activePicks) ? g_trackerState.activePicks.length : 0;
 
   function marketLabel(key) {
     const map = {
@@ -4167,23 +4558,21 @@ function renderTrackerAnalytics() {
       .filter(row => row.settled >= minSettled);
   }
 
-  function summaryRow(label, record) {
-    return `
-      <tr>
-        <td>${safeText(label)}</td>
-        <td class="num">${Number(record?.wins || 0)}</td>
-        <td class="num">${Number(record?.losses || 0)}</td>
-        <td class="num">${Number(record?.pushes || 0)}</td>
-        <td class="rate">${safeText(formatPct(record?.winPct))}</td>
-      </tr>
-    `;
-  }
-
   function statusFromTeamRow(row) {
     if (!row || Number(row.settled || 0) < 2) return "Building";
     if (Number(row.winRate || 0) >= 70) return "Strong";
     if (Number(row.winRate || 0) <= 50) return "Watch";
     return "Steady";
+  }
+
+  function barHeight(rate) {
+    if (!isFinite(rate)) return 8;
+    return Math.max(8, Math.min(100, Number(rate)));
+  }
+
+  function lineWidth(rate) {
+    if (!isFinite(rate)) return 0;
+    return Math.max(6, Math.min(100, Number(rate)));
   }
 
   const marketRows = buildGroupedRows(
@@ -4226,45 +4615,42 @@ function renderTrackerAnalytics() {
   const last24Record = buildRecord(last24Settled);
   const lockRecord = buildRecord(lockSettled);
 
-  const bestMarket = marketRows.find(row => row.settled >= 3) || null;
-  const weakMarket = [...marketRows].reverse().find(row => row.settled >= 3) || null;
-  const bestLeague = leagueRows.find(row => row.settled >= 3) || null;
+  const bestMarket = marketRows.find(row => row.settled >= 2) || null;
+  const weakMarket = [...marketRows].reverse().find(row => row.settled >= 2) || null;
+  const bestLeague = leagueRows.find(row => row.settled >= 2) || null;
 
   const settledAcrossVersions = buildRecord(allSettledAcrossVersions);
   const checkpointLeft = Math.max(0, trackerMin - settled);
   const checkpointStatus = settled >= trackerMin ? "Review ready" : "Building";
+  const checkpointPct = trackerMin > 0 ? Math.min(100, (settled / trackerMin) * 100) : 0;
 
   const noticeRows = [];
   if (bestMarket) {
     noticeRows.push({
-      signal: "Best market",
-      text: `${bestMarket.label} is leading right now.`,
-      detail: `${bestMarket.wins} wins, ${bestMarket.losses} losses, ${bestMarket.pushes} pushes`,
-      rate: formatPct(bestMarket.winPct)
+      dot: "good",
+      title: `Best market: ${bestMarket.label}`,
+      text: `${bestMarket.wins} wins, ${bestMarket.losses} losses, ${bestMarket.pushes} pushes • ${formatPct(bestMarket.winPct)} win rate`
     });
   }
   if (weakMarket && bestMarket && weakMarket.key !== bestMarket.key) {
     noticeRows.push({
-      signal: "Needs watching",
-      text: `${weakMarket.label} is the weakest tracked market so far.`,
-      detail: `${weakMarket.wins} wins, ${weakMarket.losses} losses, ${weakMarket.pushes} pushes`,
-      rate: formatPct(weakMarket.winPct)
+      dot: "warn",
+      title: `Watch market: ${weakMarket.label}`,
+      text: `${weakMarket.wins} wins, ${weakMarket.losses} losses, ${weakMarket.pushes} pushes • ${formatPct(weakMarket.winPct)} win rate`
     });
   }
   if (bestLeague) {
     noticeRows.push({
-      signal: "Best league",
-      text: `${bestLeague.label} is leading so far.`,
-      detail: `${bestLeague.wins} wins, ${bestLeague.losses} losses, ${bestLeague.pushes} pushes`,
-      rate: formatPct(bestLeague.winPct)
+      dot: "neutral",
+      title: `Best league: ${bestLeague.label}`,
+      text: `${bestLeague.wins} wins, ${bestLeague.losses} losses, ${bestLeague.pushes} pushes • ${formatPct(bestLeague.winPct)} win rate`
     });
   }
   if (!noticeRows.length) {
     noticeRows.push({
-      signal: "Building",
-      text: "Tracker is still collecting enough settled picks to form a strong read.",
-      detail: `${settled} settled so far`,
-      rate: "—"
+      dot: "neutral",
+      title: "Tracker is still building",
+      text: `${settled} settled picks so far. The checkpoint will become stronger after ${trackerMin} settled picks.`
     });
   }
 
@@ -4272,165 +4658,185 @@ function renderTrackerAnalytics() {
   const marketDisplayRows = marketRows.slice(0, 5);
   const leagueDisplayRows = leagueRows.slice(0, 5);
 
-  const summaryChips = [
-    `<span class="tracker-market-chip neutral">${safeText(dayLabel)}</span>`,
-    `<span class="tracker-market-chip good">Advisory only</span>`,
-    `<span class="tracker-market-chip ${settled >= trackerMin ? "good" : "warn"}">${safeText(checkpointStatus)}</span>`,
-    `<span class="tracker-market-chip neutral">Model ${safeText(currentVersion)}</span>`
-  ].join("");
+  const performanceBars = [
+    { label: "Overall", record: overallRecord, cls: "good" },
+    { label: "Today", record: todayRecord, cls: "soft" },
+    { label: "Last 24h", record: last24Record, cls: "soft" },
+    { label: "Locks", record: lockRecord, cls: "warn" }
+  ];
 
   panel.classList.toggle("tracker-hidden", !g_trackerInsightsOpen);
   panel.style.display = g_trackerInsightsOpen ? "block" : "none";
   panel.innerHTML = `
-    <div class="tracker-analytics-title">Tracker Report 📊</div>
-    <div class="tracker-report-subtitle">Simple daily report, checkpoint progress, and team-by-team learning.</div>
-    <div class="tracker-report-badge-row">${summaryChips}</div>
-
-    <div class="tracker-report-section">
-      <div class="tracker-report-section-head">Daily summary</div>
-      <div class="tracker-report-section-body">
-        <div class="table-wrap tracker-report-table-wrap">
-          <table class="tracker-report-table">
-            <thead>
-              <tr>
-                <th>View</th>
-                <th class="num">Wins</th>
-                <th class="num">Losses</th>
-                <th class="num">Pushes</th>
-                <th class="rate">Win rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${summaryRow("Overall", overallRecord)}
-              ${summaryRow("Today", todayRecord)}
-              ${summaryRow("Last 24h", last24Record)}
-              ${summaryRow("Locks", lockRecord)}
-            </tbody>
-          </table>
+    <div class="tracker-analytics-shell">
+      <div class="tracker-analytics-topbar">
+        <div class="tracker-analytics-heading">
+          <div class="tracker-analytics-kicker">Tracker analytics</div>
+          <div class="tracker-analytics-title">Performance overview</div>
+          <div class="tracker-analytics-subtitle">Daily report, checkpoint progress, market performance, and team-by-team learning in one place.</div>
+        </div>
+        <div class="tracker-analytics-tabs">
+          <span class="tracker-analytics-tab active">Overview</span>
+          <span class="tracker-analytics-tab">Markets</span>
+          <span class="tracker-analytics-tab">Teams</span>
+          <span class="tracker-analytics-tab">Leagues</span>
         </div>
       </div>
-    </div>
 
-    <div class="tracker-report-section">
-      <div class="tracker-report-section-head">Checkpoint</div>
-      <div class="tracker-report-section-body">
-        <div class="table-wrap tracker-report-table-wrap">
-          <table class="tracker-report-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th class="num">Settled</th>
-                <th class="num">Needed</th>
-                <th>Version view</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${safeText(checkpointStatus)}</td>
-                <td class="num">${settled}</td>
-                <td class="num">${checkpointLeft}</td>
-                <td>${priorVersions.length
-                  ? `${safeText(String(priorVersions.length + 1))} versions tracked • ${settledAcrossVersions.wins} wins, ${settledAcrossVersions.losses} losses, ${settledAcrossVersions.pushes} pushes`
-                  : "First tracked version only"}</td>
-              </tr>
-            </tbody>
-          </table>
+      <div class="tracker-kpi-grid">
+        <div class="tracker-kpi-card featured">
+          <div class="tracker-kpi-label">Overall record</div>
+          <div class="tracker-kpi-value">${overallRecord.wins}W</div>
+          <div class="tracker-kpi-sub">Losses ${overallRecord.losses} • Pushes ${overallRecord.pushes} • Win rate ${formatPct(overallRecord.winPct)}</div>
+        </div>
+        <div class="tracker-kpi-card">
+          <div class="tracker-kpi-label">Today</div>
+          <div class="tracker-kpi-value">${todayRecord.wins}</div>
+          <div class="tracker-kpi-sub">Wins ${todayRecord.wins} • Losses ${todayRecord.losses} • Pushes ${todayRecord.pushes}</div>
+        </div>
+        <div class="tracker-kpi-card">
+          <div class="tracker-kpi-label">Active picks</div>
+          <div class="tracker-kpi-value">${activeCount}</div>
+          <div class="tracker-kpi-sub">Current model ${safeText(currentVersion)} • ${checkpointStatus}</div>
+        </div>
+        <div class="tracker-kpi-card">
+          <div class="tracker-kpi-label">Settled picks</div>
+          <div class="tracker-kpi-value">${settled}</div>
+          <div class="tracker-kpi-sub">Checkpoint target ${trackerMin} • ${checkpointLeft} more needed</div>
         </div>
       </div>
-    </div>
 
-    <div class="tracker-report-section">
-      <div class="tracker-report-section-head">What tracker notices</div>
-      <div class="tracker-report-section-body">
-        <div class="table-wrap tracker-report-table-wrap">
-          <table class="tracker-report-table">
-            <thead>
-              <tr>
-                <th>Signal</th>
-                <th>Current read</th>
-                <th>Record</th>
-                <th class="rate">Win rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${noticeRows.map(row => `
-                <tr>
-                  <td>${safeText(row.signal)}</td>
-                  <td>${safeText(row.text)}</td>
-                  <td>${safeText(row.detail)}</td>
-                  <td class="rate">${safeText(row.rate)}</td>
-                </tr>
+      <div class="tracker-analytics-grid two">
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Performance chart</div>
+            <div class="tracker-analytics-card-meta">${safeText(dayLabel)}</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="tracker-bar-chart">
+              ${performanceBars.map(item => `
+                <div class="tracker-bar-col">
+                  <div class="tracker-bar-stage">
+                    <div class="tracker-bar-fill ${item.cls}" style="height:${barHeight(item.record.winPct)}%"></div>
+                  </div>
+                  <div class="tracker-bar-label">${safeText(item.label)}</div>
+                  <div class="tracker-bar-value">${safeText(formatPct(item.record.winPct))}</div>
+                  <div class="tracker-bar-meta">Wins ${item.record.wins} • Losses ${item.record.losses} • Pushes ${item.record.pushes}</div>
+                </div>
               `).join("")}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <div class="tracker-report-inline-grid">
-      <div class="tracker-report-section">
-        <div class="tracker-report-section-head">Teams one by one</div>
-        <div class="tracker-report-section-body">
-          <div class="table-wrap tracker-report-table-wrap">
-            <table class="tracker-report-table">
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th class="num">Wins</th>
-                  <th class="num">Losses</th>
-                  <th class="num">Pushes</th>
-                  <th class="rate">Win rate</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${teamDisplayRows.length ? teamDisplayRows.map(row => `
-                  <tr>
-                    <td>${safeText(row.label || row.key || "Unknown")}</td>
-                    <td class="num">${Number(row.wins || 0)}</td>
-                    <td class="num">${Number(row.losses || 0)}</td>
-                    <td class="num">${Number(row.pushes || 0)}</td>
-                    <td class="rate">${safeText(formatPct(row.winRate))}</td>
-                    <td>${safeText(statusFromTeamRow(row))}</td>
-                  </tr>
-                `).join("") : `
-                  <tr>
-                    <td colspan="6" class="tracker-report-empty-row">Tracker is checking teams one by one already. More settled picks will make this table stronger.</td>
-                  </tr>
-                `}
-              </tbody>
-            </table>
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Checkpoint</div>
+            <div class="tracker-analytics-card-meta">${safeText(checkpointStatus)}</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="tracker-progress-card">
+              <div class="tracker-progress-top">
+                <div>
+                  <div class="tracker-progress-value">${settled}/${trackerMin}</div>
+                  <div class="tracker-progress-sub">Settled picks in the current engine version</div>
+                </div>
+                <div class="tracker-progress-sub">Policy: advisory only</div>
+              </div>
+              <div class="tracker-progress-track">
+                <div class="tracker-progress-fill" style="width:${Math.max(0, Math.min(100, checkpointPct))}%"></div>
+              </div>
+              <div class="tracker-mini-stat-grid">
+                <div class="tracker-mini-stat">
+                  <div class="name">Current model</div>
+                  <div class="value">${safeText(currentVersion)}</div>
+                  <div class="sub">Version-aware tracking stays on</div>
+                </div>
+                <div class="tracker-mini-stat">
+                  <div class="name">Version view</div>
+                  <div class="value">${priorVersions.length + 1}</div>
+                  <div class="sub">${settledAcrossVersions.wins} wins • ${settledAcrossVersions.losses} losses • ${settledAcrossVersions.pushes} pushes across tracked versions</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="tracker-report-mini-grid">
-        <div class="tracker-report-section">
-          <div class="tracker-report-section-head">Markets</div>
-          <div class="tracker-report-section-body">
+      <div class="tracker-analytics-grid two">
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">What tracker notices</div>
+            <div class="tracker-analytics-card-meta">Daily watchlist</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="tracker-insight-list">
+              ${noticeRows.map(row => `
+                <div class="tracker-insight-row">
+                  <div class="tracker-insight-dot ${safeText(row.dot || "neutral")}"></div>
+                  <div class="tracker-insight-text">
+                    <strong>${safeText(row.title)}</strong>
+                    <span>${safeText(row.text)}</span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Market win rates</div>
+            <div class="tracker-analytics-card-meta">Top tracked markets</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="tracker-line-list">
+              ${marketDisplayRows.length ? marketDisplayRows.map(row => `
+                <div class="tracker-line-row">
+                  <div class="tracker-line-top">
+                    <div class="tracker-line-name">${safeText(row.label)}</div>
+                    <div class="tracker-line-meta">${safeText(formatPct(row.winPct))}</div>
+                  </div>
+                  <div class="tracker-line-track"><div class="tracker-line-fill" style="width:${lineWidth(row.winPct)}%"></div></div>
+                  <div class="tracker-line-meta">Wins ${row.wins} • Losses ${row.losses} • Pushes ${row.pushes}</div>
+                </div>
+              `).join("") : `<div class="tracker-empty-note">No settled market data yet.</div>`}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tracker-table-grid two">
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Teams one by one</div>
+            <div class="tracker-analytics-card-meta">Team-by-team learning</div>
+          </div>
+          <div class="tracker-analytics-card-body">
             <div class="table-wrap tracker-report-table-wrap">
-              <table class="tracker-report-table">
+              <table class="tracker-analytics-table">
                 <thead>
                   <tr>
-                    <th>Market</th>
+                    <th>Team</th>
                     <th class="num">Wins</th>
                     <th class="num">Losses</th>
                     <th class="num">Pushes</th>
                     <th class="rate">Win rate</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${marketDisplayRows.length ? marketDisplayRows.map(row => `
+                  ${teamDisplayRows.length ? teamDisplayRows.map(row => `
                     <tr>
-                      <td>${safeText(row.label)}</td>
+                      <td>${safeText(row.label || row.key || "Unknown")}</td>
                       <td class="num">${Number(row.wins || 0)}</td>
                       <td class="num">${Number(row.losses || 0)}</td>
                       <td class="num">${Number(row.pushes || 0)}</td>
-                      <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                      <td class="rate">${safeText(formatPct(row.winRate))}</td>
+                      <td>${safeText(statusFromTeamRow(row))}</td>
                     </tr>
                   `).join("") : `
                     <tr>
-                      <td colspan="5" class="tracker-report-empty-row">No settled market data yet.</td>
+                      <td colspan="6" class="note">Tracker is checking teams one by one already. More settled picks will make this table stronger.</td>
                     </tr>
                   `}
                 </tbody>
@@ -4439,11 +4845,14 @@ function renderTrackerAnalytics() {
           </div>
         </div>
 
-        <div class="tracker-report-section">
-          <div class="tracker-report-section-head">Leagues</div>
-          <div class="tracker-report-section-body">
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">League performance</div>
+            <div class="tracker-analytics-card-meta">Settled results by league</div>
+          </div>
+          <div class="tracker-analytics-card-body">
             <div class="table-wrap tracker-report-table-wrap">
-              <table class="tracker-report-table">
+              <table class="tracker-analytics-table">
                 <thead>
                   <tr>
                     <th>League</th>
@@ -4464,7 +4873,7 @@ function renderTrackerAnalytics() {
                     </tr>
                   `).join("") : `
                     <tr>
-                      <td colspan="5" class="tracker-report-empty-row">No settled league data yet.</td>
+                      <td colspan="5" class="note">No settled league data yet.</td>
                     </tr>
                   `}
                 </tbody>
@@ -4477,6 +4886,7 @@ function renderTrackerAnalytics() {
   `;
   updateTrackerInsightsButton();
 }
+
 function clampNumber(val, min, max) {
   return Math.max(min, Math.min(max, val));
 }
