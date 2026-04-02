@@ -3473,7 +3473,45 @@ function saveTrackedPicks(picks) {
 }
 
   function archiveExpiredTrackedPicks() {
-  return false;
+  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+  const now = Date.now();
+  const cutoffMs = TRACKER_ARCHIVE_AFTER_HOURS * 60 * 60 * 1000;
+
+  const keepActive = [];
+  const moveToArchived = [];
+  let changed = false;
+
+  active.forEach(pick => {
+    const ts =
+      Date.parse(pick?.settledAt || "") ||
+      Date.parse(pick?.createdAt || "") ||
+      Date.parse(pick?.eventDate || "") ||
+      0;
+
+    if (ts > 0 && (now - ts) >= cutoffMs) {
+      moveToArchived.push(ensureTrackedPickKeys({ ...pick }));
+      changed = true;
+    } else {
+      keepActive.push(ensureTrackedPickKeys({ ...pick }));
+    }
+  });
+
+  if (!changed) return false;
+
+  const seen = new Set(archived.map(makeTrackedSignature));
+  moveToArchived.forEach(pick => {
+    const sig = makeTrackedSignature(pick);
+    if (!seen.has(sig)) {
+      archived.unshift(pick);
+      seen.add(sig);
+    }
+  });
+
+  g_trackerState.activePicks = keepActive.slice(0, TRACKED_PICKS_LIMIT);
+  g_trackerState.archivedPicks = archived.slice(0, TRACKER_ARCHIVED_LIMIT);
+  rebuildTrackerStats();
+  return true;
 }
 
 function makeTrackedSignature(pick) {
@@ -3594,9 +3632,6 @@ function renderTrackedPicks() {
   const supportedTrackerMarkets = ["ft", "h1", "h2", "team_a", "team_b"];
   const activePicks = (Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [])
     .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
-  const archivedPicks = (Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [])
-    .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
-  const allPicks = [...activePicks, ...archivedPicks];
 
   rebuildTrackerStats();
   renderTrackerAnalytics();
@@ -3609,9 +3644,9 @@ function renderTrackedPicks() {
     pushes: 0
   };
 
-  const pendingCount = allPicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+  const pendingCount = activePicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
   summaryEl.textContent =
-    `${allPicks.length} tracked • ${pendingCount} pending • ${stats.wins}-${stats.losses}-${stats.pushes}`;
+    `${activePicks.length} active • ${stats.settled} settled • ${stats.wins}-${stats.losses}-${stats.pushes}`;
 
   const marketLabels = {
     ft: "FT",
@@ -3624,7 +3659,7 @@ function renderTrackedPicks() {
   const marketKeys = ["ft", "h1", "h2", "team_a", "team_b"];
 
   const chips = marketKeys.map(key => {
-    const group = allPicks.filter(p => p.marketKey === key);
+    const group = activePicks.filter(p => p.marketKey === key);
     if (!group.length) return "";
 
     const pending = group.filter(p => String(p.resultStatus || "pending").toLowerCase() === "pending").length;
@@ -3636,9 +3671,10 @@ function renderTrackedPicks() {
   marketSummaryEl.innerHTML = chips.join("");
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
-  if (!allPicks.length) {
+  if (!activePicks.length) {
     emptyEl.style.display = "block";
-    emptyEl.textContent = "No tracked picks saved yet.";
+    emptyEl.textContent = "No active tracked picks.";
+
     marketSummaryEl.style.display = "none";
     marketSummaryEl.innerHTML = "";
     wrapEl.style.display = "none";
@@ -3649,7 +3685,7 @@ function renderTrackedPicks() {
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  const rows = [...allPicks].sort((a, b) => {
+  const rows = [...activePicks].sort((a, b) => {
     const aTime = Date.parse(a?.createdAt || "") || 0;
     const bTime = Date.parse(b?.createdAt || "") || 0;
     return bTime - aTime;
