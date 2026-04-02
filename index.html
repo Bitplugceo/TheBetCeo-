@@ -810,20 +810,173 @@ input,
 .tracker-analytics-panel {
   padding: 16px;
   border-bottom: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(20, 126, 57, 0.06) 0%, rgba(255,255,255,0) 100%);
 }
 
 .tracker-analytics-title {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
   color: var(--tracker-strong);
   font-size: 15px;
   font-weight: 800;
 }
 
+.tracker-report-subtitle {
+  margin: 0 0 14px 0;
+  color: var(--tracker-subtext);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .tracker-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tracker-market-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  background: var(--tracker-chip-bg);
+  border: 1px solid var(--tracker-chip-border);
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.tracker-market-chip.good {
+  background: rgba(47, 143, 74, 0.1);
+  border-color: rgba(47, 143, 74, 0.35);
+  color: #1e6e39;
+}
+
+.tracker-market-chip.warn {
+  background: rgba(217, 138, 0, 0.1);
+  border-color: rgba(217, 138, 0, 0.35);
+  color: #9a6200;
+}
+
+.tracker-market-chip.neutral {
+  background: rgba(58, 64, 76, 0.06);
+}
+
+body.dark-mode .tracker-market-chip.good {
+  color: #8fe29b;
+  background: rgba(47, 143, 74, 0.18);
+  border-color: rgba(143, 226, 155, 0.2);
+}
+
+body.dark-mode .tracker-market-chip.warn {
+  color: #ffcf73;
+  background: rgba(217, 138, 0, 0.16);
+  border-color: rgba(255, 207, 115, 0.18);
+}
+
+.tracker-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tracker-report-card {
+  border: 1px solid var(--tracker-chip-border);
+  background: var(--tracker-chip-bg);
+  padding: 12px;
+  min-width: 0;
+}
+
+.tracker-report-card.hero {
+  background: linear-gradient(135deg, #17903f 0%, #0f6f30 100%);
+  border-color: #0f6f30;
+  color: #fff;
+}
+
+.tracker-report-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.8;
+  margin-bottom: 6px;
+}
+
+.tracker-report-card.hero .tracker-report-label {
+  color: rgba(255,255,255,0.82);
+}
+
+.tracker-report-value {
+  font-size: 21px;
+  line-height: 1.1;
+  font-weight: 900;
+  color: inherit;
+}
+
+.tracker-report-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: inherit;
+  opacity: 0.95;
+}
+
+.tracker-report-section {
+  margin-top: 12px;
+  border: 1px solid var(--tracker-chip-border);
+  background: var(--tracker-chip-bg);
+}
+
+.tracker-report-section-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--tracker-chip-border);
+  background: rgba(23, 144, 63, 0.08);
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+body.dark-mode .tracker-report-section-head {
+  background: rgba(23, 144, 63, 0.14);
+}
+
+.tracker-report-section-body {
+  padding: 12px;
+}
+
+.tracker-report-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tracker-report-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--tracker-strong);
+}
+
+.tracker-report-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  background: #17903f;
+  flex: 0 0 8px;
+}
+
+.tracker-report-dot.warn {
+  background: #d98a00;
+}
+
+.tracker-report-dot.neutral {
+  background: #3a404c;
 }
 
 .tracker-recommendation {
@@ -834,6 +987,12 @@ input,
   font-size: 12px;
   line-height: 1.5;
   font-weight: 700;
+}
+
+@media (max-width: 560px) {
+  .tracker-report-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .tracker-empty {
@@ -3799,7 +3958,6 @@ function renderTrackerAnalytics() {
   if (!panel) return;
 
   const derived = rebuildTrackerDerivedState();
-  const activation = getPhase2ActivationState();
   const learningPicks = getLearningTrackedPicks()
     .map(p => ensureTrackedPickKeys(p))
     .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
@@ -3813,7 +3971,6 @@ function renderTrackerAnalytics() {
 
   const settled = Number(derived?.settledPicks || 0);
   const trackerMin = Number(TRACKER_POLICY?.reviewCheckpointSettled || PHASE2_ACTIVATION_RULES?.trackerFeedback?.minSettled || 20);
-  const teamMin = Number(PHASE2_ACTIVATION_RULES?.teamMemory?.minSettled || trackerMin || 20);
 
   function marketLabel(key) {
     const map = {
@@ -3826,41 +3983,12 @@ function renderTrackerAnalytics() {
     return map[String(key || "")] || String(key || "Other");
   }
 
-  function sourceLabel(key) {
-    const map = {
-      auto: "Auto-fetch",
-      manual: "Manual",
-      mixed: "Mixed",
-      unknown: "Unknown source"
-    };
-    return map[String(key || "")] || String(key || "Other");
-  }
-
-  function marketSortOrder(key) {
-    const map = { ft: 1, h1: 2, h2: 3, team_a: 4, team_b: 5 };
-    return map[String(key || "")] || 99;
-  }
-
   function formatRecord(wins, losses, pushes) {
     return `${wins}-${losses}-${pushes}`;
   }
 
   function formatPct(value) {
     return isFinite(value) ? `${Number(value).toFixed(1)}%` : "—";
-  }
-
-  function formatSignalLabel(item, type) {
-    if (!item) return "—";
-    if (type === "market") {
-      const parts = String(item.key || "").split("|");
-      if (parts.length >= 3) {
-        const league = String(parts[0] || "").toUpperCase();
-        const market = marketLabel(parts[1]);
-        const side = String(parts[2] || "").toUpperCase();
-        return `${league} ${market} ${side}`.trim();
-      }
-    }
-    return item.label || item.key || "—";
   }
 
   function pickTimeMs(pick) {
@@ -3903,50 +4031,38 @@ function renderTrackerAnalytics() {
       .filter(row => row.settled >= minSettled);
   }
 
-  function getSignalArray(state, type) {
-    const map = { market: "marketSides", team: "teams", profile: "profiles" };
-    const key = map[type] || "marketSides";
-    return Array.isArray(state?.signalBoards?.[key]) ? state.signalBoards[key] : [];
-  }
-
-  function isActionableSignal(item) {
-    if (!item) return false;
-    if (item.isActionable) return true;
-    return Math.abs(Number(item.signalStrength || 0)) >= 0.03 && Number(item.decisive || 0) >= 2;
-  }
-
-  function signalCacheKey(type, item) {
-    return `${type}|${String(item?.key || "")}|${String(item?.signalDirection || "neutral")}`;
-  }
-
-  const priorActionableSignals = new Map();
-  priorVersions.forEach(version => {
-    ["market", "team", "profile"].forEach(type => {
-      getSignalArray(versionStates[version], type)
-        .filter(isActionableSignal)
-        .forEach(item => {
-          const key = signalCacheKey(type, item);
-          if (!priorActionableSignals.has(key)) {
-            priorActionableSignals.set(key, { type, item, versions: [version] });
-          } else {
-            priorActionableSignals.get(key).versions.push(version);
-          }
-        });
-    });
-  });
-
   const marketRows = buildGroupedRows(
     learningPicks,
     pick => pick.marketKey || "other",
-    key => marketLabel(key)
-  ).sort((a, b) => {
-    if (marketSortOrder(a.key) !== marketSortOrder(b.key)) return marketSortOrder(a.key) - marketSortOrder(b.key);
-    return String(a.key).localeCompare(String(b.key));
-  });
+    key => marketLabel(key),
+    1
+  ).sort((a, b) => b.winPct - a.winPct || b.settled - a.settled);
 
-  const eligibleMarketRows = marketRows.filter(row => row.settled >= 4);
-  const bestMarket = [...eligibleMarketRows].sort((a, b) => b.winPct - a.winPct)[0] || null;
-  const weakestMarket = [...eligibleMarketRows].sort((a, b) => a.winPct - b.winPct)[0] || null;
+  const leagueRows = buildGroupedRows(
+    learningPicks,
+    pick => pick.league || "unknown",
+    key => String(key || "unknown").toUpperCase(),
+    1
+  ).filter(row => row.key !== "unknown")
+   .sort((a, b) => b.winPct - a.winPct || b.settled - a.settled);
+
+  const teamRows = Object.entries(derived?.teams || {})
+    .map(([key, bucket]) => ({ key, ...bucket }))
+    .filter(row => Number(row.settled || 0) >= 1)
+    .sort((a, b) => {
+      const pctDiff = Number(b.winRate || -1) - Number(a.winRate || -1);
+      if (pctDiff !== 0) return pctDiff;
+      return Number(b.settled || 0) - Number(a.settled || 0);
+    });
+
+  const teamStrongRows = teamRows.filter(row => Number(row.settled || 0) >= 2).slice(0, 4);
+  const teamWatchRows = [...teamRows]
+    .reverse()
+    .filter(row => Number(row.settled || 0) >= 2)
+    .slice(0, 3);
+
+  const lockSettled = learningPicks.filter(p => !!p.isLock);
+  const overallRecord = buildRecord(learningPicks);
 
   const now = Date.now();
   const today = new Date();
@@ -3956,237 +4072,131 @@ function renderTrackerAnalytics() {
 
   const todaySettled = learningPicks.filter(p => pickTimeMs(p) >= todayStartMs);
   const last24Settled = learningPicks.filter(p => pickTimeMs(p) >= (now - 24 * 60 * 60 * 1000));
-  const lockSettled = learningPicks.filter(p => !!p.isLock);
-  const nonLockSettled = learningPicks.filter(p => !p.isLock);
-  const todayLockSettled = todaySettled.filter(p => !!p.isLock);
 
-  const overallRecord = buildRecord(learningPicks);
   const todayRecord = buildRecord(todaySettled);
   const last24Record = buildRecord(last24Settled);
   const lockRecord = buildRecord(lockSettled);
-  const nonLockRecord = buildRecord(nonLockSettled);
-  const todayLockRecord = buildRecord(todayLockSettled);
 
-  const sourceRows = buildGroupedRows(
-    learningPicks,
-    pick => pick.inputSource || "unknown",
-    key => sourceLabel(key),
-    1
-  ).sort((a, b) => b.settled - a.settled || b.winPct - a.winPct);
+  const bestMarket = marketRows.find(row => row.settled >= 3) || null;
+  const weakMarket = [...marketRows].reverse().find(row => row.settled >= 3) || null;
+  const bestLeague = leagueRows.find(row => row.settled >= 3) || null;
 
-  const visibleSourceRows = sourceRows.filter(row => row.key !== "unknown");
-  const bestSource = [...visibleSourceRows].filter(row => row.settled >= 3).sort((a, b) => b.winPct - a.winPct)[0] || null;
-  const weakestSource = [...visibleSourceRows].filter(row => row.settled >= 3).sort((a, b) => a.winPct - b.winPct)[0] || null;
+  const settledAcrossVersions = buildRecord(allSettledAcrossVersions);
+  const checkpointLeft = Math.max(0, trackerMin - settled);
+  const checkpointStatus = settled >= trackerMin ? "Review ready" : "Building";
+  const checkpointLine = settled >= trackerMin
+    ? `Checkpoint reached at ${settled}/${trackerMin} settled.`
+    : `${settled}/${trackerMin} settled · ${checkpointLeft} more needed.`;
 
-  const leagueRows = buildGroupedRows(
-    learningPicks,
-    pick => pick.league || "unknown",
-    key => String(key || "unknown").toUpperCase(),
-    1
-  ).sort((a, b) => b.settled - a.settled || b.winPct - a.winPct);
-
-  const eligibleLeagueRows = leagueRows.filter(row => row.settled >= 3 && row.key !== "unknown");
-  const bestLeague = [...eligibleLeagueRows].sort((a, b) => b.winPct - a.winPct)[0] || null;
-  const weakestLeague = [...eligibleLeagueRows].sort((a, b) => a.winPct - b.winPct)[0] || null;
-
-  const marketSignals = getSignalArray(derived, "market").slice(0, 3);
-  const teamSignals = getSignalArray(derived, "team").slice(0, 3);
-  const profileSignals = getSignalArray(derived, "profile").slice(0, 2);
-  const totalSignals = marketSignals.length + teamSignals.length + profileSignals.length;
-
-  const currentActionableSignalKeys = new Set(
-    [...marketSignals.map(item => ({ type: "market", item })), ...teamSignals.map(item => ({ type: "team", item })), ...profileSignals.map(item => ({ type: "profile", item }))]
-      .filter(row => isActionableSignal(row.item))
-      .map(row => signalCacheKey(row.type, row.item))
-  );
-
-  const resolvedSignals = [...priorActionableSignals.values()]
-    .filter(entry => !currentActionableSignalKeys.has(signalCacheKey(entry.type, entry.item)))
-    .slice(0, 4);
-
-  function classifySignalStatus(item, type) {
-    if (!item) return "Watching";
-    const actionable = isActionableSignal(item);
-    const persistent = priorActionableSignals.has(signalCacheKey(type, item));
-    if (persistent) return "Persistent after change";
-    if (actionable && settled >= trackerMin * 2) return "Confirmed";
-    if (actionable && settled >= trackerMin) return "Candidate";
-    return "Watching";
+  const noticeItems = [];
+  if (bestMarket) {
+    noticeItems.push({ tone: "good", text: `Best market so far: ${bestMarket.label} ${formatRecord(bestMarket.wins, bestMarket.losses, bestMarket.pushes)} (${formatPct(bestMarket.winPct)}).` });
+  }
+  if (weakMarket && bestMarket && weakMarket.key !== bestMarket.key) {
+    noticeItems.push({ tone: "warn", text: `Needs watching: ${weakMarket.label} ${formatRecord(weakMarket.wins, weakMarket.losses, weakMarket.pushes)} (${formatPct(weakMarket.winPct)}).` });
+  }
+  if (bestLeague) {
+    noticeItems.push({ tone: "neutral", text: `Best league so far: ${bestLeague.label} ${formatRecord(bestLeague.wins, bestLeague.losses, bestLeague.pushes)} (${formatPct(bestLeague.winPct)}).` });
+  }
+  if (!noticeItems.length) {
+    noticeItems.push({ tone: "neutral", text: "Tracker is still collecting enough settled picks to show a strong pattern." });
   }
 
-  const versionRows = Object.keys(versionStates)
-    .map(version => {
-      const picks = allSettledAcrossVersions.filter(p => normalizeModelVersion(p.modelVersion) === version);
-      const rec = buildRecord(picks);
-      return { version, ...rec };
-    })
-    .sort((a, b) => (b.settled - a.settled) || String(b.version).localeCompare(String(a.version)));
-
-  const statusChips = [
-    `<span class="tracker-market-chip">Report day: ${safeText(dayLabel)}</span>`,
-    `<span class="tracker-market-chip">Policy: advisory only</span>`,
-    `<span class="tracker-market-chip">Daily reports: watchlist only</span>`,
-    `<span class="tracker-market-chip">Review checkpoint: ${trackerMin} settled</span>`,
-    `<span class="tracker-market-chip">Current model: ${safeText(currentVersion)}</span>`,
-    `<span class="tracker-market-chip">Current model settled: ${safeText(String(settled))}</span>`,
-    `<span class="tracker-market-chip">Actionable signals: ${safeText(String(totalSignals))}</span>`
+  const summaryChips = [
+    `<span class="tracker-market-chip neutral">${safeText(dayLabel)}</span>`,
+    `<span class="tracker-market-chip good">Advisory only</span>`,
+    `<span class="tracker-market-chip ${settled >= trackerMin ? "good" : "warn"}">${safeText(checkpointStatus)}</span>`,
+    `<span class="tracker-market-chip neutral">Model ${safeText(currentVersion)}</span>`
   ].join("");
-
-  const recommendationLines = [
-    "Tracker is advisory only. It can learn and report, but it will not automatically change predictions, locks, or engine behavior.",
-    TRACKER_POLICY.dailyWatchlistOnly
-      ? "Daily report is watchlist-only. Daily notices are for monitoring, not for instant engine edits."
-      : "Daily report is active.",
-    settled >= trackerMin
-      ? `20-settled checkpoint reached. Suggestions below are candidates for manual review only.`
-      : `Checkpoint still building: ${settled}/${trackerMin} settled picks in the current engine version.`,
-    priorVersions.length
-      ? `Version-aware comparison available across ${priorVersions.length + 1} engine version(s).`
-      : "No prior engine-version comparison yet. Persistent / resolved statuses will appear after future engine-logic updates create a new version sample."
-  ];
-
-  if (bestMarket && isFinite(bestMarket.winPct)) {
-    recommendationLines.push(`Best market so far: ${marketLabel(bestMarket.key)} (${formatRecord(bestMarket.wins, bestMarket.losses, bestMarket.pushes)}, ${formatPct(bestMarket.winPct)}).`);
-  }
-  if (weakestMarket && isFinite(weakestMarket.winPct) && weakestMarket.key !== bestMarket?.key) {
-    recommendationLines.push(`Weakest market so far: ${marketLabel(weakestMarket.key)} (${formatRecord(weakestMarket.wins, weakestMarket.losses, weakestMarket.pushes)}, ${formatPct(weakestMarket.winPct)}).`);
-  }
-  if (bestLeague && isFinite(bestLeague.winPct)) {
-    recommendationLines.push(`Best league so far: ${bestLeague.label} (${formatRecord(bestLeague.wins, bestLeague.losses, bestLeague.pushes)}, ${formatPct(bestLeague.winPct)}).`);
-  }
-  if (weakestLeague && isFinite(weakestLeague.winPct) && weakestLeague.key !== bestLeague?.key) {
-    recommendationLines.push(`Weakest league so far: ${weakestLeague.label} (${formatRecord(weakestLeague.wins, weakestLeague.losses, weakestLeague.pushes)}, ${formatPct(weakestLeague.winPct)}).`);
-  }
-
-  const suggestionLines = [];
-  if (lockRecord.settled >= 4 && isFinite(lockRecord.winPct) && isFinite(nonLockRecord.winPct)) {
-    if (lockRecord.winPct >= nonLockRecord.winPct + 8) {
-      suggestionLines.push(`Watch item: lock picks are outperforming the rest of the board (${formatPct(lockRecord.winPct)} vs ${formatPct(nonLockRecord.winPct)}). Keep monitoring before changing lock rules.`);
-    } else if (lockRecord.winPct <= nonLockRecord.winPct - 8) {
-      suggestionLines.push(`Watch item: lock picks are lagging non-lock picks (${formatPct(lockRecord.winPct)} vs ${formatPct(nonLockRecord.winPct)}). Review again at the checkpoint before changing lock logic.`);
-    } else {
-      suggestionLines.push(`Watch item: lock picks are close to the rest of the board (${formatPct(lockRecord.winPct)} vs ${formatPct(nonLockRecord.winPct)}). No lock change is justified yet.`);
-    }
-  } else {
-    suggestionLines.push("Watch item: lock-icon learning is still building. More settled lock picks are needed before lock suggestions can graduate past watchlist status.");
-  }
-
-  if (bestSource && weakestSource && bestSource.key !== weakestSource.key) {
-    suggestionLines.push(`Watch item: ${bestSource.label} is strongest so far (${formatPct(bestSource.winPct)}), while ${weakestSource.label.toLowerCase()} is lagging (${formatPct(weakestSource.winPct)}). Monitor longer before changing workflow.`);
-  } else if (bestSource) {
-    suggestionLines.push(`Watch item: ${bestSource.label} is the clearest tagged source so far (${formatPct(bestSource.winPct)}). Keep collecting sample.`);
-  } else {
-    suggestionLines.push("Watch item: manual vs auto-fetch source learning will sharpen as more tagged picks settle.");
-  }
-
-  suggestionLines.push(
-    todayRecord.settled > 0
-      ? `Daily watchlist: ${formatRecord(todayRecord.wins, todayRecord.losses, todayRecord.pushes)} from ${todayRecord.settled} settled picks today.`
-      : "Daily watchlist: no settled picks yet today."
-  );
-
-  function renderSignalBlock(title, items, type) {
-    if (!items.length) {
-      return `
-        <div class="tracker-recommendation" style="margin-top:12px;">
-          <strong>${safeText(title)}:</strong> No strong learned signal yet.
-        </div>
-      `;
-    }
-
-    return `
-      <div class="tracker-recommendation" style="margin-top:12px;">
-        <strong>${safeText(title)}:</strong><br>
-        ${items.map(item => {
-          const dir = item.signalDirection === "positive" ? "Lean with" : item.signalDirection === "negative" ? "Caution on" : "Neutral on";
-          const signalText = isFinite(item.signalStrength) ? `${Number(item.signalStrength) > 0 ? "+" : ""}${Number(item.signalStrength).toFixed(2)}` : "—";
-          const winText = isFinite(item.stabilizedWinRate) ? `${Number(item.stabilizedWinRate).toFixed(1)}%` : "—";
-          const decisiveText = Number(item.decisive || 0);
-          const status = classifySignalStatus(item, type);
-          return `${safeText(dir)} ${safeText(formatSignalLabel(item, type))} · status ${safeText(status)} · signal ${safeText(signalText)} · stabilized ${safeText(winText)} · decisive ${safeText(String(decisiveText))}`;
-        }).join("<br>")}
-      </div>
-    `;
-  }
-
-  function renderResolvedBlock(items) {
-    if (!items.length) {
-      return `
-        <div class="tracker-recommendation" style="margin-top:12px;">
-          <strong>Resolved / cleared signals:</strong><br>
-          No prior-version resolved signal yet.
-        </div>
-      `;
-    }
-
-    return `
-      <div class="tracker-recommendation" style="margin-top:12px;">
-        <strong>Resolved / cleared signals:</strong><br>
-        ${items.map(entry => {
-          const versions = Array.isArray(entry.versions) ? entry.versions.join(", ") : "prior version";
-          return `${safeText(formatSignalLabel(entry.item, entry.type))} · status Resolved in current version · previously seen in ${safeText(versions)}`;
-        }).join("<br>")}
-      </div>
-    `;
-  }
 
   panel.classList.toggle("tracker-hidden", !g_trackerInsightsOpen);
   panel.style.display = g_trackerInsightsOpen ? "block" : "none";
   panel.innerHTML = `
     <div class="tracker-analytics-title">Tracker Report 📊</div>
-    <div class="tracker-chip-row">${statusChips}</div>
-    <div class="tracker-recommendation">
-      <strong>Policy guardrail:</strong><br>
-      Tracker learns from manual + auto-fetch across leagues and lock history, but it is advisory only. Any engine or lock change should happen after your manual review.
+    <div class="tracker-report-subtitle">Compact daily view with checkpoint signals, team-by-team learning, and league/market performance.</div>
+    <div class="tracker-chip-row">${summaryChips}</div>
+
+    <div class="tracker-report-grid">
+      <div class="tracker-report-card hero">
+        <div class="tracker-report-label">Overall</div>
+        <div class="tracker-report-value">${safeText(formatRecord(overallRecord.wins, overallRecord.losses, overallRecord.pushes))}</div>
+        <div class="tracker-report-sub">Win rate ${safeText(formatPct(overallRecord.winPct))}</div>
+      </div>
+      <div class="tracker-report-card">
+        <div class="tracker-report-label">Today</div>
+        <div class="tracker-report-value">${safeText(formatRecord(todayRecord.wins, todayRecord.losses, todayRecord.pushes))}</div>
+        <div class="tracker-report-sub">Today rate ${safeText(formatPct(todayRecord.winPct))}</div>
+      </div>
+      <div class="tracker-report-card">
+        <div class="tracker-report-label">Last 24h</div>
+        <div class="tracker-report-value">${safeText(formatRecord(last24Record.wins, last24Record.losses, last24Record.pushes))}</div>
+        <div class="tracker-report-sub">24h rate ${safeText(formatPct(last24Record.winPct))}</div>
+      </div>
+      <div class="tracker-report-card">
+        <div class="tracker-report-label">Locks</div>
+        <div class="tracker-report-value">${safeText(formatRecord(lockRecord.wins, lockRecord.losses, lockRecord.pushes))}</div>
+        <div class="tracker-report-sub">Lock rate ${safeText(formatPct(lockRecord.winPct))}</div>
+      </div>
     </div>
-    <div class="tracker-recommendation" style="margin-top:12px;">
-      <strong>What tracker sees right now:</strong><br>
-      ${recommendationLines.map(line => safeText(line)).join("<br>")}
+
+    <div class="tracker-report-section">
+      <div class="tracker-report-section-head">Checkpoint</div>
+      <div class="tracker-report-section-body">
+        <div class="tracker-report-list">
+          <div class="tracker-report-item"><span class="tracker-report-dot ${settled >= trackerMin ? "good" : "warn"}"></span><span>${safeText(checkpointLine)}</span></div>
+          <div class="tracker-report-item"><span class="tracker-report-dot neutral"></span><span>${priorVersions.length
+            ? `Version view: ${safeText(String(priorVersions.length + 1))} versions tracked · combined record ${safeText(formatRecord(settledAcrossVersions.wins, settledAcrossVersions.losses, settledAcrossVersions.pushes))} (${safeText(formatPct(settledAcrossVersions.winPct))}).`
+            : "Version view: first tracked version only."}</span></div>
+        </div>
+      </div>
     </div>
-    <div class="tracker-recommendation" style="margin-top:12px;">
-      <strong>Daily report · ${safeText(dayLabel)}:</strong><br>
-      Overall: ${safeText(formatRecord(overallRecord.wins, overallRecord.losses, overallRecord.pushes))} (${safeText(formatPct(overallRecord.winPct))})<br>
-      Today settled: ${safeText(formatRecord(todayRecord.wins, todayRecord.losses, todayRecord.pushes))} (${safeText(formatPct(todayRecord.winPct))})<br>
-      Last 24h: ${safeText(formatRecord(last24Record.wins, last24Record.losses, last24Record.pushes))} (${safeText(formatPct(last24Record.winPct))})<br>
-      Locks: ${safeText(formatRecord(lockRecord.wins, lockRecord.losses, lockRecord.pushes))} (${safeText(formatPct(lockRecord.winPct))})<br>
-      Today's locks: ${safeText(formatRecord(todayLockRecord.wins, todayLockRecord.losses, todayLockRecord.pushes))} (${safeText(formatPct(todayLockRecord.winPct))})
+
+    <div class="tracker-report-section">
+      <div class="tracker-report-section-head">What tracker notices</div>
+      <div class="tracker-report-section-body">
+        <div class="tracker-report-list">
+          ${noticeItems.map(item => `
+            <div class="tracker-report-item"><span class="tracker-report-dot ${safeText(item.tone)}"></span><span>${safeText(item.text)}</span></div>
+          `).join("")}
+        </div>
+      </div>
     </div>
-    <div class="tracker-recommendation" style="margin-top:12px;">
-      <strong>Watchlist / checkpoint suggestions:</strong><br>
-      ${suggestionLines.map(line => safeText(line)).join("<br>")}
+
+    <div class="tracker-report-section">
+      <div class="tracker-report-section-head">Teams</div>
+      <div class="tracker-report-section-body">
+        <div class="tracker-chip-row">
+          ${teamStrongRows.length ? teamStrongRows.map(row => `
+            <span class="tracker-market-chip good">${safeText(row.label)} ${safeText(formatRecord(row.wins, row.losses, row.pushes))}</span>
+          `).join("") : '<span class="tracker-market-chip neutral">No strong team signal yet</span>'}
+        </div>
+        <div class="tracker-report-list">
+          ${teamWatchRows.length ? teamWatchRows.map(row => `
+            <div class="tracker-report-item"><span class="tracker-report-dot warn"></span><span>Watch ${safeText(row.label)}: ${safeText(formatRecord(row.wins, row.losses, row.pushes))} (${safeText(formatPct(row.winRate))}).</span></div>
+          `).join("") : '<div class="tracker-report-item"><span class="tracker-report-dot neutral"></span><span>Tracker is already watching teams one by one. More settled picks will make the team notes stronger.</span></div>'}
+        </div>
+      </div>
     </div>
-    <div class="tracker-chip-row" style="margin-top:14px;">
-      ${marketRows.length ? marketRows.map(row => `
-            <span class="tracker-market-chip">
-              ${safeText(marketLabel(row.key))}: ${safeText(formatRecord(row.wins, row.losses, row.pushes))} (${safeText(formatPct(row.winPct))})
+
+    <div class="tracker-report-section">
+      <div class="tracker-report-section-head">Markets & leagues</div>
+      <div class="tracker-report-section-body">
+        <div class="tracker-chip-row">
+          ${marketRows.length ? marketRows.map(row => `
+            <span class="tracker-market-chip ${row === bestMarket ? "good" : (weakMarket && row.key === weakMarket.key ? "warn" : "neutral")}">
+              ${safeText(row.label)} ${safeText(formatRecord(row.wins, row.losses, row.pushes))}
             </span>
-          `).join("") : '<span class="tracker-market-chip">No settled market data yet</span>'}
-    </div>
-    <div class="tracker-chip-row" style="margin-top:14px;">
-      ${leagueRows.length ? leagueRows.slice(0, 8).map(row => `
-            <span class="tracker-market-chip">
-              ${safeText(row.label)}: ${safeText(formatRecord(row.wins, row.losses, row.pushes))} (${safeText(formatPct(row.winPct))})
+          `).join("") : '<span class="tracker-market-chip neutral">No settled market data yet</span>'}
+        </div>
+        <div class="tracker-chip-row" style="margin-bottom:0;">
+          ${leagueRows.length ? leagueRows.slice(0, 6).map(row => `
+            <span class="tracker-market-chip neutral">
+              ${safeText(row.label)} ${safeText(formatRecord(row.wins, row.losses, row.pushes))}
             </span>
-          `).join("") : '<span class="tracker-market-chip">No settled league data yet</span>'}
+          `).join("") : '<span class="tracker-market-chip neutral">No settled league data yet</span>'}
+        </div>
+      </div>
     </div>
-    <div class="tracker-chip-row" style="margin-top:14px;">
-      ${sourceRows.length ? sourceRows.map(row => `
-            <span class="tracker-market-chip">
-              ${safeText(row.label)}: ${safeText(formatRecord(row.wins, row.losses, row.pushes))} (${safeText(formatPct(row.winPct))})
-            </span>
-          `).join("") : '<span class="tracker-market-chip">No settled source data yet</span>'}
-    </div>
-    <div class="tracker-chip-row" style="margin-top:14px;">
-      ${versionRows.length ? versionRows.map(row => `
-            <span class="tracker-market-chip">
-              ${safeText(row.version)}: ${safeText(formatRecord(row.wins, row.losses, row.pushes))} (${safeText(formatPct(row.winPct))})
-            </span>
-          `).join("") : '<span class="tracker-market-chip">No version history yet</span>'}
-    </div>
-    ${renderSignalBlock("Top market-side signals", marketSignals, "market")}
-    ${renderSignalBlock("Top team signals", teamSignals, "team")}
-    ${renderSignalBlock("Top profile signals", profileSignals, "profile")}
-    ${renderResolvedBlock(resolvedSignals)}
   `;
   updateTrackerInsightsButton();
 }
