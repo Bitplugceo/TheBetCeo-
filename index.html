@@ -3473,46 +3473,10 @@ function saveTrackedPicks(picks) {
 }
 
   function archiveExpiredTrackedPicks() {
-  const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
-  if (!active.length) return false;
-
-  const now = Date.now();
-  const keep = [];
-  const moved = [];
-
-  active.forEach(pick => {
-    const status = String(pick?.resultStatus || "pending").toLowerCase();
-
-    if (status === "pending") {
-      keep.push(pick);
-      return;
-    }
-
-    const settledAtMs = pick?.settledAt ? new Date(pick.settledAt).getTime() : NaN;
-    const createdAtMs = pick?.createdAt ? new Date(pick.createdAt).getTime() : now;
-    const baseTime = isFinite(settledAtMs) ? settledAtMs : createdAtMs;
-
-    if (now - baseTime >= TRACKER_ARCHIVE_AFTER_HOURS * 60 * 60 * 1000) {
-      moved.push(pick);
-    } else {
-      keep.push(pick);
-    }
-  });
-
-  if (!moved.length) return false;
-
-  g_trackerState.activePicks = keep;
-  g_trackerState.archivedPicks = [
-    ...moved,
-    ...(Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [])
-  ].slice(0, TRACKER_ARCHIVED_LIMIT);
-
-  rebuildTrackerStats();
-  g_trackerState.updatedAt = new Date().toISOString();
-  return true;
+  return false;
 }
 
-    function makeTrackedSignature(pick) {
+function makeTrackedSignature(pick) {
       return [
         pick.eventId || "",
         pick.eventDate || "",
@@ -3628,11 +3592,15 @@ function renderTrackedPicks() {
   }
 
   const supportedTrackerMarkets = ["ft", "h1", "h2", "team_a", "team_b"];
-  const activePicks = (Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : []).filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
-  const archivedPicks = (Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : []).filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
+  const activePicks = (Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [])
+    .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
+  const archivedPicks = (Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [])
+    .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
   const allPicks = [...activePicks, ...archivedPicks];
+
   rebuildTrackerStats();
   renderTrackerAnalytics();
+
   const stats = g_trackerState.stats || {
     total: 0,
     settled: 0,
@@ -3641,8 +3609,9 @@ function renderTrackedPicks() {
     pushes: 0
   };
 
+  const pendingCount = allPicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
   summaryEl.textContent =
-    `${activePicks.length} active • ${stats.settled} settled • ${stats.wins}-${stats.losses}-${stats.pushes}`;
+    `${allPicks.length} tracked • ${pendingCount} pending • ${stats.wins}-${stats.losses}-${stats.pushes}`;
 
   const marketLabels = {
     ft: "FT",
@@ -3655,7 +3624,7 @@ function renderTrackedPicks() {
   const marketKeys = ["ft", "h1", "h2", "team_a", "team_b"];
 
   const chips = marketKeys.map(key => {
-    const group = activePicks.filter(p => p.marketKey === key);
+    const group = allPicks.filter(p => p.marketKey === key);
     if (!group.length) return "";
 
     const pending = group.filter(p => String(p.resultStatus || "pending").toLowerCase() === "pending").length;
@@ -3677,20 +3646,14 @@ function renderTrackedPicks() {
     return;
   }
 
-  if (!activePicks.length) {
-    emptyEl.style.display = "block";
-    emptyEl.textContent = "No active tracked picks right now.";
-    marketSummaryEl.style.display = "none";
-    marketSummaryEl.innerHTML = "";
-    wrapEl.style.display = "none";
-    bodyEl.innerHTML = "";
-    return;
-  }
-
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  const rows = [...activePicks];
+  const rows = [...allPicks].sort((a, b) => {
+    const aTime = Date.parse(a?.createdAt || "") || 0;
+    const bTime = Date.parse(b?.createdAt || "") || 0;
+    return bTime - aTime;
+  });
 
   bodyEl.innerHTML = rows.map(p => {
     const status = String(p.resultStatus || "pending").toLowerCase();
@@ -3713,7 +3676,7 @@ function renderTrackedPicks() {
         <td>${safeText((p.homeTeam || "—") + " vs " + (p.awayTeam || "—"))}</td>
         <td>${safeText(p.marketName || "—")}</td>
         <td>${safeText(displayLine(p.line))}</td>
-<td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
+        <td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
         <td>${safeText(edgeText)}</td>
         <td class="${statusClass}">${safeText(statusLabel)}</td>
       </tr>
