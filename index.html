@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v9" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v9" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v9" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v11_soft_live" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2285,7 +2285,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v10_advisory";
+    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -2344,10 +2344,10 @@ const TEAM_MEMORY_RULES = {
   hardBlockWinRate: 0.30
 };
 const TRACKER_POLICY = {
-  advisoryOnly: true,
-  dailyWatchlistOnly: true,
+  advisoryOnly: false,
+  dailyWatchlistOnly: false,
   reviewCheckpointSettled: 20,
-  policyVersion: "advisory_tracker_v1"
+  policyVersion: "soft_tracker_live_v2"
 };
 
 const TRACKER_SOFT_EFFECTS = {
@@ -2363,7 +2363,7 @@ const TRACKER_SOFT_EFFECTS = {
 };
 
 const PHASE2_CONTROL = {
-  mode: "shadow", // advisory-only: learn + report, never auto-change picks/locks
+  mode: "shadow", // phase-2 dashboards stay in shadow; separate soft tracker influence is allowed to alter live picks/locks
   trackerFeedbackLive: false,
   teamMemoryLive: false
 };
@@ -2730,7 +2730,7 @@ const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
-const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
+const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
 
 const ENGINE_LINE_MEMORY_STORAGE = "bb_engine_line_memory_v1";
 let g_engineLineMemory = loadEngineLineMemory();
@@ -4812,6 +4812,7 @@ function renderTrackedPicks() {
   const archivedChanged = archiveExpiredTrackedPicks();
   if (archivedChanged) {
     scheduleTrackerSave();
+    Promise.resolve().then(() => forceTrackerSaveNow());
   }
 
   const supportedTrackerMarkets = ["ft", "h1", "h2", "team_a", "team_b"];
@@ -4912,11 +4913,23 @@ function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
 
-  const derived = rebuildTrackerDerivedState();
-  const learningPicks = getLearningTrackedPicks()
+  const currentVersionLearningPicks = getLearningTrackedPicks()
     .map(p => ensureTrackedPickKeys(p))
     .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
 
+  const reportPicks = getAllTrackedPicksForReport()
+    .map(p => ensureTrackedPickKeys(p))
+    .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
+
+  const analyticsPicks = currentVersionLearningPicks.length
+    ? currentVersionLearningPicks
+    : reportPicks;
+
+  const derived = currentVersionLearningPicks.length
+    ? rebuildTrackerDerivedState()
+    : buildTrackerDerivedStateFromPicks(getAllTrackedPicksForReport());
+
+  const learningPicks = analyticsPicks;
   const versionStates = buildTrackerVersionStates();
   const currentVersion = getCurrentModelVersion();
   const priorVersions = Object.keys(versionStates).filter(v => v !== currentVersion);
@@ -7997,13 +8010,13 @@ const fetchAuditIssues = buildFetchAuditIssues({
 setFetchAuditIssues(fetchAuditIssues);
 
 const allGood =
-  Math.min(aStats?.scored?.length || 0, aStats?.scored?.length || 0) >= 5 &&
-  Math.min(bStats?.scored?.length || 0, bStats?.scored?.length || 0) >= 5 &&
+  Math.min(aStats?.scored?.length || 0, aStats?.allowed?.length || 0) >= 5 &&
+  Math.min(bStats?.scored?.length || 0, bStats?.allowed?.length || 0) >= 5 &&
   (
     league !== "nba" && league !== "ncaa" ||
     (
-      Math.min(aStats?.h1Scored?.length || 0, aStats?.h1Scored?.length || 0) >= 5 &&
-      Math.min(bStats?.h1Scored?.length || 0, bStats?.h1Scored?.length || 0) >= 5
+      Math.min(aStats?.h1Scored?.length || 0, aStats?.h1Allowed?.length || 0) >= 5 &&
+      Math.min(bStats?.h1Scored?.length || 0, bStats?.h1Allowed?.length || 0) >= 5
     )
   );
         if (allGood) {
