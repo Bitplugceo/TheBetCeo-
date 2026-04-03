@@ -4609,6 +4609,36 @@ function makeTrackedSignature(pick) {
       ].join("|");
     }
 
+function getTrackedPickTimeMs(pick) {
+  if (!pick) return 0;
+
+  const candidates = [
+    pick.settledAt,
+    pick.createdAt,
+    pick.eventDate
+  ];
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const ms = Date.parse(String(raw));
+    if (Number.isFinite(ms) && ms > 0) return ms;
+  }
+
+  return 0;
+}
+
+function isTrackedPickVisibleOnPage(pick) {
+  if (!pick) return false;
+  const status = String(pick.resultStatus || "pending").toLowerCase();
+  if (status === "pending") return true;
+
+  const cutoffMs = TRACKER_ARCHIVE_AFTER_HOURS * 60 * 60 * 1000;
+  const ts = getTrackedPickTimeMs(pick);
+  if (!ts) return false;
+
+  return (Date.now() - ts) < cutoffMs;
+}
+
         function getCurrentFixtureMeta() {
       const fixtureSelect = document.getElementById("fixtureSelect");
       const selectedOpt =
@@ -4717,6 +4747,10 @@ function renderTrackedPicks() {
   const supportedTrackerMarkets = ["ft", "h1", "h2", "team_a", "team_b"];
   const activePicks = (Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [])
     .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
+  const archivedPicks = (Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [])
+    .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
+  const allPicks = [...activePicks, ...archivedPicks];
+  const visiblePicks = allPicks.filter(isTrackedPickVisibleOnPage);
 
   rebuildTrackerStats();
   renderTrackerAnalytics();
@@ -4729,9 +4763,9 @@ function renderTrackedPicks() {
     pushes: 0
   };
 
-  const pendingCount = activePicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+  const pendingCount = visiblePicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
   summaryEl.textContent =
-    `${activePicks.length} active • ${stats.settled} settled • ${stats.wins} wins • ${stats.losses} losses • ${stats.pushes} pushes`;
+    `${visiblePicks.length} tracked • ${pendingCount} pending • ${stats.wins} wins • ${stats.losses} losses • ${stats.pushes} pushes`;
 
   const marketLabels = {
     ft: "FT",
@@ -4744,7 +4778,7 @@ function renderTrackedPicks() {
   const marketKeys = ["ft", "h1", "h2", "team_a", "team_b"];
 
   const chips = marketKeys.map(key => {
-    const group = activePicks.filter(p => p.marketKey === key);
+    const group = visiblePicks.filter(p => p.marketKey === key);
     if (!group.length) return "";
 
     const pending = group.filter(p => String(p.resultStatus || "pending").toLowerCase() === "pending").length;
@@ -4756,9 +4790,9 @@ function renderTrackedPicks() {
   marketSummaryEl.innerHTML = chips.join("");
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
-  if (!activePicks.length) {
+  if (!visiblePicks.length) {
     emptyEl.style.display = "block";
-    emptyEl.textContent = "No active tracked picks.";
+    emptyEl.textContent = "No tracked picks from the last 10 hours.";
 
     marketSummaryEl.style.display = "none";
     marketSummaryEl.innerHTML = "";
@@ -4770,19 +4804,7 @@ function renderTrackedPicks() {
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  const rows = [...activePicks].sort((a, b) => {
-    const aTime =
-      Date.parse(a?.settledAt || "") ||
-      Date.parse(a?.createdAt || "") ||
-      Date.parse(a?.eventDate || "") ||
-      0;
-    const bTime =
-      Date.parse(b?.settledAt || "") ||
-      Date.parse(b?.createdAt || "") ||
-      Date.parse(b?.eventDate || "") ||
-      0;
-    return bTime - aTime;
-  });
+  const rows = [...visiblePicks].sort((a, b) => getTrackedPickTimeMs(b) - getTrackedPickTimeMs(a));
 
   bodyEl.innerHTML = rows.map(p => {
     const status = String(p.resultStatus || "pending").toLowerCase();
@@ -4815,7 +4837,7 @@ function renderTrackedPicks() {
 
 
 
-function renderTrackerAnalytics() {
+function renderTrackerAnalyticsfunction renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
 
@@ -5626,14 +5648,17 @@ function getTrackedLeagueBase(league) {
   g_refreshTrackedPicksInFlight = true;
 
   try {
-    const picks = loadTrackedPicks();
-    if (!picks.length) {
+    const active = Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+    const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
+    const allBuckets = [...active, ...archived];
+
+    if (!allBuckets.length) {
       renderTrackedPicks();
       return;
     }
 
     let changed = false;
-    const pendingPicks = picks.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
+    const pendingPicks = allBuckets.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
 
     if (pendingPicks.length) {
       const eventEntries = [...new Map(
@@ -5649,8 +5674,8 @@ function getTrackedLeagueBase(league) {
 
       const eventResults = await Promise.all(
         eventEntries.map(async entry => {
-          const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}`;
-          const data = await proxyFetch(summaryUrl).catch(() => null);
+          const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
+          const data = await proxyFetch(summaryUrl, 15000).catch(() => null);
           return [entry.cacheKey, data];
         })
       );
@@ -5681,8 +5706,10 @@ function getTrackedLeagueBase(league) {
     const archivedChanged = archiveExpiredTrackedPicks();
 
     if (changed || archivedChanged) {
-      saveTrackedPicks(g_trackerState.activePicks);
+      rebuildTrackerStats();
+      saveTrackerStateToLocal();
       scheduleTrackerSave();
+      Promise.resolve().then(() => forceTrackerSaveNow());
     }
 
     renderTrackedPicks();
@@ -5691,7 +5718,7 @@ function getTrackedLeagueBase(league) {
   }
 }
 
-    function addTrackedPicks(newPicks) {
+    function addTrackedPicks    function addTrackedPicks(newPicks) {
   if (!Array.isArray(newPicks) || !newPicks.length) {
     renderTrackedPicks();
     return;
