@@ -2350,6 +2350,18 @@ const TRACKER_POLICY = {
   policyVersion: "advisory_tracker_v1"
 };
 
+const TRACKER_SOFT_EFFECTS = {
+  enabled: true,
+  minSettled: 20,
+  strongFactorBoost: 1.05,
+  weakFactorCut: 0.94,
+  hardBlockFactor: 0.88,
+  weakEdgeNoPlayPct: 0.055,
+  weakTeamNoPlayPct: 0.060,
+  lockRestrictFactor: 0.96,
+  lockBoost: 0.20
+};
+
 const PHASE2_CONTROL = {
   mode: "shadow", // advisory-only: learn + report, never auto-change picks/locks
   trackerFeedbackLive: false,
@@ -5617,6 +5629,114 @@ function evaluateTeamMemoryForPick(pickRow, fixtureMeta) {
     shouldDowngrade: strongCount === 0 && mildCount === 1
   };
 }
+
+function applySoftTrackerInfluenceToPicks(picks, fixtureMeta, phase2Activation = null) {
+  if (!TRACKER_SOFT_EFFECTS.enabled || !Array.isArray(picks) || !picks.length) return;
+
+  const derived = g_trackerDerivedState || defaultTrackerDerivedState();
+  const settled = Number(derived?.settledPicks || 0);
+  if (settled < Number(TRACKER_SOFT_EFFECTS.minSettled || 20)) return;
+
+  const profile = buildTrackerFeedbackProfile();
+  if (!profile || !profile.totalSettled) return;
+
+  picks.forEach(p => {
+    if (!p || p.pick === "NO PLAY" || p.note) return;
+    if (!isFinite(p.edge) || !isFinite(p.line) || p.line <= 0) return;
+
+    const side = getPickSideFromText(p.pick);
+    if (!side || !p.marketKey) return;
+
+    const edgePct = Math.abs(p.edge / p.line);
+    let confidenceShift = 0;
+    let lockRestricted = false;
+    const reasons = [];
+
+    const feedback = getTrackerFeedbackSignal(profile, p.marketKey, side, p.league);
+    if (feedback) {
+      const adjustedEdge = p.edge * feedback.factor;
+
+      p.trackerFeedback = {
+        ...feedback,
+        rawEdge: p.edge,
+        adjustedEdge,
+        advisoryOnly: false
+      };
+
+      if (feedback.factor >= Number(TRACKER_SOFT_EFFECTS.strongFactorBoost || 1.05)) {
+        confidenceShift += 1;
+        p.lockStrength = (Number(p.lockStrength) || 0) + Number(TRACKER_SOFT_EFFECTS.lockBoost || 0.20);
+        reasons.push("tracker strong market");
+      }
+
+      if (feedback.factor <= Number(TRACKER_SOFT_EFFECTS.weakFactorCut || 0.94) || feedback.confidenceShift < 0) {
+        confidenceShift -= 1;
+        lockRestricted = true;
+        reasons.push("tracker weak market");
+      }
+
+      if (
+        (feedback.shouldBlock || feedback.factor <= Number(TRACKER_SOFT_EFFECTS.hardBlockFactor || 0.88)) &&
+        edgePct < Number(TRACKER_SOFT_EFFECTS.weakEdgeNoPlayPct || 0.055)
+      ) {
+        p.pick = "NO PLAY";
+        p.confidence = "—";
+        p.note = "Tracker caution — weak market signal";
+        p.lockRestricted = true;
+        p.trackerSoftInfluence = {
+          applied: true,
+          action: "no_play",
+          reasons: [...reasons, "tracker no-play caution"]
+        };
+        return;
+      }
+    }
+
+    const teamMemory = evaluateTeamMemoryForPick(p, fixtureMeta);
+    if (teamMemory) {
+      p.teamMemory = teamMemory;
+
+      if (teamMemory.shouldDowngrade) {
+        confidenceShift -= 1;
+        lockRestricted = true;
+        reasons.push("tracker weak team");
+      }
+
+      if (
+        teamMemory.shouldBlock &&
+        edgePct < Number(TRACKER_SOFT_EFFECTS.weakTeamNoPlayPct || 0.060)
+      ) {
+        p.pick = "NO PLAY";
+        p.confidence = "—";
+        p.note = "Tracker caution — weak team signal";
+        p.lockRestricted = true;
+        p.trackerSoftInfluence = {
+          applied: true,
+          action: "no_play",
+          reasons: [...reasons, "team no-play caution"]
+        };
+        return;
+      }
+    }
+
+    if (p.pick === "NO PLAY") return;
+
+    if (confidenceShift > 0) {
+      p.confidence = bumpConfidenceGrade(p.confidence || "D", 1);
+    } else if (confidenceShift < 0 && p.confidence && p.confidence !== "—") {
+      p.confidence = bumpConfidenceGrade(p.confidence, -1);
+    }
+
+    p.lockRestricted = !!lockRestricted;
+    p.trackerSoftInfluence = {
+      applied: true,
+      action: confidenceShift > 0 ? "boost" : confidenceShift < 0 ? "downgrade" : (lockRestricted ? "lock_restrict" : "keep"),
+      confidenceShift,
+      lockRestricted,
+      reasons
+    };
+  });
+}
 function getTrackedLeagueBase(league) {
   if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
   if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
@@ -5979,6 +6099,7 @@ function getTrackedLeagueBase(league) {
     m.pick !== "NO PLAY" &&
     m.pick !== "—" &&
     !m.note &&
+    !m.lockRestricted &&
     !isNaN(m.edge) &&
     m.line !== null &&
     !isNaN(m.line) &&
@@ -9746,6 +9867,8 @@ const finalPicks = picks.filter(p => {
 
 const finalPicksForDisplay = finalPicks;
 
+applySoftTrackerInfluenceToPicks(finalPicksForDisplay, fixtureMeta, phase2Activation);
+
 persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league);
 
 const markets = finalPicksForDisplay.map(p => ({
@@ -9756,7 +9879,8 @@ const markets = finalPicksForDisplay.map(p => ({
       fullModel: p.fullModel,
       confidence: p.confidence,
       note: p.note,
-      lockStrength: p.lockStrength
+      lockStrength: p.lockStrength,
+      lockRestricted: !!p.lockRestricted
     }));
     const lockIdx = selectLock(markets);
 
