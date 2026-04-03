@@ -4837,7 +4837,7 @@ function renderTrackedPicks() {
 
 
 
-function renderTrackerAnalyticsfunction renderTrackerAnalytics() {
+function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
 
@@ -5718,7 +5718,7 @@ function getTrackedLeagueBase(league) {
   }
 }
 
-    function addTrackedPicks    function addTrackedPicks(newPicks) {
+    function addTrackedPicks(newPicks) {
   if (!Array.isArray(newPicks) || !newPicks.length) {
     renderTrackedPicks();
     return;
