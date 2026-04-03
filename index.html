@@ -4895,6 +4895,7 @@ function renderTrackedPicks() {
 
 
 
+
 function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
@@ -4902,9 +4903,6 @@ function renderTrackerAnalytics() {
   const derived = rebuildTrackerDerivedState();
   const learningPicks = getLearningTrackedPicks()
     .map(p => ensureTrackedPickKeys(p))
-    .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
-
-  const allSettledAcrossVersions = getAllTrackedPicksForReport()
     .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
 
   const versionStates = buildTrackerVersionStates();
@@ -4928,15 +4926,6 @@ function renderTrackerAnalytics() {
 
   function formatPct(value) {
     return isFinite(value) ? `${Number(value).toFixed(1)}%` : "—";
-  }
-
-  function pickTimeMs(pick) {
-    return (
-      Date.parse(pick?.settledAt || "") ||
-      Date.parse(pick?.createdAt || "") ||
-      Date.parse(pick?.eventDate || "") ||
-      0
-    );
   }
 
   function buildRecord(items = []) {
@@ -4977,14 +4966,15 @@ function renderTrackerAnalytics() {
     return "Steady";
   }
 
-  function barHeight(rate) {
-    if (!isFinite(rate)) return 8;
-    return Math.max(8, Math.min(100, Number(rate)));
+  function getReviewStatusClass(status) {
+    const key = String(status || "").toLowerCase();
+    if (key.includes("confirmed")) return "confirmed";
+    if (key.includes("candidate")) return "candidate";
+    return "watching";
   }
 
-  function lineWidth(rate) {
-    if (!isFinite(rate)) return 0;
-    return Math.max(6, Math.min(100, Number(rate)));
+  function makeReviewItem(area, decision, status, review, action) {
+    return { area, decision, status, review, action };
   }
 
   const marketRows = buildGroupedRows(
@@ -5013,79 +5003,26 @@ function renderTrackerAnalytics() {
 
   const lockSettled = learningPicks.filter(p => !!p.isLock);
   const overallRecord = buildRecord(learningPicks);
-
-  const now = Date.now();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStartMs = today.getTime();
-  const dayLabel = new Date().toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
-
-  const todaySettled = learningPicks.filter(p => pickTimeMs(p) >= todayStartMs);
-  const last24Settled = learningPicks.filter(p => pickTimeMs(p) >= (now - 24 * 60 * 60 * 1000));
-
-  const todayRecord = buildRecord(todaySettled);
-  const last24Record = buildRecord(last24Settled);
   const lockRecord = buildRecord(lockSettled);
 
   const bestMarket = marketRows.find(row => row.settled >= 2) || null;
   const weakMarket = [...marketRows].reverse().find(row => row.settled >= 2) || null;
   const bestLeague = leagueRows.find(row => row.settled >= 2) || null;
 
-  const settledAcrossVersions = buildRecord(allSettledAcrossVersions);
-  const checkpointLeft = Math.max(0, trackerMin - settled);
   const checkpointStatus = settled >= trackerMin ? "Review ready" : "Building";
-  const checkpointPct = trackerMin > 0 ? Math.min(100, (settled / trackerMin) * 100) : 0;
-
-  const noticeRows = [];
-  if (bestMarket) {
-    noticeRows.push({
-      dot: "good",
-      title: `Best market: ${bestMarket.label}`,
-      text: `${bestMarket.wins} wins, ${bestMarket.losses} losses, ${bestMarket.pushes} pushes • ${formatPct(bestMarket.winPct)} win rate`
-    });
-  }
-  if (weakMarket && bestMarket && weakMarket.key !== bestMarket.key) {
-    noticeRows.push({
-      dot: "warn",
-      title: `Watch market: ${weakMarket.label}`,
-      text: `${weakMarket.wins} wins, ${weakMarket.losses} losses, ${weakMarket.pushes} pushes • ${formatPct(weakMarket.winPct)} win rate`
-    });
-  }
-  if (bestLeague) {
-    noticeRows.push({
-      dot: "neutral",
-      title: `Best league: ${bestLeague.label}`,
-      text: `${bestLeague.wins} wins, ${bestLeague.losses} losses, ${bestLeague.pushes} pushes • ${formatPct(bestLeague.winPct)} win rate`
-    });
-  }
-  if (!noticeRows.length) {
-    noticeRows.push({
-      dot: "neutral",
-      title: "Tracker is still building",
-      text: `${settled} settled picks so far. The checkpoint will become stronger after ${trackerMin} settled picks.`
-    });
-  }
-
-  function getReviewStatusClass(status) {
-    const key = String(status || "").toLowerCase();
-    if (key.includes("confirmed")) return "confirmed";
-    if (key.includes("candidate")) return "candidate";
-    return "watching";
-  }
-
-  function makeReviewItem(area, status, review, action) {
-    return { area, status, review, action };
-  }
+  const checkpointLeft = Math.max(0, trackerMin - settled);
 
   const reviewRows = [];
+
   if (settled >= trackerMin) {
     if (bestMarket && bestMarket.settled >= 4 && bestMarket.winPct >= 70) {
       reviewRows.push(
         makeReviewItem(
           "Best market",
+          "KEEP",
           bestMarket.settled >= 6 ? "Confirmed strength" : "Candidate strength",
-          `${bestMarket.label} is leading with ${bestMarket.wins} wins and ${formatPct(bestMarket.winPct)} win rate.`,
-          "Keep tracking it as a positive signal. Do not change the engine automatically."
+          `${bestMarket.label} is leading at ${formatPct(bestMarket.winPct)} with ${bestMarket.wins} wins and ${bestMarket.losses} losses.`,
+          "Keep this market logic as it is. Do not weaken it from one bad day."
         )
       );
     }
@@ -5094,23 +5031,36 @@ function renderTrackerAnalytics() {
       reviewRows.push(
         makeReviewItem(
           "Weak market",
+          "REVIEW",
           weakMarket.settled >= 6 ? "Candidate review" : "Watching",
-          `${weakMarket.label} is lagging with ${weakMarket.losses} losses and ${formatPct(weakMarket.winPct)} win rate.`,
-          "Review more samples and compare against recent match context before making any logic change."
+          `${weakMarket.label} is the weakest market so far at ${formatPct(weakMarket.winPct)} with ${weakMarket.losses} losses.`,
+          "Do not edit yet from this checkpoint alone. Keep it on review and only change if it repeats."
         )
       );
     }
 
     if (lockRecord.settled >= 5) {
-      const lockStatus = lockRecord.winPct >= 65 ? "Confirmed strength" : (lockRecord.winPct <= 50 ? "Candidate review" : "Watching");
+      let decision = "NO CHANGE";
+      let status = "Watching";
+      let action = "Lock performance is acceptable. Keep monitoring instead of forcing a lock edit now.";
+
+      if (lockRecord.winPct <= 50) {
+        decision = "REVIEW";
+        status = "Candidate review";
+        action = "Lock performance is weak. Watch the next checkpoint before touching lock logic.";
+      } else if (lockRecord.winPct >= 65) {
+        decision = "KEEP";
+        status = "Confirmed strength";
+        action = "Lock performance is healthy. Keep the current lock behavior unless a later checkpoint says otherwise.";
+      }
+
       reviewRows.push(
         makeReviewItem(
           "Lock icon",
-          lockStatus,
-          `Locks are ${lockRecord.wins}-${lockRecord.losses}-${lockRecord.pushes} with ${formatPct(lockRecord.winPct)} win rate.`,
-          lockRecord.winPct <= 50
-            ? "Watch lock selection closely. Only adjust after another checkpoint if this stays weak."
-            : "Lock performance is acceptable. Keep monitoring instead of forcing a change."
+          decision,
+          status,
+          `Locks are ${lockRecord.wins} wins, ${lockRecord.losses} losses, ${lockRecord.pushes} pushes for ${formatPct(lockRecord.winPct)} win rate.`,
+          action
         )
       );
     }
@@ -5119,22 +5069,26 @@ function renderTrackerAnalytics() {
     const weakTeam = [...eligibleTeams].sort((a, b) => Number(a.winRate || 999) - Number(b.winRate || 999))[0];
     const strongTeam = [...eligibleTeams].sort((a, b) => Number(b.winRate || -1) - Number(a.winRate || -1))[0];
 
+    if (strongTeam && Number(strongTeam.winRate || 0) >= 70) {
+      reviewRows.push(
+        makeReviewItem(
+          "Strong team signal",
+          "KEEP",
+          "Watching",
+          `${strongTeam.label || strongTeam.key} is trending strong at ${formatPct(strongTeam.winRate)} across ${Number(strongTeam.settled || 0)} settled picks.`,
+          "Treat this as a positive team note. Keep collecting more team-by-team evidence."
+        )
+      );
+    }
+
     if (weakTeam && Number(weakTeam.winRate || 100) <= 45) {
       reviewRows.push(
         makeReviewItem(
-          "Team signal",
+          "Weak team signal",
+          "WATCH",
           Number(weakTeam.settled || 0) >= 4 ? "Candidate review" : "Watching",
           `${weakTeam.label || weakTeam.key} is underperforming at ${formatPct(weakTeam.winRate)} across ${Number(weakTeam.settled || 0)} settled picks.`,
-          "Keep this on the watchlist and see if the same team signal survives into the next checkpoint."
-        )
-      );
-    } else if (strongTeam && Number(strongTeam.winRate || 0) >= 70) {
-      reviewRows.push(
-        makeReviewItem(
-          "Team signal",
-          "Watching",
-          `${strongTeam.label || strongTeam.key} is trending strong at ${formatPct(strongTeam.winRate)} across ${Number(strongTeam.settled || 0)} settled picks.`,
-          "Treat this as a positive note only. Keep collecting team-by-team evidence."
+          "Keep this team on watch. Do not apply a global engine edit from one team alone."
         )
       );
     }
@@ -5142,10 +5096,11 @@ function renderTrackerAnalytics() {
     if (bestLeague && bestLeague.settled >= 4) {
       reviewRows.push(
         makeReviewItem(
-          "League signal",
+          "Best league",
+          "KEEP",
           "Watching",
           `${bestLeague.label} is the strongest tracked league so far at ${formatPct(bestLeague.winPct)}.`,
-          "Use this as context in review, not as an automatic league boost."
+          "Use this as context only. Do not add an automatic league boost."
         )
       );
     }
@@ -5153,9 +5108,10 @@ function renderTrackerAnalytics() {
     reviewRows.push(
       makeReviewItem(
         "Checkpoint",
+        "COLLECT MORE",
         "Watching",
         `${settled}/${trackerMin} settled picks collected so far.`,
-        `${Math.max(0, trackerMin - settled)} more settled picks are needed before the review becomes actionable.`
+        `${checkpointLeft} more settled picks are needed before the tracker can give a full review.`
       )
     );
   }
@@ -5163,13 +5119,6 @@ function renderTrackerAnalytics() {
   const teamDisplayRows = teamRows.slice(0, 8);
   const marketDisplayRows = marketRows.slice(0, 5);
   const leagueDisplayRows = leagueRows.slice(0, 5);
-
-  const performanceBars = [
-    { label: "Overall", record: overallRecord, cls: "good" },
-    { label: "Today", record: todayRecord, cls: "soft" },
-    { label: "Last 24h", record: last24Record, cls: "soft" },
-    { label: "Locks", record: lockRecord, cls: "warn" }
-  ];
 
   syncTrackerModalView();
   panel.classList.toggle("tracker-hidden", !g_trackerInsightsOpen);
@@ -5179,14 +5128,8 @@ function renderTrackerAnalytics() {
       <div class="tracker-analytics-topbar">
         <div class="tracker-analytics-heading">
           <div class="tracker-analytics-kicker">Tracker analytics</div>
-          <div class="tracker-analytics-title">Performance overview</div>
-          <div class="tracker-analytics-subtitle">Daily report, checkpoint progress, market performance, and team-by-team learning in one place.</div>
-        </div>
-        <div class="tracker-analytics-tabs">
-          <span class="tracker-analytics-tab active">Overview</span>
-          <span class="tracker-analytics-tab">Markets</span>
-          <span class="tracker-analytics-tab">Teams</span>
-          <span class="tracker-analytics-tab">Leagues</span>
+          <div class="tracker-analytics-title">Engine review</div>
+          <div class="tracker-analytics-subtitle">What to keep, what to watch, and what may need review after the current checkpoint.</div>
         </div>
       </div>
 
@@ -5197,19 +5140,19 @@ function renderTrackerAnalytics() {
           <div class="tracker-kpi-sub">Losses ${overallRecord.losses} • Pushes ${overallRecord.pushes} • Win rate ${formatPct(overallRecord.winPct)}</div>
         </div>
         <div class="tracker-kpi-card">
-          <div class="tracker-kpi-label">Today</div>
-          <div class="tracker-kpi-value">${todayRecord.wins}</div>
-          <div class="tracker-kpi-sub">Wins ${todayRecord.wins} • Losses ${todayRecord.losses} • Pushes ${todayRecord.pushes}</div>
-        </div>
-        <div class="tracker-kpi-card">
           <div class="tracker-kpi-label">Active picks</div>
           <div class="tracker-kpi-value">${activeCount}</div>
-          <div class="tracker-kpi-sub">Current model ${safeText(currentVersion)} • ${checkpointStatus}</div>
+          <div class="tracker-kpi-sub">Current model ${safeText(currentVersion)}</div>
         </div>
         <div class="tracker-kpi-card">
           <div class="tracker-kpi-label">Settled picks</div>
           <div class="tracker-kpi-value">${settled}</div>
-          <div class="tracker-kpi-sub">Checkpoint target ${trackerMin} • ${checkpointLeft} more needed</div>
+          <div class="tracker-kpi-sub">Checkpoint target ${trackerMin}</div>
+        </div>
+        <div class="tracker-kpi-card">
+          <div class="tracker-kpi-label">Review status</div>
+          <div class="tracker-kpi-value">${safeText(checkpointStatus)}</div>
+          <div class="tracker-kpi-sub">${priorVersions.length ? `${priorVersions.length + 1} tracked versions` : "Current version only"}</div>
         </div>
       </div>
 
@@ -5226,7 +5169,7 @@ function renderTrackerAnalytics() {
                   <div class="tracker-review-area">${safeText(row.area)}</div>
                   <div class="tracker-review-status ${safeText(getReviewStatusClass(row.status))}">${safeText(row.status)}</div>
                 </div>
-                <div class="tracker-review-text">${safeText(row.review)}</div>
+                <div class="tracker-review-text"><strong>${safeText(row.decision)}</strong> — ${safeText(row.review)}</div>
                 <div class="tracker-review-action">${safeText(row.action)}</div>
               </div>
             `).join("")}
@@ -5235,82 +5178,6 @@ function renderTrackerAnalytics() {
       </div>
 
       <div class="tracker-analytics-grid two">
-        <div class="tracker-analytics-card">
-          <div class="tracker-analytics-card-head">
-            <div class="tracker-analytics-card-title">Performance chart</div>
-            <div class="tracker-analytics-card-meta">${safeText(dayLabel)}</div>
-          </div>
-          <div class="tracker-analytics-card-body">
-            <div class="tracker-bar-chart">
-              ${performanceBars.map(item => `
-                <div class="tracker-bar-col">
-                  <div class="tracker-bar-stage">
-                    <div class="tracker-bar-fill ${item.cls}" style="height:${barHeight(item.record.winPct)}%"></div>
-                  </div>
-                  <div class="tracker-bar-label">${safeText(item.label)}</div>
-                  <div class="tracker-bar-value">${safeText(formatPct(item.record.winPct))}</div>
-                  <div class="tracker-bar-meta">Wins ${item.record.wins} • Losses ${item.record.losses} • Pushes ${item.record.pushes}</div>
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        </div>
-
-        <div class="tracker-analytics-card">
-          <div class="tracker-analytics-card-head">
-            <div class="tracker-analytics-card-title">Checkpoint</div>
-            <div class="tracker-analytics-card-meta">${safeText(checkpointStatus)}</div>
-          </div>
-          <div class="tracker-analytics-card-body">
-            <div class="tracker-progress-card">
-              <div class="tracker-progress-top">
-                <div>
-                  <div class="tracker-progress-value">${settled}/${trackerMin}</div>
-                  <div class="tracker-progress-sub">Settled picks in this engine version</div>
-                </div>
-                <div class="tracker-progress-sub">Policy: advisory only</div>
-              </div>
-              <div class="tracker-progress-track">
-                <div class="tracker-progress-fill" style="width:${Math.max(0, Math.min(100, checkpointPct))}%"></div>
-              </div>
-              <div class="tracker-mini-stat-grid">
-                <div class="tracker-mini-stat">
-                  <div class="name">Current model</div>
-                  <div class="value">${safeText(currentVersion)}</div>
-                  <div class="sub">Version-aware tracking stays on</div>
-                </div>
-                <div class="tracker-mini-stat">
-                  <div class="name">Version view</div>
-                  <div class="value">${priorVersions.length + 1}</div>
-                  <div class="sub">${settledAcrossVersions.wins} wins • ${settledAcrossVersions.losses} losses • ${settledAcrossVersions.pushes} pushes across tracked versions</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="tracker-analytics-grid two">
-        <div class="tracker-analytics-card">
-          <div class="tracker-analytics-card-head">
-            <div class="tracker-analytics-card-title">What tracker notices</div>
-            <div class="tracker-analytics-card-meta">Daily watchlist</div>
-          </div>
-          <div class="tracker-analytics-card-body">
-            <div class="tracker-insight-list">
-              ${noticeRows.map(row => `
-                <div class="tracker-insight-row">
-                  <div class="tracker-insight-dot ${safeText(row.dot || "neutral")}"></div>
-                  <div class="tracker-insight-text">
-                    <strong>${safeText(row.title)}</strong>
-                    <span>${safeText(row.text)}</span>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        </div>
-
         <div class="tracker-analytics-card">
           <div class="tracker-analytics-card-head">
             <div class="tracker-analytics-card-title">Market win rates</div>
@@ -5324,51 +5191,10 @@ function renderTrackerAnalytics() {
                     <div class="tracker-line-name">${safeText(row.label)}</div>
                     <div class="tracker-line-meta">${safeText(formatPct(row.winPct))}</div>
                   </div>
-                  <div class="tracker-line-track"><div class="tracker-line-fill" style="width:${lineWidth(row.winPct)}%"></div></div>
+                  <div class="tracker-line-track"><div class="tracker-line-fill" style="width:${Math.max(6, Math.min(100, Number.isFinite(row.winPct) ? row.winPct : 0))}%"></div></div>
                   <div class="tracker-line-meta">Wins ${row.wins} • Losses ${row.losses} • Pushes ${row.pushes}</div>
                 </div>
               `).join("") : `<div class="tracker-empty-note">No settled market data yet.</div>`}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="tracker-table-grid two">
-        <div class="tracker-analytics-card">
-          <div class="tracker-analytics-card-head">
-            <div class="tracker-analytics-card-title">Teams one by one</div>
-            <div class="tracker-analytics-card-meta">Team-by-team learning</div>
-          </div>
-          <div class="tracker-analytics-card-body">
-            <div class="table-wrap tracker-report-table-wrap">
-              <table class="tracker-analytics-table">
-                <thead>
-                  <tr>
-                    <th>Team</th>
-                    <th class="num">Wins</th>
-                    <th class="num">Losses</th>
-                    <th class="num">Pushes</th>
-                    <th class="rate">Win rate</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${teamDisplayRows.length ? teamDisplayRows.map(row => `
-                    <tr>
-                      <td>${safeText(row.label || row.key || "Unknown")}</td>
-                      <td class="num">${Number(row.wins || 0)}</td>
-                      <td class="num">${Number(row.losses || 0)}</td>
-                      <td class="num">${Number(row.pushes || 0)}</td>
-                      <td class="rate">${safeText(formatPct(row.winRate))}</td>
-                      <td>${safeText(statusFromTeamRow(row))}</td>
-                    </tr>
-                  `).join("") : `
-                    <tr>
-                      <td colspan="6" class="note">Tracker is checking teams one by one already. More settled picks will make this table stronger.</td>
-                    </tr>
-                  `}
-                </tbody>
-              </table>
             </div>
           </div>
         </div>
@@ -5410,10 +5236,50 @@ function renderTrackerAnalytics() {
           </div>
         </div>
       </div>
+
+      <div class="tracker-analytics-card">
+        <div class="tracker-analytics-card-head">
+          <div class="tracker-analytics-card-title">Teams one by one</div>
+          <div class="tracker-analytics-card-meta">Team-by-team learning</div>
+        </div>
+        <div class="tracker-analytics-card-body">
+          <div class="table-wrap tracker-report-table-wrap">
+            <table class="tracker-analytics-table">
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th class="num">Wins</th>
+                  <th class="num">Losses</th>
+                  <th class="num">Pushes</th>
+                  <th class="rate">Win rate</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${teamDisplayRows.length ? teamDisplayRows.map(row => `
+                  <tr>
+                    <td>${safeText(row.label || row.key || "Unknown")}</td>
+                    <td class="num">${Number(row.wins || 0)}</td>
+                    <td class="num">${Number(row.losses || 0)}</td>
+                    <td class="num">${Number(row.pushes || 0)}</td>
+                    <td class="rate">${safeText(formatPct(row.winRate))}</td>
+                    <td>${safeText(statusFromTeamRow(row))}</td>
+                  </tr>
+                `).join("") : `
+                  <tr>
+                    <td colspan="6" class="note">Tracker is checking teams one by one already. More settled picks will make this table stronger.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   `;
   updateTrackerInsightsButton();
 }
+
 
 function clampNumber(val, min, max) {
   return Math.max(min, Math.min(max, val));
