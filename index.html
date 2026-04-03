@@ -1475,6 +1475,64 @@ body.dark-mode .tracker-bar-stage {
 .tracker-analytics-table td.note {
   color: var(--tracker-subtext);
 }
+
+.tracker-review-list {
+  display: grid;
+  gap: 10px;
+}
+.tracker-review-row {
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+.tracker-review-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tracker-review-area {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+.tracker-review-status {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--tracker-strong);
+  padding: 4px 7px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.tracker-review-status.confirmed {
+  border-color: #17973f;
+  color: #17973f;
+}
+.tracker-review-status.candidate {
+  border-color: #d98a00;
+  color: #d98a00;
+}
+.tracker-review-status.watching {
+  border-color: #4b5568;
+  color: #4b5568;
+}
+.tracker-review-text {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.tracker-review-action {
+  color: var(--tracker-subtext);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .tracker-line-list {
   display: grid;
   gap: 8px;
@@ -5008,6 +5066,100 @@ function renderTrackerAnalytics() {
     });
   }
 
+  function getReviewStatusClass(status) {
+    const key = String(status || "").toLowerCase();
+    if (key.includes("confirmed")) return "confirmed";
+    if (key.includes("candidate")) return "candidate";
+    return "watching";
+  }
+
+  function makeReviewItem(area, status, review, action) {
+    return { area, status, review, action };
+  }
+
+  const reviewRows = [];
+  if (settled >= trackerMin) {
+    if (bestMarket && bestMarket.settled >= 4 && bestMarket.winPct >= 70) {
+      reviewRows.push(
+        makeReviewItem(
+          "Best market",
+          bestMarket.settled >= 6 ? "Confirmed strength" : "Candidate strength",
+          `${bestMarket.label} is leading with ${bestMarket.wins} wins and ${formatPct(bestMarket.winPct)} win rate.`,
+          "Keep tracking it as a positive signal. Do not change the engine automatically."
+        )
+      );
+    }
+
+    if (weakMarket && weakMarket.settled >= 4 && weakMarket.winPct <= 45) {
+      reviewRows.push(
+        makeReviewItem(
+          "Weak market",
+          weakMarket.settled >= 6 ? "Candidate review" : "Watching",
+          `${weakMarket.label} is lagging with ${weakMarket.losses} losses and ${formatPct(weakMarket.winPct)} win rate.`,
+          "Review more samples and compare against recent match context before making any logic change."
+        )
+      );
+    }
+
+    if (lockRecord.settled >= 5) {
+      const lockStatus = lockRecord.winPct >= 65 ? "Confirmed strength" : (lockRecord.winPct <= 50 ? "Candidate review" : "Watching");
+      reviewRows.push(
+        makeReviewItem(
+          "Lock icon",
+          lockStatus,
+          `Locks are ${lockRecord.wins}-${lockRecord.losses}-${lockRecord.pushes} with ${formatPct(lockRecord.winPct)} win rate.`,
+          lockRecord.winPct <= 50
+            ? "Watch lock selection closely. Only adjust after another checkpoint if this stays weak."
+            : "Lock performance is acceptable. Keep monitoring instead of forcing a change."
+        )
+      );
+    }
+
+    const eligibleTeams = [...teamRows].filter(row => Number(row.settled || 0) >= 2);
+    const weakTeam = [...eligibleTeams].sort((a, b) => Number(a.winRate || 999) - Number(b.winRate || 999))[0];
+    const strongTeam = [...eligibleTeams].sort((a, b) => Number(b.winRate || -1) - Number(a.winRate || -1))[0];
+
+    if (weakTeam && Number(weakTeam.winRate || 100) <= 45) {
+      reviewRows.push(
+        makeReviewItem(
+          "Team signal",
+          Number(weakTeam.settled || 0) >= 4 ? "Candidate review" : "Watching",
+          `${weakTeam.label || weakTeam.key} is underperforming at ${formatPct(weakTeam.winRate)} across ${Number(weakTeam.settled || 0)} settled picks.`,
+          "Keep this on the watchlist and see if the same team signal survives into the next checkpoint."
+        )
+      );
+    } else if (strongTeam && Number(strongTeam.winRate || 0) >= 70) {
+      reviewRows.push(
+        makeReviewItem(
+          "Team signal",
+          "Watching",
+          `${strongTeam.label || strongTeam.key} is trending strong at ${formatPct(strongTeam.winRate)} across ${Number(strongTeam.settled || 0)} settled picks.`,
+          "Treat this as a positive note only. Keep collecting team-by-team evidence."
+        )
+      );
+    }
+
+    if (bestLeague && bestLeague.settled >= 4) {
+      reviewRows.push(
+        makeReviewItem(
+          "League signal",
+          "Watching",
+          `${bestLeague.label} is the strongest tracked league so far at ${formatPct(bestLeague.winPct)}.`,
+          "Use this as context in review, not as an automatic league boost."
+        )
+      );
+    }
+  } else {
+    reviewRows.push(
+      makeReviewItem(
+        "Checkpoint",
+        "Watching",
+        `${settled}/${trackerMin} settled picks collected so far.`,
+        `${Math.max(0, trackerMin - settled)} more settled picks are needed before the review becomes actionable.`
+      )
+    );
+  }
+
   const teamDisplayRows = teamRows.slice(0, 8);
   const marketDisplayRows = marketRows.slice(0, 5);
   const leagueDisplayRows = leagueRows.slice(0, 5);
@@ -5058,6 +5210,27 @@ function renderTrackerAnalytics() {
           <div class="tracker-kpi-label">Settled picks</div>
           <div class="tracker-kpi-value">${settled}</div>
           <div class="tracker-kpi-sub">Checkpoint target ${trackerMin} • ${checkpointLeft} more needed</div>
+        </div>
+      </div>
+
+      <div class="tracker-analytics-card">
+        <div class="tracker-analytics-card-head">
+          <div class="tracker-analytics-card-title">Checkpoint review</div>
+          <div class="tracker-analytics-card-meta">${safeText(checkpointStatus)}</div>
+        </div>
+        <div class="tracker-analytics-card-body">
+          <div class="tracker-review-list">
+            ${reviewRows.map(row => `
+              <div class="tracker-review-row">
+                <div class="tracker-review-top">
+                  <div class="tracker-review-area">${safeText(row.area)}</div>
+                  <div class="tracker-review-status ${safeText(getReviewStatusClass(row.status))}">${safeText(row.status)}</div>
+                </div>
+                <div class="tracker-review-text">${safeText(row.review)}</div>
+                <div class="tracker-review-action">${safeText(row.action)}</div>
+              </div>
+            `).join("")}
+          </div>
         </div>
       </div>
 
