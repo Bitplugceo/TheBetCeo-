@@ -4709,6 +4709,9 @@ function renderTrackedPicks() {
   const supportedTrackerMarkets = ["ft", "h1", "h2", "team_a", "team_b"];
   const activePicks = (Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [])
     .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
+  const archivedPicks = (Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [])
+    .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
+  const allPicks = [...activePicks, ...archivedPicks];
 
   rebuildTrackerStats();
   renderTrackerAnalytics();
@@ -4721,9 +4724,9 @@ function renderTrackedPicks() {
     pushes: 0
   };
 
-  const pendingCount = activePicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+  const pendingCount = allPicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
   summaryEl.textContent =
-    `${activePicks.length} active • ${stats.settled} settled • ${stats.wins} wins • ${stats.losses} losses • ${stats.pushes} pushes`;
+    `${allPicks.length} tracked • ${pendingCount} pending • ${stats.wins} wins • ${stats.losses} losses • ${stats.pushes} pushes`;
 
   const marketLabels = {
     ft: "FT",
@@ -4736,7 +4739,7 @@ function renderTrackedPicks() {
   const marketKeys = ["ft", "h1", "h2", "team_a", "team_b"];
 
   const chips = marketKeys.map(key => {
-    const group = activePicks.filter(p => p.marketKey === key);
+    const group = allPicks.filter(p => p.marketKey === key);
     if (!group.length) return "";
 
     const pending = group.filter(p => String(p.resultStatus || "pending").toLowerCase() === "pending").length;
@@ -4748,9 +4751,9 @@ function renderTrackedPicks() {
   marketSummaryEl.innerHTML = chips.join("");
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
-  if (!activePicks.length) {
+  if (!allPicks.length) {
     emptyEl.style.display = "block";
-    emptyEl.textContent = "No active tracked picks.";
+    emptyEl.textContent = "No tracked picks saved yet.";
 
     marketSummaryEl.style.display = "none";
     marketSummaryEl.innerHTML = "";
@@ -4762,9 +4765,17 @@ function renderTrackedPicks() {
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  const rows = [...activePicks].sort((a, b) => {
-    const aTime = Date.parse(a?.createdAt || "") || 0;
-    const bTime = Date.parse(b?.createdAt || "") || 0;
+  const rows = [...allPicks].sort((a, b) => {
+    const aTime =
+      Date.parse(a?.settledAt || "") ||
+      Date.parse(a?.createdAt || "") ||
+      Date.parse(a?.eventDate || "") ||
+      0;
+    const bTime =
+      Date.parse(b?.settledAt || "") ||
+      Date.parse(b?.createdAt || "") ||
+      Date.parse(b?.eventDate || "") ||
+      0;
     return bTime - aTime;
   });
 
@@ -4785,7 +4796,7 @@ function renderTrackedPicks() {
 
     return `
       <tr>
-        <td>${safeText(formatTrackedDate(p.createdAt))}</td>
+        <td>${safeText(formatTrackedDate(p.createdAt || p.eventDate))}</td>
         <td>${safeText((p.homeTeam || "—") + " vs " + (p.awayTeam || "—"))}</td>
         <td>${safeText(p.marketName || "—")}</td>
         <td>${safeText(displayLine(p.line))}</td>
