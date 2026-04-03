@@ -7731,6 +7731,20 @@ function safeSetHTML(id, value) {
   if (el) el.innerHTML = value;
 }
 
+function safeSetSectionTitle(sectionId, value) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+
+  const toggleTitle = section.querySelector('.section-toggle .toggle-title');
+  if (toggleTitle) {
+    toggleTitle.innerHTML = value;
+    return;
+  }
+
+  const heading = section.querySelector('h3');
+  if (heading) heading.innerHTML = value;
+}
+
 function safeSetPlaceholder(id, value) {
   const el = document.getElementById(id);
   if (el) el.placeholder = value;
@@ -7743,6 +7757,11 @@ function applySportModeUI() {
 
   if (modeLabel) {
     modeLabel.textContent = mode === SPORT_MODE_TT ? "TABLE TENNIS" : "BASKETBALL";
+  }
+
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  if (themeToggleBtn) {
+    themeToggleBtn.textContent = mode === SPORT_MODE_TT ? "🏓" : "🏀";
   }
 
   document.body.dataset.sportMode = mode;
@@ -7765,20 +7784,20 @@ function applySportModeUI() {
 
   const isTT = mode === SPORT_MODE_TT;
 
-  safeSetHTML("fetchSectionTitle", isTT
+  safeSetSectionTitle("espnSection", isTT
     ? '🏓 TT Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(Sofascore worker)</span>'
     : '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
 
   safeSetText("fixtureSelectLabel", "Select match");
   safeSetText("teamALabel", isTT ? "Player A Name" : "Team A Name (Home)");
   safeSetText("teamBLabel", isTT ? "Player B Name" : "Team B Name (Away)");
-  safeSetText("marketSectionTitle", isTT ? "TT Market Lines" : "Market Lines");
+  safeSetSectionTitle("marketSection", isTT ? "TT Market Lines" : "Market Lines");
   safeSetText("ftMarketLabel", isTT ? "Match Total Sets" : "FT Total");
   safeSetText("teamAMarketLabel", isTT ? "Player A Sets" : "Team A Total");
   safeSetText("teamBMarketLabel", isTT ? "Player B Sets" : "Team B Total");
-  safeSetHTML("teamASectionTitle", isTT ? 'Player A - Recent Sets <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
-  safeSetHTML("teamBSectionTitle", isTT ? 'Player B - Recent Sets <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>' : 'Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>');
-  safeSetHTML("h2hSectionTitle", isTT ? 'TT H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled recent matchup history</span>' : 'H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span>');
+  safeSetSectionTitle("teamASection", isTT ? 'Player A - Recent Sets <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
+  safeSetSectionTitle("teamBSection", isTT ? 'Player B - Recent Sets <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>' : 'Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>');
+  safeSetSectionTitle("h2hSection", isTT ? 'TT H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled recent matchup history</span>' : 'H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span>');
   const useFtLabel = document.getElementById("useFTH2HLabel");
   if (useFtLabel) {
     const useFtBox = useFtLabel.querySelector("input");
