@@ -2365,8 +2365,8 @@ function getCurrentSportMode() {
 
 
     const MODEL = {
-      TEAM_WEIGHT: 0.60,
-      OPP_WEIGHT: 0.40,
+      TEAM_WEIGHT: 0.65,
+      OPP_WEIGHT: 0.35,
       REGRESSION_WEIGHT: 0.85,
       BASELINE_WEIGHT: 0.15,
       PACE_BLEND: 0.50,
@@ -2416,14 +2416,14 @@ const TEAM_MEMORY_RULES = {
   hardBlockWinRate: 0.30
 };
 const TRACKER_POLICY = {
-  advisoryOnly: false,
+  advisoryOnly: true,
   dailyWatchlistOnly: true,
   reviewCheckpointSettled: 20,
   policyVersion: "soft_live_tracker_v2"
 };
 
 const TRACKER_SOFT_EFFECTS = {
-  enabled: true,
+  enabled: false,
   minSettled: 20,
   strongFactorBoost: 1.05,
   weakFactorCut: 0.94,
@@ -2435,9 +2435,9 @@ const TRACKER_SOFT_EFFECTS = {
 };
 
 const PHASE2_CONTROL = {
-  mode: "live", // soft-live: tracker can auto-adjust picks/locks
-  trackerFeedbackLive: true,
-  teamMemoryLive: true
+  mode: "shadow", // tracker remains report-only and cannot auto-adjust picks/locks
+  trackerFeedbackLive: false,
+  teamMemoryLive: false
 };
 
 const PHASE2_ACTIVATION_RULES = {
@@ -4205,38 +4205,8 @@ function applySmartLineToPick(pickRow, rawInput, league) {
 }
 
 function robustRecentAverage(arr) {
-  if (!arr || arr.length === 0) return NaN;
-  if (arr.length <= 2) return avg(arr);
-
-  const work = [...arr].map(Number).filter(v => isFinite(v));
-  if (!work.length) return NaN;
-
-  if (work.length >= 5) {
-    const sorted = [...work].sort((a, b) => a - b);
-    const low = sorted[0];
-    const nextLow = sorted[1];
-    const high = sorted[sorted.length - 1];
-    const nextHigh = sorted[sorted.length - 2];
-    const spread = high - low;
-
-    let lowClip = false;
-    let highClip = false;
-
-    if (spread > 0) {
-      lowClip = ((nextLow - low) / spread) >= 0.28;
-      highClip = ((high - nextHigh) / spread) >= 0.28;
-    }
-
-    const adjusted = work.map(v => {
-      if (lowClip && v === low) return nextLow;
-      if (highClip && v === high) return nextHigh;
-      return v;
-    });
-
-    return weightedRecentAverage(adjusted);
-  }
-
-  return weightedRecentAverage(work);
+  if (!arr || !arr.length) return NaN;
+  return avg(arr.map(Number).filter(v => isFinite(v)));
 }
 
 function trimmedAvg(arr) {
@@ -6210,30 +6180,19 @@ function getTrackedLeagueBase(league) {
     m.pick !== "—" &&
     !m.note &&
     !m.lockRestricted &&
+    !!m.fullModel &&
     !isNaN(m.edge) &&
     m.line !== null &&
     !isNaN(m.line) &&
-    m.line > 0
+    m.line > 0 &&
+    Math.abs(m.edge / m.line) >= 0.045
   );
 
   if (!valid.length) return -1;
 
   const best = [...valid].sort((a, b) => {
-    const aEdgePct = Math.abs(a.edge / a.line) * 100;
-    const bEdgePct = Math.abs(b.edge / b.line) * 100;
-
-    const aFullModelBonus = a.fullModel ? 0.6 : 0;
-    const bFullModelBonus = b.fullModel ? 0.6 : 0;
-
-    const aMassacreBonus = isFinite(Number(a.lockStrength)) ? Number(a.lockStrength) : 0;
-    const bMassacreBonus = isFinite(Number(b.lockStrength)) ? Number(b.lockStrength) : 0;
-
-    const aLockScore = aEdgePct + aFullModelBonus + aMassacreBonus;
-    const bLockScore = bEdgePct + bFullModelBonus + bMassacreBonus;
-
-    if (Math.abs(bLockScore - aLockScore) > 0.0001) {
-      return bLockScore - aLockScore;
-    }
+    const aEdgePct = Math.abs(a.edge / a.line);
+    const bEdgePct = Math.abs(b.edge / b.line);
 
     if (Math.abs(bEdgePct - aEdgePct) > 0.0001) {
       return bEdgePct - aEdgePct;
@@ -9601,13 +9560,120 @@ function getMarketKeyFromName(name) {
   return "other";
 }
 
+
+function getFetchedContextSeries(side, key) {
+  const scope = g_massacreFetchContext?.[side]?.overall || {};
+  return Array.isArray(scope?.[key])
+    ? scope[key].map(Number).filter(v => isFinite(v) && v > 0)
+    : [];
+}
+
+function getMarketSeries(side, marketKey, type, parsed) {
+  const map = {
+    ft: {
+      A: { scored: safeArr(parsed.aFTScored) || [], allowed: getFetchedContextSeries("A", "ftAllowed10") },
+      B: { scored: safeArr(parsed.bFTScored) || [], allowed: getFetchedContextSeries("B", "ftAllowed10") }
+    },
+    h1: {
+      A: { scored: safeArr(parsed.a1HScored) || [], allowed: getFetchedContextSeries("A", "h1Allowed10") },
+      B: { scored: safeArr(parsed.b1HScored) || [], allowed: getFetchedContextSeries("B", "h1Allowed10") }
+    },
+    h2: {
+      A: { scored: safeArr(parsed.a2HScored) || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed), allowed: getFetchedContextSeries("A", "h2Allowed10") },
+      B: { scored: safeArr(parsed.b2HScored) || getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed), allowed: getFetchedContextSeries("B", "h2Allowed10") }
+    }
+  };
+
+  const bucket = map[marketKey] || map.ft;
+  return bucket?.[side]?.[type] || [];
+}
+
+function getBaselineTeamPoints(league, marketKey = "ft") {
+  const totalBase = LEAGUE_BASES[league] || LEAGUE_BASES.unknown;
+  if (marketKey === "h1" || marketKey === "h2") return totalBase / 4;
+  return totalBase / 2;
+}
+
+function buildWeightedProjection(scoredSeries, oppAllowedSeries, baselineTeam) {
+  const scoredAvg = avgOrNaN(scoredSeries);
+  const allowedAvg = avgOrNaN(oppAllowedSeries);
+
+  if (isFinite(scoredAvg) && isFinite(allowedAvg)) {
+    return (scoredAvg * 0.65) + (allowedAvg * 0.35);
+  }
+  if (isFinite(scoredAvg)) return scoredAvg;
+  if (isFinite(allowedAvg)) return allowedAvg;
+  return baselineTeam;
+}
+
+function getGameTotalProfile(scoredSeries, allowedSeries, baselineTotal) {
+  const scoredAvg = avgOrNaN(scoredSeries);
+  const allowedAvg = avgOrNaN(allowedSeries);
+
+  if (isFinite(scoredAvg) && isFinite(allowedAvg)) {
+    return scoredAvg + allowedAvg;
+  }
+  if (isFinite(scoredAvg)) return scoredAvg + (baselineTotal / 2);
+  if (isFinite(allowedAvg)) return allowedAvg + (baselineTotal / 2);
+  return baselineTotal;
+}
+
+function getPaceAdjustment(league, marketKey, aScored, aAllowed, bScored, bAllowed) {
+  const totalBase = (marketKey === "h1" || marketKey === "h2")
+    ? (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 2
+    : (LEAGUE_BASES[league] || LEAGUE_BASES.unknown);
+
+  const clamp = getEffectivePaceClamp(league);
+  const aProfile = getGameTotalProfile(aScored, aAllowed, totalBase);
+  const bProfile = getGameTotalProfile(bScored, bAllowed, totalBase);
+  const rawTempo = meanOf(aProfile, bProfile) / totalBase;
+  const pace = clampNumber(
+    1 + ((rawTempo - 1) * (MODEL.PACE_BLEND || 0.50)),
+    clamp.min,
+    clamp.max
+  );
+
+  const gapThreshold = league === "nba" ? 16 : league === "ncaa" ? 13 : 12;
+  const paceGapRisk = isFinite(aProfile) && isFinite(bProfile) && Math.abs(aProfile - bProfile) >= gapThreshold;
+
+  return {
+    pace,
+    aProfile,
+    bProfile,
+    paceGapRisk
+  };
+}
+
+function getDefensiveFloorFlag(league, marketKey, aAllowed, bAllowed, pace = NaN) {
+  const baseTeam = getBaselineTeamPoints(league, marketKey);
+  const aAvg = avgOrNaN(aAllowed);
+  const bAvg = avgOrNaN(bAllowed);
+
+  return (
+    isFinite(aAvg) &&
+    isFinite(bAvg) &&
+    aAvg <= baseTeam * 0.96 &&
+    bAvg <= baseTeam * 0.96 &&
+    isFinite(pace) &&
+    pace <= 1.01
+  );
+}
+
+function getHomeCourtShift(league, share = 1) {
+  const base = Number(LEAGUE_HOME_EDGE[league] || LEAGUE_HOME_EDGE.unknown || 1.5);
+  return (base * share) / 2;
+}
+
 function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1 }) {
   const eb = LEAGUE_BASES[league] || LEAGUE_BASES.unknown;
   const cl = getEffectivePaceClamp(league);
   const vl = LEAGUE_VOL_LIMITS[league] || LEAGUE_VOL_LIMITS.unknown;
+  const baseTeam = getBaselineTeamPoints(league, "ft");
 
-  const aFTS = safeArr(parsed.aFTScored) || [];
-  const bFTS = safeArr(parsed.bFTScored) || [];
+  const aFTS = getMarketSeries("A", "ft", "scored", parsed);
+  const bFTS = getMarketSeries("B", "ft", "scored", parsed);
+  const aFTA = getMarketSeries("A", "ft", "allowed", parsed);
+  const bFTA = getMarketSeries("B", "ft", "allowed", parsed);
 
   const ftSampleTier = getSampleTier(aFTS, bFTS);
 
@@ -9641,10 +9707,21 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   }
 
   const aS = avgOrNaN(aFTS);
+  const aA = avgOrNaN(aFTA);
   const bS = avgOrNaN(bFTS);
+  const bA = avgOrNaN(bFTA);
 
-  const baseAFT = aS;
-  const baseBFT = bS;
+  const paceState = getPaceAdjustment(league, "ft", aFTS, aFTA, bFTS, bFTA);
+
+  const baseAFT = buildWeightedProjection(aFTS, bFTA, baseTeam);
+  const baseBFT = buildWeightedProjection(bFTS, aFTA, baseTeam);
+
+  let projAFT = baseAFT * (isFinite(paceState.pace) ? paceState.pace : 1) * (isFinite(injMultA) ? injMultA : 1);
+  let projBFT = baseBFT * (isFinite(paceState.pace) ? paceState.pace : 1) * (isFinite(injMultB) ? injMultB : 1);
+
+  const homeShift = getHomeCourtShift(league, 1);
+  projAFT += homeShift;
+  projBFT -= homeShift;
 
   const h2ha = safeArr(parsed.aFTH2H) || [];
   const h2hb = safeArr(parsed.bFTH2H) || [];
@@ -9653,28 +9730,38 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const h2hA = ftHasH2H ? avgOrNaN(h2ha) : NaN;
   const h2hB = ftHasH2H ? avgOrNaN(h2hb) : NaN;
 
-  const projAFT = ftHasH2H && isFinite(h2hA) ? (baseAFT * 0.65) + (h2hA * 0.35) : baseAFT;
-  const projBFT = ftHasH2H && isFinite(h2hB) ? (baseBFT * 0.65) + (h2hB * 0.35) : baseBFT;
+  if (ftHasH2H && isFinite(h2hA)) {
+    projAFT = (projAFT * 0.65) + (h2hA * 0.35);
+  }
+  if (ftHasH2H && isFinite(h2hB)) {
+    projBFT = (projBFT * 0.65) + (h2hB * 0.35);
+  }
 
   const ftProj = projAFT + projBFT;
   const ftEdge = lines.ftLine !== null && isFinite(ftProj) ? ftProj - lines.ftLine : NaN;
   const aEdge = lines.aLine !== null && isFinite(projAFT) ? projAFT - lines.aLine : NaN;
   const bEdge = lines.bLine !== null && isFinite(projBFT) ? projBFT - lines.bLine : NaN;
 
+  const aVol = stdDev(aFTS);
+  const bVol = stdDev(bFTS);
+  const defensiveFloorFlag = getDefensiveFloorFlag(league, "ft", aFTA, bFTA, paceState.pace);
+  const blowoutGap = Math.abs(projAFT - projBFT);
+  const volatilityBlock = Math.max(aVol || 0, bVol || 0) > (vl * 1.35);
+
   const ftFullModel = isFinite(ftProj);
   const teamFullModel = isFinite(projAFT) && isFinite(projBFT);
 
   return {
     eb, cl, vl,
-    aS, aA: NaN, bS, bA: NaN,
+    aS, aA, bS, bA,
     projAFT, projBFT, ftProj,
     ftEdge, aEdge, bEdge,
-    aVol: NaN, bVol: NaN,
-    pace: NaN,
-    paceGapRisk: false,
-    defensiveFloorFlag: false,
-    blowoutGap: Math.abs(projAFT - projBFT),
-    volatilityBlock: false,
+    aVol, bVol,
+    pace: paceState.pace,
+    paceGapRisk: paceState.paceGapRisk,
+    defensiveFloorFlag,
+    blowoutGap,
+    volatilityBlock,
     ftSampleTier,
     ftHasH2H,
     ftNote,
@@ -9689,9 +9776,12 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const supported = league === "nba" || league === "ncaa";
   const eb1H = (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 2;
   const cl = getEffectivePaceClamp(league);
+  const baseTeam = getBaselineTeamPoints(league, "h1");
 
-  const a1HS = safeArr(parsed.a1HScored) || [];
-  const b1HS = safeArr(parsed.b1HScored) || [];
+  const a1HS = getMarketSeries("A", "h1", "scored", parsed);
+  const b1HS = getMarketSeries("B", "h1", "scored", parsed);
+  const a1HA = getMarketSeries("A", "h1", "allowed", parsed);
+  const b1HA = getMarketSeries("B", "h1", "allowed", parsed);
 
   const sampleTier = getSampleTier(a1HS, b1HS);
 
@@ -9721,10 +9811,18 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   }
 
   const aS1 = avgOrNaN(a1HS);
+  const aA1 = avgOrNaN(a1HA);
   const bS1 = avgOrNaN(b1HS);
+  const bA1 = avgOrNaN(b1HA);
 
-  const baseA1H = aS1;
-  const baseB1H = bS1;
+  const paceState = getPaceAdjustment(league, "h1", a1HS, a1HA, b1HS, b1HA);
+
+  let projA1H = buildWeightedProjection(a1HS, b1HA, baseTeam) * (isFinite(paceState.pace) ? paceState.pace : 1) * (isFinite(injMultA) ? injMultA : 1);
+  let projB1H = buildWeightedProjection(b1HS, a1HA, baseTeam) * (isFinite(paceState.pace) ? paceState.pace : 1) * (isFinite(injMultB) ? injMultB : 1);
+
+  const homeShift = getHomeCourtShift(league, 0.55);
+  projA1H += homeShift;
+  projB1H -= homeShift;
 
   const a1HH2H = safeArr(parsed.a1HH2H) || [];
   const b1HH2H = safeArr(parsed.b1HH2H) || [];
@@ -9733,8 +9831,12 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const h2hA = h1HasH2H ? avgOrNaN(a1HH2H) : NaN;
   const h2hB = h1HasH2H ? avgOrNaN(b1HH2H) : NaN;
 
-  const projA1H = h1HasH2H && isFinite(h2hA) ? (baseA1H * 0.65) + (h2hA * 0.35) : baseA1H;
-  const projB1H = h1HasH2H && isFinite(h2hB) ? (baseB1H * 0.65) + (h2hB * 0.35) : baseB1H;
+  if (h1HasH2H && isFinite(h2hA)) {
+    projA1H = (projA1H * 0.65) + (h2hA * 0.35);
+  }
+  if (h1HasH2H && isFinite(h2hB)) {
+    projB1H = (projB1H * 0.65) + (h2hB * 0.35);
+  }
 
   const h1Proj = projA1H + projB1H;
   const h1Edge = lines.h1Line !== null && isFinite(h1Proj) ? h1Proj - lines.h1Line : NaN;
@@ -9743,16 +9845,17 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   return {
     h1Proj,
     h1Edge,
-    aS1, aA1: NaN, bS1, bA1: NaN,
-    aVol1: NaN, bVol1: NaN,
+    aS1, aA1, bS1, bA1,
+    aVol1: stdDev(a1HS),
+    bVol1: stdDev(b1HS),
     h1SampleTier: sampleTier,
     h1HasH2H,
     h1Note: note,
     h1ProjectionOnly: projectionOnly,
     h1ProjectionNote: projectionNote,
     h1FullModel,
-    paceGapRisk: false,
-    defensiveFloorFlag: false
+    paceGapRisk: paceState.paceGapRisk,
+    defensiveFloorFlag: getDefensiveFloorFlag(league, "h1", a1HA, b1HA, paceState.pace)
   };
 }
 
@@ -9827,9 +9930,12 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const supported = league === "nba" || league === "ncaa";
   const eb2H = (LEAGUE_BASES[league] || LEAGUE_BASES.unknown) / 2;
   const cl = getEffectivePaceClamp(league);
+  const baseTeam = getBaselineTeamPoints(league, "h2");
 
-  const a2HS = safeArr(parsed.a2HScored) || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
-  const b2HS = safeArr(parsed.b2HScored) || getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed);
+  const a2HS = getMarketSeries("A", "h2", "scored", parsed);
+  const b2HS = getMarketSeries("B", "h2", "scored", parsed);
+  const a2HA = getMarketSeries("A", "h2", "allowed", parsed);
+  const b2HA = getMarketSeries("B", "h2", "allowed", parsed);
 
   const sampleTier = getSampleTier(a2HS, b2HS);
 
@@ -9859,10 +9965,18 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   }
 
   const aS2 = avgOrNaN(a2HS);
+  const aA2 = avgOrNaN(a2HA);
   const bS2 = avgOrNaN(b2HS);
+  const bA2 = avgOrNaN(b2HA);
 
-  const baseA2H = aS2;
-  const baseB2H = bS2;
+  const paceState = getPaceAdjustment(league, "h2", a2HS, a2HA, b2HS, b2HA);
+
+  let projA2H = buildWeightedProjection(a2HS, b2HA, baseTeam) * (isFinite(paceState.pace) ? paceState.pace : 1) * (isFinite(injMultA) ? injMultA : 1);
+  let projB2H = buildWeightedProjection(b2HS, a2HA, baseTeam) * (isFinite(paceState.pace) ? paceState.pace : 1) * (isFinite(injMultB) ? injMultB : 1);
+
+  const homeShift = getHomeCourtShift(league, 0.45);
+  projA2H += homeShift;
+  projB2H -= homeShift;
 
   const a2HH2H = safeArr(parsed.a2HH2H) || getExactFetchedSecondHalfH2HSeries("A", parsed);
   const b2HH2H = safeArr(parsed.b2HH2H) || getExactFetchedSecondHalfH2HSeries("B", parsed);
@@ -9871,8 +9985,12 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   const h2hA = h2HasH2H ? avgOrNaN(a2HH2H) : NaN;
   const h2hB = h2HasH2H ? avgOrNaN(b2HH2H) : NaN;
 
-  const projA2H = h2HasH2H && isFinite(h2hA) ? (baseA2H * 0.65) + (h2hA * 0.35) : baseA2H;
-  const projB2H = h2HasH2H && isFinite(h2hB) ? (baseB2H * 0.65) + (h2hB * 0.35) : baseB2H;
+  if (h2HasH2H && isFinite(h2hA)) {
+    projA2H = (projA2H * 0.65) + (h2hA * 0.35);
+  }
+  if (h2HasH2H && isFinite(h2hB)) {
+    projB2H = (projB2H * 0.65) + (h2hB * 0.35);
+  }
 
   const h2Proj = projA2H + projB2H;
   const h2Edge = lines.h2Line !== null && isFinite(h2Proj) ? h2Proj - lines.h2Line : NaN;
@@ -9881,16 +9999,17 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
   return {
     h2Proj,
     h2Edge,
-    aS2, aA2: NaN, bS2, bA2: NaN,
-    aVol2: NaN, bVol2: NaN,
+    aS2, aA2, bS2, bA2,
+    aVol2: stdDev(a2HS),
+    bVol2: stdDev(b2HS),
     h2SampleTier: sampleTier,
     h2HasH2H,
     h2Note: note,
     h2ProjectionOnly: projectionOnly,
     h2ProjectionNote: projectionNote,
     h2FullModel,
-    paceGapRisk: false,
-    defensiveFloorFlag: false
+    paceGapRisk: paceState.paceGapRisk,
+    defensiveFloorFlag: getDefensiveFloorFlag(league, "h2", a2HA, b2HA, paceState.pace)
   };
 }
 
@@ -11056,9 +11175,15 @@ const { ftLine, h1Line, h2Line, aLine, bLine } = resolvedLines;
     if (aTrap) aPick = "NO PLAY";
     if (bTrap) bPick = "NO PLAY";
 
-const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
-    const h1Note = h1Calc.h1Note || h1Calc.h1ProjectionNote || null;
-    const h2Note = h2Calc.h2Note || h2Calc.h2ProjectionNote || null;
+    const ftTrapNote = ftTrap ? "Trap detected — NO PLAY" : null;
+    const h1TrapNote = h1Trap ? "Trap detected — NO PLAY" : null;
+    const h2TrapNote = h2Trap ? "Trap detected — NO PLAY" : null;
+    const aTrapNote = aTrap ? "Trap detected — NO PLAY" : null;
+    const bTrapNote = bTrap ? "Trap detected — NO PLAY" : null;
+
+const ftNote = ftTrapNote || ftCalc.ftNote || ftCalc.ftProjectionNote || null;
+    const h1Note = h1TrapNote || h1Calc.h1Note || h1Calc.h1ProjectionNote || null;
+    const h2Note = h2TrapNote || h2Calc.h2Note || h2Calc.h2ProjectionNote || null;
 
     const sharedInjuryNotes = [...(g_injA.notes || []), ...(g_injB.notes || [])];
 
@@ -11119,7 +11244,7 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
 
     const aConfidence = getConfidenceGrade({
       pick: aPick,
-      note: ftNote,
+      note: aTrapNote || ftNote,
       line: aLine,
       edge: ftCalc.aEdge,
       sampleTier: ftCalc.ftSampleTier,
@@ -11135,7 +11260,7 @@ const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
 
     const bConfidence = getConfidenceGrade({
       pick: bPick,
-      note: ftNote,
+      note: bTrapNote || ftNote,
       line: bLine,
       edge: ftCalc.bEdge,
       sampleTier: ftCalc.ftSampleTier,
@@ -11239,7 +11364,8 @@ const finalPicks = picks.filter(p => {
 
 const finalPicksForDisplay = finalPicks;
 
-applySoftTrackerInfluenceToPicks(finalPicksForDisplay, fixtureMeta, phase2Activation);
+// Tracker influence disabled: report-only mode
+
 
 persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league);
 
