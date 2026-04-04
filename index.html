@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v14_tt_loader_fix" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v14_tt_loader_fix" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v14_tt_loader_fix" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v15_tracker_report_only" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v15_tracker_report_only" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v15_tracker_report_only" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2300,7 +2300,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v14_tt_loader_fix";
+    const APP_BUILD_VERSION = "tracker_cleanup_v15_tracker_report_only";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -5532,61 +5532,8 @@ function getTrackerFeedbackSignal(profile, marketKey, side, league) {
 }
 
 function applyTrackerFeedbackToPickRows(picks, phase2Activation = null) {
-  if (!Array.isArray(picks) || !picks.length) return;
-
-  const profile = buildTrackerFeedbackProfile();
-  if (!profile.totalSettled) return;
-
-  const activation = phase2Activation || getPhase2ActivationState();
-  const advisoryOnly = !!TRACKER_POLICY.advisoryOnly || !activation?.trackerFeedbackLive;
-
-  picks.forEach(p => {
-    if (!p || p.pick === "NO PLAY" || p.note) return;
-    if (!isFinite(p.edge) || !isFinite(p.line) || p.line <= 0) return;
-
-    const side =
-      typeof p.pick === "string" && p.pick.startsWith("OVER") ? "over" :
-      typeof p.pick === "string" && p.pick.startsWith("UNDER") ? "under" :
-      "";
-
-    if (!side || !p.marketKey) return;
-
-    const feedback = getTrackerFeedbackSignal(profile, p.marketKey, side, p.league);
-    if (!feedback) return;
-
-    const rawEdge = p.edge;
-    const adjustedEdge = p.edge * feedback.factor;
-    const hypotheticalPick = getPick(
-      adjustedEdge,
-      p.line,
-      p.league,
-      p.marketType,
-      p.context || {}
-    );
-
-    const hypotheticalBlocked =
-      !!feedback.shouldBlock || !hypotheticalPick || hypotheticalPick === "NO PLAY";
-
-    const hypotheticalConfidence =
-      p.confidence && p.confidence !== "—" && feedback.confidenceShift
-        ? bumpConfidenceGrade(p.confidence, feedback.confidenceShift)
-        : (p.confidence || "—");
-
-    p.trackerFeedback = { ...feedback, rawEdge, adjustedEdge, advisoryOnly: true };
-    p.shadowTrackerFeedback = {
-      mode: advisoryOnly ? "advisory" : "live",
-      originalEdge: rawEdge,
-      adjustedEdge,
-      originalPick: p.pick,
-      originalConfidence: p.confidence || "—",
-      hypotheticalPick: hypotheticalBlocked ? "NO PLAY" : hypotheticalPick,
-      hypotheticalConfidence: hypotheticalBlocked ? "—" : hypotheticalConfidence,
-      hypotheticalBlocked,
-      reasons: feedback.reasons || []
-    };
-
-    if (advisoryOnly) return;
-  });
+  // Tracker feedback is report-only and must not alter live picks.
+  return;
 }
 function getAllSettledTrackedPicks() {
   return getLearningTrackedPicks()
@@ -5697,111 +5644,8 @@ function evaluateTeamMemoryForPick(pickRow, fixtureMeta) {
 }
 
 function applySoftTrackerInfluenceToPicks(picks, fixtureMeta, phase2Activation = null) {
-  if (!TRACKER_SOFT_EFFECTS.enabled || !Array.isArray(picks) || !picks.length) return;
-
-  const derived = g_trackerDerivedState || defaultTrackerDerivedState();
-  const settled = Number(derived?.settledPicks || 0);
-  if (settled < Number(TRACKER_SOFT_EFFECTS.minSettled || 20)) return;
-
-  const profile = buildTrackerFeedbackProfile();
-  if (!profile || !profile.totalSettled) return;
-
-  picks.forEach(p => {
-    if (!p || p.pick === "NO PLAY" || p.note) return;
-    if (!isFinite(p.edge) || !isFinite(p.line) || p.line <= 0) return;
-
-    const side = getPickSideFromText(p.pick);
-    if (!side || !p.marketKey) return;
-
-    const edgePct = Math.abs(p.edge / p.line);
-    let confidenceShift = 0;
-    let lockRestricted = false;
-    const reasons = [];
-
-    const feedback = getTrackerFeedbackSignal(profile, p.marketKey, side, p.league);
-    if (feedback) {
-      const adjustedEdge = p.edge * feedback.factor;
-
-      p.trackerFeedback = {
-        ...feedback,
-        rawEdge: p.edge,
-        adjustedEdge,
-        advisoryOnly: false
-      };
-
-      if (feedback.factor >= Number(TRACKER_SOFT_EFFECTS.strongFactorBoost || 1.05)) {
-        confidenceShift += 1;
-        p.lockStrength = (Number(p.lockStrength) || 0) + Number(TRACKER_SOFT_EFFECTS.lockBoost || 0.20);
-        reasons.push("tracker strong market");
-      }
-
-      if (feedback.factor <= Number(TRACKER_SOFT_EFFECTS.weakFactorCut || 0.94) || feedback.confidenceShift < 0) {
-        confidenceShift -= 1;
-        lockRestricted = true;
-        reasons.push("tracker weak market");
-      }
-
-      if (
-        (feedback.shouldBlock || feedback.factor <= Number(TRACKER_SOFT_EFFECTS.hardBlockFactor || 0.88)) &&
-        edgePct < Number(TRACKER_SOFT_EFFECTS.weakEdgeNoPlayPct || 0.055)
-      ) {
-        p.pick = "NO PLAY";
-        p.confidence = "—";
-        p.note = "Tracker caution — weak market signal";
-        p.lockRestricted = true;
-        p.trackerSoftInfluence = {
-          applied: true,
-          action: "no_play",
-          reasons: [...reasons, "tracker no-play caution"]
-        };
-        return;
-      }
-    }
-
-    const teamMemory = evaluateTeamMemoryForPick(p, fixtureMeta);
-    if (teamMemory) {
-      p.teamMemory = teamMemory;
-
-      if (teamMemory.shouldDowngrade) {
-        confidenceShift -= 1;
-        lockRestricted = true;
-        reasons.push("tracker weak team");
-      }
-
-      if (
-        teamMemory.shouldBlock &&
-        edgePct < Number(TRACKER_SOFT_EFFECTS.weakTeamNoPlayPct || 0.060)
-      ) {
-        p.pick = "NO PLAY";
-        p.confidence = "—";
-        p.note = "Tracker caution — weak team signal";
-        p.lockRestricted = true;
-        p.trackerSoftInfluence = {
-          applied: true,
-          action: "no_play",
-          reasons: [...reasons, "team no-play caution"]
-        };
-        return;
-      }
-    }
-
-    if (p.pick === "NO PLAY") return;
-
-    if (confidenceShift > 0) {
-      p.confidence = bumpConfidenceGrade(p.confidence || "D", 1);
-    } else if (confidenceShift < 0 && p.confidence && p.confidence !== "—") {
-      p.confidence = bumpConfidenceGrade(p.confidence, -1);
-    }
-
-    p.lockRestricted = !!lockRestricted;
-    p.trackerSoftInfluence = {
-      applied: true,
-      action: confidenceShift > 0 ? "boost" : confidenceShift < 0 ? "downgrade" : (lockRestricted ? "lock_restrict" : "keep"),
-      confidenceShift,
-      lockRestricted,
-      reasons
-    };
-  });
+  // Tracker remains advisory-only and cannot change live picks, confidence, locks, or NO PLAY decisions.
+  return;
 }
 function getTrackedLeagueBase(league) {
   if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
