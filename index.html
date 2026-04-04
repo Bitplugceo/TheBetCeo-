@@ -10253,6 +10253,7 @@ resetResultsTable();
       const isAutoFetchLeague = isNbaOrNcaa || isTT;
       const isNba = league === "nba";
 
+      applySportModeUI();
       document.getElementById("espnSection").style.display = isAutoFetchLeague ? "block" : "none";
 
      ["a1HSection", "b1HSection", "a2HSection", "b2HSection", "h2h1HSection", "h2h2HSection", "h1MarketSection", "h2MarketSection"].forEach(id => {
@@ -10308,7 +10309,6 @@ if (!league) {
 }
 
       updateSectionLocks();
-applySportModeUI();
 if (isAutoFetchLeague) { accordionOpen("espnSection"); loadFixtures(0); }
 else accordionOpen("marketSection");
 validateFetchSection();
