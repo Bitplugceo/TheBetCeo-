@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v15_tracker_report_only" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v15_tracker_report_only" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v15_tracker_report_only" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v16_deadcode_cleanup" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_deadcode_cleanup" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_deadcode_cleanup" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2295,7 +2295,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v15_tracker_report_only";
+    const APP_BUILD_VERSION = "tracker_cleanup_v16_deadcode_cleanup";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -2362,8 +2362,7 @@ function getCurrentSportMode() {
 const TRACKER_POLICY = {
   advisoryOnly: true,
   dailyWatchlistOnly: true,
-  reviewCheckpointSettled: 20,
-  policyVersion: "soft_live_tracker_v2"
+  reviewCheckpointSettled: 20
 };
 
 const PHASE2_CONTROL = {
@@ -2727,7 +2726,7 @@ const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
-const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v14_tt_loader_fix", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
+const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v15_tracker_report_only", "tracker_cleanup_v14_tt_loader_fix", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
 
 const ENGINE_LINE_MEMORY_STORAGE = "bb_engine_line_memory_v1";
 let g_engineLineMemory = loadEngineLineMemory();
@@ -3004,7 +3003,8 @@ function backfillLineMemoryFromTrackedPicks() {
 }
 
 function persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league) {
-  if (!fixtureMeta?.eventId || !Array.isArray(finalPicks) || !finalPicks.length) return;
+  const resolvedEventId = getResolvedFixtureEventId(fixtureMeta, league);
+  if (!resolvedEventId || !Array.isArray(finalPicks) || !finalPicks.length) return;
 
   finalPicks.forEach(p => {
     if (!p || p.pick === "NO PLAY" || p.note) return;
@@ -3019,7 +3019,7 @@ function persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league) {
     if (!marketKey || !side) return;
 
     upsertEngineLineMemory({
-      eventId: fixtureMeta.eventId,
+      eventId: resolvedEventId,
       eventDate: fixtureMeta.eventDate || "",
       league,
       marketKey,
@@ -3515,9 +3515,11 @@ let g_trackerInsightsOpen = false;
 function updateTrackerInsightsButton() {
   const btn = document.getElementById("trackerInsightsBtn");
   if (!btn) return;
-  btn.classList.toggle("active", !!g_trackerInsightsOpen);
-  btn.setAttribute("title", g_trackerInsightsOpen ? "Hide tracker report" : "Open tracker report");
-  btn.setAttribute("aria-pressed", g_trackerInsightsOpen ? "true" : "false");
+  g_trackerInsightsOpen = false;
+  btn.style.display = "none";
+  btn.classList.remove("active");
+  btn.setAttribute("title", "Tracker report disabled");
+  btn.setAttribute("aria-pressed", "false");
 }
 
 function syncTrackerModalView() {
@@ -3528,10 +3530,9 @@ function syncTrackerModalView() {
 }
 
 function toggleTrackerInsights() {
-  g_trackerInsightsOpen = !g_trackerInsightsOpen;
+  g_trackerInsightsOpen = false;
   updateTrackerInsightsButton();
   syncTrackerModalView();
-  renderTrackerAnalytics();
 }
 let g_trackerSaveFailureCount = 0;
 let g_fetchInputErrors = [];
@@ -4680,6 +4681,22 @@ function isTrackedPickVisibleOnPage(pick) {
       };
     }
 
+function makeSyntheticFixtureEventId(fixtureMeta, league = "") {
+  const home = normalizeTeamName(fixtureMeta?.homeTeam || "");
+  const away = normalizeTeamName(fixtureMeta?.awayTeam || "");
+  if (!home || !away) return "";
+  const eventDate = String(fixtureMeta?.eventDate || "").trim() || "manual";
+  return `manual:${String(league || "unknown").trim().toLowerCase()}:${eventDate}:${home}:${away}`;
+}
+
+function getResolvedFixtureEventId(fixtureMeta, league = "") {
+  return String(fixtureMeta?.eventId || "").trim() || makeSyntheticFixtureEventId(fixtureMeta, league);
+}
+
+function isSyntheticFixtureEventId(eventId = "") {
+  return String(eventId || "").trim().startsWith("manual:");
+}
+
     let g_trackerScrollLockY = 0;
 
 function lockPageBehindTracker() {
@@ -5224,7 +5241,6 @@ function clampNumber(val, min, max) {
 }
 
 
-
 function getPickSideFromText(text) {
   const raw = String(text || "").trim().toUpperCase();
   const normalized = raw.startsWith("LEAN ") ? raw.slice(5).trim() : raw;
@@ -5314,7 +5330,9 @@ function getTrackedLeagueBase(league) {
     }
 
     let changed = false;
-    const pendingPicks = allBuckets.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
+    const pendingPicks = allBuckets.filter(
+      p => p && p.eventId && !isSyntheticFixtureEventId(p.eventId) && (!p.resultStatus || p.resultStatus === "pending")
+    );
 
     if (pendingPicks.length) {
       const eventEntries = [...new Map(
@@ -8460,9 +8478,13 @@ selectedTeamIds.A = String(teamAId);
 selectedTeamIds.B = String(teamBId);
         setStatusHTML('<span class="spinner"></span>Loading game stats...', "loading");
 
-                                const [aStats, bStats] = await Promise.all([
-          isNcaa ? fetchNcaaSchedule(espnBase, teamAId, null) : fetchNbaSchedule(espnBase, teamAId, null),
-          isNcaa ? fetchNcaaSchedule(espnBase, teamBId, null) : fetchNbaSchedule(espnBase, teamBId, null)
+        const fixtureMeta = getCurrentFixtureMeta();
+        const requiredVenueA = fixtureMeta?.eventId ? "home" : null;
+        const requiredVenueB = fixtureMeta?.eventId ? "away" : null;
+
+        const [aStats, bStats] = await Promise.all([
+          isNcaa ? fetchNcaaSchedule(espnBase, teamAId, requiredVenueA) : fetchNbaSchedule(espnBase, teamAId, requiredVenueA),
+          isNcaa ? fetchNcaaSchedule(espnBase, teamBId, requiredVenueB) : fetchNbaSchedule(espnBase, teamBId, requiredVenueB)
         ]);
 
         if (myToken !== _fetchToken) return;
@@ -8506,16 +8528,19 @@ clearH2HFields();
           messages.push(`${safeText(teamBName)}: no data ❌`);
         }
                 g_fetchMeta.A = {
-          ft: { source: "espn", venueReliable: true },
-          h1: { source: "espn", venueReliable: true },
-          h2: { source: "espn", venueReliable: true }
+          ft: { source: "espn", venueReliable: !!aStats?.venueReliable },
+          h1: { source: "espn", venueReliable: !!aStats?.venueReliable },
+          h2: { source: "espn", venueReliable: !!aStats?.h2VenueReliable }
         };
 
         g_fetchMeta.B = {
-          ft: { source: "espn", venueReliable: true },
-          h1: { source: "espn", venueReliable: true },
-          h2: { source: "espn", venueReliable: true }
+          ft: { source: "espn", venueReliable: !!bStats?.venueReliable },
+          h1: { source: "espn", venueReliable: !!bStats?.venueReliable },
+          h2: { source: "espn", venueReliable: !!bStats?.h2VenueReliable }
         };
+
+        if (aStats?.usedVenueFallback) messages.push(`${safeText(teamAName)} venue mix fallback used`);
+        if (bStats?.usedVenueFallback) messages.push(`${safeText(teamBName)} venue mix fallback used`);
         setStatusHTML('<span class="spinner"></span>Scanning H2H since 2024...', "loading");
 
         let h2hGames = [];
@@ -9367,12 +9392,13 @@ function getTrackedInputSource(marketKey = "ft") {
 }
 
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
+  const resolvedEventId = getResolvedFixtureEventId(fixtureMeta, league);
   if (
   !pickRow ||
   pickRow.pick === "NO PLAY" ||
   pickRow.note ||
   !isFinite(pickRow.line) ||
-  !fixtureMeta?.eventId
+  !resolvedEventId
 ) {
   return null;
 }
@@ -9529,9 +9555,10 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
   ].join("|");
 
   return {
-    eventId: fixtureMeta.eventId || "",
+    eventId: resolvedEventId,
     eventDate: fixtureMeta.eventDate || "",
     league,
+    manualSettlementRequired: isSyntheticFixtureEventId(resolvedEventId),
     homeTeam: fixtureMeta.homeTeam || "—",
     awayTeam: fixtureMeta.awayTeam || "—",
     homeId: fixtureMeta.homeId || "",
@@ -9590,13 +9617,14 @@ function resolveStoredLineBeforeDecision({
   marketType,
   context = {}
 }) {
-  if (!fixtureMeta?.eventId) return currentLine;
+  const resolvedEventId = getResolvedFixtureEventId(fixtureMeta, league);
+  if (!resolvedEventId) return currentLine;
   if (!isFinite(currentLine) || currentLine <= 0 || !isFinite(proj)) return currentLine;
 
   const candidates = ["over", "under"]
     .map(side => {
       const resolved = resolveLineWithMemory({
-        eventId: fixtureMeta.eventId,
+        eventId: resolvedEventId,
         league,
         marketKey,
         currentLine,
@@ -10113,11 +10141,6 @@ const actionablePicks = finalPicksForDisplay.filter(p =>
 
 if (trackedToSave.length) {
   addTrackedPicks(trackedToSave);
-} else if (actionablePicks.length) {
-  setStatusText(
-    "⚠ Picks were generated, but they were not saved to tracker because no valid fixture event is linked.",
-    "err"
-  );
 }
 
     setTimeout(() => {
