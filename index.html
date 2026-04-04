@@ -2136,7 +2136,7 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="tracker-head">
         <span id="trackerHeadTitle">Tracked Picks</span>
         <div class="tracker-head-actions">
-          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn" title="Open tracker report">📊</button>
+          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn" title="Open tracker report" aria-label="Open tracker report">📊 Report</button>
           <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
         </div>
       </div>
@@ -3525,13 +3525,28 @@ function updateTrackerInsightsButton() {
   btn.classList.toggle("active", !!g_trackerInsightsOpen);
   btn.setAttribute("title", g_trackerInsightsOpen ? "Hide tracker report" : "Open tracker report");
   btn.setAttribute("aria-pressed", g_trackerInsightsOpen ? "true" : "false");
+  btn.textContent = g_trackerInsightsOpen ? "← Picks" : "📊 Report";
 }
 
 function syncTrackerModalView() {
   const panel = document.querySelector("#trackerModal .tracker-panel");
   const headTitle = document.getElementById("trackerHeadTitle");
+  const wrapEl = document.getElementById("trackedPicksWrap");
+  const emptyEl = document.getElementById("trackerEmpty");
+
   if (panel) panel.classList.toggle("analytics-view", !!g_trackerInsightsOpen);
-  if (headTitle) headTitle.textContent = g_trackerInsightsOpen ? "Tracker Analytics" : "Tracked Picks";
+  if (headTitle) {
+    headTitle.textContent = g_trackerInsightsOpen ? "Tracker Analytics" : "Tracked Picks";
+    headTitle.style.cursor = "pointer";
+  }
+
+  if (g_trackerInsightsOpen && wrapEl) {
+    wrapEl.style.display = "block";
+  }
+
+  if (g_trackerInsightsOpen && emptyEl) {
+    emptyEl.style.display = "none";
+  }
 }
 
 function toggleTrackerInsights() {
@@ -4859,12 +4874,12 @@ function renderTrackedPicks() {
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
   if (!visiblePicks.length) {
-    emptyEl.style.display = "block";
+    emptyEl.style.display = g_trackerInsightsOpen ? "none" : "block";
     emptyEl.textContent = "No tracked picks from the last 10 hours.";
 
     marketSummaryEl.style.display = "none";
     marketSummaryEl.innerHTML = "";
-    wrapEl.style.display = "none";
+    wrapEl.style.display = g_trackerInsightsOpen ? "block" : "none";
     bodyEl.innerHTML = "";
     return;
   }
@@ -10132,6 +10147,9 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
 
       const trackerInsightsBtn = document.getElementById("trackerInsightsBtn");
       if (trackerInsightsBtn) trackerInsightsBtn.addEventListener("click", toggleTrackerInsights);
+
+      const trackerHeadTitle = document.getElementById("trackerHeadTitle");
+      if (trackerHeadTitle) trackerHeadTitle.addEventListener("click", toggleTrackerInsights);
 
       const trackerModal = document.getElementById("trackerModal");
       if (trackerModal) {
