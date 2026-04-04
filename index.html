@@ -768,6 +768,7 @@ input,
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
 .tracker-close,
@@ -781,11 +782,18 @@ input,
   padding: 0 !important;
   margin: 0 !important;
   cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  flex: 0 0 auto !important;
 }
 
 .tracker-insights-btn {
   font-size: 16px !important;
   opacity: 0.82;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Segoe UI, sans-serif !important;
 }
 
 .tracker-insights-btn.active {
@@ -3512,17 +3520,39 @@ let g_trackerPersistedVersion = 0;
 let g_trackerSaveInFlight = false;
 let g_trackerInsightsOpen = false;
 
+function ensureTrackerInsightsButton() {
+  const actions = document.querySelector("#trackerModal .tracker-head-actions");
+  const closeBtn = document.getElementById("trackerCloseBtn");
+  if (!actions || !closeBtn) return null;
+
+  let btn = document.getElementById("trackerInsightsBtn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "trackerInsightsBtn";
+    btn.className = "tracker-insights-btn";
+    btn.title = "Open tracker report";
+    btn.textContent = "📊";
+    btn.setAttribute("aria-pressed", "false");
+    btn.dataset.boundInsights = "1";
+    btn.addEventListener("click", toggleTrackerInsights);
+    actions.insertBefore(btn, closeBtn);
+  }
+
+  btn.style.display = "";
+  return btn;
+}
+
 function updateTrackerInsightsButton() {
-  const btn = document.getElementById("trackerInsightsBtn");
+  const btn = ensureTrackerInsightsButton();
   if (!btn) return;
-  g_trackerInsightsOpen = false;
-  btn.style.display = "none";
-  btn.classList.remove("active");
-  btn.setAttribute("title", "Tracker report disabled");
-  btn.setAttribute("aria-pressed", "false");
+  btn.classList.toggle("active", !!g_trackerInsightsOpen);
+  btn.setAttribute("title", g_trackerInsightsOpen ? "Hide tracker report" : "Open tracker report");
+  btn.setAttribute("aria-pressed", g_trackerInsightsOpen ? "true" : "false");
 }
 
 function syncTrackerModalView() {
+  ensureTrackerInsightsButton();
   const panel = document.querySelector("#trackerModal .tracker-panel");
   const headTitle = document.getElementById("trackerHeadTitle");
   if (panel) panel.classList.toggle("analytics-view", !!g_trackerInsightsOpen);
@@ -3530,9 +3560,10 @@ function syncTrackerModalView() {
 }
 
 function toggleTrackerInsights() {
-  g_trackerInsightsOpen = false;
+  g_trackerInsightsOpen = !g_trackerInsightsOpen;
   updateTrackerInsightsButton();
   syncTrackerModalView();
+  renderTrackerAnalytics();
 }
 let g_trackerSaveFailureCount = 0;
 let g_fetchInputErrors = [];
@@ -4716,6 +4747,7 @@ function openTrackerModal() {
   const modal = document.getElementById("trackerModal");
   if (!modal) return;
 
+  ensureTrackerInsightsButton();
   lockPageBehindTracker();
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -10342,8 +10374,11 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
       const trackerCloseBtn = document.getElementById("trackerCloseBtn");
       if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
-      const trackerInsightsBtn = document.getElementById("trackerInsightsBtn");
-      if (trackerInsightsBtn) trackerInsightsBtn.addEventListener("click", toggleTrackerInsights);
+      const trackerInsightsBtn = ensureTrackerInsightsButton();
+      if (trackerInsightsBtn && !trackerInsightsBtn.dataset.boundInsights) {
+        trackerInsightsBtn.addEventListener("click", toggleTrackerInsights);
+        trackerInsightsBtn.dataset.boundInsights = "1";
+      }
 
       const trackerModal = document.getElementById("trackerModal");
       if (trackerModal) {
