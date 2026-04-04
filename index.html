@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v13_tt_setka_points" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v13_tt_setka_points" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v13_tt_setka_points" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v14_tt_loader_fix" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v14_tt_loader_fix" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v14_tt_loader_fix" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2300,7 +2300,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v13_tt_setka_points";
+    const APP_BUILD_VERSION = "tracker_cleanup_v14_tt_loader_fix";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -2312,6 +2312,8 @@ const SPORT_MODE_BASKETBALL = "basketball";
 const SPORT_MODE_TT = "tt";
 const TT_SOFASCORE_BASE = "https://api.sofascore.com/api/v1";
 const TT_DEFAULT_MAX_SETS = 5;
+const TT_SCORES24_SETKA_TODAY_URL = "https://scores24.live/en/table-tennis/l-setka-cup-0";
+const TT_SCORES24_TOMORROW_URL = "https://scores24.live/en/table-tennis/tomorrow";
 const TT_LEAGUE_OPTIONS_HTML = `
         <option value="">- Select League -</option>
         <optgroup label="── TABLE TENNIS ───────">
@@ -2800,7 +2802,7 @@ const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
-const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v13_tt_setka_points", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
+const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v14_tt_loader_fix", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
 
 const ENGINE_LINE_MEMORY_STORAGE = "bb_engine_line_memory_v1";
 let g_engineLineMemory = loadEngineLineMemory();
@@ -4015,6 +4017,21 @@ Any suggestion made here without proof is an audit error.
           } catch (e) {
             throw new Error("Bad JSON: " + text.slice(0, 120));
           }
+        })
+        .finally(() => clearTimeout(timer));
+    }
+
+    function proxyFetchText(url, timeoutMs = 12000) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+      return fetch(WORKER_URL + "?url=" + encodeURIComponent(url), {
+        signal: ctrl.signal,
+        headers: {}
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Worker HTTP " + res.status);
+          return res.text();
         })
         .finally(() => clearTimeout(timer));
     }
@@ -7735,6 +7752,157 @@ function getTTDateString(daysAhead = 0) {
   return `${y}-${m}-${day}`;
 }
 
+
+function extractTextLinesFromHTML(html) {
+  const raw = String(html || "").trim();
+  if (!raw) return [];
+  try {
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+    const text = doc?.body?.textContent || raw;
+    return String(text)
+      .split(/\r?\n/)
+      .map(s => s.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  } catch (e) {
+    return raw
+      .split(/\r?\n/)
+      .map(s => s.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+  }
+}
+
+function isScores24DateLine(line) {
+  return /^\d{2}\.\d{2}\.\d{2}$/.test(String(line || "")) || /^\d{2}\s+[A-Za-z]{3}$/.test(String(line || ""));
+}
+
+function isScores24TimeLine(line) {
+  return /^\d{2}:\d{2}$/.test(String(line || ""));
+}
+
+function isLikelyTTNameLine(line) {
+  const value = String(line || "").replace(/\s+/g, " ").trim();
+  if (!value || value.length < 3) return false;
+  if (isScores24DateLine(value) || isScores24TimeLine(value)) return false;
+  if (/^\d+(?:[.:]\d+)?$/.test(value)) return false;
+  if (/^[-–—]+$/.test(value)) return false;
+  if (/^(w1|w2|home|away|over|under|all|main|game|matches|markets|codes|details|live odds|show more)$/i.test(value)) return false;
+  if (/^(started|ended|live|subscribe|overview|predictions|world|setka cup|setka cup, women|tt elite series|there are no events|add the matches you are interested in or subscribe to a team, tournament or player\.?|latest results|schedule of upcoming matches)$/i.test(value)) return false;
+  if (/^\d+(?:st|nd|rd|th) game$/i.test(value)) return false;
+  if (!/[A-Za-zÀ-žА-Яа-яЁёЇїІіЄєҐґ]/.test(value)) return false;
+  return true;
+}
+
+function parseScores24DateTime(dateLine, timeLine = "", daysAhead = 0) {
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  let day = now.getDate();
+  const dmy = String(dateLine || "").match(/^(\d{2})\.(\d{2})\.(\d{2})$/);
+  if (dmy) {
+    day = Number(dmy[1]);
+    month = Number(dmy[2]) - 1;
+    year = 2000 + Number(dmy[3]);
+  } else {
+    const dayMon = String(dateLine || "").match(/^(\d{2})\s+([A-Za-z]{3})$/);
+    if (dayMon) {
+      const monthMap = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+      day = Number(dayMon[1]);
+      month = monthMap[String(dayMon[2]).toLowerCase()] ?? now.getMonth();
+      year = now.getFullYear();
+    } else {
+      const fallback = new Date();
+      fallback.setHours(12, 0, 0, 0);
+      fallback.setDate(fallback.getDate() + daysAhead);
+      year = fallback.getFullYear();
+      month = fallback.getMonth();
+      day = fallback.getDate();
+    }
+  }
+  const timeMatch = String(timeLine || "").match(/^(\d{2}):(\d{2})$/);
+  const hours = timeMatch ? Number(timeMatch[1]) : 0;
+  const minutes = timeMatch ? Number(timeMatch[2]) : 0;
+  const dt = new Date(year, month, day, hours, minutes, 0, 0);
+  return isFinite(dt.getTime()) ? dt.toISOString() : "";
+}
+
+function parseScores24SetkaMatchesFromLines(lines, daysAhead = 0) {
+  const matches = [];
+  const seen = new Set();
+  let currentDate = "";
+  let currentTime = "";
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = String(lines[i] || "").trim();
+    if (!line) continue;
+    if (isScores24DateLine(line)) { currentDate = line; continue; }
+    if (isScores24TimeLine(line) || /^(started|live|\d+(?:st|nd|rd|th) game)$/i.test(line)) { currentTime = line; continue; }
+    if (!currentDate || !isLikelyTTNameLine(line)) continue;
+
+    let j = i + 1;
+    while (j < lines.length) {
+      const next = String(lines[j] || "").trim();
+      if (!next) { j++; continue; }
+      if (isScores24DateLine(next) || /^(latest results|other tournaments|articles|tt elite series)$/i.test(next)) break;
+      if (isLikelyTTNameLine(next)) break;
+      j++;
+    }
+    if (j >= lines.length) continue;
+
+    const opponent = String(lines[j] || "").trim();
+    if (!isLikelyTTNameLine(opponent) || normalizeTeamName(opponent) === normalizeTeamName(line)) continue;
+
+    const displayTime = isScores24TimeLine(currentTime)
+      ? currentTime
+      : (/^(started|live)$/i.test(currentTime) ? "LIVE" : (/game$/i.test(currentTime) ? currentTime.toUpperCase() : "--:--"));
+    const eventDate = parseScores24DateTime(currentDate, isScores24TimeLine(currentTime) ? currentTime : "", daysAhead);
+    const key = `${currentDate}|${displayTime}|${normalizeTeamName(line)}|${normalizeTeamName(opponent)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      matches.push({
+        eventId: `scores24-${daysAhead}-${matches.length + 1}`,
+        eventDate,
+        displayTime,
+        homeName: line,
+        awayName: opponent,
+        homeId: "",
+        awayId: "",
+        source: "scores24"
+      });
+    }
+
+    i = j;
+    currentTime = "";
+  }
+
+  return matches;
+}
+
+function parseScores24SetkaToday(html) {
+  const lines = extractTextLinesFromHTML(html);
+  if (!lines.length) return [];
+  const start = lines.findIndex(line => /setka cup, world - live matches/i.test(line));
+  const stop = lines.findIndex((line, idx) => idx > Math.max(0, start) && /latest results/i.test(line));
+  const section = start >= 0 ? lines.slice(start, stop > start ? stop : undefined) : lines;
+  return parseScores24SetkaMatchesFromLines(section, 0);
+}
+
+function parseScores24SetkaTomorrow(html) {
+  const lines = extractTextLinesFromHTML(html);
+  if (!lines.length) return [];
+  let start = lines.findIndex((line, idx) => /^setka cup$/i.test(line) && /setka cup/i.test(String(lines[idx + 2] || "")) && !/women/i.test(String(lines[idx + 2] || "")));
+  if (start < 0) start = lines.findIndex(line => /^setka cup\s*\(\d+ matches\)$/i.test(line));
+  if (start < 0) start = lines.findIndex(line => /^setka cup$/i.test(line));
+  const stop = lines.findIndex((line, idx) => idx > Math.max(0, start) && (/tt elite series/i.test(line) || /other tournaments|articles/i.test(line) || (/^\S.*\(\d+ matches\)$/i.test(line) && !/setka cup/i.test(line))));
+  const section = start >= 0 ? lines.slice(start, stop > start ? stop : undefined) : lines;
+  return parseScores24SetkaMatchesFromLines(section, 1);
+}
+
+async function loadScores24SetkaFixtures(offset = 0) {
+  const url = offset === 1 ? TT_SCORES24_TOMORROW_URL : TT_SCORES24_SETKA_TODAY_URL;
+  const html = await proxyFetchText(url, 15000);
+  return offset === 1 ? parseScores24SetkaTomorrow(html) : parseScores24SetkaToday(html);
+}
+
 function safeSetText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
@@ -8301,29 +8469,55 @@ async function loadTableTennisFixtures(offset = 0) {
   validateFetchSection();
 
   try {
+    let fixtureRows = [];
     const dateStr = getTTDateString(offset);
-    const data = await proxyFetch(`${TT_SOFASCORE_BASE}/sport/table-tennis/scheduled-events/${dateStr}`, 15000);
+
+    try {
+      const data = await proxyFetch(`${TT_SOFASCORE_BASE}/sport/table-tennis/scheduled-events/${dateStr}`, 15000);
+      if (myToken !== _fixtureLoadToken) return;
+      fixtureRows = (Array.isArray(data?.events) ? data.events : [])
+        .map(ev => ({ raw: ev, parsed: extractTTMatchScores(ev) }))
+        .filter(item => item.parsed.homeName && item.parsed.awayName && isTTSetkaCupEvent(item.raw))
+        .map(item => ({
+          eventId: String(item.parsed.eventId || item.raw?.id || ""),
+          eventDate: item.parsed.eventDate || "",
+          displayTime: formatFixtureTime(item.parsed.eventDate),
+          homeName: item.parsed.homeName,
+          awayName: item.parsed.awayName,
+          homeId: item.parsed.homeId || "",
+          awayId: item.parsed.awayId || "",
+          source: "sofascore"
+        }));
+    } catch (softErr) {
+      logDebug("loadTableTennisFixtures sofascore primary failed", softErr);
+    }
+
+    if (!fixtureRows.length) {
+      try {
+        fixtureRows = await loadScores24SetkaFixtures(offset);
+      } catch (fallbackErr) {
+        logDebug("loadTableTennisFixtures scores24 fallback failed", fallbackErr);
+      }
+    }
+
     if (myToken !== _fixtureLoadToken) return;
 
-    const events = (Array.isArray(data?.events) ? data.events : [])
-      .map(ev => ({ raw: ev, parsed: extractTTMatchScores(ev) }))
-      .filter(item => item.parsed.homeName && item.parsed.awayName && isTTSetkaCupEvent(item.raw));
-
-    if (!events.length) {
+    if (!fixtureRows.length) {
       sel.innerHTML = '<option value="">No Setka Cup matches found</option>';
       return;
     }
 
     sel.innerHTML = '<option value="">— Select Setka Cup match —</option>';
-    events.forEach(({ raw, parsed }) => {
+    fixtureRows.forEach((row, idx) => {
       const opt = document.createElement("option");
-      opt.value = String(parsed.eventId || raw?.id || "");
-      opt.textContent = `${formatFixtureTime(parsed.eventDate)} — ${parsed.homeName} vs ${parsed.awayName}`;
-      opt.dataset.home = parsed.homeName;
-      opt.dataset.away = parsed.awayName;
-      opt.dataset.homeId = parsed.homeId;
-      opt.dataset.awayId = parsed.awayId;
-      opt.dataset.eventDate = parsed.eventDate || "";
+      opt.value = String(row.eventId || `tt-${offset}-${idx + 1}`);
+      opt.textContent = `${row.displayTime || formatFixtureTime(row.eventDate)} — ${row.homeName} vs ${row.awayName}`;
+      opt.dataset.home = row.homeName;
+      opt.dataset.away = row.awayName;
+      opt.dataset.homeId = row.homeId || "";
+      opt.dataset.awayId = row.awayId || "";
+      opt.dataset.eventDate = row.eventDate || "";
+      opt.dataset.source = row.source || "";
       sel.appendChild(opt);
     });
   } catch (e) {
