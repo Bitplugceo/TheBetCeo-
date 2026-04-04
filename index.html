@@ -8000,7 +8000,7 @@ function applySportModeUI() {
   if (intelSection) intelSection.style.display = isTT ? "none" : "block";
 
   safeSetSectionTitle("espnSection", isTT
-    ? '🏓 TT Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(Setka Cup • Sofascore worker)</span>'
+    ? '🏓 TT Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(Setka Cup • optional match select)</span>'
     : '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
 
   safeSetText("fixtureSelectLabel", isTT ? "Select Setka Cup match" : "Select match");
@@ -8351,6 +8351,29 @@ function buildTTH2HSeries(events, playerAId, playerBId, limit = 8) {
   return out;
 }
 
+function mergeTTEventsForPair(aEvents, bEvents) {
+  const out = [];
+  const seen = new Set();
+  [...(Array.isArray(aEvents) ? aEvents : []), ...(Array.isArray(bEvents) ? bEvents : [])].forEach(ev => {
+    const key = String(ev?.id || ev?.customId || '') || `${String(ev?.startTimestamp || '')}:${getTTEntityId(ev?.homeTeam || ev?.homeCompetitor || ev?.home)}:${getTTEntityId(ev?.awayTeam || ev?.awayCompetitor || ev?.away)}`;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(ev);
+  });
+  return out;
+}
+
+function buildSyntheticTTFixtureMeta(playerAId, playerBId, playerAName, playerBName) {
+  return {
+    eventId: '',
+    homeId: String(playerAId || ''),
+    awayId: String(playerBId || ''),
+    homeName: String(playerAName || '').trim(),
+    awayName: String(playerBName || '').trim(),
+    eventDate: ''
+  };
+}
+
 function extractTTSearchItems(data) {
   const buckets = [];
   if (Array.isArray(data?.results)) buckets.push(...data.results);
@@ -8517,7 +8540,8 @@ async function loadTableTennisFixtures(offset = 0) {
     if (myToken !== _fixtureLoadToken) return;
 
     if (!fixtureRows.length) {
-      sel.innerHTML = '<option value="">No Setka Cup matches found</option>';
+      sel.innerHTML = '<option value="">— Type players below if match list is unavailable —</option>';
+      sel.value = '';
       return;
     }
 
@@ -8579,25 +8603,36 @@ async function fetchTableTennis() {
     selectedTeamIds.A = String(playerAId);
     selectedTeamIds.B = String(playerBId);
 
-    const fixtureMeta = getCurrentFixtureMeta();
-    const [aEvents, bEvents, h2hEvents] = await Promise.all([
+    const selectedFixtureMeta = getCurrentFixtureMeta();
+    const [aEvents, bEvents, fixtureH2HEvents] = await Promise.all([
       fetchTTPlayerRecentEvents(playerAId),
       fetchTTPlayerRecentEvents(playerBId),
-      fixtureMeta?.eventId ? fetchTTH2H(fixtureMeta.eventId) : Promise.resolve([])
+      selectedFixtureMeta?.eventId ? fetchTTH2H(selectedFixtureMeta.eventId) : Promise.resolve([])
     ]);
 
     if (myToken !== _fetchToken) return;
 
+    const mergedRecentEvents = mergeTTEventsForPair(aEvents, bEvents);
+    const fallbackH2HEvents = buildTTH2HSeries(mergedRecentEvents, playerAId, playerBId, 8).events.length
+      ? mergedRecentEvents
+      : [];
+    const effectiveH2HEvents = Array.isArray(fixtureH2HEvents) && fixtureH2HEvents.length
+      ? fixtureH2HEvents
+      : fallbackH2HEvents;
+    const fixtureMeta = selectedFixtureMeta?.homeName && selectedFixtureMeta?.awayName
+      ? selectedFixtureMeta
+      : buildSyntheticTTFixtureMeta(playerAId, playerBId, teamAName, teamBName);
+
     const aSeries = buildTTPlayerSeries(aEvents, playerAId, 8);
     const bSeries = buildTTPlayerSeries(bEvents, playerBId, 8);
-    const h2hSeries = buildTTH2HSeries(h2hEvents, playerAId, playerBId, 8);
+    const h2hSeries = buildTTH2HSeries(effectiveH2HEvents, playerAId, playerBId, 8);
 
     g_ttFetchContext = {
       fixture: fixtureMeta,
       A: { playerId: String(playerAId), playerName: teamAName, ...aSeries },
       B: { playerId: String(playerBId), playerName: teamBName, ...bSeries },
       h2h: h2hSeries,
-      source: "sofascore"
+      source: effectiveH2HEvents.length ? "sofascore_player_events" : "sofascore"
     };
 
     g_fetchMeta.A.ft = { source: "tt_auto", venueReliable: true };
