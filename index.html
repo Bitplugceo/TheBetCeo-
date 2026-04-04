@@ -8400,11 +8400,100 @@ function extractTTSearchItems(data) {
   return out.slice(0, 20);
 }
 
+function buildTTNameVariants(query) {
+  const raw = String(query || "").trim();
+  if (!raw) return [];
+
+  const variants = new Set();
+  const clean = raw.replace(/\s+/g, " ").trim();
+  const noComma = clean.replace(/\s*,\s*/g, " ").replace(/\s+/g, " ").trim();
+
+  [clean, noComma].filter(Boolean).forEach(v => variants.add(v));
+
+  if (clean.includes(",")) {
+    const parts = clean.split(",").map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const last = parts[0];
+      const first = parts.slice(1).join(" ");
+      const swapped = `${first} ${last}`.replace(/\s+/g, " ").trim();
+      if (swapped) variants.add(swapped);
+
+      const firstParts = first.split(/\s+/).filter(Boolean);
+      if (firstParts.length) {
+        variants.add(`${firstParts[0]} ${last}`.trim());
+        variants.add(`${last} ${firstParts[0]}`.trim());
+        variants.add(`${last} ${firstParts[0][0] || ""}`.trim());
+        variants.add(`${firstParts[0][0] || ""} ${last}`.trim());
+      }
+    }
+  } else {
+    const parts = noComma.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const first = parts[0];
+      const last = parts[parts.length - 1];
+      variants.add(`${last}, ${first}`.trim());
+      variants.add(`${last} ${first}`.trim());
+      variants.add(`${first} ${last}`.trim());
+      variants.add(`${last} ${first[0] || ""}`.trim());
+      variants.add(`${first[0] || ""} ${last}`.trim());
+    }
+  }
+
+  return [...variants].filter(Boolean).slice(0, 8);
+}
+
+function ttNameTokenKey(name) {
+  return normalizeTeamName(String(name || ""))
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join(" ");
+}
+
+function scoreTTPlayerCandidate(query, candidateName) {
+  const q = normalizeTeamName(query);
+  const c = normalizeTeamName(candidateName);
+  if (!q || !c) return 0;
+
+  let score = 0;
+  if (q === c) score += 20;
+  if (ttNameTokenKey(q) === ttNameTokenKey(c)) score += 16;
+  if (c.includes(q) || q.includes(c)) score += 6;
+
+  const qWords = q.split(/\s+/).filter(Boolean);
+  const cWords = c.split(/\s+/).filter(Boolean);
+  const overlap = qWords.filter(w => w.length >= 2 && cWords.includes(w)).length;
+  score += overlap * 3;
+
+  if (q.includes(",")) score += 1;
+  return score;
+}
+
 async function searchTTPlayers(query) {
-  const q = String(query || "").trim();
-  if (!q) return [];
-  const data = await proxyFetch(`${TT_SOFASCORE_BASE}/search/players?q=${encodeURIComponent(q)}&page=0`, 15000).catch(() => null);
-  return extractTTSearchItems(data);
+  const variants = buildTTNameVariants(query);
+  if (!variants.length) return [];
+
+  const merged = [];
+  const seen = new Set();
+
+  for (const q of variants) {
+    const data = await proxyFetch(`${TT_SOFASCORE_BASE}/search/players?q=${encodeURIComponent(q)}&page=0`, 15000).catch(() => null);
+    const items = extractTTSearchItems(data);
+    items.forEach(item => {
+      const key = `${item.id}::${normalizeTeamName(item.name)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.push(item);
+    });
+    if (merged.length >= 12) break;
+  }
+
+  return merged
+    .map(item => ({ ...item, _score: Math.max(...variants.map(v => scoreTTPlayerCandidate(v, item.name))) }))
+    .filter(item => item._score >= 6)
+    .sort((a, b) => b._score - a._score || a.name.localeCompare(b.name))
+    .slice(0, 12)
+    .map(({ _score, ...item }) => item);
 }
 
 async function fetchTTPlayerRecentEvents(playerId) {
