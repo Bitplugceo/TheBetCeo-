@@ -7756,19 +7756,32 @@ function getTTDateString(daysAhead = 0) {
 function extractTextLinesFromHTML(html) {
   const raw = String(html || "").trim();
   if (!raw) return [];
+
+  const structuralHtml = raw
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/(div|p|li|section|article|header|footer|main|aside|nav|h[1-6]|tr|td|th|ul|ol|table|thead|tbody|tfoot|a|span)\s*>/gi, "\n")
+    .replace(/<(div|p|li|section|article|header|footer|main|aside|nav|h[1-6]|tr|td|th|ul|ol|table|thead|tbody|tfoot|a|span)\b[^>]*>/gi, "\n");
+
   try {
-    const doc = new DOMParser().parseFromString(raw, "text/html");
-    const text = doc?.body?.textContent || raw;
+    const doc = new DOMParser().parseFromString(structuralHtml, "text/html");
+    const text = doc?.body?.textContent || structuralHtml;
     return String(text)
       .split(/\r?\n/)
-      .map(s => s.replace(/\s+/g, " ").trim())
+      .map(s => s.replace(/^Image:\s*/i, "").replace(/\s+/g, " ").trim())
       .filter(Boolean);
   } catch (e) {
-    return raw
+    return structuralHtml
+      .replace(/<[^>]+>/g, " ")
       .split(/\r?\n/)
-      .map(s => s.replace(/\s+/g, " ").trim())
+      .map(s => s.replace(/^Image:\s*/i, "").replace(/\s+/g, " ").trim())
       .filter(Boolean);
   }
+}
+
+function cleanScores24NameLine(line) {
+  return String(line || "").replace(/^Image:\s*/i, "").replace(/\s+/g, " ").trim();
 }
 
 function isScores24DateLine(line) {
@@ -7780,7 +7793,7 @@ function isScores24TimeLine(line) {
 }
 
 function isLikelyTTNameLine(line) {
-  const value = String(line || "").replace(/\s+/g, " ").trim();
+  const value = cleanScores24NameLine(line);
   if (!value || value.length < 3) return false;
   if (isScores24DateLine(value) || isScores24TimeLine(value)) return false;
   if (/^\d+(?:[.:]\d+)?$/.test(value)) return false;
@@ -7832,7 +7845,8 @@ function parseScores24SetkaMatchesFromLines(lines, daysAhead = 0) {
   let currentTime = "";
 
   for (let i = 0; i < lines.length; i++) {
-    const line = String(lines[i] || "").trim();
+    const rawLine = String(lines[i] || "").trim();
+    const line = cleanScores24NameLine(rawLine);
     if (!line) continue;
     if (isScores24DateLine(line)) { currentDate = line; continue; }
     if (isScores24TimeLine(line) || /^(started|live|\d+(?:st|nd|rd|th) game)$/i.test(line)) { currentTime = line; continue; }
@@ -7840,7 +7854,7 @@ function parseScores24SetkaMatchesFromLines(lines, daysAhead = 0) {
 
     let j = i + 1;
     while (j < lines.length) {
-      const next = String(lines[j] || "").trim();
+      const next = cleanScores24NameLine(String(lines[j] || "").trim());
       if (!next) { j++; continue; }
       if (isScores24DateLine(next) || /^(latest results|other tournaments|articles|tt elite series)$/i.test(next)) break;
       if (isLikelyTTNameLine(next)) break;
@@ -7848,7 +7862,7 @@ function parseScores24SetkaMatchesFromLines(lines, daysAhead = 0) {
     }
     if (j >= lines.length) continue;
 
-    const opponent = String(lines[j] || "").trim();
+    const opponent = cleanScores24NameLine(String(lines[j] || "").trim());
     if (!isLikelyTTNameLine(opponent) || normalizeTeamName(opponent) === normalizeTeamName(line)) continue;
 
     const displayTime = isScores24TimeLine(currentTime)
