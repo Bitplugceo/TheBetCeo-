@@ -4234,20 +4234,40 @@ function applySmartLineToPick(pickRow, rawInput, league) {
     marketType === "h2" ? 1.5 :
     0.75;
 
+  const smartWindowPresets = {
+    ft:      { minExtra: 2.25, maxExtra: 5.25, targetBias: 0.56 },
+    team:    { minExtra: 2.00, maxExtra: 4.75, targetBias: 0.58 },
+    h1:      { minExtra: 1.10, maxExtra: 3.10, targetBias: 0.54 },
+    h2:      { minExtra: 1.25, maxExtra: 3.35, targetBias: 0.54 },
+    default: { minExtra: 1.75, maxExtra: 4.25, targetBias: 0.56 }
+  };
+
+  const preset = smartWindowPresets[marketType] || smartWindowPresets.default;
+  const requiredEdge = Math.max(
+    isFinite(baseLine) && baseLine > 0 ? Math.abs(baseLine * thresholdPct) : 0,
+    marketCushion
+  );
+  const desiredMinEdge = requiredEdge + preset.minExtra;
+  const desiredMaxEdge = Math.max(desiredMinEdge, requiredEdge + preset.maxExtra);
+  const desiredCenterEdge = desiredMinEdge + ((desiredMaxEdge - desiredMinEdge) * preset.targetBias);
+  const baseAbsEdge = Math.abs(baseEdge);
+  const midLine = isFinite(rangeMeta.mid) ? Number(rangeMeta.mid) : baseLine;
+
   const candidates = enumerateRangeLines(rangeMeta)
     .map(line => {
       const edge = proj - line;
+      const absEdge = Math.abs(edge);
       const pct = isFinite(line) && line > 0 ? Math.abs(edge / line) : NaN;
       const candidatePick = getPick(edge, line, league, marketType, context);
       const candidateSide = getPickSideFromText(candidatePick);
-      return { line, edge, pct, candidatePick, candidateSide };
+      return { line, edge, absEdge, pct, candidatePick, candidateSide };
     })
     .filter(row =>
       row &&
       row.candidateSide === side &&
       isFinite(row.pct) &&
       row.pct >= thresholdPct &&
-      Math.abs(row.edge) >= marketCushion
+      row.absEdge >= marketCushion
     );
 
   if (!candidates.length) {
@@ -4271,10 +4291,68 @@ function applySmartLineToPick(pickRow, rawInput, league) {
     };
   }
 
-  const chosen =
-    side === "over"
-      ? candidates.reduce((best, row) => !best || row.line > best.line ? row : best, null)
-      : candidates.reduce((best, row) => !best || row.line < best.line ? row : best, null);
+  const midCandidate = candidates.find(row => Math.abs(row.line - midLine) < 0.001) || null;
+  const midpointIsInSmartWindow =
+    isFinite(baseAbsEdge) &&
+    baseAbsEdge >= desiredMinEdge &&
+    baseAbsEdge <= desiredMaxEdge &&
+    !!midCandidate;
+
+  const targetEdge = (() => {
+    if (midpointIsInSmartWindow) return baseAbsEdge;
+    if (isFinite(baseAbsEdge) && baseAbsEdge < desiredMinEdge) return desiredCenterEdge;
+    if (isFinite(baseAbsEdge) && baseAbsEdge > desiredMaxEdge) {
+      return desiredMinEdge + ((desiredMaxEdge - desiredMinEdge) * 0.38);
+    }
+    return desiredCenterEdge;
+  })();
+
+  const scoreCandidate = row => {
+    const targetGap = Math.abs(row.absEdge - targetEdge);
+    const midpointGap = isFinite(midLine) ? Math.abs(row.line - midLine) : 0;
+    const windowPenalty =
+      row.absEdge < desiredMinEdge ? (desiredMinEdge - row.absEdge) :
+      row.absEdge > desiredMaxEdge ? (row.absEdge - desiredMaxEdge) :
+      0;
+
+    return {
+      targetGap,
+      windowPenalty,
+      midpointGap,
+      safeLineBonus:
+        side === "over" ? (isFinite(midLine) ? Math.max(0, midLine - row.line) : 0) :
+        side === "under" ? (isFinite(midLine) ? Math.max(0, row.line - midLine) : 0) :
+        0
+    };
+  };
+
+  const chosen = midpointIsInSmartWindow
+    ? midCandidate
+    : candidates.reduce((best, row) => {
+        if (!best) return row;
+
+        const bestScore = scoreCandidate(best);
+        const rowScore = scoreCandidate(row);
+
+        if (rowScore.windowPenalty !== bestScore.windowPenalty) {
+          return rowScore.windowPenalty < bestScore.windowPenalty ? row : best;
+        }
+
+        if (Math.abs(rowScore.targetGap - bestScore.targetGap) > 0.0001) {
+          return rowScore.targetGap < bestScore.targetGap ? row : best;
+        }
+
+        if (Math.abs(rowScore.midpointGap - bestScore.midpointGap) > 0.0001) {
+          return rowScore.midpointGap < bestScore.midpointGap ? row : best;
+        }
+
+        if (Math.abs(rowScore.safeLineBonus - bestScore.safeLineBonus) > 0.0001) {
+          return rowScore.safeLineBonus > bestScore.safeLineBonus ? row : best;
+        }
+
+        if (isBetterLineForSide(side, row.line, best.line)) return row;
+        return best;
+      }, null);
 
   return {
     ...pickRow,
@@ -4291,8 +4369,11 @@ function applySmartLineToPick(pickRow, rawInput, league) {
       applied: true,
       smartLine: chosen.line,
       cushion: marketCushion,
-      boundary: side === "over" ? "max_playable" : "min_playable",
-      reason: side === "over" ? "highest_qualified_over_line" : "lowest_qualified_under_line"
+      desiredMinEdge,
+      desiredMaxEdge,
+      targetEdge,
+      boundary: midpointIsInSmartWindow ? "mid_kept" : "smart_window",
+      reason: midpointIsInSmartWindow ? "smart_mid_kept" : "smart_target_balanced"
     }
   };
 }
