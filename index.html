@@ -4149,6 +4149,78 @@ function applySmartLineToPick(pickRow, rawInput, league) {
     };
   }
 
+  if (league === "tt") {
+    const ttMarketKey = marketType === "h1" ? "h1" : "ft";
+    const ttFloor = ttMarketKey === "h1" ? 1.25 : 2.1;
+
+    const candidates = enumerateRangeLines(rangeMeta)
+      .map(line => {
+        const edge = proj - line;
+        const candidatePick = getTTPick(edge, ttMarketKey);
+        const candidateSide = getPickSideFromText(candidatePick);
+        return { line, edge, candidatePick, candidateSide };
+      })
+      .filter(row =>
+        row &&
+        row.candidateSide === side &&
+        isFinite(row.edge) &&
+        Math.abs(row.edge) >= ttFloor
+      );
+
+    if (!candidates.length) {
+      return {
+        ...pickRow,
+        pick: "NO PLAY",
+        confidence: "—",
+        note: pickRow.note || "TT range gate: no playable line survives the entered band",
+        decisionLine: baseLine,
+        trackerLine: baseLine,
+        displayLineUsed: baseLine,
+        displayEdge: baseEdge,
+        displayPick: "NO PLAY",
+        smartLineMeta: {
+          ...rangeMeta,
+          applied: false,
+          smartLine: baseLine,
+          cushion: ttFloor,
+          reason: "tt_range_rejected"
+        }
+      };
+    }
+
+    const chosen =
+      side === "over"
+        ? candidates.reduce((best, row) => !best || row.line > best.line ? row : best, null)
+        : candidates.reduce((best, row) => !best || row.line < best.line ? row : best, null);
+
+    return {
+      ...pickRow,
+      line: chosen.line,
+      edge: chosen.edge,
+      pick: chosen.candidatePick,
+      confidence: getTTConfidenceGrade({
+        pick: chosen.candidatePick,
+        edge: chosen.edge,
+        sampleSize: pickRow.ttMeta?.sampleSize,
+        h2hCount: pickRow.ttMeta?.h2hCount,
+        marketKey: ttMarketKey
+      }),
+      decisionLine: baseLine,
+      trackerLine: chosen.line,
+      displayLineUsed: chosen.line,
+      displayEdge: chosen.edge,
+      displayPick: chosen.candidatePick,
+      smartLineMeta: {
+        ...rangeMeta,
+        applied: true,
+        smartLine: chosen.line,
+        cushion: ttFloor,
+        boundary: side === "over" ? "max_playable" : "min_playable",
+        reason: side === "over" ? "tt_highest_playable_over_line" : "tt_lowest_playable_under_line"
+      }
+    };
+  }
+
   const thresholdPct = getPickThresholdPct(league, marketType, side);
   const marketCushion =
     marketType === "ft" ? 1.5 :
@@ -10885,7 +10957,7 @@ if (trackedToSave.length) {
   }
 }
 
-    function clearAll() {
+    function clearBasketballState() {
       _fetchToken++;
       _fixtureLoadToken++;
       _teamSearchToken.A++;
@@ -10900,16 +10972,19 @@ if (trackedToSave.length) {
       g_h2hManualPreference.h1 = null;
       g_h2hManualPreference.h2 = null;
 
-      const currentMode = getCurrentSportMode();
-      const isTTMode = currentMode === SPORT_MODE_TT;
-
       const ls = document.getElementById("leagueSelect");
-      if (ls) ls.value = isTTMode ? "tt" : "";
+      if (ls) ls.value = "";
 
       document.querySelectorAll("input").forEach(i => {
         if (i.type !== "checkbox") i.value = "";
         else i.checked = false;
         i.style.borderColor = "";
+      });
+
+      document.querySelectorAll("select").forEach(sel => {
+        if (sel.id === "leagueSelect") return;
+        sel.selectedIndex = 0;
+        sel.style.borderColor = "";
       });
 
       setFieldValues(FIELD_GROUPS.markets);
@@ -10940,6 +11015,7 @@ if (trackedToSave.length) {
       setFetchAuditIssues([]);
       closeDrop("dropA");
       closeDrop("dropB");
+      setFetchInputErrors([]);
 
       const t = document.getElementById("results");
       if (t) {
@@ -10949,9 +11025,7 @@ if (trackedToSave.length) {
 
       const fixtureSelect = document.getElementById("fixtureSelect");
       if (fixtureSelect) {
-        fixtureSelect.innerHTML = isTTMode
-          ? '<option value="">— Select TT match —</option>'
-          : '<option value="">— Select match —</option>';
+        fixtureSelect.innerHTML = '<option value="">— Select match —</option>';
         fixtureSelect.value = "";
       }
 
@@ -10961,29 +11035,124 @@ if (trackedToSave.length) {
       });
 
       applySportModeUI();
-
-      if (isTTMode) {
-        const ls2 = document.getElementById("leagueSelect");
-        if (ls2) ls2.value = "tt";
-
-        updateSectionLocks();
-        openSection("leagueSection");
-        closeSection("espnSection");
-        closeSection("marketSection");
-        closeSection("teamASection");
-        closeSection("teamBSection");
-        closeSection("h2hSection");
-        closeSection("intelSection");
-        validateFetchSection();
-
-        if (typeof loadTTFixtures === "function") loadTTFixtures();
-        return;
-      }
-
       lockFrom("espnSection");
       updateSectionLocks();
       accordionOpen("leagueSection");
       validateFetchSection();
+      updateIntelligencePack();
+    }
+
+    function clearTTModeState() {
+      _fetchToken++;
+      _fixtureLoadToken++;
+      _teamSearchToken.A++;
+      _teamSearchToken.B++;
+
+      const sectionCollapsedState = {};
+      document.querySelectorAll(".section").forEach(section => {
+        if (section && section.id) {
+          sectionCollapsedState[section.id] = section.classList.contains("collapsed");
+        }
+      });
+
+      selectedTeamIds = { A: null, B: null };
+      g_lastFetchedTeams = { A: "", B: "" };
+      g_fetchMeta = defaultFetchMeta();
+      g_massacreFetchContext = defaultMassacreFetchContext();
+      g_ttFetchContext = defaultTTFetchContext();
+      g_h2hManualPreference.ft = null;
+      g_h2hManualPreference.h1 = null;
+      g_h2hManualPreference.h2 = null;
+
+      document.querySelectorAll("input").forEach(i => {
+        if (i.type === "checkbox") i.checked = false;
+        else i.value = "";
+        i.style.borderColor = "";
+      });
+
+      document.querySelectorAll("select").forEach(sel => {
+        if (sel.id === "leagueSelect") return;
+        sel.selectedIndex = 0;
+        sel.style.borderColor = "";
+      });
+
+      const leagueSelect = document.getElementById("leagueSelect");
+      if (leagueSelect) {
+        leagueSelect.value = "tt";
+        leagueSelect.style.borderColor = "";
+      }
+
+      setFieldValues(FIELD_GROUPS.markets);
+      setFieldValues(FIELD_GROUPS.intelFields);
+      setFieldValues(FIELD_GROUPS.teamAOverall);
+      setFieldValues(FIELD_GROUPS.teamBOverall);
+      setFieldValues(FIELD_GROUPS.h2h);
+      syncAllH2HCheckboxes(false);
+
+      setDisplayValues(FIELD_GROUPS.autoTags, "none");
+      hideInjuryBox("A");
+      hideInjuryBox("B");
+      g_injA = defaultInjuryMeta();
+      g_injB = defaultInjuryMeta();
+
+      _schedCache.clear();
+      _summaryCache.clear();
+
+      setStatusText("", "");
+      setFetchAuditIssues([]);
+      setFetchInputErrors([]);
+      closeDrop("dropA");
+      closeDrop("dropB");
+      resetResultsTable();
+
+      const fixtureSelect = document.getElementById("fixtureSelect");
+      if (fixtureSelect) {
+        const preserved = [...fixtureSelect.options]
+          .filter(opt => opt && opt.value)
+          .map(opt => ({
+            value: opt.value,
+            text: opt.textContent || "",
+            home: opt.dataset.home || "",
+            away: opt.dataset.away || "",
+            homeId: opt.dataset.homeId || "",
+            awayId: opt.dataset.awayId || "",
+            eventDate: opt.dataset.eventDate || ""
+          }));
+
+        fixtureSelect.innerHTML = '<option value="">— Select TT match —</option>';
+        preserved.forEach(row => {
+          const opt = document.createElement("option");
+          opt.value = row.value;
+          opt.textContent = row.text;
+          opt.dataset.home = row.home;
+          opt.dataset.away = row.away;
+          opt.dataset.homeId = row.homeId;
+          opt.dataset.awayId = row.awayId;
+          opt.dataset.eventDate = row.eventDate;
+          fixtureSelect.appendChild(opt);
+        });
+        fixtureSelect.value = "";
+      }
+
+      applySportModeUI();
+      updateSectionLocks();
+      validateFetchSection();
+      updateIntelligencePack();
+
+      Object.keys(sectionCollapsedState).forEach(id => {
+        const section = document.getElementById(id);
+        if (!section) return;
+        if (sectionCollapsedState[id]) section.classList.add("collapsed");
+        else section.classList.remove("collapsed");
+      });
+    }
+
+    function clearAll() {
+      if (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) {
+        clearTTModeState();
+        return;
+      }
+      clearBasketballState();
     }
 
     function onLeagueChange() {
@@ -11962,7 +12131,8 @@ async function runTableTennisEngine(table) {
       pick: ftPick,
       confidence: getTTConfidenceGrade({ pick: ftPick, edge: ftEdge, sampleSize, h2hCount, marketKey: "ft" }),
       note: sampleSize < 6 ? "Thin TT sample" : null,
-      fullModel: true
+      fullModel: true,
+      ttMeta: { sampleSize, h2hCount, marketKey: "ft" }
     });
   }
 
@@ -11982,7 +12152,8 @@ async function runTableTennisEngine(table) {
       pick: h1Pick,
       confidence: getTTConfidenceGrade({ pick: h1Pick, edge: h1Edge, sampleSize: firstSampleSize, h2hCount: firstH2HCount, marketKey: "h1" }),
       note: firstSampleSize < 6 ? "Thin TT first-set sample" : null,
-      fullModel: true
+      fullModel: true,
+      ttMeta: { sampleSize: firstSampleSize, h2hCount: firstH2HCount, marketKey: "h1" }
     });
   }
 
