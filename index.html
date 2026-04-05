@@ -4171,13 +4171,23 @@ function getRangeStep(low, high) {
   return 0.5;
 }
 
+function hasHalfPointFraction(line) {
+  if (!isFinite(line)) return false;
+  const frac = Math.abs(line % 1);
+  return Math.abs(frac - 0.5) < 0.001;
+}
+
 function enumerateRangeLines(rangeMeta) {
   if (!rangeMeta || !isFinite(rangeMeta.low) || !isFinite(rangeMeta.high)) return [];
   const step = getRangeStep(rangeMeta.low, rangeMeta.high);
   const out = [];
+
   for (let line = rangeMeta.low; line <= rangeMeta.high + 0.001; line += step) {
-    out.push(Math.round(line * 2) / 2);
+    const normalized = Math.round(line * 2) / 2;
+    if (rangeMeta.isRange && !hasHalfPointFraction(normalized)) continue;
+    out.push(normalized);
   }
+
   return [...new Set(out)];
 }
 
