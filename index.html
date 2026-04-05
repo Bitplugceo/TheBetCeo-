@@ -1907,7 +1907,7 @@ body.dark-mode .tracker-analytics-section-head {
       <button type="button" class="engine-mode-btn" id="ttModeBtn">TT</button>
     </div>
 
-    <div class="section" id="ttPage" style="display:none;">
+    <div class="section" id="ttPage" style="display:none !important;">
       <h3>TT Mode Shell</h3>
       <div class="tt-shell-note">Table Tennis page restored. This shell is visible again, but its dedicated calculations are still intentionally not wired into the live engine yet.</div>
       <label>Side A / Player A</label>
@@ -10922,8 +10922,11 @@ if (trackedToSave.length) {
       g_h2hManualPreference.h1 = null;
       g_h2hManualPreference.h2 = null;
 
+      const currentMode = getCurrentSportMode();
+      const isTTMode = currentMode === SPORT_MODE_TT;
+
       const ls = document.getElementById("leagueSelect");
-      if (ls) ls.value = "";
+      if (ls) ls.value = isTTMode ? "tt" : "";
 
       document.querySelectorAll("input").forEach(i => {
         if (i.type !== "checkbox") i.value = "";
@@ -10971,9 +10974,14 @@ if (t) {
         s.classList.remove("locked");
       });
 
+applySportModeUI();
+if (isTTMode) {
+  const ls2 = document.getElementById("leagueSelect");
+  if (ls2) ls2.value = "tt";
+}
 lockFrom("espnSection");
 updateSectionLocks();
-accordionOpen("leagueSection");
+accordionOpen(isTTMode ? "espnSection" : "leagueSection");
 validateFetchSection();
     }
 
@@ -12299,6 +12307,9 @@ function toggleSportMode() {
       lockFrom("espnSection");
       openSection("leagueSection");
       refreshTrackerInBackground(false);
+
+      // Re-apply the active sport mode after the generic bootstrap so TT is not overwritten by BB defaults.
+      setEngineMode(getCurrentSportMode() === SPORT_MODE_TT ? "tt" : "bb");
 
       window.addEventListener("focus", () => refreshTrackerInBackground(true));
       window.addEventListener("pageshow", () => refreshTrackerInBackground(true));
