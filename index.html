@@ -2088,8 +2088,10 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="a1HScoredLabel">1H Scored</label>
     <input id="a1HScored" placeholder="42,38,45,40,41" />
 
-    <label>1H Allowed</label>
-    <input id="a1HAllowed" placeholder="39,36,41,35,38" />
+    <div id="a1HAllowedSection">
+      <label id="a1HAllowedLabel">1H Allowed</label>
+      <input id="a1HAllowed" placeholder="39,36,41,35,38" />
+    </div>
 
   </div>
 
@@ -2119,8 +2121,10 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="b1HScoredLabel">1H Scored</label>
     <input id="b1HScored" placeholder="40,39,42,38,41" />
 
-    <label>1H Allowed</label>
-    <input id="b1HAllowed" placeholder="38,39,37,36,40" />
+    <div id="b1HAllowedSection">
+      <label id="b1HAllowedLabel">1H Allowed</label>
+      <input id="b1HAllowed" placeholder="38,39,37,36,40" />
+    </div>
 
   </div>
 
@@ -12171,6 +12175,8 @@ function applySportModeUI() {
   safeSetInputLabel("bFTScored", isTT ? "Recent Match Points" : "FT Scored (recent → oldest)");
   safeSetInputLabel("a1HScored", isTT ? "1st Set Points" : "1H Scored");
   safeSetInputLabel("b1HScored", isTT ? "1st Set Points" : "1H Scored");
+  safeSetInputLabel("a1HAllowed", isTT ? "" : "1H Allowed");
+  safeSetInputLabel("b1HAllowed", isTT ? "" : "1H Allowed");
 
   const fixtureToolbar = document.getElementById("fixtureToolbar");
   if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
@@ -12203,6 +12209,10 @@ function applySportModeUI() {
   if (aFTAllowedSection) aFTAllowedSection.style.display = isTT ? "none" : "block";
   const bFTAllowedSection = document.getElementById("bFTAllowedSection");
   if (bFTAllowedSection) bFTAllowedSection.style.display = isTT ? "none" : "block";
+  const a1HAllowedSection = document.getElementById("a1HAllowedSection");
+  if (a1HAllowedSection) a1HAllowedSection.style.display = isTT ? "none" : "block";
+  const b1HAllowedSection = document.getElementById("b1HAllowedSection");
+  if (b1HAllowedSection) b1HAllowedSection.style.display = isTT ? "none" : "block";
   const teamAMarketInput = document.getElementById("teamAMarket");
   if (teamAMarketInput) {
     const teamALabel = teamAMarketInput.previousElementSibling;
