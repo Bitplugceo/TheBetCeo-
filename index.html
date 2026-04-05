@@ -7571,10 +7571,17 @@ validateFetchSection();
 
 
     function resetBootCollapsedLayout() {
+      const isTTMode = isTTStandaloneMode();
       document.querySelectorAll(".section").forEach(section => {
         section.classList.add("collapsed");
         section.classList.remove("locked");
       });
+
+      if (isTTMode) {
+        ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection", "intelSection"].forEach(unlockSection);
+        return;
+      }
+
       lockFrom("espnSection");
       openSection("leagueSection");
     }
