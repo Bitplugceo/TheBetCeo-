@@ -10912,20 +10912,21 @@ if (trackedToSave.length) {
         i.style.borderColor = "";
       });
 
-                  setFieldValues(FIELD_GROUPS.markets);
+      setFieldValues(FIELD_GROUPS.markets);
       setFieldValues(FIELD_GROUPS.intelFields);
       setFieldValues(FIELD_GROUPS.teamAOverall);
       setFieldValues(FIELD_GROUPS.teamBOverall);
       setFieldValues(FIELD_GROUPS.h2h);
+
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
       ["a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection"].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.style.display = "none";
-});
+        const el = document.getElementById(id);
+        if (el) el.style.display = "none";
+      });
 
-           setDisplayValues(FIELD_GROUPS.autoTags, "none");
+      setDisplayValues(FIELD_GROUPS.autoTags, "none");
 
       hideInjuryBox("A");
       hideInjuryBox("B");
@@ -10936,31 +10937,53 @@ if (trackedToSave.length) {
       _fixtureCache.clear();
 
       setStatusText("", "");
-setFetchAuditIssues([]);
-closeDrop("dropA");
-closeDrop("dropB");
+      setFetchAuditIssues([]);
+      closeDrop("dropA");
+      closeDrop("dropB");
+
       const t = document.getElementById("results");
-if (t) {
-  t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
-  t.style.display = "none";
-}
+      if (t) {
+        t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
+        t.style.display = "none";
+      }
+
       const fixtureSelect = document.getElementById("fixtureSelect");
-      if (fixtureSelect) { fixtureSelect.innerHTML = '<option value="">— Select match —</option>'; fixtureSelect.value = ""; }
+      if (fixtureSelect) {
+        fixtureSelect.innerHTML = isTTMode
+          ? '<option value="">— Select TT match —</option>'
+          : '<option value="">— Select match —</option>';
+        fixtureSelect.value = "";
+      }
 
       document.querySelectorAll(".section").forEach(s => {
         s.classList.add("collapsed");
         s.classList.remove("locked");
       });
 
-applySportModeUI();
-if (isTTMode) {
-  const ls2 = document.getElementById("leagueSelect");
-  if (ls2) ls2.value = "tt";
-}
-lockFrom("espnSection");
-updateSectionLocks();
-accordionOpen(isTTMode ? "espnSection" : "leagueSection");
-validateFetchSection();
+      applySportModeUI();
+
+      if (isTTMode) {
+        const ls2 = document.getElementById("leagueSelect");
+        if (ls2) ls2.value = "tt";
+
+        updateSectionLocks();
+        openSection("leagueSection");
+        closeSection("espnSection");
+        closeSection("marketSection");
+        closeSection("teamASection");
+        closeSection("teamBSection");
+        closeSection("h2hSection");
+        closeSection("intelSection");
+        validateFetchSection();
+
+        if (typeof loadTTFixtures === "function") loadTTFixtures();
+        return;
+      }
+
+      lockFrom("espnSection");
+      updateSectionLocks();
+      accordionOpen("leagueSection");
+      validateFetchSection();
     }
 
     function onLeagueChange() {
@@ -11968,10 +11991,15 @@ async function runTableTennisEngine(table) {
     return;
   }
 
-  const markets = rows.map(p => ({
+  const rawMarketInputs = getRawMarketInputMap();
+  const finalPicksForDisplay = rows
+    .map(p => applySmartLineToPick(p, rawMarketInputs[p.marketKey], league))
+    .filter(Boolean);
+
+  const markets = finalPicksForDisplay.map(p => ({
     _idx: p._idx,
-    edge: p.edge,
-    line: p.line,
+    edge: isFinite(p.displayEdge) ? p.displayEdge : p.edge,
+    line: isFinite(p.displayLineUsed) ? p.displayLineUsed : p.line,
     pick: p.pick,
     fullModel: p.fullModel,
     confidence: p.confidence,
@@ -11983,7 +12011,7 @@ async function runTableTennisEngine(table) {
 
   const trackedToSave = buildResultRows({
     table,
-    finalPicks: rows,
+    finalPicks: finalPicksForDisplay,
     lockIdx,
     fixtureMeta: getCurrentFixtureMeta(),
     league,
@@ -12108,8 +12136,8 @@ function applySportModeUI() {
 
   safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
   safeSetPlaceholder("teamBName", isTT ? "e.g. Wang Chuqin" : "e.g. Celtics");
-  safeSetPlaceholder("ftMarket", isTT ? "73.5 - 77.5" : "150.5 - 160.5");
-  safeSetPlaceholder("h1Market", isTT ? "18.5 - 20.5" : "105.5 - 110.5");
+  safeSetPlaceholder("ftMarket", isTT ? "77.5 - 80.5 or 79.5" : "150.5 - 160.5");
+  safeSetPlaceholder("h1Market", isTT ? "18.5 - 20.5 or 19.5" : "105.5 - 110.5");
   safeSetPlaceholder("teamAMarket", isTT ? "" : "75.5 - 79.5");
   safeSetPlaceholder("teamBMarket", isTT ? "" : "75.5 - 79.5");
   safeSetPlaceholder("aFTScored", isTT ? "38,41,35,39,42" : "85,79,88,74,82");
