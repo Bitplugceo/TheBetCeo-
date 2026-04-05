@@ -3101,15 +3101,54 @@ function getTrackerLocalStateCandidateKeys() {
 
 function loadTrackerStateFromLocal() {
   try {
+    let bestState = null;
+    let bestUpdatedAtMs = -1;
+    let bestPendingActive = -1;
+    let bestActiveCount = -1;
+    let bestArchivedCount = -1;
+
     for (const key of getTrackerLocalStateCandidateKeys()) {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
 
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") return parsed;
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        console.error("[BB Engine] loadTrackerStateFromLocal parse failed for key", key, err);
+        continue;
+      }
+
+      if (!parsed || typeof parsed !== "object") continue;
+
+      const active = Array.isArray(parsed.activePicks) ? parsed.activePicks : [];
+      const archived = Array.isArray(parsed.archivedPicks) ? parsed.archivedPicks : [];
+      const pendingActive = active.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+      const updatedAtMs = Date.parse(parsed.updatedAt || "") || 0;
+      const activeCount = active.length;
+      const archivedCount = archived.length;
+
+      const isBetter =
+        !bestState ||
+        updatedAtMs > bestUpdatedAtMs ||
+        (
+          updatedAtMs === bestUpdatedAtMs && (
+            pendingActive > bestPendingActive ||
+            (pendingActive === bestPendingActive && activeCount > bestActiveCount) ||
+            (pendingActive === bestPendingActive && activeCount === bestActiveCount && archivedCount > bestArchivedCount)
+          )
+        );
+
+      if (!isBetter) continue;
+
+      bestState = parsed;
+      bestUpdatedAtMs = updatedAtMs;
+      bestPendingActive = pendingActive;
+      bestActiveCount = activeCount;
+      bestArchivedCount = archivedCount;
     }
 
-    return null;
+    return bestState;
   } catch (err) {
     console.error("[BB Engine] loadTrackerStateFromLocal failed", err);
     return null;
@@ -4560,11 +4599,15 @@ function getTrackerPickStamp(pick) {
 
 function makeTrackerActiveMergeKey(pick = {}) {
   const safe = ensureTrackedPickKeys(pick);
+  const signature = makeTrackedSignature(safe);
+  if (signature) return signature;
+
   return [
     String(safe.eventId || ""),
     String(safe.marketKey || ""),
     normalizeTeamName(safe.homeTeam || ""),
-    normalizeTeamName(safe.awayTeam || "")
+    normalizeTeamName(safe.awayTeam || ""),
+    String(safe.side || "").toLowerCase()
   ].join("|");
 }
 
@@ -4658,6 +4701,15 @@ function mergeTrackerStates(localState, serverState) {
       ...(local.lineMemory && typeof local.lineMemory === "object" ? local.lineMemory : {})
     }
   };
+
+  const archivedSignatures = new Set(
+    merged.archivedPicks.map(p => makeTrackedSignature(p)).filter(Boolean)
+  );
+
+  merged.activePicks = merged.activePicks.filter(p => {
+    const sig = makeTrackedSignature(p);
+    return !sig || !archivedSignatures.has(sig);
+  });
 
   const activeKeys = new Set(
     merged.activePicks.map(p => makeTrackerActiveMergeKey(p)).filter(Boolean)
@@ -6110,7 +6162,7 @@ function getTrackedLeagueBase(league) {
   function sameTrackedSideKey(a, b) {
     return (
       sameTrackedMarketKey(a, b) &&
-      String(a.side || "") === String(b.side || "")
+      String(a.side || "").toLowerCase() === String(b.side || "").toLowerCase()
     );
   }
 
@@ -6118,20 +6170,22 @@ function getTrackedLeagueBase(league) {
     const p = ensureTrackedPickKeys(raw);
     if (!p.signature) p.signature = makeTrackedSignature(p);
 
-    const existingIdx = current.findIndex(x => sameTrackedMarketKey(x, p));
+    const exactIdx = current.findIndex(x => makeTrackedSignature(x) === p.signature);
+    const existingIdx = exactIdx !== -1
+      ? exactIdx
+      : current.findIndex(x => sameTrackedSideKey(x, p));
 
     if (existingIdx !== -1) {
       const existing = current[existingIdx];
 
-      if (existing.resultStatus !== "pending") {
+      if (String(existing.resultStatus || "pending").toLowerCase() !== "pending") {
         return;
       }
 
-      const sameSide = sameTrackedSideKey(existing, p);
       const sameLine = String(displayLine(existing.line)) === String(displayLine(p.line));
-      const betterLine = sameSide && isBetterLineForSide(p.side, p.line, existing.line);
+      const betterLine = isBetterLineForSide(p.side, p.line, existing.line);
 
-      if (!sameSide || sameLine || betterLine) {
+      if (sameLine || betterLine || exactIdx !== -1) {
         current[existingIdx] = ensureTrackedPickKeys({
           ...existing,
           ...p,
@@ -6144,7 +6198,7 @@ function getTrackedLeagueBase(league) {
       return;
     }
 
-    const archivedIdx = archived.findIndex(x => sameTrackedMarketKey(x, p));
+    const archivedIdx = archived.findIndex(x => makeTrackedSignature(x) === p.signature);
     if (archivedIdx !== -1) {
       return;
     }
