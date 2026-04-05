@@ -3099,13 +3099,48 @@ function getTrackerLocalStateCandidateKeys() {
   return [...new Set(keys.filter(Boolean))];
 }
 
+function getTrackerStateLocalScore(state) {
+  const active = Array.isArray(state?.activePicks) ? state.activePicks : [];
+  const archived = Array.isArray(state?.archivedPicks) ? state.archivedPicks : [];
+  const pendingActive = active.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+  const settledArchived = archived.filter(p => String(p?.resultStatus || "pending").toLowerCase() !== "pending").length;
+  const activeCount = active.length;
+  const archivedCount = archived.length;
+  const totalCount = activeCount + archivedCount;
+  const updatedAtMs = Date.parse(state?.updatedAt || "") || 0;
+
+  return {
+    hasPicks: totalCount > 0 ? 1 : 0,
+    pendingActive,
+    totalCount,
+    settledArchived,
+    activeCount,
+    archivedCount,
+    updatedAtMs
+  };
+}
+
+function isBetterTrackerStateCandidate(nextState, bestState) {
+  if (!nextState) return false;
+  if (!bestState) return true;
+
+  const next = getTrackerStateLocalScore(nextState);
+  const best = getTrackerStateLocalScore(bestState);
+
+  if (next.hasPicks !== best.hasPicks) return next.hasPicks > best.hasPicks;
+  if (next.pendingActive !== best.pendingActive) return next.pendingActive > best.pendingActive;
+  if (next.totalCount !== best.totalCount) return next.totalCount > best.totalCount;
+  if (next.settledArchived !== best.settledArchived) return next.settledArchived > best.settledArchived;
+  if (next.activeCount !== best.activeCount) return next.activeCount > best.activeCount;
+  if (next.archivedCount !== best.archivedCount) return next.archivedCount > best.archivedCount;
+  if (next.updatedAtMs !== best.updatedAtMs) return next.updatedAtMs > best.updatedAtMs;
+
+  return false;
+}
+
 function loadTrackerStateFromLocal() {
   try {
     let bestState = null;
-    let bestUpdatedAtMs = -1;
-    let bestPendingActive = -1;
-    let bestActiveCount = -1;
-    let bestArchivedCount = -1;
 
     for (const key of getTrackerLocalStateCandidateKeys()) {
       const raw = localStorage.getItem(key);
@@ -3120,32 +3155,9 @@ function loadTrackerStateFromLocal() {
       }
 
       if (!parsed || typeof parsed !== "object") continue;
-
-      const active = Array.isArray(parsed.activePicks) ? parsed.activePicks : [];
-      const archived = Array.isArray(parsed.archivedPicks) ? parsed.archivedPicks : [];
-      const pendingActive = active.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
-      const updatedAtMs = Date.parse(parsed.updatedAt || "") || 0;
-      const activeCount = active.length;
-      const archivedCount = archived.length;
-
-      const isBetter =
-        !bestState ||
-        updatedAtMs > bestUpdatedAtMs ||
-        (
-          updatedAtMs === bestUpdatedAtMs && (
-            pendingActive > bestPendingActive ||
-            (pendingActive === bestPendingActive && activeCount > bestActiveCount) ||
-            (pendingActive === bestPendingActive && activeCount === bestActiveCount && archivedCount > bestArchivedCount)
-          )
-        );
-
-      if (!isBetter) continue;
+      if (!isBetterTrackerStateCandidate(parsed, bestState)) continue;
 
       bestState = parsed;
-      bestUpdatedAtMs = updatedAtMs;
-      bestPendingActive = pendingActive;
-      bestActiveCount = activeCount;
-      bestArchivedCount = archivedCount;
     }
 
     return bestState;
@@ -3158,6 +3170,15 @@ function loadTrackerStateFromLocal() {
 function saveTrackerStateToLocal() {
   try {
     syncLineMemoryIntoTrackerState();
+
+    if (isTrackerStateMeaningfullyEmpty(g_trackerState)) {
+      const existingBest = loadTrackerStateFromLocal();
+      if (existingBest && !isTrackerStateMeaningfullyEmpty(existingBest)) {
+        console.warn("[BB Engine] refusing to overwrite richer local tracker state with empty state");
+        return;
+      }
+    }
+
     const payload = JSON.stringify(g_trackerState);
 
     getTrackerLocalStateCandidateKeys().forEach(key => {
