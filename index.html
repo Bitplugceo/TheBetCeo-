@@ -238,6 +238,40 @@ body.dark-mode {
       padding: 0 10px;
     }
 
+
+    .engine-mode-bar {
+      display: flex;
+      gap: 8px;
+      margin: 8px auto;
+      flex-wrap: wrap;
+    }
+
+    .engine-mode-btn {
+      background: #eceff3 !important;
+      color: #2a2f38 !important;
+      border: 1px solid #d7dbe1 !important;
+      padding: 6px 10px !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      margin: 0 !important;
+      min-width: 90px !important;
+      text-align: center;
+    }
+
+    .engine-mode-btn.active {
+      background: #49a443 !important;
+      color: #fff !important;
+      border-color: #49a443 !important;
+    }
+
+    .tt-shell-note {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--muted);
+      font-weight: 700;
+      margin: 0 0 10px 0;
+    }
+
    .section {
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -1868,6 +1902,22 @@ body.dark-mode .tracker-analytics-section-head {
 </header>
 
   <div class="wrapper">
+    <div class="engine-mode-bar" id="engineModeBar">
+      <button type="button" class="engine-mode-btn active" id="bbModeBtn">Basketball</button>
+      <button type="button" class="engine-mode-btn" id="ttModeBtn">TT</button>
+    </div>
+
+    <div class="section" id="ttPage" style="display:none;">
+      <h3>TT Mode Shell</h3>
+      <div class="tt-shell-note">Table Tennis page restored. This shell is visible again, but its dedicated calculations are still intentionally not wired into the live engine yet.</div>
+      <label>Side A / Player A</label>
+      <input id="ttSideA" placeholder="e.g. Player A" />
+      <label>Side B / Player B</label>
+      <input id="ttSideB" placeholder="e.g. Player B" />
+      <label>TT Market</label>
+      <input id="ttMarket" placeholder="e.g. 74.5" />
+      <small>TT shell restored only. Basketball run logic is unchanged unless TT calculations are wired later.</small>
+    </div>
     <div class="section" id="leagueSection">
       <h3>League Tier</h3>
       <label>Select League</label>
@@ -2029,16 +2079,24 @@ body.dark-mode .tracker-analytics-section-head {
   <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
   <input id="aFTScored" placeholder="85,79,88,74,82" />
 
+  <label>FT Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+  <input id="aFTAllowed" placeholder="80,76,84,72,79" />
 
   <div id="a1HSection" style="display:none;">
     <label>1H Scored</label>
     <input id="a1HScored" placeholder="42,38,45,40,41" />
+
+    <label>1H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <input id="a1HAllowed" placeholder="39,36,41,35,38" />
 
   </div>
 
   <div id="a2HSection" style="display:none;">
     <label>2H Scored <span style="font-size:10px;color:#888;">(second half)</span></label>
     <input id="a2HScored" placeholder="43,41,44,39,40" />
+
+    <label>2H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <input id="a2HAllowed" placeholder="41,40,43,37,41" />
 
   </div>
 
@@ -2050,16 +2108,24 @@ body.dark-mode .tracker-analytics-section-head {
   <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
   <input id="bFTScored" placeholder="83,77,81,79,80" />
 
+  <label>FT Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+  <input id="bFTAllowed" placeholder="78,80,77,76,81" />
 
   <div id="b1HSection" style="display:none;">
     <label>1H Scored</label>
     <input id="b1HScored" placeholder="40,39,42,38,41" />
+
+    <label>1H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <input id="b1HAllowed" placeholder="38,39,37,36,40" />
 
   </div>
 
   <div id="b2HSection" style="display:none;">
     <label>2H Scored <span style="font-size:10px;color:#888;">(second half)</span></label>
     <input id="b2HScored" placeholder="41,38,39,41,39" />
+
+    <label>2H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <input id="b2HAllowed" placeholder="40,41,39,40,41" />
 
   </div>
 
@@ -8680,12 +8746,18 @@ function validateInputs(league) {
   const parsed = {
     aFTScored: parseArrayField("aFTScored", "Team A FT Scored", true),
     bFTScored: parseArrayField("bFTScored", "Team B FT Scored", true),
+    aFTAllowed: parseArrayField("aFTAllowed", "Team A FT Allowed", false),
+    bFTAllowed: parseArrayField("bFTAllowed", "Team B FT Allowed", false),
 
     a1HScored: parseArrayField("a1HScored", "Team A 1H Scored", false, wants1H),
     b1HScored: parseArrayField("b1HScored", "Team B 1H Scored", false, wants1H),
+    a1HAllowed: parseArrayField("a1HAllowed", "Team A 1H Allowed", false, wants1H),
+    b1HAllowed: parseArrayField("b1HAllowed", "Team B 1H Allowed", false, wants1H),
 
     a2HScored: parseArrayField("a2HScored", "Team A 2H Scored", false, has2HActivity),
     b2HScored: parseArrayField("b2HScored", "Team B 2H Scored", false, has2HActivity),
+    a2HAllowed: parseArrayField("a2HAllowed", "Team A 2H Allowed", false, has2HActivity),
+    b2HAllowed: parseArrayField("b2HAllowed", "Team B 2H Allowed", false, has2HActivity),
 
     aFTH2H: parseArrayField("aFTH2H", "Team A FT H2H", false, useFTH2H),
     bFTH2H: parseArrayField("bFTH2H", "Team B FT H2H", false, useFTH2H),
@@ -8793,6 +8865,24 @@ function getManualSeries(side, marketKey, parsed) {
   if (side === "B" && marketKey === "h1") return safeArr(parsed.b1HScored) || [];
   if (side === "A" && marketKey === "h2") return safeArr(parsed.a2HScored) || getExactFetchedSecondHalfSeries("A", "overall", "scored", parsed);
   if (side === "B" && marketKey === "h2") return safeArr(parsed.b2HScored) || getExactFetchedSecondHalfSeries("B", "overall", "scored", parsed);
+  return [];
+}
+
+function getManualAllowedSeries(side, marketKey, parsed) {
+  if (!parsed) return [];
+  if (side === "A" && marketKey === "ft") return safeArr(parsed.aFTAllowed) || [];
+  if (side === "B" && marketKey === "ft") return safeArr(parsed.bFTAllowed) || [];
+  if (side === "A" && marketKey === "h1") return safeArr(parsed.a1HAllowed) || [];
+  if (side === "B" && marketKey === "h1") return safeArr(parsed.b1HAllowed) || [];
+  if (side === "A" && marketKey === "h2") return safeArr(parsed.a2HAllowed) || getExactFetchedSecondHalfSeries("A", "overall", "allowed", parsed);
+  if (side === "B" && marketKey === "h2") return safeArr(parsed.b2HAllowed) || getExactFetchedSecondHalfSeries("B", "overall", "allowed", parsed);
+  return [];
+}
+
+function getAllowedSeries(side, scope, marketKey, parsed) {
+  const fetched = getFetchedSeries(side, scope, marketKey, "allowed");
+  if (Array.isArray(fetched) && fetched.length) return fetched;
+  if (scope === "overall") return getManualAllowedSeries(side, marketKey, parsed);
   return [];
 }
 
@@ -8985,12 +9075,12 @@ function computeFTProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     };
   }
 
-  const aAllowed = getFetchedSeries("A", "overall", "ft", "allowed");
-  const bAllowed = getFetchedSeries("B", "overall", "ft", "allowed");
+  const aAllowed = getAllowedSeries("A", "overall", "ft", parsed);
+  const bAllowed = getAllowedSeries("B", "overall", "ft", parsed);
   const aVenueScored = getFetchedSeries("A", "venue", "ft", "scored");
   const bVenueScored = getFetchedSeries("B", "venue", "ft", "scored");
-  const aVenueAllowed = getFetchedSeries("A", "venue", "ft", "allowed");
-  const bVenueAllowed = getFetchedSeries("B", "venue", "ft", "allowed");
+  const aVenueAllowed = getAllowedSeries("A", "venue", "ft", parsed);
+  const bVenueAllowed = getAllowedSeries("B", "venue", "ft", parsed);
 
   const ftHasH2H =
     maybeReadH2HEnabled("ft") &&
@@ -9122,12 +9212,12 @@ function compute1HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     };
   }
 
-  const aAllowed1 = getFetchedSeries("A", "overall", "h1", "allowed");
-  const bAllowed1 = getFetchedSeries("B", "overall", "h1", "allowed");
+  const aAllowed1 = getAllowedSeries("A", "overall", "h1", parsed);
+  const bAllowed1 = getAllowedSeries("B", "overall", "h1", parsed);
   const aVenueScored1 = getFetchedSeries("A", "venue", "h1", "scored");
   const bVenueScored1 = getFetchedSeries("B", "venue", "h1", "scored");
-  const aVenueAllowed1 = getFetchedSeries("A", "venue", "h1", "allowed");
-  const bVenueAllowed1 = getFetchedSeries("B", "venue", "h1", "allowed");
+  const aVenueAllowed1 = getAllowedSeries("A", "venue", "h1", parsed);
+  const bVenueAllowed1 = getAllowedSeries("B", "venue", "h1", parsed);
 
   const h1HasH2H =
     maybeReadH2HEnabled("h1") &&
@@ -9214,13 +9304,13 @@ function getExactFetchedSecondHalfSeries(side, bucket, kind, parsed) {
     return exact.slice(0, 5);
   }
 
-  const ft = side === "A"
-    ? safeArr(parsed.aFTScored)
-    : safeArr(parsed.bFTScored);
+  const ft = kind === "allowed"
+    ? (side === "A" ? safeArr(parsed.aFTAllowed) : safeArr(parsed.bFTAllowed))
+    : (side === "A" ? safeArr(parsed.aFTScored) : safeArr(parsed.bFTScored));
 
-  const h1 = side === "A"
-    ? safeArr(parsed.a1HScored)
-    : safeArr(parsed.b1HScored);
+  const h1 = kind === "allowed"
+    ? (side === "A" ? safeArr(parsed.a1HAllowed) : safeArr(parsed.b1HAllowed))
+    : (side === "A" ? safeArr(parsed.a1HScored) : safeArr(parsed.b1HScored));
 
   return deriveSecondHalfSeries(ft, h1);
 }
@@ -9287,12 +9377,12 @@ function compute2HProjection({ league, parsed, lines, injMultA = 1, injMultB = 1
     };
   }
 
-  const aAllowed2 = getFetchedSeries("A", "overall", "h2", "allowed");
-  const bAllowed2 = getFetchedSeries("B", "overall", "h2", "allowed");
+  const aAllowed2 = getAllowedSeries("A", "overall", "h2", parsed);
+  const bAllowed2 = getAllowedSeries("B", "overall", "h2", parsed);
   const aVenueScored2 = getFetchedSeries("A", "venue", "h2", "scored");
   const bVenueScored2 = getFetchedSeries("B", "venue", "h2", "scored");
-  const aVenueAllowed2 = getFetchedSeries("A", "venue", "h2", "allowed");
-  const bVenueAllowed2 = getFetchedSeries("B", "venue", "h2", "allowed");
+  const aVenueAllowed2 = getAllowedSeries("A", "venue", "h2", parsed);
+  const bVenueAllowed2 = getAllowedSeries("B", "venue", "h2", parsed);
 
   const h2HasH2H =
     maybeReadH2HEnabled("h2") &&
@@ -11011,11 +11101,47 @@ if (dropB) {
 if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 
 
+
+function setEngineMode(mode = "bb") {
+  const bbIds = [
+    "leagueSection","espnSection","marketSection","teamASection","teamBSection","h2hSection","intelSection"
+  ];
+  const bbVisible = mode !== "tt";
+  bbIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = bbVisible ? "block" : "none";
+  });
+
+  const actions = document.querySelector(".actions");
+  if (actions) actions.style.display = bbVisible ? "block" : "none";
+
+  const resultsWrap = document.getElementById("results")?.closest(".table-wrap");
+  if (resultsWrap) resultsWrap.style.display = bbVisible ? "block" : "none";
+
+  const ttPage = document.getElementById("ttPage");
+  if (ttPage) ttPage.style.display = mode === "tt" ? "block" : "none";
+
+  const bbBtn = document.getElementById("bbModeBtn");
+  const ttBtn = document.getElementById("ttModeBtn");
+  if (bbBtn) bbBtn.classList.toggle("active", mode !== "tt");
+  if (ttBtn) ttBtn.classList.toggle("active", mode === "tt");
+
+  window.__engineMode = mode;
+}
+
       const runBtn = document.getElementById("runBtn");
       if (runBtn) runBtn.addEventListener("click", runEngine);
 
       const clearBtn = document.getElementById("clearBtn");
       if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+      const bbModeBtn = document.getElementById("bbModeBtn");
+      if (bbModeBtn) bbModeBtn.addEventListener("click", () => setEngineMode("bb"));
+
+      const ttModeBtn = document.getElementById("ttModeBtn");
+      if (ttModeBtn) ttModeBtn.addEventListener("click", () => setEngineMode("tt"));
+
+      setEngineMode("bb");
 
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => {
