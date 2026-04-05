@@ -2759,10 +2759,14 @@ function syncH2HCheckbox(kind, forceAuto = false) {
 }
 
 function syncAllH2HCheckboxes(forceAuto = false) {
-  const kinds = getCurrentSportMode && getCurrentSportMode() === SPORT_MODE_TT
+  const kinds = (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT)
     ? ["ft", "h1"]
     : ["ft", "h1", "h2"];
   kinds.forEach(kind => syncH2HCheckbox(kind, forceAuto));
+  if (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) {
+    const cb = document.getElementById("use2HH2H");
+    if (cb) cb.checked = false;
+  }
 }
 
 function queueH2HCheckboxSync(forceAuto = false) {
@@ -3756,6 +3760,8 @@ function buildFetchAuditIssues({
 }) {
   const issues = [];
   const fixtureOpt = getSelectedFixtureOption();
+  const aLabel = league === "tt" ? (teamAName || "Player A") : (teamAName || "Team A");
+  const bLabel = league === "tt" ? (teamBName || "Player B") : (teamBName || "Team B");
 
   if (fixtureOpt) {
     const homeId = String(fixtureOpt.dataset.homeId || "");
@@ -3763,32 +3769,25 @@ function buildFetchAuditIssues({
     const fixtureHome = String(fixtureOpt.dataset.home || "");
     const fixtureAway = String(fixtureOpt.dataset.away || "");
 
-    const sameHomeById =
-      homeId &&
-      String(selectedTeamIds.A || "") &&
-      String(selectedTeamIds.A) === homeId;
+    const sameHomeById = homeId && String(selectedTeamIds.A || "") && String(selectedTeamIds.A) === homeId;
+    const sameAwayById = awayId && String(selectedTeamIds.B || "") && String(selectedTeamIds.B) === awayId;
+    const sameHomeByName = !!teamAName && normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
+    const sameAwayByName = !!teamBName && normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
 
-    const sameAwayById =
-      awayId &&
-      String(selectedTeamIds.B || "") &&
-      String(selectedTeamIds.B) === awayId;
-
-    const sameHomeByName =
-      !!teamAName &&
-      normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
-
-    const sameAwayByName =
-      !!teamBName &&
-      normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
-
-    if (!(sameHomeById || sameHomeByName)) {
-      issues.push("Team A no longer matches the selected fixture.");
-    }
-
-    if (!(sameAwayById || sameAwayByName)) {
-      issues.push("Team B no longer matches the selected fixture.");
-    }
+    if (!(sameHomeById || sameHomeByName)) issues.push(`${aLabel} no longer matches the selected fixture.`);
+    if (!(sameAwayById || sameAwayByName)) issues.push(`${bLabel} no longer matches the selected fixture.`);
   }
+
+  const requireSeriesSample = (count, need, label) => {
+    const n = Number(count || 0);
+    if (!n) {
+      issues.push(`${label} is missing.`);
+      return;
+    }
+    if (n < need) {
+      issues.push(`${label} has only ${n} ${n === 1 ? "entry" : "entries"} — full model needs ${need}.`);
+    }
+  };
 
   const requirePairSample = (scoredCount, allowedCount, need, label) => {
     const scored = Number(scoredCount || 0);
@@ -3805,57 +3804,31 @@ function buildFetchAuditIssues({
     }
   };
 
-  requirePairSample(
-    aStats?.scored?.length,
-    aStats?.scored?.length,
-    5,
-    `${teamAName || "Team A"} overall FT sample`
-  );
+  if (league === "tt") {
+    requireSeriesSample(aStats?.scored?.length, 5, `${aLabel} recent match-points sample`);
+    requireSeriesSample(bStats?.scored?.length, 5, `${bLabel} recent match-points sample`);
+    requireSeriesSample(aStats?.h1Scored?.length, 5, `${aLabel} recent 1st-set sample`);
+    requireSeriesSample(bStats?.h1Scored?.length, 5, `${bLabel} recent 1st-set sample`);
+  } else {
+    requirePairSample(aStats?.scored?.length, aStats?.allowed?.length, 5, `${aLabel} overall FT sample`);
+    requirePairSample(bStats?.scored?.length, bStats?.allowed?.length, 5, `${bLabel} overall FT sample`);
 
-  requirePairSample(
-    bStats?.scored?.length,
-    bStats?.scored?.length,
-    5,
-    `${teamBName || "Team B"} overall FT sample`
-  );
+    if (league === "nba" || league === "ncaa") {
+      requirePairSample(aStats?.h1Scored?.length, aStats?.h1Allowed?.length, 5, `${aLabel} overall 1H sample`);
+      requirePairSample(bStats?.h1Scored?.length, bStats?.h1Allowed?.length, 5, `${bLabel} overall 1H sample`);
 
-  if (league === "nba" || league === "ncaa") {
-    requirePairSample(
-      aStats?.h1Scored?.length,
-      aStats?.h1Scored?.length,
-      5,
-      `${teamAName || "Team A"} overall 1H sample`
-    );
-
-    if (document.getElementById("h2Market")?.value?.trim()) {
-      requirePairSample(
-        aStats?.h2Scored?.length,
-        aStats?.h2Scored?.length,
-        2,
-        `${teamAName || "Team A"} overall exact 2H sample`
-      );
-      requirePairSample(
-        bStats?.h2Scored?.length,
-        bStats?.h2Scored?.length,
-        2,
-        `${teamBName || "Team B"} overall exact 2H sample`
-      );
+      if (document.getElementById("h2Market")?.value?.trim()) {
+        requirePairSample(aStats?.h2Scored?.length, aStats?.h2Allowed?.length, 2, `${aLabel} overall exact 2H sample`);
+        requirePairSample(bStats?.h2Scored?.length, bStats?.h2Allowed?.length, 2, `${bLabel} overall exact 2H sample`);
+      }
     }
-
-    requirePairSample(
-      bStats?.h1Scored?.length,
-      bStats?.h1Scored?.length,
-      5,
-      `${teamBName || "Team B"} overall 1H sample`
-    );
-
   }
 
-
-  if ((h2hGames?.length || 0) === 0) {
-    issues.push("No 2024+ H2H games were found for this matchup.");
-  } else if ((h2hGames?.length || 0) === 1) {
-    issues.push("Only 1 H2H game was found, so H2H is not fully confirmed.");
+  const h2hCount = Number(h2hGames?.length || 0);
+  if (h2hCount === 0) {
+    issues.push(league === "tt" ? "No recent TT H2H matches were found for this pairing." : "No 2024+ H2H games were found for this matchup.");
+  } else if (h2hCount === 1) {
+    issues.push(league === "tt" ? "Only 1 TT H2H match was found, so H2H is not fully confirmed." : "Only 1 H2H game was found, so H2H is not fully confirmed.");
   }
 
   return issues;
@@ -3869,6 +3842,8 @@ function validateFetchSection() {
   const supported = league === "nba" || league === "ncaa" || league === "tt";
   const fixtureOpt = getSelectedFixtureOption();
   const hasActivity = !!teamAName || !!teamBName || !!fixtureOpt;
+  const sideALabel = league === "tt" ? "Player A" : "Team A";
+  const sideBLabel = league === "tt" ? "Player B" : "Team B";
 
   if (!supported) {
     if (fetchBtn) fetchBtn.disabled = true;
@@ -3878,55 +3853,37 @@ function validateFetchSection() {
 
   const errors = [];
 
-    if (hasActivity) {
-    if (!teamAName) errors.push("Team A is empty.");
-    if (!teamBName) errors.push("Team B is empty.");
+  if (hasActivity) {
+    if (!teamAName) errors.push(`${sideALabel} is empty.`);
+    if (!teamBName) errors.push(`${sideBLabel} is empty.`);
 
-    const sameById =
-      selectedTeamIds.A &&
-      selectedTeamIds.B &&
-      String(selectedTeamIds.A) === String(selectedTeamIds.B);
-
-    const sameByName =
-      teamAName &&
-      teamBName &&
-      normalizeTeamName(teamAName) === normalizeTeamName(teamBName);
+    const sameById = selectedTeamIds.A && selectedTeamIds.B && String(selectedTeamIds.A) === String(selectedTeamIds.B);
+    const sameByName = teamAName && teamBName && normalizeTeamName(teamAName) === normalizeTeamName(teamBName);
 
     if (sameById || sameByName) {
-      errors.push("Team A and Team B cannot be the same team.");
+      errors.push(`${sideALabel} and ${sideBLabel} cannot be the same ${league === "tt" ? "player" : "team"}.`);
     }
 
     if (fixtureOpt) {
-  const homeId = String(fixtureOpt.dataset.homeId || "");
-  const awayId = String(fixtureOpt.dataset.awayId || "");
-  const fixtureHome = String(fixtureOpt.dataset.home || "");
-  const fixtureAway = String(fixtureOpt.dataset.away || "");
+      const homeId = String(fixtureOpt.dataset.homeId || "");
+      const awayId = String(fixtureOpt.dataset.awayId || "");
+      const fixtureHome = String(fixtureOpt.dataset.home || "");
+      const fixtureAway = String(fixtureOpt.dataset.away || "");
 
-  const sameHomeById =
-    homeId &&
-    String(selectedTeamIds.A || "") &&
-    String(selectedTeamIds.A) === homeId;
+      const sameHomeById = homeId && String(selectedTeamIds.A || "") && String(selectedTeamIds.A) === homeId;
+      const sameAwayById = awayId && String(selectedTeamIds.B || "") && String(selectedTeamIds.B) === awayId;
+      const sameHomeByName = !!teamAName && normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
+      const sameAwayByName = !!teamBName && normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
 
-  const sameAwayById =
-    awayId &&
-    String(selectedTeamIds.B || "") &&
-    String(selectedTeamIds.B) === awayId;
-
-  const sameHomeByName =
-    !!teamAName &&
-    normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
-
-  const sameAwayByName =
-    !!teamBName &&
-    normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
-
-  if (!(sameHomeById || sameHomeByName)) {
-    errors.push("Team A no longer matches the selected fixture.");
+      if (!(sameHomeById || sameHomeByName)) errors.push(`${sideALabel} no longer matches the selected fixture.`);
+      if (!(sameAwayById || sameAwayByName)) errors.push(`${sideBLabel} no longer matches the selected fixture.`);
+    }
   }
 
-  if (!(sameAwayById || sameAwayByName)) {
-    errors.push("Team B no longer matches the selected fixture.");
-  }
+  const isValid = errors.length === 0 && !!teamAName && !!teamBName;
+  if (fetchBtn) fetchBtn.disabled = !isValid;
+  setFetchInputErrors(hasActivity ? errors : []);
+  return isValid;
 }
   }
 
@@ -7312,8 +7269,8 @@ resetResultsTable();
     }
 
     function updateSectionLocks() {
-  const league = document.getElementById("leagueSelect").value;
-  const isNbaOrNcaa = league === "nba" || league === "ncaa";
+  const league = document.getElementById("leagueSelect")?.value || "";
+  const fetchEnabledLeague = league === "nba" || league === "ncaa" || league === "tt";
 
   if (!league) {
     [
@@ -7333,7 +7290,7 @@ resetResultsTable();
   unlockSection("h2hSection");
   unlockSection("intelSection");
 
-  if (isNbaOrNcaa) unlockSection("espnSection");
+  if (fetchEnabledLeague) unlockSection("espnSection");
   else lockSection("espnSection");
 }
 
@@ -12105,9 +12062,7 @@ function applySportModeUI() {
   if (themeToggleBtn) themeToggleBtn.textContent = isTT ? "🏓" : "🏀";
 
   const brandModeToggle = document.getElementById("brandModeToggle");
-  if (brandModeToggle) {
-    brandModeToggle.title = isTT ? "Switch back to Basketball" : "Switch to TT";
-  }
+  if (brandModeToggle) brandModeToggle.title = isTT ? "Switch back to Basketball" : "Switch to TT";
 
   const leagueSelect = document.getElementById("leagueSelect");
   if (leagueSelect) {
@@ -12148,6 +12103,7 @@ function applySportModeUI() {
       else useFtLabel.appendChild(document.createTextNode(trailingText));
     }
   }
+
   const use1HLabel = document.getElementById("use1HH2HLabel");
   if (use1HLabel) {
     const use1HBox = use1HLabel.querySelector("input");
@@ -12157,16 +12113,6 @@ function applySportModeUI() {
       if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
       else use1HLabel.appendChild(document.createTextNode(trailingText));
     }
-  }
-
-  if (isTT) {
-    g_h2hManualPreference.h2 = null;
-    const tt2HBox = document.getElementById("use2HH2H");
-    if (tt2HBox) tt2HBox.checked = false;
-    const ttA2H = document.getElementById("a2HH2H");
-    const ttB2H = document.getElementById("b2HH2H");
-    if (ttA2H) ttA2H.value = "";
-    if (ttB2H) ttB2H.value = "";
   }
 
   safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
@@ -12188,44 +12134,56 @@ function applySportModeUI() {
   safeSetInputLabel("bFTScored", isTT ? "Recent Match Points" : "FT Scored (recent → oldest)");
   safeSetInputLabel("a1HScored", isTT ? "1st Set Points" : "1H Scored");
   safeSetInputLabel("b1HScored", isTT ? "1st Set Points" : "1H Scored");
-  safeSetInputLabel("a1HAllowed", isTT ? "" : "1H Allowed");
-  safeSetInputLabel("b1HAllowed", isTT ? "" : "1H Allowed");
 
-  const fixtureToolbar = document.getElementById("fixtureToolbar");
-  if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
-  const fixtureSelect = document.getElementById("fixtureSelect");
-  if (fixtureSelect) fixtureSelect.style.display = "block";
-  const fetchBtn = document.getElementById("fetchBtn");
-  if (fetchBtn) { fetchBtn.style.display = "inline-block"; fetchBtn.textContent = isTT ? "🏓 Fetch TT Stats" : "📡 Fetch Stats"; }
-  const fetchStatus = document.getElementById("fetchStatus");
-  if (fetchStatus) fetchStatus.style.display = "block";
-
-  const leagueSection = document.getElementById("leagueSection");
-  if (leagueSection) leagueSection.style.display = "block";
-  const espnSection = document.getElementById("espnSection");
-  if (espnSection) espnSection.style.display = "block";
-  const marketSection = document.getElementById("marketSection");
-  if (marketSection) marketSection.style.display = "block";
-  const teamASection = document.getElementById("teamASection");
-  if (teamASection) teamASection.style.display = "block";
-  const teamBSection = document.getElementById("teamBSection");
-  if (teamBSection) teamBSection.style.display = "block";
-  const h2hSection = document.getElementById("h2hSection");
-  if (h2hSection) h2hSection.style.display = "block";
+  const baseVisibleSections = ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
+  baseVisibleSections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "block";
+  });
 
   const actions = document.querySelector(".actions");
   if (actions) actions.style.display = "block";
   const resultsWrap = document.getElementById("results")?.closest(".table-wrap");
   if (resultsWrap) resultsWrap.style.display = "block";
 
-  const aFTAllowedSection = document.getElementById("aFTAllowedSection");
-  if (aFTAllowedSection) aFTAllowedSection.style.display = isTT ? "none" : "block";
-  const bFTAllowedSection = document.getElementById("bFTAllowedSection");
-  if (bFTAllowedSection) bFTAllowedSection.style.display = isTT ? "none" : "block";
-  const a1HAllowedSection = document.getElementById("a1HAllowedSection");
-  if (a1HAllowedSection) a1HAllowedSection.style.display = isTT ? "none" : "block";
-  const b1HAllowedSection = document.getElementById("b1HAllowedSection");
-  if (b1HAllowedSection) b1HAllowedSection.style.display = isTT ? "none" : "block";
+  const fixtureToolbar = document.getElementById("fixtureToolbar");
+  if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
+  const fixtureSelect = document.getElementById("fixtureSelect");
+  if (fixtureSelect) fixtureSelect.style.display = "block";
+  const fetchBtn = document.getElementById("fetchBtn");
+  if (fetchBtn) {
+    fetchBtn.style.display = "inline-block";
+    fetchBtn.textContent = isTT ? "🏓 Fetch TT Stats" : "📡 Fetch Stats";
+  }
+  const fetchStatus = document.getElementById("fetchStatus");
+  if (fetchStatus) fetchStatus.style.display = "block";
+
+  const showOrHide = (id, show) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? "block" : "none";
+  };
+  const clearInput = id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  };
+  const clearCheckbox = id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  };
+
+  showOrHide("aFTAllowedSection", !isTT);
+  showOrHide("bFTAllowedSection", !isTT);
+  showOrHide("a1HAllowedSection", !isTT);
+  showOrHide("b1HAllowedSection", !isTT);
+  showOrHide("a1HSection", true);
+  showOrHide("b1HSection", true);
+  showOrHide("h2h1HSection", true);
+  showOrHide("h1MarketSection", true);
+  showOrHide("a2HSection", !isTT);
+  showOrHide("b2HSection", !isTT);
+  showOrHide("h2h2HSection", !isTT);
+  showOrHide("h2MarketSection", !isTT);
+
   const teamAMarketInput = document.getElementById("teamAMarket");
   if (teamAMarketInput) {
     const teamALabel = teamAMarketInput.previousElementSibling;
@@ -12240,22 +12198,20 @@ function applySportModeUI() {
     if (teamBLabel && teamBLabel.tagName === "LABEL") teamBLabel.style.display = isTT ? "none" : "block";
     if (isTT) teamBMarketInput.value = "";
   }
-  const injuryBoxA = document.getElementById("injuryBoxA");
-  if (injuryBoxA) injuryBoxA.style.display = isTT ? "none" : "none";
-  const injuryBoxB = document.getElementById("injuryBoxB");
-  if (injuryBoxB) injuryBoxB.style.display = isTT ? "none" : "none";
 
-  ["a2HSection","b2HSection","h2h2HSection","h2MarketSection"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = isTT ? "none" : "block";
-  });
-  ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = "block";
-  });
+  const injuryBoxA = document.getElementById("injuryBoxA");
+  if (injuryBoxA) injuryBoxA.style.display = "none";
+  const injuryBoxB = document.getElementById("injuryBoxB");
+  if (injuryBoxB) injuryBoxB.style.display = "none";
+
   if (isTT) {
-    const h2h2HSection = document.getElementById("h2h2HSection");
-    if (h2h2HSection) h2h2HSection.style.display = "none";
+    g_h2hManualPreference.h2 = null;
+    clearCheckbox("use2HH2H");
+    [
+      "aFTAllowed","bFTAllowed","a1HAllowed","b1HAllowed",
+      "a2HScored","b2HScored","a2HAllowed","b2HAllowed",
+      "a2HH2H","b2HH2H","h2Market","teamAMarket","teamBMarket"
+    ].forEach(clearInput);
   }
 
   const bbBtn = document.getElementById("bbModeBtn");
