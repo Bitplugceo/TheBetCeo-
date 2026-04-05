@@ -2756,13 +2756,16 @@ Any suggestion made here without proof is an audit error.
 const TRACKER_ARCHIVED_LIMIT = 2000;
 const TRACKER_ARCHIVE_AFTER_HOURS = 10;
 const TRACKER_API_URL = WORKER_BASE_URL + "/tracker-state";
-const TRACKER_USER_KEY_STORAGE = "bb_engine_tracker_user_key";
-const TRACKER_LOCAL_STATE_PREFIX = "bb_engine_tracker_state_";
+const TRACKER_USER_KEY_STORAGE_BB = "bb_engine_tracker_user_key";
+const TRACKER_LOCAL_STATE_PREFIX_BB = "bb_engine_tracker_state_";
+const TRACKER_FIXED_USER_KEY_BB = "The_Bet_Ceo_Key"; // pinned BB tracker key
+const TRACKER_USER_KEY_STORAGE_TT = "tt_engine_tracker_user_key";
+const TRACKER_LOCAL_STATE_PREFIX_TT = "tt_engine_tracker_state_";
+const TRACKER_FIXED_USER_KEY_TT = ""; // TT tracker key will be wired later
 const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_NETWORK_TIMEOUT_MS = 12000;
-const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key"; // pinned tracker key
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
@@ -3069,14 +3072,35 @@ function persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league) {
   });
 }
 
-let g_trackerFallbackUserKey = "";
+let g_trackerFallbackUserKeys = { bb: "", tt: "" };
+
+function getTrackerStorageConfig() {
+  const isTT = getCurrentSportMode() === SPORT_MODE_TT;
+  return isTT
+    ? {
+        modeKey: "tt",
+        userKeyStorage: TRACKER_USER_KEY_STORAGE_TT,
+        localStatePrefix: TRACKER_LOCAL_STATE_PREFIX_TT,
+        fixedUserKey: TRACKER_FIXED_USER_KEY_TT
+      }
+    : {
+        modeKey: "bb",
+        userKeyStorage: TRACKER_USER_KEY_STORAGE_BB,
+        localStatePrefix: TRACKER_LOCAL_STATE_PREFIX_BB,
+        fixedUserKey: TRACKER_FIXED_USER_KEY_BB
+      };
+}
+
 function getTrackerUserKey() {
-  if (TRACKER_FIXED_USER_KEY && TRACKER_FIXED_USER_KEY.trim()) {
-    const pinned = TRACKER_FIXED_USER_KEY.trim();
-    g_trackerFallbackUserKey = pinned;
+  const cfg = getTrackerStorageConfig();
+  const fallbackKey = g_trackerFallbackUserKeys[cfg.modeKey] || "";
+
+  if (cfg.fixedUserKey && cfg.fixedUserKey.trim()) {
+    const pinned = cfg.fixedUserKey.trim();
+    g_trackerFallbackUserKeys[cfg.modeKey] = pinned;
 
     try {
-      localStorage.setItem(TRACKER_USER_KEY_STORAGE, pinned);
+      localStorage.setItem(cfg.userKeyStorage, pinned);
     } catch (err) {
       console.error("[BB Engine] failed to persist fixed tracker key", err);
     }
@@ -3084,10 +3108,10 @@ function getTrackerUserKey() {
     return pinned;
   }
 
-  if (g_trackerFallbackUserKey) return g_trackerFallbackUserKey;
+  if (fallbackKey) return fallbackKey;
 
   try {
-    let key = localStorage.getItem(TRACKER_USER_KEY_STORAGE) || "";
+    let key = localStorage.getItem(cfg.userKeyStorage) || "";
 
     if (!key) {
       key =
@@ -3095,26 +3119,29 @@ function getTrackerUserKey() {
           ? crypto.randomUUID()
           : ("trk_" + Date.now() + "_" + Math.random().toString(36).slice(2));
 
-      localStorage.setItem(TRACKER_USER_KEY_STORAGE, key);
+      localStorage.setItem(cfg.userKeyStorage, key);
     }
 
-    g_trackerFallbackUserKey = key;
+    g_trackerFallbackUserKeys[cfg.modeKey] = key;
     return key;
   } catch (err) {
-    g_trackerFallbackUserKey =
-      g_trackerFallbackUserKey ||
-      ("trk_fallback_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+    const fallback =
+      g_trackerFallbackUserKeys[cfg.modeKey] ||
+      ("trk_fallback_" + cfg.modeKey + "_" + Date.now() + "_" + Math.random().toString(36).slice(2));
 
-    return g_trackerFallbackUserKey;
+    g_trackerFallbackUserKeys[cfg.modeKey] = fallback;
+    return fallback;
   }
 }
 
 function getTrackerLocalStateStableKey() {
-  return TRACKER_LOCAL_STATE_PREFIX + getTrackerUserKey();
+  const cfg = getTrackerStorageConfig();
+  return cfg.localStatePrefix + getTrackerUserKey();
 }
 
 function getTrackerLocalStateBuildKey(buildKey = APP_BUILD_VERSION) {
-  return TRACKER_LOCAL_STATE_PREFIX + String(buildKey || "") + "_" + getTrackerUserKey();
+  const cfg = getTrackerStorageConfig();
+  return cfg.localStatePrefix + String(buildKey || "") + "_" + getTrackerUserKey();
 }
 
 function getTrackerLocalStateKey() {
@@ -3789,11 +3816,12 @@ function buildFetchAuditIssues({
 }
 
 function validateFetchSection() {
-  const league = document.getElementById("leagueSelect")?.value || "";
+  const isTTMode = isTTStandaloneMode();
+  const league = isTTMode ? "tt" : (document.getElementById("leagueSelect")?.value || "");
   const fetchBtn = document.getElementById("fetchBtn");
   const teamAName = document.getElementById("teamAName")?.value.trim() || "";
   const teamBName = document.getElementById("teamBName")?.value.trim() || "";
-  const supported = league === "nba" || league === "ncaa" || league === "tt";
+  const supported = isTTMode || league === "nba" || league === "ncaa" || league === "tt";
   const fixtureOpt = getSelectedFixtureOption();
   const hasActivity = !!teamAName || !!teamBName || !!fixtureOpt;
   const sideALabel = league === "tt" ? "Player A" : "Team A";
@@ -7212,8 +7240,9 @@ resetResultsTable();
     }
 
     function updateSectionLocks() {
-  const league = document.getElementById("leagueSelect")?.value || "";
-  const fetchEnabledLeague = league === "nba" || league === "ncaa" || league === "tt";
+  const isTTMode = isTTStandaloneMode();
+  const league = isTTMode ? "tt" : (document.getElementById("leagueSelect")?.value || "");
+  const fetchEnabledLeague = isTTMode || league === "nba" || league === "ncaa" || league === "tt";
 
   if (!league) {
     [
@@ -10415,6 +10444,11 @@ async function runEngine() {
     table.style.display = "table";
     table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
+    if (isTTStandaloneMode()) {
+      await runTableTennisEngine(table);
+      return;
+    }
+
     const league = document.getElementById("leagueSelect")?.value || "";
     const isNba = league === "nba";
     const isNbaOrNcaa = league === "nba" || league === "ncaa";
@@ -10934,7 +10968,7 @@ if (isTTMode) {
 }
 lockFrom("espnSection");
 updateSectionLocks();
-accordionOpen(isTTMode ? "espnSection" : "leagueSection");
+accordionOpen(isTTMode ? "marketSection" : "leagueSection");
 validateFetchSection();
     }
 
@@ -11986,6 +12020,10 @@ function getCurrentSportMode() {
   return g_currentSportMode === SPORT_MODE_TT ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
 }
 
+function isTTStandaloneMode() {
+  return getCurrentSportMode() === SPORT_MODE_TT;
+}
+
 function safeSetText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
@@ -12090,7 +12128,12 @@ function applySportModeUI() {
   safeSetInputLabel("a1HScored", isTT ? "1st Set Points" : "1H Scored");
   safeSetInputLabel("b1HScored", isTT ? "1st Set Points" : "1H Scored");
 
-  const baseVisibleSections = ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
+  const leagueSection = document.getElementById("leagueSection");
+  if (leagueSection) leagueSection.style.display = isTT ? "none" : "block";
+
+  const baseVisibleSections = isTT
+    ? ["espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"]
+    : ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
   baseVisibleSections.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = "block";
@@ -12196,7 +12239,7 @@ function setEngineMode(mode = "bb", fromUser = false, options = {}) {
   }
 
   if (fromUser) {
-    if (typeof accordionOpen === "function") accordionOpen(g_currentSportMode === SPORT_MODE_TT ? "espnSection" : "leagueSection");
+    if (typeof accordionOpen === "function") accordionOpen(g_currentSportMode === SPORT_MODE_TT ? "marketSection" : "leagueSection");
   }
 }
 
