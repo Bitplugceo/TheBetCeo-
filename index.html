@@ -3102,8 +3102,12 @@ function getTrackerLocalStateCandidateKeys() {
 function getTrackerStateLocalScore(state) {
   const active = Array.isArray(state?.activePicks) ? state.activePicks : [];
   const archived = Array.isArray(state?.archivedPicks) ? state.archivedPicks : [];
+  const all = [...active, ...archived];
   const pendingActive = active.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
-  const settledArchived = archived.filter(p => String(p?.resultStatus || "pending").toLowerCase() !== "pending").length;
+  const settledCount = all.filter(p => String(p?.resultStatus || "pending").toLowerCase() !== "pending").length;
+  const wins = all.filter(p => String(p?.resultStatus || "").toLowerCase() === "win").length;
+  const losses = all.filter(p => String(p?.resultStatus || "").toLowerCase() === "loss").length;
+  const pushes = all.filter(p => String(p?.resultStatus || "").toLowerCase() === "push").length;
   const activeCount = active.length;
   const archivedCount = archived.length;
   const totalCount = activeCount + archivedCount;
@@ -3113,7 +3117,10 @@ function getTrackerStateLocalScore(state) {
     hasPicks: totalCount > 0 ? 1 : 0,
     pendingActive,
     totalCount,
-    settledArchived,
+    settledCount,
+    wins,
+    losses,
+    pushes,
     activeCount,
     archivedCount,
     updatedAtMs
@@ -3130,7 +3137,10 @@ function isBetterTrackerStateCandidate(nextState, bestState) {
   if (next.hasPicks !== best.hasPicks) return next.hasPicks > best.hasPicks;
   if (next.pendingActive !== best.pendingActive) return next.pendingActive > best.pendingActive;
   if (next.totalCount !== best.totalCount) return next.totalCount > best.totalCount;
-  if (next.settledArchived !== best.settledArchived) return next.settledArchived > best.settledArchived;
+  if (next.settledCount !== best.settledCount) return next.settledCount > best.settledCount;
+  if (next.wins !== best.wins) return next.wins > best.wins;
+  if (next.losses !== best.losses) return next.losses > best.losses;
+  if (next.pushes !== best.pushes) return next.pushes > best.pushes;
   if (next.activeCount !== best.activeCount) return next.activeCount > best.activeCount;
   if (next.archivedCount !== best.archivedCount) return next.archivedCount > best.archivedCount;
   if (next.updatedAtMs !== best.updatedAtMs) return next.updatedAtMs > best.updatedAtMs;
@@ -4553,12 +4563,33 @@ async function hydrateTrackedPicks(force = false) {
       const serverArchivedCount = getTrackerArchivedPickCount(serverState);
       const mergedArchivedCount = getTrackerArchivedPickCount(mergedState);
 
+      const localSettledCount = Number(localState?.stats?.settled || 0);
+      const serverSettledCount = Number(serverState?.stats?.settled || 0);
+      const mergedSettledCount = Number(mergedState?.stats?.settled || 0);
+      const localWins = Number(localState?.stats?.wins || 0);
+      const serverWins = Number(serverState?.stats?.wins || 0);
+      const mergedWins = Number(mergedState?.stats?.wins || 0);
+      const localLosses = Number(localState?.stats?.losses || 0);
+      const serverLosses = Number(serverState?.stats?.losses || 0);
+      const mergedLosses = Number(mergedState?.stats?.losses || 0);
+      const localPushes = Number(localState?.stats?.pushes || 0);
+      const serverPushes = Number(serverState?.stats?.pushes || 0);
+      const mergedPushes = Number(mergedState?.stats?.pushes || 0);
+
       const shouldPushMerged =
         mergedPendingActive > serverPendingActive ||
         localPendingActive > serverPendingActive ||
         mergedActiveCount > serverActiveCount ||
         localArchivedCount > serverArchivedCount ||
         mergedArchivedCount > serverArchivedCount ||
+        localSettledCount > serverSettledCount ||
+        mergedSettledCount > serverSettledCount ||
+        localWins > serverWins ||
+        mergedWins > serverWins ||
+        localLosses > serverLosses ||
+        mergedLosses > serverLosses ||
+        localPushes > serverPushes ||
+        mergedPushes > serverPushes ||
         (hadLocalState && !serverHasState);
 
       if (shouldPushMerged) {
@@ -6177,33 +6208,14 @@ function getTrackedLeagueBase(league) {
   const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
   let changed = false;
 
-  function sameTrackedMarketKey(a, b) {
-    return (
-      String(a.eventId || "") === String(b.eventId || "") &&
-      String(a.marketKey || "") === String(b.marketKey || "") &&
-      normalizeTeamName(a.homeTeam || "") === normalizeTeamName(b.homeTeam || "") &&
-      normalizeTeamName(a.awayTeam || "") === normalizeTeamName(b.awayTeam || "")
-    );
-  }
-
-  function sameTrackedSideKey(a, b) {
-    return (
-      sameTrackedMarketKey(a, b) &&
-      String(a.side || "").toLowerCase() === String(b.side || "").toLowerCase()
-    );
-  }
-
   newPicks.forEach(raw => {
     const p = ensureTrackedPickKeys(raw);
     if (!p.signature) p.signature = makeTrackedSignature(p);
 
     const exactIdx = current.findIndex(x => makeTrackedSignature(x) === p.signature);
-    const existingIdx = exactIdx !== -1
-      ? exactIdx
-      : current.findIndex(x => sameTrackedSideKey(x, p));
 
-    if (existingIdx !== -1) {
-      const existing = current[existingIdx];
+    if (exactIdx !== -1) {
+      const existing = current[exactIdx];
 
       if (String(existing.resultStatus || "pending").toLowerCase() !== "pending") {
         return;
@@ -6212,8 +6224,8 @@ function getTrackedLeagueBase(league) {
       const sameLine = String(displayLine(existing.line)) === String(displayLine(p.line));
       const betterLine = isBetterLineForSide(p.side, p.line, existing.line);
 
-      if (sameLine || betterLine || exactIdx !== -1) {
-        current[existingIdx] = ensureTrackedPickKeys({
+      if (sameLine || betterLine) {
+        current[exactIdx] = ensureTrackedPickKeys({
           ...existing,
           ...p,
           createdAt: existing.createdAt || p.createdAt,
