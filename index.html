@@ -2759,7 +2759,10 @@ function syncH2HCheckbox(kind, forceAuto = false) {
 }
 
 function syncAllH2HCheckboxes(forceAuto = false) {
-  ["ft", "h1", "h2"].forEach(kind => syncH2HCheckbox(kind, forceAuto));
+  const kinds = getCurrentSportMode && getCurrentSportMode() === SPORT_MODE_TT
+    ? ["ft", "h1"]
+    : ["ft", "h1", "h2"];
+  kinds.forEach(kind => syncH2HCheckbox(kind, forceAuto));
 }
 
 function queueH2HCheckboxSync(forceAuto = false) {
@@ -12156,6 +12159,16 @@ function applySportModeUI() {
     }
   }
 
+  if (isTT) {
+    g_h2hManualPreference.h2 = null;
+    const tt2HBox = document.getElementById("use2HH2H");
+    if (tt2HBox) tt2HBox.checked = false;
+    const ttA2H = document.getElementById("a2HH2H");
+    const ttB2H = document.getElementById("b2HH2H");
+    if (ttA2H) ttA2H.value = "";
+    if (ttB2H) ttB2H.value = "";
+  }
+
   safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
   safeSetPlaceholder("teamBName", isTT ? "e.g. Wang Chuqin" : "e.g. Celtics");
   safeSetPlaceholder("ftMarket", isTT ? "73.5 - 77.5" : "150.5 - 160.5");
@@ -12240,6 +12253,10 @@ function applySportModeUI() {
     const el = document.getElementById(id);
     if (el) el.style.display = "block";
   });
+  if (isTT) {
+    const h2h2HSection = document.getElementById("h2h2HSection");
+    if (h2h2HSection) h2h2HSection.style.display = "none";
+  }
 
   const bbBtn = document.getElementById("bbModeBtn");
   const ttBtn = document.getElementById("ttModeBtn");
