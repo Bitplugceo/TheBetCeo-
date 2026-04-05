@@ -3859,7 +3859,7 @@ function validateFetchSection() {
   const fetchBtn = document.getElementById("fetchBtn");
   const teamAName = document.getElementById("teamAName")?.value.trim() || "";
   const teamBName = document.getElementById("teamBName")?.value.trim() || "";
-  const supported = league === "nba" || league === "ncaa";
+  const supported = league === "nba" || league === "ncaa" || league === "tt";
   const fixtureOpt = getSelectedFixtureOption();
   const hasActivity = !!teamAName || !!teamBName || !!fixtureOpt;
 
@@ -5271,13 +5271,17 @@ function isTrackedPickVisibleOnPage(pick) {
         ) || null;
       })();
 
+      const ttFixture = (!matchedOpt && (document.getElementById("leagueSelect")?.value || "") === "tt")
+        ? (g_ttFetchContext?.fixture || findBestTTFixture(g_ttBoardCache?.data, teamAName, teamBName))
+        : null;
+
       return {
-        eventId: matchedOpt ? (matchedOpt.value || "") : "",
-        eventDate: matchedOpt ? (matchedOpt.dataset.eventDate || "") : "",
-        homeTeam: matchedOpt ? (matchedOpt.dataset.home || teamAName) : teamAName,
-        awayTeam: matchedOpt ? (matchedOpt.dataset.away || teamBName) : teamBName,
-        homeId: matchedOpt ? (matchedOpt.dataset.homeId || String(selectedTeamIds.A || "")) : String(selectedTeamIds.A || ""),
-        awayId: matchedOpt ? (matchedOpt.dataset.awayId || String(selectedTeamIds.B || "")) : String(selectedTeamIds.B || "")
+        eventId: matchedOpt ? (matchedOpt.value || "") : (ttFixture?.eventId || ""),
+        eventDate: matchedOpt ? (matchedOpt.dataset.eventDate || "") : (ttFixture?.eventDate || ""),
+        homeTeam: matchedOpt ? (matchedOpt.dataset.home || teamAName) : (ttFixture?.playerA || teamAName),
+        awayTeam: matchedOpt ? (matchedOpt.dataset.away || teamBName) : (ttFixture?.playerB || teamBName),
+        homeId: matchedOpt ? (matchedOpt.dataset.homeId || String(selectedTeamIds.A || "")) : (ttFixture?.homeId || String(selectedTeamIds.A || "")),
+        awayId: matchedOpt ? (matchedOpt.dataset.awayId || String(selectedTeamIds.B || "")) : (ttFixture?.awayId || String(selectedTeamIds.B || ""))
       };
     }
 
@@ -6373,10 +6377,12 @@ function getTrackedLeagueBase(league) {
 
     let changed = false;
     const pendingPicks = allBuckets.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
+    const pendingTTPicks = pendingPicks.filter(p => p.league === "tt");
+    const pendingEspnPicks = pendingPicks.filter(p => p.league !== "tt");
 
-    if (pendingPicks.length) {
+    if (pendingEspnPicks.length) {
       const eventEntries = [...new Map(
-        pendingPicks
+        pendingEspnPicks
           .map(p => {
             const base = getTrackedLeagueBase(p.league);
             if (!base) return null;
@@ -6396,7 +6402,7 @@ function getTrackedLeagueBase(league) {
 
       const eventMap = new Map(eventResults);
 
-      pendingPicks.forEach(pick => {
+      pendingEspnPicks.forEach(pick => {
         const data = eventMap.get(`${pick.league}:${pick.eventId}`);
         const competition = data?.header?.competitions?.[0];
         if (!competition) return;
@@ -6415,6 +6421,20 @@ function getTrackedLeagueBase(league) {
           changed = true;
         }
       });
+    }
+
+    if (pendingTTPicks.length) {
+      const ttBoard = await fetchTTBoard(true).catch(() => null);
+      if (ttBoard) {
+        pendingTTPicks.forEach(pick => {
+          const settled = settleTrackedTTPickFromBoard(pick, ttBoard);
+          if (settled !== "pending" && pick.resultStatus !== settled) {
+            pick.resultStatus = settled;
+            pick.settledAt = new Date().toISOString();
+            changed = true;
+          }
+        });
+      }
     }
 
     const archivedChanged = archiveExpiredTrackedPicks();
@@ -8232,11 +8252,15 @@ const cls =
       const sel = document.getElementById("fixtureSelect");
       if (!toolbar || !sel) return;
 
-      const supported = league === "nba" || league === "ncaa";
+      const supported = league === "nba" || league === "ncaa" || league === "tt";
       if (!supported) {
         toolbar.style.display = "none";
         sel.style.display = "none";
         sel.innerHTML = '<option value="">— Select match —</option>';
+        return;
+      }
+      if (league === "tt") {
+        await loadTTFixtures();
         return;
       }
 
@@ -8362,6 +8386,10 @@ return isPreGame;
       const teamAName = document.getElementById("teamAName").value.trim();
       const teamBName = document.getElementById("teamBName").value.trim();
 
+      if (league === "tt") {
+        await fetchTTAuto();
+        return;
+      }
       if (!teamAName || !teamBName) {
         setStatusText("❌ Enter both team names first.", "err");
         return;
@@ -10140,7 +10168,7 @@ function getTrackedInputSource(marketKey = "ft") {
   if (!rawSources.length) return "unknown";
 
   const normalized = rawSources.map(src => {
-    if (src === "espn") return "auto";
+    if (src === "espn" || src === "tt_auto") return "auto";
     if (src === "manual") return "manual";
     return src;
   });
@@ -11065,7 +11093,7 @@ if (!league) {
 
       updateSectionLocks();
 if (isNbaOrNcaa) { accordionOpen("espnSection"); loadFixtures(0); }
-else if (isTT) { accordionOpen("espnSection"); }
+else if (isTT) { accordionOpen("espnSection"); loadTTFixtures(); }
 else accordionOpen("marketSection");
 validateFetchSection();
     }
@@ -11167,6 +11195,555 @@ function defaultTTFetchContext() {
     h2h: { aWon: [], bWon: [], aFirstGame: [], bFirstGame: [] },
     source: "manual"
   };
+}
+
+const TT_BOARD_SOURCE_URL = "https://scores24.live/en/table-tennis/l-setka-cup-0";
+const TT_BOARD_CACHE_MS = 60 * 1000;
+let g_ttBoardCache = { ts: 0, data: null, inFlight: null };
+
+function proxyFetchRaw(url, timeoutMs = 15000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+  return fetch(WORKER_URL + "?url=" + encodeURIComponent(url), {
+    signal: ctrl.signal,
+    headers: {}
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("Worker HTTP " + res.status);
+      return res.text();
+    })
+    .then(text => {
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object") {
+          if (typeof parsed.text === "string") return parsed.text;
+          if (typeof parsed.html === "string") return parsed.html;
+          if (typeof parsed.body === "string") return parsed.body;
+          if (typeof parsed.content === "string") return parsed.content;
+        }
+      } catch (e) {}
+      return text;
+    })
+    .finally(() => clearTimeout(timer));
+}
+
+function normalizeTTPlayerName(name) {
+  return normalizeTeamName(String(name || "")).replace(/\s+/g, " ").trim();
+}
+
+function isTTDateLine(line) {
+  return /^\d{2}[./-]\d{2}[./-]\d{2,4}$/.test(String(line || "").trim());
+}
+
+function isTTTimeLine(line) {
+  return /^\d{1,2}:\d{2}$/.test(String(line || "").trim());
+}
+
+function parseTTDateKey(line) {
+  const m = String(line || "").trim().match(/^(\d{2})[./-](\d{2})[./-](\d{2,4})$/);
+  if (!m) return "";
+  let year = Number(m[3]);
+  if (year < 100) year += 2000;
+  return `${String(year).padStart(4, "0")}-${m[2]}-${m[1]}`;
+}
+
+function parseDateKeyFromIso(raw) {
+  const s = String(raw || "").trim();
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const parsed = Date.parse(s);
+  if (!Number.isFinite(parsed)) return "";
+  const d = new Date(parsed);
+  return [d.getUTCFullYear(), String(d.getUTCMonth() + 1).padStart(2, "0"), String(d.getUTCDate()).padStart(2, "0")].join("-");
+}
+
+function buildTTEventDate(dateLine, timeLine = "00:00") {
+  const dateKey = parseTTDateKey(dateLine);
+  if (!dateKey) return "";
+  const time = isTTTimeLine(timeLine) ? timeLine.padStart(5, "0") : "00:00";
+  return `${dateKey}T${time}:00`;
+}
+
+function buildTTSyntheticPlayerId(name) {
+  const clean = normalizeTTPlayerName(name);
+  return clean ? `tt:${clean}` : "";
+}
+
+function buildTTSyntheticEventId(playerA, playerB, dateLine, timeLine = "", suffix = "") {
+  return [
+    "tt",
+    parseTTDateKey(dateLine) || "",
+    isTTTimeLine(timeLine) ? timeLine : "",
+    normalizeTTPlayerName(playerA),
+    normalizeTTPlayerName(playerB),
+    suffix || ""
+  ].join("|");
+}
+
+function stripHtmlToTTLines(raw) {
+  let text = String(raw || "");
+  try {
+    if (/<[a-z][\s\S]*>/i.test(text) && typeof DOMParser !== "undefined") {
+      const doc = new DOMParser().parseFromString(text, "text/html");
+      const inner = doc?.body?.innerText || doc?.body?.textContent || "";
+      if (String(inner).trim()) text = inner;
+    }
+  } catch (e) {}
+
+  return text
+    .replace(/\r/g, "\n")
+    .split(/\n+/)
+    .map(s => String(s || "").replace(/\u00a0/g, " ").trim())
+    .filter(Boolean);
+}
+
+function isTTNoiseLine(line) {
+  const s = String(line || "").trim();
+  if (!s) return true;
+  if (/^image:/i.test(s)) return true;
+  if (/^(subscribe|show more|my matches|favourite|featured event|matches|overview|predictions|details|company|empty for now)$/i.test(s)) return true;
+  if (/^add the matches you are interested in/i.test(s)) return true;
+  if (/^there are no events$/i.test(s)) return true;
+  if (/^w[12]$/i.test(s)) return true;
+  if (s === "-") return true;
+  return false;
+}
+
+function isTTNameLine(line) {
+  const s = String(line || "").trim();
+  if (!s || isTTNoiseLine(s) || isTTDateLine(s) || isTTTimeLine(s)) return false;
+  if (/^(ended|ft|live|scheduled)$/i.test(s)) return false;
+  if (/^\d+(?:st|nd|rd|th) game$/i.test(s)) return false;
+  if (/^(schedule of upcoming matches|latest results|setka cup, world - live matches|other tournaments|articles)$/i.test(s)) return false;
+  if (/^-?\d+(?:\.\d+)?$/.test(s)) return false;
+  return /[A-Za-zÀ-ÿА-Яа-яЁёІіЇїЄє]/.test(s);
+}
+
+function parseTTMatchBlocks(lines, startHeading, endHeadings = [], completed = true) {
+  const startIdx = lines.findIndex(line => String(line || "").toLowerCase().includes(String(startHeading || "").toLowerCase()));
+  if (startIdx === -1) return [];
+
+  const endIdx = (() => {
+    for (let i = startIdx + 1; i < lines.length; i++) {
+      const raw = String(lines[i] || "").toLowerCase();
+      if (endHeadings.some(h => raw.includes(String(h || "").toLowerCase()))) return i;
+    }
+    return lines.length;
+  })();
+
+  const matches = [];
+  let currentDate = "";
+  let ordinal = 0;
+
+  for (let i = startIdx + 1; i < endIdx; i++) {
+    const line = lines[i];
+    if (isTTDateLine(line)) {
+      currentDate = line;
+      continue;
+    }
+    if (!currentDate || !isTTNameLine(line)) continue;
+
+    const playerA = line;
+    let j = i + 1;
+    while (j < endIdx && !isTTNameLine(lines[j]) && !isTTDateLine(lines[j])) j += 1;
+    if (j >= endIdx || !isTTNameLine(lines[j])) continue;
+    const playerB = lines[j];
+
+    let k = j + 1;
+    const nums = [];
+    while (k < endIdx) {
+      const token = String(lines[k] || "").trim();
+      if (isTTDateLine(token)) break;
+      if (/^(other tournaments|articles)$/i.test(token)) break;
+      if (/^(ended|ft|scheduled|live)$/i.test(token) || /^\d+(?:st|nd|rd|th) game$/i.test(token) || isTTNoiseLine(token)) {
+        k += 1;
+        continue;
+      }
+      if (/^-?\d+(?:\.\d+)?$/.test(token)) {
+        nums.push(Number(token));
+        k += 1;
+        continue;
+      }
+      if (isTTNameLine(token) && nums.length > 0) break;
+      k += 1;
+    }
+
+    if (nums.length >= 4) {
+      ordinal += 1;
+      const setsA = Number(nums[0]);
+      const setsB = Number(nums[1]);
+      const firstGameA = Number(nums[2]);
+      const firstGameB = Number(nums[3]);
+      const setScores = [];
+      for (let p = 2; p + 1 < nums.length; p += 2) {
+        setScores.push([Number(nums[p]), Number(nums[p + 1])]);
+      }
+      matches.push({
+        playerA,
+        playerB,
+        setsA,
+        setsB,
+        firstGameA,
+        firstGameB,
+        firstGameTotal: (isFinite(firstGameA) && isFinite(firstGameB)) ? (firstGameA + firstGameB) : NaN,
+        setScores,
+        dateRaw: currentDate,
+        timeRaw: "",
+        eventDate: buildTTEventDate(currentDate),
+        eventId: buildTTSyntheticEventId(playerA, playerB, currentDate, "", String(ordinal)),
+        completed,
+        orderIndex: ordinal
+      });
+      i = k - 1;
+    }
+  }
+
+  return matches;
+}
+
+function parseTTUpcomingFixtures(lines) {
+  const startIdx = lines.findIndex(line => String(line || "").toLowerCase().includes("schedule of upcoming matches"));
+  if (startIdx === -1) return [];
+  const endIdx = (() => {
+    for (let i = startIdx + 1; i < lines.length; i++) {
+      const raw = String(lines[i] || "").toLowerCase();
+      if (raw.includes("latest results") || raw.includes("other tournaments") || raw.includes("articles")) return i;
+    }
+    return lines.length;
+  })();
+
+  const fixtures = [];
+  let currentDate = "";
+
+  for (let i = startIdx + 1; i < endIdx; i++) {
+    const line = lines[i];
+    if (isTTDateLine(line)) {
+      currentDate = line;
+      continue;
+    }
+    if (!currentDate || !isTTTimeLine(line)) continue;
+
+    const timeRaw = line;
+    const names = [];
+    let j = i + 1;
+    while (j < endIdx && names.length < 2) {
+      const token = lines[j];
+      if (isTTDateLine(token) || isTTTimeLine(token)) break;
+      if (isTTNameLine(token)) names.push(token);
+      j += 1;
+    }
+
+    if (names.length === 2) {
+      const playerA = names[0];
+      const playerB = names[1];
+      fixtures.push({
+        playerA,
+        playerB,
+        dateRaw: currentDate,
+        timeRaw,
+        eventDate: buildTTEventDate(currentDate, timeRaw),
+        eventId: buildTTSyntheticEventId(playerA, playerB, currentDate, timeRaw),
+        homeId: buildTTSyntheticPlayerId(playerA),
+        awayId: buildTTSyntheticPlayerId(playerB)
+      });
+      i = j - 1;
+    }
+  }
+
+  return fixtures;
+}
+
+function parseTTBoardPayload(raw) {
+  const lines = stripHtmlToTTLines(raw);
+  return {
+    sourceUrl: TT_BOARD_SOURCE_URL,
+    lines,
+    live: parseTTMatchBlocks(lines, "live matches", ["schedule of upcoming matches"], false),
+    upcoming: parseTTUpcomingFixtures(lines),
+    results: parseTTMatchBlocks(lines, "latest results", ["other tournaments", "articles"], true),
+    fetchedAt: new Date().toISOString()
+  };
+}
+
+async function fetchTTBoard(force = false) {
+  const now = Date.now();
+  if (!force && g_ttBoardCache.data && (now - g_ttBoardCache.ts) < TT_BOARD_CACHE_MS) {
+    return g_ttBoardCache.data;
+  }
+  if (!force && g_ttBoardCache.inFlight) return g_ttBoardCache.inFlight;
+
+  const req = proxyFetchRaw(TT_BOARD_SOURCE_URL, 18000)
+    .then(raw => parseTTBoardPayload(raw))
+    .then(data => {
+      g_ttBoardCache = { ts: Date.now(), data, inFlight: null };
+      return data;
+    })
+    .catch(err => {
+      g_ttBoardCache.inFlight = null;
+      throw err;
+    });
+
+  g_ttBoardCache.inFlight = req;
+  return req;
+}
+
+function getTTPairOrder(result, playerA, playerB) {
+  const a = normalizeTTPlayerName(playerA);
+  const b = normalizeTTPlayerName(playerB);
+  const rA = normalizeTTPlayerName(result?.playerA);
+  const rB = normalizeTTPlayerName(result?.playerB);
+  if (a && b && rA === a && rB === b) return 1;
+  if (a && b && rA === b && rB === a) return -1;
+  return 0;
+}
+
+function findTTRecentSeries(board, playerName, limit = 5) {
+  const target = normalizeTTPlayerName(playerName);
+  const recent = { setsWon: [], firstGamePoints: [] };
+  if (!target) return recent;
+
+  (Array.isArray(board?.results) ? board.results : []).forEach(result => {
+    if (recent.setsWon.length >= limit) return;
+    const rA = normalizeTTPlayerName(result?.playerA);
+    const rB = normalizeTTPlayerName(result?.playerB);
+    if (target !== rA && target !== rB) return;
+    recent.setsWon.push(target === rA ? Number(result.setsA) : Number(result.setsB));
+    recent.firstGamePoints.push(target === rA ? Number(result.firstGameA) : Number(result.firstGameB));
+  });
+
+  return recent;
+}
+
+function findTTH2HSeries(board, playerA, playerB, limit = 5) {
+  const out = { aWon: [], bWon: [], aFirstGame: [], bFirstGame: [], count: 0 };
+  (Array.isArray(board?.results) ? board.results : []).forEach(result => {
+    if (out.aWon.length >= limit) return;
+    const order = getTTPairOrder(result, playerA, playerB);
+    if (!order) return;
+    const aWon = order === 1 ? Number(result.setsA) : Number(result.setsB);
+    const bWon = order === 1 ? Number(result.setsB) : Number(result.setsA);
+    const aFirst = order === 1 ? Number(result.firstGameA) : Number(result.firstGameB);
+    const bFirst = order === 1 ? Number(result.firstGameB) : Number(result.firstGameA);
+    out.aWon.push(aWon);
+    out.bWon.push(bWon);
+    out.aFirstGame.push(aFirst);
+    out.bFirstGame.push(bFirst);
+  });
+  out.count = Math.min(out.aWon.length, out.bWon.length);
+  return out;
+}
+
+function findBestTTFixture(board, playerA, playerB) {
+  const fixtures = Array.isArray(board?.upcoming) ? board.upcoming : [];
+  return fixtures.find(f => getTTPairOrder({ playerA: f.playerA, playerB: f.playerB }, playerA, playerB) === 1) || null;
+}
+
+async function loadTTFixtures() {
+  const myToken = ++_fixtureLoadToken;
+  const sel = document.getElementById("fixtureSelect");
+  const toolbar = document.getElementById("fixtureToolbar");
+  if (!sel) return;
+  if (toolbar) toolbar.style.display = "none";
+  sel.style.display = "block";
+  sel.innerHTML = '<option value="">Loading TT matches...</option>';
+  sel.value = "";
+  selectedTeamIds = { A: null, B: null };
+  validateFetchSection();
+
+  try {
+    const board = await fetchTTBoard(true);
+    if (myToken !== _fixtureLoadToken) return;
+    const fixtures = Array.isArray(board?.upcoming) ? board.upcoming : [];
+    if (!fixtures.length) {
+      sel.innerHTML = '<option value="">No upcoming TT matches</option>';
+      return;
+    }
+
+    sel.innerHTML = '<option value="">— Select TT match —</option>';
+    fixtures.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = String(f.eventId || "");
+      opt.textContent = `${f.timeRaw || "--:--"} — ${f.playerA} vs ${f.playerB}`;
+      opt.dataset.home = f.playerA || "";
+      opt.dataset.away = f.playerB || "";
+      opt.dataset.homeId = f.homeId || buildTTSyntheticPlayerId(f.playerA);
+      opt.dataset.awayId = f.awayId || buildTTSyntheticPlayerId(f.playerB);
+      opt.dataset.eventDate = f.eventDate || "";
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    if (myToken !== _fixtureLoadToken) return;
+    logDebug("loadTTFixtures failed", e);
+    sel.innerHTML = '<option value="">Unable to load TT matches</option>';
+  }
+}
+
+async function fetchTTAuto() {
+  const league = document.getElementById("leagueSelect")?.value || "";
+  const teamAInput = document.getElementById("teamAName");
+  const teamBInput = document.getElementById("teamBName");
+  const fixtureOpt = getSelectedFixtureOption();
+  if (fixtureOpt?.dataset?.home && teamAInput && !teamAInput.value.trim()) teamAInput.value = fixtureOpt.dataset.home;
+  if (fixtureOpt?.dataset?.away && teamBInput && !teamBInput.value.trim()) teamBInput.value = fixtureOpt.dataset.away;
+
+  const teamAName = String(teamAInput?.value || "").trim();
+  const teamBName = String(teamBInput?.value || "").trim();
+  if (!teamAName || !teamBName) {
+    setStatusText("❌ Enter both player names first.", "err");
+    return;
+  }
+  if (league !== "tt") {
+    setStatusText("❌ TT auto-fetch only works in TT mode.", "err");
+    return;
+  }
+  if (normalizeTTPlayerName(teamAName) === normalizeTTPlayerName(teamBName)) {
+    setStatusText("❌ Player A and Player B cannot be the same.", "err");
+    return;
+  }
+
+  const btn = document.getElementById("fetchBtn");
+  if (btn) btn.disabled = true;
+  setFetchAuditIssues([]);
+  resetResultsTable();
+  setStatusHTML('<span class="spinner"></span>Fetching TT board...', "loading");
+
+  try {
+    const board = await fetchTTBoard(true);
+    const recentA = findTTRecentSeries(board, teamAName, 5);
+    const recentB = findTTRecentSeries(board, teamBName, 5);
+    const h2h = findTTH2HSeries(board, teamAName, teamBName, 5);
+    const fixture = fixtureOpt?.value
+      ? {
+          eventId: String(fixtureOpt.value || ""),
+          eventDate: String(fixtureOpt.dataset.eventDate || ""),
+          playerA: String(fixtureOpt.dataset.home || teamAName),
+          playerB: String(fixtureOpt.dataset.away || teamBName),
+          homeId: String(fixtureOpt.dataset.homeId || buildTTSyntheticPlayerId(teamAName)),
+          awayId: String(fixtureOpt.dataset.awayId || buildTTSyntheticPlayerId(teamBName))
+        }
+      : findBestTTFixture(board, teamAName, teamBName);
+
+    if (!recentA.setsWon.length && !recentB.setsWon.length && !h2h.count) {
+      throw new Error("No recent TT data found for these players.");
+    }
+
+    clearSideFields("A");
+    clearSideFields("B");
+    clearH2HFields();
+
+    document.getElementById("aFTScored").value = recentA.setsWon.join(",");
+    document.getElementById("bFTScored").value = recentB.setsWon.join(",");
+    document.getElementById("a1HScored").value = recentA.firstGamePoints.join(",");
+    document.getElementById("b1HScored").value = recentB.firstGamePoints.join(",");
+
+    if (h2h.aWon.length) document.getElementById("aFTH2H").value = h2h.aWon.join(",");
+    if (h2h.bWon.length) document.getElementById("bFTH2H").value = h2h.bWon.join(",");
+    if (h2h.aFirstGame.length) document.getElementById("a1HH2H").value = h2h.aFirstGame.join(",");
+    if (h2h.bFirstGame.length) document.getElementById("b1HH2H").value = h2h.bFirstGame.join(",");
+
+    if (h2h.count >= 2) {
+      syncH2HCheckbox("ft", false);
+      syncH2HCheckbox("h1", false);
+      queueH2HCheckboxSync(false);
+    } else {
+      syncAllH2HCheckboxes(false);
+      queueH2HCheckboxSync(false);
+    }
+
+    const aTag = document.getElementById("aAutoTag");
+    const bTag = document.getElementById("bAutoTag");
+    const h2hTag = document.getElementById("h2hAutoTag");
+    if (aTag) aTag.style.display = recentA.setsWon.length ? "inline" : "none";
+    if (bTag) bTag.style.display = recentB.setsWon.length ? "inline" : "none";
+    if (h2hTag) h2hTag.style.display = h2h.count ? "inline" : "none";
+
+    selectedTeamIds.A = fixture?.homeId || buildTTSyntheticPlayerId(teamAName);
+    selectedTeamIds.B = fixture?.awayId || buildTTSyntheticPlayerId(teamBName);
+
+    g_fetchMeta.A = {
+      ft: { source: "tt_auto", venueReliable: true },
+      h1: { source: "tt_auto", venueReliable: true },
+      h2: { source: "manual", venueReliable: true }
+    };
+    g_fetchMeta.B = {
+      ft: { source: "tt_auto", venueReliable: true },
+      h1: { source: "tt_auto", venueReliable: true },
+      h2: { source: "manual", venueReliable: true }
+    };
+
+    g_ttFetchContext = {
+      fixture: fixture ? {
+        eventId: fixture.eventId || "",
+        eventDate: fixture.eventDate || "",
+        playerA: fixture.playerA || teamAName,
+        playerB: fixture.playerB || teamBName,
+        homeId: fixture.homeId || selectedTeamIds.A,
+        awayId: fixture.awayId || selectedTeamIds.B
+      } : null,
+      A: { playerName: teamAName, setsWon: [...recentA.setsWon], firstGamePoints: [...recentA.firstGamePoints] },
+      B: { playerName: teamBName, setsWon: [...recentB.setsWon], firstGamePoints: [...recentB.firstGamePoints] },
+      h2h: { aWon: [...h2h.aWon], bWon: [...h2h.bWon], aFirstGame: [...h2h.aFirstGame], bFirstGame: [...h2h.bFirstGame] },
+      source: "auto"
+    };
+
+    const notes = [];
+    notes.push(`${safeText(teamAName)} recent: ${recentA.setsWon.length} matches ✅`);
+    notes.push(`${safeText(teamBName)} recent: ${recentB.setsWon.length} matches ✅`);
+    if (h2h.count >= 2) notes.push(`TT H2H: ${h2h.count} matches ✅`);
+    else if (h2h.count === 1) notes.push("TT H2H: 1 match found (min 2 to auto-enable)");
+    else notes.push("TT H2H: no recent matchup found");
+    if (fixture?.eventDate) notes.push(`Fixture linked: ${safeText((fixture.playerA || teamAName) + " vs " + (fixture.playerB || teamBName))} ✅`);
+    setStatusText(notes.join(" • "), "ok");
+  } catch (e) {
+    logDebug("fetchTTAuto failed", e);
+    setStatusText(`❌ ${e?.message || "Unable to fetch TT data."}`, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+    validateFetchSection();
+  }
+}
+
+function settleTrackedTTPickFromBoard(pick, board) {
+  if (!pick || !board) return "pending";
+  const results = Array.isArray(board.results) ? board.results : [];
+  const pickDateKey = parseDateKeyFromIso(pick.eventDate);
+
+  const candidates = results
+    .map(result => {
+      const order = getTTPairOrder(result, pick.homeTeam, pick.awayTeam);
+      if (!order) return null;
+      const resultDateKey = parseDateKeyFromIso(result.eventDate || buildTTEventDate(result.dateRaw || ""));
+      return {
+        result,
+        order,
+        sameDate: !!pickDateKey && !!resultDateKey && pickDateKey === resultDateKey,
+        score: (!!pickDateKey && !!resultDateKey && pickDateKey === resultDateKey ? 10 : 0) + (order === 1 ? 3 : 1) - Number(result.orderIndex || 0) * 0.001
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
+
+  if (!candidates.length) return "pending";
+
+  const best = candidates[0];
+  const result = best.result;
+  const setsA = best.order === 1 ? Number(result.setsA) : Number(result.setsB);
+  const setsB = best.order === 1 ? Number(result.setsB) : Number(result.setsA);
+  let actual = NaN;
+
+  if (pick.marketKey === "ft") actual = setsA + setsB;
+  else if (pick.marketKey === "team_a") actual = setsA;
+  else if (pick.marketKey === "team_b") actual = setsB;
+  else if (pick.marketKey === "h1") actual = Number(result.firstGameTotal);
+
+  if (!isFinite(actual)) return "pending";
+  const line = Number(pick.line);
+  if (!isFinite(line)) return "pending";
+  if (Math.abs(actual - line) < 0.001) return "push";
+  if (pick.side === "over") return actual > line ? "win" : "loss";
+  if (pick.side === "under") return actual < line ? "win" : "loss";
+  return "pending";
 }
 
 function safeSetInputLabel(inputId, value) {
@@ -11344,12 +11921,18 @@ async function runTableTennisEngine(table) {
   const teamAName = String(document.getElementById("teamAName")?.value || "").trim();
   const teamBName = String(document.getElementById("teamBName")?.value || "").trim();
 
+  const priorTTFixture = g_ttFetchContext?.fixture || findBestTTFixture(g_ttBoardCache?.data, teamAName, teamBName) || null;
+  const sameAutoTTContext =
+    g_ttFetchContext?.source === "auto" &&
+    normalizeTTPlayerName(g_ttFetchContext?.A?.playerName) === normalizeTTPlayerName(teamAName) &&
+    normalizeTTPlayerName(g_ttFetchContext?.B?.playerName) === normalizeTTPlayerName(teamBName);
+
   g_ttFetchContext = {
-    fixture: null,
+    fixture: priorTTFixture,
     A: { playerName: teamAName, setsWon: [...aWon], firstGamePoints: [...aFirst] },
     B: { playerName: teamBName, setsWon: [...bWon], firstGamePoints: [...bFirst] },
     h2h: { aWon: [...h2hA], bWon: [...h2hB], aFirstGame: [...h2hAFirst], bFirstGame: [...h2hBFirst] },
-    source: "manual"
+    source: sameAutoTTContext ? "auto" : "manual"
   };
 
   const maxSets = inferTTMaxSets(aWon, bWon, h2hA, h2hB);
@@ -11589,7 +12172,7 @@ function applySportModeUI() {
   }
 
   safeSetSectionTitle("espnSection", isTT
-    ? '🏓 TT Inputs <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(header switch mode)</span>'
+    ? '🏓 TT Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(Setka Cup)</span>'
     : '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
   safeSetText("fixtureSelectLabel", isTT ? "Select Setka Cup match" : "Select match");
   safeSetText("teamALabel", isTT ? "Player A Name" : "Team A Name (Home)");
@@ -11647,11 +12230,11 @@ function applySportModeUI() {
   const fixtureToolbar = document.getElementById("fixtureToolbar");
   if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
   const fixtureSelect = document.getElementById("fixtureSelect");
-  if (fixtureSelect) fixtureSelect.style.display = isTT ? "none" : "block";
+  if (fixtureSelect) fixtureSelect.style.display = "block";
   const fetchBtn = document.getElementById("fetchBtn");
-  if (fetchBtn) fetchBtn.style.display = isTT ? "none" : "inline-block";
+  if (fetchBtn) { fetchBtn.style.display = "inline-block"; fetchBtn.textContent = isTT ? "🏓 Fetch TT Stats" : "📡 Fetch Stats"; }
   const fetchStatus = document.getElementById("fetchStatus");
-  if (fetchStatus) fetchStatus.style.display = isTT ? "none" : "block";
+  if (fetchStatus) fetchStatus.style.display = "block";
 
   const leagueSection = document.getElementById("leagueSection");
   if (leagueSection) leagueSection.style.display = "block";
