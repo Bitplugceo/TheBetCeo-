@@ -4834,6 +4834,9 @@ function renderTrackedPicks() {
     .filter(p => supportedTrackerMarkets.includes(String(p?.marketKey || "")));
   const allPicks = [...activePicks, ...archivedPicks];
   const visiblePicks = allPicks.filter(isTrackedPickVisibleOnPage);
+  const displayPicks = (visiblePicks.length ? visiblePicks : allPicks)
+    .slice()
+    .sort((a, b) => getTrackedPickTimeMs(b) - getTrackedPickTimeMs(a));
 
   rebuildTrackerStats();
   renderTrackerAnalytics();
@@ -4846,9 +4849,13 @@ function renderTrackedPicks() {
     pushes: 0
   };
 
-  const pendingCount = visiblePicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+  const pendingCount = allPicks.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+  const visibleLabel = visiblePicks.length
+    ? `${visiblePicks.length} live/recent`
+    : (allPicks.length ? `${allPicks.length} saved` : "0 tracked");
+
   summaryEl.textContent =
-    `${visiblePicks.length} tracked • ${pendingCount} pending • ${stats.wins} wins • ${stats.losses} losses • ${stats.pushes} pushes`;
+    `${visibleLabel} • ${pendingCount} pending • ${stats.wins} wins • ${stats.losses} losses • ${stats.pushes} pushes`;
 
   const marketLabels = {
     ft: "FT",
@@ -4861,7 +4868,7 @@ function renderTrackedPicks() {
   const marketKeys = ["ft", "h1", "h2", "team_a", "team_b"];
 
   const chips = marketKeys.map(key => {
-    const group = visiblePicks.filter(p => p.marketKey === key);
+    const group = allPicks.filter(p => p.marketKey === key);
     if (!group.length) return "";
 
     const pending = group.filter(p => String(p.resultStatus || "pending").toLowerCase() === "pending").length;
@@ -4873,9 +4880,9 @@ function renderTrackedPicks() {
   marketSummaryEl.innerHTML = chips.join("");
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
-  if (!visiblePicks.length) {
+  if (!displayPicks.length) {
     emptyEl.style.display = g_trackerInsightsOpen ? "none" : "block";
-    emptyEl.textContent = "No tracked picks from the last 10 hours.";
+    emptyEl.textContent = "No tracked picks saved yet.";
 
     marketSummaryEl.style.display = "none";
     marketSummaryEl.innerHTML = "";
@@ -4887,7 +4894,7 @@ function renderTrackedPicks() {
   emptyEl.style.display = "none";
   wrapEl.style.display = "block";
 
-  const rows = [...visiblePicks].sort((a, b) => getTrackedPickTimeMs(b) - getTrackedPickTimeMs(a));
+  const rows = displayPicks;
 
   bodyEl.innerHTML = rows.map(p => {
     const status = String(p.resultStatus || "pending").toLowerCase();
