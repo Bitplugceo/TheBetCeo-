@@ -2713,11 +2713,11 @@ function syncH2HCheckbox(kind, forceAuto = false) {
 }
 
 function syncAllH2HCheckboxes(forceAuto = false) {
-  const kinds = (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT)
+  const kinds = (isTTModeActive())
     ? ["ft", "h1"]
     : ["ft", "h1", "h2"];
   kinds.forEach(kind => syncH2HCheckbox(kind, forceAuto));
-  if (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) {
+  if (isTTModeActive()) {
     const cb = document.getElementById("use2HH2H");
     if (cb) cb.checked = false;
   }
@@ -3072,7 +3072,7 @@ function persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league) {
 
 let g_trackerFallbackUserKey = "";
 function getTrackerNamespace() {
-  return (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) ? "tt" : "bb";
+  return (isTTModeActive()) ? "tt" : "bb";
 }
 
 function getTrackerFixedUserKeyForCurrentMode() {
@@ -5265,7 +5265,7 @@ function isTrackedPickVisibleOnPage(pick) {
         ) || null;
       })();
 
-      const ttFixture = (!matchedOpt && typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT)
+      const ttFixture = (!matchedOpt && isTTModeActive())
         ? (g_ttFetchContext?.fixture || findBestTTFixture(g_ttBoardCache?.data, teamAName, teamBName))
         : null;
 
@@ -7299,7 +7299,7 @@ resetResultsTable();
     }
 
     function updateSectionLocks() {
-  const isTTMode = typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT;
+  const isTTMode = isTTModeActive();
   const league = isTTMode ? "tt" : (document.getElementById("leagueSelect")?.value || "");
   const fetchEnabledLeague = isTTMode || league === "nba" || league === "ncaa";
 
@@ -7636,7 +7636,7 @@ validateFetchSection();
         section.classList.remove("locked");
       });
 
-      if (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) {
+      if (isTTModeActive()) {
         updateSectionLocks();
         validateFetchSection();
         return;
@@ -10511,7 +10511,7 @@ async function runEngine() {
     table.style.display = "table";
     table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
-    const isTTMode = typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT;
+    const isTTMode = isTTModeActive();
     const league = isTTMode ? "tt" : (document.getElementById("leagueSelect")?.value || "");
     const isNba = !isTTMode && league === "nba";
     const isNbaOrNcaa = !isTTMode && (league === "nba" || league === "ncaa");
@@ -11064,7 +11064,7 @@ if (trackedToSave.length) {
       g_h2hManualPreference.h1 = null;
       g_h2hManualPreference.h2 = null;
 
-      document.querySelectorAll("input").forEach(i => {
+      document.querySelectorAll("input, textarea").forEach(i => {
         if (i.type === "checkbox") i.checked = false;
         else i.value = "";
         i.style.borderColor = "";
@@ -11089,6 +11089,23 @@ if (trackedToSave.length) {
       setFieldValues(FIELD_GROUPS.h2h);
       syncAllH2HCheckboxes(false);
 
+      [
+        "teamAName","teamBName","ftMarket","h1Market",
+        "aFTScored","bFTScored","a1HScored","b1HScored",
+        "aFTH2H","bFTH2H","a1HH2H","b1HH2H"
+      ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.value = "";
+          el.style.borderColor = "";
+        }
+      });
+
+      ["useFTH2H", "use1HH2H", "use2HH2H"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
+
       setDisplayValues(FIELD_GROUPS.autoTags, "none");
       hideInjuryBox("A");
       hideInjuryBox("B");
@@ -11103,7 +11120,12 @@ if (trackedToSave.length) {
       setFetchInputErrors([]);
       closeDrop("dropA");
       closeDrop("dropB");
-      resetResultsTable();
+
+      const resultsTable = document.getElementById("results");
+      if (resultsTable) {
+        resultsTable.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
+        resultsTable.style.display = "none";
+      }
 
       const fixtureSelect = document.getElementById("fixtureSelect");
       if (fixtureSelect) {
@@ -11148,7 +11170,7 @@ if (trackedToSave.length) {
     }
 
     function clearAll() {
-      if (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) {
+      if (isTTModeActive()) {
         clearTTModeState();
         return;
       }
@@ -11755,7 +11777,7 @@ async function fetchTTAuto() {
     setStatusText("❌ Enter both player names first.", "err");
     return;
   }
-  if (league !== "tt") {
+  if (!isTTModeActive()) {
     setStatusText("❌ TT auto-fetch only works in TT mode.", "err");
     return;
   }
@@ -12210,6 +12232,13 @@ function getCurrentSportMode() {
   return g_currentSportMode === SPORT_MODE_TT ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
 }
 
+function isTTModeActive() {
+  const explicitMode = g_currentSportMode === SPORT_MODE_TT;
+  const bodyMode = document.body?.dataset?.sportMode === SPORT_MODE_TT;
+  const leagueValue = document.getElementById("leagueSelect")?.value === "tt";
+  return !!(explicitMode || bodyMode || leagueValue);
+}
+
 function safeSetText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
@@ -12456,7 +12485,13 @@ function toggleSportMode() {
       if (runBtn) runBtn.addEventListener("click", runEngine);
 
       const clearBtn = document.getElementById("clearBtn");
-      if (clearBtn) clearBtn.addEventListener("click", clearAll);
+      if (clearBtn) {
+        clearBtn.onclick = e => {
+          e.preventDefault();
+          e.stopPropagation();
+          clearAll();
+        };
+      }
 
       const brandModeToggle = document.getElementById("brandModeToggle");
       if (brandModeToggle) {
