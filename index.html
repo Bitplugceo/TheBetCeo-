@@ -2713,11 +2713,11 @@ function syncH2HCheckbox(kind, forceAuto = false) {
 }
 
 function syncAllH2HCheckboxes(forceAuto = false) {
-  const kinds = (isTTModeActive())
+  const kinds = (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT)
     ? ["ft", "h1"]
     : ["ft", "h1", "h2"];
   kinds.forEach(kind => syncH2HCheckbox(kind, forceAuto));
-  if (isTTModeActive()) {
+  if (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) {
     const cb = document.getElementById("use2HH2H");
     if (cb) cb.checked = false;
   }
@@ -2763,7 +2763,6 @@ const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key"; // pinned tracker key
-const TRACKER_FIXED_USER_KEY_TT = "The_Bet_Ceo_Key__TT_TEMP"; // isolated TT tracker namespace until the live TT key is wired in
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
@@ -3071,46 +3070,32 @@ function persistLineMemoryFromFinalPicks(finalPicks, fixtureMeta, league) {
 }
 
 let g_trackerFallbackUserKey = "";
-function getTrackerNamespace() {
-  return (isTTModeActive()) ? "tt" : "bb";
-}
-
-function getTrackerFixedUserKeyForCurrentMode() {
-  const pinned = getTrackerNamespace() === "tt" ? TRACKER_FIXED_USER_KEY_TT : TRACKER_FIXED_USER_KEY;
-  return String(pinned || "").trim();
-}
-
-function getTrackerUserStorageKey() {
-  return TRACKER_USER_KEY_STORAGE + "_" + getTrackerNamespace();
-}
-
 function getTrackerUserKey() {
-  const fixedKey = getTrackerFixedUserKeyForCurrentMode();
-  if (fixedKey) {
-    g_trackerFallbackUserKey = fixedKey;
+  if (TRACKER_FIXED_USER_KEY && TRACKER_FIXED_USER_KEY.trim()) {
+    const pinned = TRACKER_FIXED_USER_KEY.trim();
+    g_trackerFallbackUserKey = pinned;
 
     try {
-      localStorage.setItem(getTrackerUserStorageKey(), fixedKey);
+      localStorage.setItem(TRACKER_USER_KEY_STORAGE, pinned);
     } catch (err) {
       console.error("[BB Engine] failed to persist fixed tracker key", err);
     }
 
-    return fixedKey;
+    return pinned;
   }
 
   if (g_trackerFallbackUserKey) return g_trackerFallbackUserKey;
 
   try {
-    const storageKey = getTrackerUserStorageKey();
-    let key = localStorage.getItem(storageKey) || "";
+    let key = localStorage.getItem(TRACKER_USER_KEY_STORAGE) || "";
 
     if (!key) {
       key =
         (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
           ? crypto.randomUUID()
-          : ("trk_" + getTrackerNamespace() + "_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+          : ("trk_" + Date.now() + "_" + Math.random().toString(36).slice(2));
 
-      localStorage.setItem(storageKey, key);
+      localStorage.setItem(TRACKER_USER_KEY_STORAGE, key);
     }
 
     g_trackerFallbackUserKey = key;
@@ -3118,7 +3103,7 @@ function getTrackerUserKey() {
   } catch (err) {
     g_trackerFallbackUserKey =
       g_trackerFallbackUserKey ||
-      ("trk_fallback_" + getTrackerNamespace() + "_" + Date.now() + "_" + Math.random().toString(36).slice(2));
+      ("trk_fallback_" + Date.now() + "_" + Math.random().toString(36).slice(2));
 
     return g_trackerFallbackUserKey;
   }
@@ -4145,78 +4130,6 @@ function applySmartLineToPick(pickRow, rawInput, league) {
         smartLine: baseLine,
         cushion: 0,
         reason: rangeMeta?.isRange ? "range_kept_mid" : "single_line"
-      }
-    };
-  }
-
-  if (league === "tt") {
-    const ttMarketKey = marketType === "h1" ? "h1" : "ft";
-    const ttFloor = ttMarketKey === "h1" ? 1.25 : 2.1;
-
-    const candidates = enumerateRangeLines(rangeMeta)
-      .map(line => {
-        const edge = proj - line;
-        const candidatePick = getTTPick(edge, ttMarketKey);
-        const candidateSide = getPickSideFromText(candidatePick);
-        return { line, edge, candidatePick, candidateSide };
-      })
-      .filter(row =>
-        row &&
-        row.candidateSide === side &&
-        isFinite(row.edge) &&
-        Math.abs(row.edge) >= ttFloor
-      );
-
-    if (!candidates.length) {
-      return {
-        ...pickRow,
-        pick: "NO PLAY",
-        confidence: "—",
-        note: pickRow.note || "TT range gate: no playable line survives the entered band",
-        decisionLine: baseLine,
-        trackerLine: baseLine,
-        displayLineUsed: baseLine,
-        displayEdge: baseEdge,
-        displayPick: "NO PLAY",
-        smartLineMeta: {
-          ...rangeMeta,
-          applied: false,
-          smartLine: baseLine,
-          cushion: ttFloor,
-          reason: "tt_range_rejected"
-        }
-      };
-    }
-
-    const chosen =
-      side === "over"
-        ? candidates.reduce((best, row) => !best || row.line > best.line ? row : best, null)
-        : candidates.reduce((best, row) => !best || row.line < best.line ? row : best, null);
-
-    return {
-      ...pickRow,
-      line: chosen.line,
-      edge: chosen.edge,
-      pick: chosen.candidatePick,
-      confidence: getTTConfidenceGrade({
-        pick: chosen.candidatePick,
-        edge: chosen.edge,
-        sampleSize: pickRow.ttMeta?.sampleSize,
-        h2hCount: pickRow.ttMeta?.h2hCount,
-        marketKey: ttMarketKey
-      }),
-      decisionLine: baseLine,
-      trackerLine: chosen.line,
-      displayLineUsed: chosen.line,
-      displayEdge: chosen.edge,
-      displayPick: chosen.candidatePick,
-      smartLineMeta: {
-        ...rangeMeta,
-        applied: true,
-        smartLine: chosen.line,
-        cushion: ttFloor,
-        boundary: side === "over" ? "max_playable" : "min_playable",
-        reason: side === "over" ? "tt_highest_playable_over_line" : "tt_lowest_playable_under_line"
       }
     };
   }
@@ -5265,7 +5178,7 @@ function isTrackedPickVisibleOnPage(pick) {
         ) || null;
       })();
 
-      const ttFixture = (!matchedOpt && isTTModeActive())
+      const ttFixture = (!matchedOpt && (document.getElementById("leagueSelect")?.value || "") === "tt")
         ? (g_ttFetchContext?.fixture || findBestTTFixture(g_ttBoardCache?.data, teamAName, teamBName))
         : null;
 
@@ -7299,11 +7212,10 @@ resetResultsTable();
     }
 
     function updateSectionLocks() {
-  const isTTMode = isTTModeActive();
-  const league = isTTMode ? "tt" : (document.getElementById("leagueSelect")?.value || "");
-  const fetchEnabledLeague = isTTMode || league === "nba" || league === "ncaa";
+  const league = document.getElementById("leagueSelect")?.value || "";
+  const fetchEnabledLeague = league === "nba" || league === "ncaa" || league === "tt";
 
-  if (!league && !isTTMode) {
+  if (!league) {
     [
       "espnSection",
       "marketSection",
@@ -7320,7 +7232,6 @@ resetResultsTable();
   unlockSection("teamBSection");
   unlockSection("h2hSection");
   unlockSection("intelSection");
-  unlockSection("leagueSection");
 
   if (fetchEnabledLeague) unlockSection("espnSection");
   else lockSection("espnSection");
@@ -7635,13 +7546,6 @@ validateFetchSection();
         section.classList.add("collapsed");
         section.classList.remove("locked");
       });
-
-      if (isTTModeActive()) {
-        updateSectionLocks();
-        validateFetchSection();
-        return;
-      }
-
       lockFrom("espnSection");
       openSection("leagueSection");
     }
@@ -9104,7 +9008,7 @@ function getMarketKeyFromName(name) {
   if (name === "Team A Total") return "team_a";
   if (name === "Team B Total") return "team_b";
   if (name === "Match Total Points") return "ft";
-  if (name === "1st Set Total Points") return "h1";
+  if (name === "1st Game Total Points") return "h1";
   return "other";
 }
 
@@ -10497,7 +10401,96 @@ if (payload) tracked.push(payload);
   return tracked;
 }
 
+function isTTContextActive() {
+  const leagueValue = String(document.getElementById("leagueSelect")?.value || "").trim().toLowerCase();
+  const datasetMode = String(document.body?.dataset?.sportMode || "").trim().toLowerCase();
+  const engineMode = String(window.__engineMode || "").trim().toLowerCase();
+  return getCurrentSportMode() === SPORT_MODE_TT || leagueValue === "tt" || datasetMode === "tt" || engineMode === "tt";
+}
+
+function clearTableTennisState() {
+  _fetchToken++;
+  _fixtureLoadToken++;
+  _teamSearchToken.A++;
+  _teamSearchToken.B++;
+  unlockFetchBtn();
+
+  selectedTeamIds = { A: null, B: null };
+  g_lastFetchedTeams = { A: "", B: "" };
+  g_fetchMeta = defaultFetchMeta();
+  g_massacreFetchContext = defaultMassacreFetchContext();
+  g_ttFetchContext = defaultTTFetchContext();
+  g_h2hManualPreference.ft = null;
+  g_h2hManualPreference.h1 = null;
+  g_h2hManualPreference.h2 = null;
+
+  g_currentSportMode = SPORT_MODE_TT;
+  try { localStorage.setItem(SPORT_MODE_STORAGE_KEY, SPORT_MODE_TT); } catch (e) {}
+
+  const ttInputs = [
+    "teamAName","teamBName",
+    "ftMarket","h1Market",
+    "aFTScored","bFTScored",
+    "a1HScored","b1HScored",
+    "aFTH2H","bFTH2H",
+    "a1HH2H","b1HH2H"
+  ];
+  ttInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = "";
+    el.style.borderColor = "";
+  });
+
+  ["useFTH2H","use1HH2H","use2HH2H"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+
+  [
+    "aFTAllowed","bFTAllowed","a1HAllowed","b1HAllowed",
+    "a2HScored","b2HScored","a2HAllowed","b2HAllowed",
+    "a2HH2H","b2HH2H","h2Market","teamAMarket","teamBMarket"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if ("checked" in el && el.type === "checkbox") el.checked = false;
+    else el.value = "";
+    el.style.borderColor = "";
+  });
+
+  const leagueSelect = document.getElementById("leagueSelect");
+  if (leagueSelect) {
+    if (!g_basketballLeagueOptionsHtml) g_basketballLeagueOptionsHtml = leagueSelect.innerHTML;
+    if (leagueSelect.innerHTML !== TT_LEAGUE_OPTIONS_HTML) leagueSelect.innerHTML = TT_LEAGUE_OPTIONS_HTML;
+    leagueSelect.value = "tt";
+  }
+
+  const fixtureSelect = document.getElementById("fixtureSelect");
+  if (fixtureSelect) fixtureSelect.value = "";
+
+  hideInjuryBox("A");
+  hideInjuryBox("B");
+  g_injA = defaultInjuryMeta();
+  g_injB = defaultInjuryMeta();
+
+  setDisplayValues(FIELD_GROUPS.autoTags, "none");
+  setStatusText("", "");
+  setFetchAuditIssues([]);
+  closeDrop("dropA");
+  closeDrop("dropB");
+  resetResultsTable();
+  applySportModeUI();
+
+  const fetchStatus = document.getElementById("fetchStatus");
+  if (fetchStatus) {
+    fetchStatus.textContent = "";
+    fetchStatus.className = "";
+  }
+}
+
 async function runEngine() {
+
   const runBtn = document.getElementById("runBtn");
   const table = document.getElementById("results");
 
@@ -10511,18 +10504,18 @@ async function runEngine() {
     table.style.display = "table";
     table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
-    const isTTMode = isTTModeActive();
-    const league = isTTMode ? "tt" : (document.getElementById("leagueSelect")?.value || "");
-    const isNba = !isTTMode && league === "nba";
-    const isNbaOrNcaa = !isTTMode && (league === "nba" || league === "ncaa");
+    const ttModeActive = isTTContextActive();
+    const league = ttModeActive ? "tt" : (document.getElementById("leagueSelect")?.value || "");
+    const isNba = league === "nba";
+    const isNbaOrNcaa = league === "nba" || league === "ncaa";
 
-    if (!isTTMode && !league) {
-      showRunError(table, "⚠ Select a league first.");
+    if (ttModeActive) {
+      await runTableTennisEngine(table);
       return;
     }
 
-    if (isTTMode) {
-      await runTableTennisEngine(table);
+    if (!league) {
+      showRunError(table, "⚠ Select a league first.");
       return;
     }
 
@@ -10957,7 +10950,12 @@ if (trackedToSave.length) {
   }
 }
 
-    function clearBasketballState() {
+    function clearAll() {
+      if (isTTContextActive()) {
+        clearTableTennisState();
+        return;
+      }
+
       _fetchToken++;
       _fixtureLoadToken++;
       _teamSearchToken.A++;
@@ -10972,8 +10970,11 @@ if (trackedToSave.length) {
       g_h2hManualPreference.h1 = null;
       g_h2hManualPreference.h2 = null;
 
+      const currentMode = getCurrentSportMode();
+      const isTTMode = currentMode === SPORT_MODE_TT;
+
       const ls = document.getElementById("leagueSelect");
-      if (ls) ls.value = "";
+      if (ls) ls.value = isTTMode ? "tt" : "";
 
       document.querySelectorAll("input").forEach(i => {
         if (i.type !== "checkbox") i.value = "";
@@ -10981,27 +10982,20 @@ if (trackedToSave.length) {
         i.style.borderColor = "";
       });
 
-      document.querySelectorAll("select").forEach(sel => {
-        if (sel.id === "leagueSelect") return;
-        sel.selectedIndex = 0;
-        sel.style.borderColor = "";
-      });
-
-      setFieldValues(FIELD_GROUPS.markets);
+                  setFieldValues(FIELD_GROUPS.markets);
       setFieldValues(FIELD_GROUPS.intelFields);
       setFieldValues(FIELD_GROUPS.teamAOverall);
       setFieldValues(FIELD_GROUPS.teamBOverall);
       setFieldValues(FIELD_GROUPS.h2h);
-
       const espn = document.getElementById("espnSection");
       if (espn) espn.style.display = "none";
 
       ["a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = "none";
-      });
+  const el = document.getElementById(id);
+  if (el) el.style.display = "none";
+});
 
-      setDisplayValues(FIELD_GROUPS.autoTags, "none");
+           setDisplayValues(FIELD_GROUPS.autoTags, "none");
 
       hideInjuryBox("A");
       hideInjuryBox("B");
@@ -11012,169 +11006,31 @@ if (trackedToSave.length) {
       _fixtureCache.clear();
 
       setStatusText("", "");
-      setFetchAuditIssues([]);
-      closeDrop("dropA");
-      closeDrop("dropB");
-      setFetchInputErrors([]);
-
+setFetchAuditIssues([]);
+closeDrop("dropA");
+closeDrop("dropB");
       const t = document.getElementById("results");
-      if (t) {
-        t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
-        t.style.display = "none";
-      }
-
+if (t) {
+  t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
+  t.style.display = "none";
+}
       const fixtureSelect = document.getElementById("fixtureSelect");
-      if (fixtureSelect) {
-        fixtureSelect.innerHTML = '<option value="">— Select match —</option>';
-        fixtureSelect.value = "";
-      }
+      if (fixtureSelect) { fixtureSelect.innerHTML = '<option value="">— Select match —</option>'; fixtureSelect.value = ""; }
 
       document.querySelectorAll(".section").forEach(s => {
         s.classList.add("collapsed");
         s.classList.remove("locked");
       });
 
-      applySportModeUI();
-      lockFrom("espnSection");
-      updateSectionLocks();
-      accordionOpen("leagueSection");
-      validateFetchSection();
-      updateIntelligencePack();
-    }
-
-    function clearTTModeState() {
-      _fetchToken++;
-      _fixtureLoadToken++;
-      _teamSearchToken.A++;
-      _teamSearchToken.B++;
-
-      const sectionCollapsedState = {};
-      document.querySelectorAll(".section").forEach(section => {
-        if (section && section.id) {
-          sectionCollapsedState[section.id] = section.classList.contains("collapsed");
-        }
-      });
-
-      selectedTeamIds = { A: null, B: null };
-      g_lastFetchedTeams = { A: "", B: "" };
-      g_fetchMeta = defaultFetchMeta();
-      g_massacreFetchContext = defaultMassacreFetchContext();
-      g_ttFetchContext = defaultTTFetchContext();
-      g_h2hManualPreference.ft = null;
-      g_h2hManualPreference.h1 = null;
-      g_h2hManualPreference.h2 = null;
-
-      document.querySelectorAll("input, textarea").forEach(i => {
-        if (i.type === "checkbox") i.checked = false;
-        else i.value = "";
-        i.style.borderColor = "";
-      });
-
-      document.querySelectorAll("select").forEach(sel => {
-        if (sel.id === "leagueSelect") return;
-        sel.selectedIndex = 0;
-        sel.style.borderColor = "";
-      });
-
-      const leagueSelect = document.getElementById("leagueSelect");
-      if (leagueSelect) {
-        leagueSelect.value = "tt";
-        leagueSelect.style.borderColor = "";
-      }
-
-      setFieldValues(FIELD_GROUPS.markets);
-      setFieldValues(FIELD_GROUPS.intelFields);
-      setFieldValues(FIELD_GROUPS.teamAOverall);
-      setFieldValues(FIELD_GROUPS.teamBOverall);
-      setFieldValues(FIELD_GROUPS.h2h);
-      syncAllH2HCheckboxes(false);
-
-      [
-        "teamAName","teamBName","ftMarket","h1Market",
-        "aFTScored","bFTScored","a1HScored","b1HScored",
-        "aFTH2H","bFTH2H","a1HH2H","b1HH2H"
-      ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.value = "";
-          el.style.borderColor = "";
-        }
-      });
-
-      ["useFTH2H", "use1HH2H", "use2HH2H"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.checked = false;
-      });
-
-      setDisplayValues(FIELD_GROUPS.autoTags, "none");
-      hideInjuryBox("A");
-      hideInjuryBox("B");
-      g_injA = defaultInjuryMeta();
-      g_injB = defaultInjuryMeta();
-
-      _schedCache.clear();
-      _summaryCache.clear();
-
-      setStatusText("", "");
-      setFetchAuditIssues([]);
-      setFetchInputErrors([]);
-      closeDrop("dropA");
-      closeDrop("dropB");
-
-      const resultsTable = document.getElementById("results");
-      if (resultsTable) {
-        resultsTable.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
-        resultsTable.style.display = "none";
-      }
-
-      const fixtureSelect = document.getElementById("fixtureSelect");
-      if (fixtureSelect) {
-        const preserved = [...fixtureSelect.options]
-          .filter(opt => opt && opt.value)
-          .map(opt => ({
-            value: opt.value,
-            text: opt.textContent || "",
-            home: opt.dataset.home || "",
-            away: opt.dataset.away || "",
-            homeId: opt.dataset.homeId || "",
-            awayId: opt.dataset.awayId || "",
-            eventDate: opt.dataset.eventDate || ""
-          }));
-
-        fixtureSelect.innerHTML = '<option value="">— Select TT match —</option>';
-        preserved.forEach(row => {
-          const opt = document.createElement("option");
-          opt.value = row.value;
-          opt.textContent = row.text;
-          opt.dataset.home = row.home;
-          opt.dataset.away = row.away;
-          opt.dataset.homeId = row.homeId;
-          opt.dataset.awayId = row.awayId;
-          opt.dataset.eventDate = row.eventDate;
-          fixtureSelect.appendChild(opt);
-        });
-        fixtureSelect.value = "";
-      }
-
-      applySportModeUI();
-      updateSectionLocks();
-      validateFetchSection();
-      updateIntelligencePack();
-
-      Object.keys(sectionCollapsedState).forEach(id => {
-        const section = document.getElementById(id);
-        if (!section) return;
-        if (sectionCollapsedState[id]) section.classList.add("collapsed");
-        else section.classList.remove("collapsed");
-      });
-    }
-
-    function clearAll() {
-      if (isTTModeActive()) {
-        clearTTModeState();
-        return;
-      }
-      clearBasketballState();
+applySportModeUI();
+if (isTTMode) {
+  const ls2 = document.getElementById("leagueSelect");
+  if (ls2) ls2.value = "tt";
+}
+lockFrom("espnSection");
+updateSectionLocks();
+accordionOpen(isTTMode ? "espnSection" : "leagueSection");
+validateFetchSection();
     }
 
     function onLeagueChange() {
@@ -11777,7 +11633,7 @@ async function fetchTTAuto() {
     setStatusText("❌ Enter both player names first.", "err");
     return;
   }
-  if (!isTTModeActive()) {
+  if (league !== "tt") {
     setStatusText("❌ TT auto-fetch only works in TT mode.", "err");
     return;
   }
@@ -12025,7 +11881,7 @@ function validateTTInputs() {
   const h1LineRaw = String(document.getElementById("h1Market")?.value || "").trim();
   const h1Line = h1LineRaw ? parseMarketLine(h1LineRaw) : null;
   if (document.getElementById("ftMarket")?.value?.trim() && ftLine === null) { errors.push("Match Total Points: invalid line"); markInvalid("ftMarket"); }
-  if (h1LineRaw && h1Line === null) { errors.push("1st Set Total Points: invalid line"); markInvalid("h1Market"); }
+  if (h1LineRaw && h1Line === null) { errors.push("1st Game Total Points: invalid line"); markInvalid("h1Market"); }
 
   if (ftLine === null && h1Line === null) {
     errors.push("Enter at least one TT market line first.");
@@ -12052,7 +11908,7 @@ function validateTTInputs() {
 
   if (h1Line !== null) {
     if (Math.min(aFirst.length, bFirst.length) < 2) {
-      errors.push("1st Set Total Points needs at least 2 first-set points entries for both players.");
+      errors.push("1st Game Total Points needs at least 2 1st-game points entries for both players.");
       if (aFirst.length < 2) markInvalid("a1HScored");
       if (bFirst.length < 2) markInvalid("b1HScored");
     }
@@ -12065,7 +11921,7 @@ function validateTTInputs() {
   }
 
   if (use1HH2H && Math.min(h2hAFirst.length, h2hBFirst.length) < 2) {
-    errors.push("1st Set H2H is checked, but both 1st-set H2H fields need at least 2 matches.");
+    errors.push("1st Game H2H is checked, but both 1st-game H2H fields need at least 2 matches.");
     if (h2hAFirst.length < 2) markInvalid("a1HH2H");
     if (h2hBFirst.length < 2) markInvalid("b1HH2H");
   }
@@ -12153,8 +12009,7 @@ async function runTableTennisEngine(table) {
       pick: ftPick,
       confidence: getTTConfidenceGrade({ pick: ftPick, edge: ftEdge, sampleSize, h2hCount, marketKey: "ft" }),
       note: sampleSize < 6 ? "Thin TT sample" : null,
-      fullModel: true,
-      ttMeta: { sampleSize, h2hCount, marketKey: "ft" }
+      fullModel: true
     });
   }
 
@@ -12163,7 +12018,7 @@ async function runTableTennisEngine(table) {
     const h1Pick = getTTPick(h1Edge, "h1");
     rows.push({
       _idx: 1,
-      name: "1st Set Total Points",
+      name: "1st Game Total Points",
       marketKey: "h1",
       marketType: "h1",
       league,
@@ -12174,8 +12029,7 @@ async function runTableTennisEngine(table) {
       pick: h1Pick,
       confidence: getTTConfidenceGrade({ pick: h1Pick, edge: h1Edge, sampleSize: firstSampleSize, h2hCount: firstH2HCount, marketKey: "h1" }),
       note: firstSampleSize < 6 ? "Thin TT first-set sample" : null,
-      fullModel: true,
-      ttMeta: { sampleSize: firstSampleSize, h2hCount: firstH2HCount, marketKey: "h1" }
+      fullModel: true
     });
   }
 
@@ -12184,15 +12038,10 @@ async function runTableTennisEngine(table) {
     return;
   }
 
-  const rawMarketInputs = getRawMarketInputMap();
-  const finalPicksForDisplay = rows
-    .map(p => applySmartLineToPick(p, rawMarketInputs[p.marketKey], league))
-    .filter(Boolean);
-
-  const markets = finalPicksForDisplay.map(p => ({
+  const markets = rows.map(p => ({
     _idx: p._idx,
-    edge: isFinite(p.displayEdge) ? p.displayEdge : p.edge,
-    line: isFinite(p.displayLineUsed) ? p.displayLineUsed : p.line,
+    edge: p.edge,
+    line: p.line,
     pick: p.pick,
     fullModel: p.fullModel,
     confidence: p.confidence,
@@ -12204,7 +12053,7 @@ async function runTableTennisEngine(table) {
 
   const trackedToSave = buildResultRows({
     table,
-    finalPicks: finalPicksForDisplay,
+    finalPicks: rows,
     lockIdx,
     fixtureMeta: getCurrentFixtureMeta(),
     league,
@@ -12230,13 +12079,6 @@ async function runTableTennisEngine(table) {
 
 function getCurrentSportMode() {
   return g_currentSportMode === SPORT_MODE_TT ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
-}
-
-function isTTModeActive() {
-  const explicitMode = g_currentSportMode === SPORT_MODE_TT;
-  const bodyMode = document.body?.dataset?.sportMode === SPORT_MODE_TT;
-  const leagueValue = document.getElementById("leagueSelect")?.value === "tt";
-  return !!(explicitMode || bodyMode || leagueValue);
 }
 
 function safeSetText(id, value) {
@@ -12272,28 +12114,17 @@ function applySportModeUI() {
   const brandModeToggle = document.getElementById("brandModeToggle");
   if (brandModeToggle) brandModeToggle.title = isTT ? "Switch back to Basketball" : "Switch to TT";
 
-  safeSetSectionTitle("leagueSection", isTT ? "TT Mode" : "League Tier");
-
   const leagueSelect = document.getElementById("leagueSelect");
-  const leagueSection = document.getElementById("leagueSection");
-  const leagueLabel = leagueSection ? leagueSection.querySelector('.section-body > label') : null;
-  if (leagueLabel) {
-    leagueLabel.textContent = isTT ? "Setka Cup only" : "Select League";
-    leagueLabel.style.display = "block";
-  }
-
   if (leagueSelect) {
     if (!g_basketballLeagueOptionsHtml) g_basketballLeagueOptionsHtml = leagueSelect.innerHTML;
     if (isTT) {
       if (leagueSelect.innerHTML !== TT_LEAGUE_OPTIONS_HTML) leagueSelect.innerHTML = TT_LEAGUE_OPTIONS_HTML;
-      leagueSelect.value = "tt";
-      leagueSelect.style.display = "none";
+      if (!leagueSelect.value) leagueSelect.value = "tt";
     } else {
       if (g_basketballLeagueOptionsHtml && leagueSelect.innerHTML !== g_basketballLeagueOptionsHtml) {
         leagueSelect.innerHTML = g_basketballLeagueOptionsHtml;
       }
       if (leagueSelect.value === "tt") leagueSelect.value = "";
-      leagueSelect.style.display = "block";
     }
   }
 
@@ -12305,7 +12136,7 @@ function applySportModeUI() {
   safeSetText("teamBLabel", isTT ? "Player B Name" : "Team B Name (Away)");
   safeSetSectionTitle("marketSection", isTT ? "TT Market Lines" : "Market Lines");
   safeSetText("ftMarketLabel", isTT ? "Match Total Points" : "FT Total");
-  safeSetInputLabel("h1Market", isTT ? "1st Set Total Points" : "1H Total");
+  safeSetInputLabel("h1Market", isTT ? "1st Game Total Points" : "1H Total");
   safeSetText("teamAMarketLabel", isTT ? "" : "Team A Total");
   safeSetText("teamBMarketLabel", isTT ? "" : "Team B Total");
   safeSetSectionTitle("teamASection", isTT ? 'Player A - Recent Match Points <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
@@ -12327,7 +12158,7 @@ function applySportModeUI() {
   if (use1HLabel) {
     const use1HBox = use1HLabel.querySelector("input");
     if (use1HBox) {
-      const trailingText = isTT ? " Use 1st Set H2H (min 2 matches)" : " Use 1H H2H (min 2 games)";
+      const trailingText = isTT ? " Use 1st Game H2H (min 2 matches)" : " Use 1H H2H (min 2 games)";
       const nodes = [...use1HLabel.childNodes].filter(node => node.nodeType === Node.TEXT_NODE);
       if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
       else use1HLabel.appendChild(document.createTextNode(trailingText));
@@ -12336,8 +12167,8 @@ function applySportModeUI() {
 
   safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
   safeSetPlaceholder("teamBName", isTT ? "e.g. Wang Chuqin" : "e.g. Celtics");
-  safeSetPlaceholder("ftMarket", isTT ? "77.5 - 80.5 or 79.5" : "150.5 - 160.5");
-  safeSetPlaceholder("h1Market", isTT ? "18.5 - 20.5 or 19.5" : "105.5 - 110.5");
+  safeSetPlaceholder("ftMarket", isTT ? "73.5 - 77.5" : "150.5 - 160.5");
+  safeSetPlaceholder("h1Market", isTT ? "18.5 - 20.5" : "105.5 - 110.5");
   safeSetPlaceholder("teamAMarket", isTT ? "" : "75.5 - 79.5");
   safeSetPlaceholder("teamBMarket", isTT ? "" : "75.5 - 79.5");
   safeSetPlaceholder("aFTScored", isTT ? "38,41,35,39,42" : "85,79,88,74,82");
@@ -12351,8 +12182,8 @@ function applySportModeUI() {
 
   safeSetInputLabel("aFTScored", isTT ? "Recent Match Points" : "FT Scored (recent → oldest)");
   safeSetInputLabel("bFTScored", isTT ? "Recent Match Points" : "FT Scored (recent → oldest)");
-  safeSetInputLabel("a1HScored", isTT ? "1st Set Points" : "1H Scored");
-  safeSetInputLabel("b1HScored", isTT ? "1st Set Points" : "1H Scored");
+  safeSetInputLabel("a1HScored", isTT ? "1st Game Points" : "1H Scored");
+  safeSetInputLabel("b1HScored", isTT ? "1st Game Points" : "1H Scored");
 
   const baseVisibleSections = ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
   baseVisibleSections.forEach(id => {
@@ -12438,9 +12269,8 @@ function applySportModeUI() {
 
 function setEngineMode(mode = "bb", fromUser = false, options = {}) {
   const bootRestore = !!(options && options.bootRestore);
-  const nextMode = mode === "tt" ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
 
-  g_currentSportMode = nextMode;
+  g_currentSportMode = mode === "tt" ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
   try { localStorage.setItem(SPORT_MODE_STORAGE_KEY, g_currentSportMode); } catch (e) {}
   applySportModeUI();
 
@@ -12450,16 +12280,7 @@ function setEngineMode(mode = "bb", fromUser = false, options = {}) {
     else if (leagueSelect.value === "tt") leagueSelect.value = "";
   }
 
-  if (g_currentSportMode === SPORT_MODE_TT) {
-    updateSectionLocks();
-    validateFetchSection();
-
-    if (!bootRestore && typeof loadTTFixtures === "function") {
-      Promise.resolve()
-        .then(() => loadTTFixtures())
-        .catch(err => console.error("[TT Engine] loadTTFixtures on mode switch failed", err));
-    }
-  } else if (typeof onLeagueChange === "function") {
+  if (typeof onLeagueChange === "function") {
     if (bootRestore) {
       updateSectionLocks();
       validateFetchSection();
@@ -12467,9 +12288,6 @@ function setEngineMode(mode = "bb", fromUser = false, options = {}) {
       onLeagueChange();
       applySportModeUI();
     }
-  } else {
-    updateSectionLocks();
-    validateFetchSection();
   }
 
   if (fromUser) {
@@ -12485,13 +12303,7 @@ function toggleSportMode() {
       if (runBtn) runBtn.addEventListener("click", runEngine);
 
       const clearBtn = document.getElementById("clearBtn");
-      if (clearBtn) {
-        clearBtn.onclick = e => {
-          e.preventDefault();
-          e.stopPropagation();
-          clearAll();
-        };
-      }
+      if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
       const brandModeToggle = document.getElementById("brandModeToggle");
       if (brandModeToggle) {
@@ -12513,40 +12325,28 @@ function toggleSportMode() {
         if (savedMode === SPORT_MODE_TT) startMode = SPORT_MODE_TT;
       } catch (e) {}
       setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb", false, { bootRestore: true });
-
-      const bootIsTTMode = getCurrentSportMode() === SPORT_MODE_TT;
-      const ls0 = document.getElementById("leagueSelect");
-      if (ls0) ls0.value = bootIsTTMode ? "tt" : "";
-
-      const espnEl = document.getElementById("espnSection");
-      if (espnEl) espnEl.style.display = bootIsTTMode ? "block" : "none";
-
-      if (!bootIsTTMode) {
-        [
-          "a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection"
-        ].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.style.display = "none";
-        });
-
-        lockFrom("espnSection");
-        openSection("leagueSection");
-      } else {
-        updateSectionLocks();
-        validateFetchSection();
-      }
-
-      refreshTrackerInBackground(false);
-
-      // Keep the saved sport labels/placeholders in sync after bootstrap without BB boot rules spilling into TT.
-      applySportModeUI();
       resetBootCollapsedLayout();
 
-      if (bootIsTTMode && typeof loadTTFixtures === "function") {
-        Promise.resolve()
-          .then(() => loadTTFixtures())
-          .catch(err => console.error("[TT Engine] boot fixture load failed", err));
-      }
+      const ls0 = document.getElementById("leagueSelect");
+      if (ls0 && getCurrentSportMode() !== SPORT_MODE_TT) ls0.value = "";
+
+      const espnEl = document.getElementById("espnSection");
+      if (espnEl) espnEl.style.display = "none";
+
+      [
+        "a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection"
+      ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = "none";
+      });
+
+      lockFrom("espnSection");
+      openSection("leagueSection");
+      refreshTrackerInBackground(false);
+
+      // Keep the saved sport labels/placeholders in sync after bootstrap without auto-opening sections.
+      applySportModeUI();
+      resetBootCollapsedLayout();
 
       window.addEventListener("focus", () => refreshTrackerInBackground(true));
       window.addEventListener("pageshow", () => refreshTrackerInBackground(true));
