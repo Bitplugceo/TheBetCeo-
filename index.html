@@ -4549,10 +4549,16 @@ async function hydrateTrackedPicks(force = false) {
       const serverActiveCount = getTrackerActivePickCount(serverState);
       const mergedActiveCount = getTrackerActivePickCount(mergedState);
 
+      const localArchivedCount = getTrackerArchivedPickCount(localState);
+      const serverArchivedCount = getTrackerArchivedPickCount(serverState);
+      const mergedArchivedCount = getTrackerArchivedPickCount(mergedState);
+
       const shouldPushMerged =
         mergedPendingActive > serverPendingActive ||
         localPendingActive > serverPendingActive ||
         mergedActiveCount > serverActiveCount ||
+        localArchivedCount > serverArchivedCount ||
+        mergedArchivedCount > serverArchivedCount ||
         (hadLocalState && !serverHasState);
 
       if (shouldPushMerged) {
