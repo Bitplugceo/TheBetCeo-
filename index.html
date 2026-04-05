@@ -1883,7 +1883,7 @@ body.dark-mode .tracker-analytics-section-head {
 </head>
 <body>
  <header class="app-header">
-  <span class="brand-name">TheBetCeo ⚡️</span>
+  <span class="brand-name" id="brandModeToggle" role="button" tabindex="0" title="Switch Basketball / TT">TheBetCeo ⚡️</span>
 
   <button
     class="header-error-btn"
@@ -1902,7 +1902,7 @@ body.dark-mode .tracker-analytics-section-head {
 </header>
 
   <div class="wrapper">
-    <div class="engine-mode-bar" id="engineModeBar">
+    <div class="engine-mode-bar" id="engineModeBar" style="display:none;">
       <button type="button" class="engine-mode-btn active" id="bbModeBtn">Basketball</button>
       <button type="button" class="engine-mode-btn" id="ttModeBtn">TT</button>
     </div>
@@ -2021,18 +2021,18 @@ body.dark-mode .tracker-analytics-section-head {
     <button type="button" class="fixture-day" id="fixturesTomorrowBtn">Tomorrow</button>
   </div>
 
-  <label style="font-size:12px;">Select match</label>
+  <label id="fixtureSelectLabel" style="font-size:12px;">Select match</label>
   <select id="fixtureSelect" class="league-box">
     <option value="">- Select match -</option>
   </select>
 
-  <label style="font-size:12px;">Team A Name (Home)</label>
+  <label id="teamALabel" style="font-size:12px;">Team A Name (Home)</label>
   <div class="autocomplete-wrap">
     <input id="teamAName" placeholder="e.g. Lakers" autocomplete="off" />
     <div class="autocomplete-list" id="dropA"></div>
   </div>
 
-  <label style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
+  <label id="teamBLabel" style="font-size:12px;margin-top:6px;">Team B Name (Away)</label>
   <div class="autocomplete-wrap">
     <input id="teamBName" placeholder="e.g. Celtics" autocomplete="off" />
     <div class="autocomplete-list" id="dropB"></div>
@@ -2054,7 +2054,7 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="section" id="marketSection">
   <h3>Market Lines</h3>
 
-  <label>FT Total</label>
+  <label id="ftMarketLabel">FT Total</label>
   <input id="ftMarket" placeholder="150.5 - 160.5" />
 
   <div id="h1MarketSection" style="display:none;">
@@ -2067,26 +2067,28 @@ body.dark-mode .tracker-analytics-section-head {
     <input id="h2Market" placeholder="98.5 - 108.5" />
   </div>
 
-  <label>Team A Total</label>
+  <label id="teamAMarketLabel">Team A Total</label>
   <input id="teamAMarket" placeholder="75.5 - 79.5" />
 
-  <label>Team B Total</label>
+  <label id="teamBMarketLabel">Team B Total</label>
   <input id="teamBMarket" placeholder="75.5 - 79.5" />
 </div>
 <div class="section" id="teamASection">
   <h3>Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span></h3>
 
-  <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+  <label id="aFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
   <input id="aFTScored" placeholder="85,79,88,74,82" />
 
-  <label>FT Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
-  <input id="aFTAllowed" placeholder="80,76,84,72,79" />
+  <div id="aFTAllowedSection">
+    <label id="aFTAllowedLabel">FT Allowed</label>
+    <input id="aFTAllowed" placeholder="80,76,84,72,79" />
+  </div>
 
   <div id="a1HSection" style="display:none;">
-    <label>1H Scored</label>
+    <label id="a1HScoredLabel">1H Scored</label>
     <input id="a1HScored" placeholder="42,38,45,40,41" />
 
-    <label>1H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <label>1H Allowed</label>
     <input id="a1HAllowed" placeholder="39,36,41,35,38" />
 
   </div>
@@ -2095,7 +2097,7 @@ body.dark-mode .tracker-analytics-section-head {
     <label>2H Scored <span style="font-size:10px;color:#888;">(second half)</span></label>
     <input id="a2HScored" placeholder="43,41,44,39,40" />
 
-    <label>2H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <label>2H Allowed</label>
     <input id="a2HAllowed" placeholder="41,40,43,37,41" />
 
   </div>
@@ -2105,17 +2107,19 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="section" id="teamBSection">
   <h3>Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span></h3>
 
-  <label>FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
+  <label id="bFTScoredLabel">FT Scored <span style="font-size:10px;color:#888;">(recent → oldest)</span></label>
   <input id="bFTScored" placeholder="83,77,81,79,80" />
 
-  <label>FT Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
-  <input id="bFTAllowed" placeholder="78,80,77,76,81" />
+  <div id="bFTAllowedSection">
+    <label id="bFTAllowedLabel">FT Allowed</label>
+    <input id="bFTAllowed" placeholder="78,80,77,76,81" />
+  </div>
 
   <div id="b1HSection" style="display:none;">
-    <label>1H Scored</label>
+    <label id="b1HScoredLabel">1H Scored</label>
     <input id="b1HScored" placeholder="40,39,42,38,41" />
 
-    <label>1H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <label>1H Allowed</label>
     <input id="b1HAllowed" placeholder="38,39,37,36,40" />
 
   </div>
@@ -2124,7 +2128,7 @@ body.dark-mode .tracker-analytics-section-head {
     <label>2H Scored <span style="font-size:10px;color:#888;">(second half)</span></label>
     <input id="b2HScored" placeholder="41,38,39,41,39" />
 
-    <label>2H Allowed <span style="font-size:10px;color:#888;">(optional manual fallback)</span></label>
+    <label>2H Allowed</label>
     <input id="b2HAllowed" placeholder="40,41,39,40,41" />
 
   </div>
@@ -2134,12 +2138,12 @@ body.dark-mode .tracker-analytics-section-head {
 <div class="section" id="h2hSection">
 <h3>H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span></h3>
 
-  <label><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
+  <label id="useFTH2HLabel"><input type="checkbox" id="useFTH2H" /> Use FT H2H (min 2 games)</label>
   <input id="aFTH2H" placeholder="82,78,84,76,82" />
   <input id="bFTH2H" placeholder="79,81,77,80,78" />
 
   <div id="h2h1HSection" style="display:none;">
-    <label><input type="checkbox" id="use1HH2H" /> Use 1H H2H (min 2 games)</label>
+    <label id="use1HH2HLabel"><input type="checkbox" id="use1HH2H" /> Use 1H H2H (min 2 games)</label>
     <input id="a1HH2H" placeholder="41,39,43,38,41" />
     <input id="b1HH2H" placeholder="39,41,38,42,39" />
   </div>
@@ -11126,31 +11130,188 @@ if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 
 
 
-function setEngineMode(mode = "bb") {
-  const bbIds = [
-    "leagueSection","espnSection","marketSection","teamASection","teamBSection","h2hSection","intelSection"
-  ];
-  const bbVisible = mode !== "tt";
-  bbIds.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = bbVisible ? "block" : "none";
-  });
+const SPORT_MODE_STORAGE_KEY = "bb_engine_sport_mode";
+const SPORT_MODE_BASKETBALL = "basketball";
+const SPORT_MODE_TT = "tt";
+const TT_LEAGUE_OPTIONS_HTML = `
+        <option value="">- Select League -</option>
+        <optgroup label="── TABLE TENNIS ───────">
+          <option value="tt">Table Tennis - Setka Cup</option>
+        </optgroup>`;
+let g_currentSportMode = SPORT_MODE_BASKETBALL;
+let g_basketballLeagueOptionsHtml = "";
 
-  const actions = document.querySelector(".actions");
-  if (actions) actions.style.display = bbVisible ? "block" : "none";
+function getCurrentSportMode() {
+  return g_currentSportMode === SPORT_MODE_TT ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
+}
 
-  const resultsWrap = document.getElementById("results")?.closest(".table-wrap");
-  if (resultsWrap) resultsWrap.style.display = bbVisible ? "block" : "none";
+function safeSetText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function safeSetSectionTitle(sectionId, value) {
+  const section = document.getElementById(sectionId);
+  if (!section) return;
+  const toggleTitle = section.querySelector('.section-toggle .toggle-title');
+  if (toggleTitle) {
+    toggleTitle.innerHTML = value;
+    return;
+  }
+  const heading = section.querySelector('h3');
+  if (heading) heading.innerHTML = value;
+}
+
+function safeSetPlaceholder(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.placeholder = value;
+}
+
+function applySportModeUI() {
+  const mode = getCurrentSportMode();
+  const isTT = mode === SPORT_MODE_TT;
+  document.body.dataset.sportMode = mode;
+
+  const engineModeBar = document.getElementById("engineModeBar");
+  if (engineModeBar) engineModeBar.style.display = "none";
 
   const ttPage = document.getElementById("ttPage");
-  if (ttPage) ttPage.style.display = mode === "tt" ? "block" : "none";
+  if (ttPage) ttPage.style.display = "none";
+
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  if (themeToggleBtn) themeToggleBtn.textContent = isTT ? "🏓" : "🏀";
+
+  const brandModeToggle = document.getElementById("brandModeToggle");
+  if (brandModeToggle) {
+    brandModeToggle.title = isTT ? "Switch back to Basketball" : "Switch to TT";
+  }
+
+  const leagueSelect = document.getElementById("leagueSelect");
+  if (leagueSelect) {
+    if (!g_basketballLeagueOptionsHtml) g_basketballLeagueOptionsHtml = leagueSelect.innerHTML;
+    if (isTT) {
+      if (leagueSelect.innerHTML !== TT_LEAGUE_OPTIONS_HTML) leagueSelect.innerHTML = TT_LEAGUE_OPTIONS_HTML;
+      if (!leagueSelect.value) leagueSelect.value = "tt";
+    } else {
+      if (g_basketballLeagueOptionsHtml && leagueSelect.innerHTML !== g_basketballLeagueOptionsHtml) {
+        leagueSelect.innerHTML = g_basketballLeagueOptionsHtml;
+      }
+      if (leagueSelect.value === "tt") leagueSelect.value = "";
+    }
+  }
+
+  safeSetSectionTitle("espnSection", isTT
+    ? '🏓 TT Inputs <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(header switch mode)</span>'
+    : '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
+  safeSetText("fixtureSelectLabel", "Select match");
+  safeSetText("teamALabel", isTT ? "Player A Name" : "Team A Name (Home)");
+  safeSetText("teamBLabel", isTT ? "Player B Name" : "Team B Name (Away)");
+  safeSetSectionTitle("marketSection", isTT ? "TT Market Lines" : "Market Lines");
+  safeSetText("ftMarketLabel", isTT ? "Match Total Sets" : "FT Total");
+  safeSetText("teamAMarketLabel", isTT ? "Player A Sets" : "Team A Total");
+  safeSetText("teamBMarketLabel", isTT ? "Player B Sets" : "Team B Total");
+  safeSetSectionTitle("teamASection", isTT ? 'Player A - Recent Sets <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
+  safeSetSectionTitle("teamBSection", isTT ? 'Player B - Recent Sets <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>' : 'Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>');
+  safeSetSectionTitle("h2hSection", isTT ? 'TT H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled recent matchup history</span>' : 'H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span>');
+
+  const useFtLabel = document.getElementById("useFTH2HLabel");
+  if (useFtLabel) {
+    const useFtBox = useFtLabel.querySelector("input");
+    if (useFtBox) {
+      const trailingText = isTT ? " Use TT H2H (min 2 matches)" : " Use FT H2H (min 2 games)";
+      const nodes = [...useFtLabel.childNodes].filter(node => node.nodeType === Node.TEXT_NODE);
+      if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
+      else useFtLabel.appendChild(document.createTextNode(trailingText));
+    }
+  }
+  const use1HLabel = document.getElementById("use1HH2HLabel");
+  if (use1HLabel) {
+    const use1HBox = use1HLabel.querySelector("input");
+    if (use1HBox) {
+      const trailingText = isTT ? " Use First Game H2H (min 2 matches)" : " Use 1H H2H (min 2 games)";
+      const nodes = [...use1HLabel.childNodes].filter(node => node.nodeType === Node.TEXT_NODE);
+      if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
+      else use1HLabel.appendChild(document.createTextNode(trailingText));
+    }
+  }
+
+  safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
+  safeSetPlaceholder("teamBName", isTT ? "e.g. Wang Chuqin" : "e.g. Celtics");
+  safeSetPlaceholder("ftMarket", isTT ? "3.5 - 5.5" : "150.5 - 160.5");
+  safeSetPlaceholder("teamAMarket", isTT ? "2.5 - 3.5" : "75.5 - 79.5");
+  safeSetPlaceholder("teamBMarket", isTT ? "1.5 - 2.5" : "75.5 - 79.5");
+  safeSetPlaceholder("aFTScored", isTT ? "3,3,2,3,3" : "85,79,88,74,82");
+  safeSetPlaceholder("bFTScored", isTT ? "3,2,3,3,1" : "83,77,81,79,80");
+  safeSetPlaceholder("a1HScored", isTT ? "11,10,12,11,10" : "42,38,45,40,41");
+  safeSetPlaceholder("b1HScored", isTT ? "8,9,11,7,8" : "40,39,42,38,41");
+  safeSetPlaceholder("aFTH2H", isTT ? "3,3,2,3" : "82,78,84,76,82");
+  safeSetPlaceholder("bFTH2H", isTT ? "1,2,3,1" : "79,81,77,80,78");
+  safeSetPlaceholder("a1HH2H", isTT ? "11,12,10,11" : "41,39,43,38,41");
+  safeSetPlaceholder("b1HH2H", isTT ? "8,9,11,8" : "39,41,38,42,39");
+
+  safeSetText("aFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
+  safeSetText("bFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
+  safeSetText("a1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
+  safeSetText("b1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
+
+  const fixtureToolbar = document.getElementById("fixtureToolbar");
+  if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
+  const fixtureSelect = document.getElementById("fixtureSelect");
+  if (fixtureSelect) fixtureSelect.style.display = isTT ? "none" : "block";
+  const fetchBtn = document.getElementById("fetchBtn");
+  if (fetchBtn) fetchBtn.style.display = isTT ? "none" : "inline-block";
+  const fetchStatus = document.getElementById("fetchStatus");
+  if (fetchStatus) fetchStatus.style.display = isTT ? "none" : "block";
+
+  const aFTAllowedSection = document.getElementById("aFTAllowedSection");
+  if (aFTAllowedSection) aFTAllowedSection.style.display = isTT ? "none" : "block";
+  const bFTAllowedSection = document.getElementById("bFTAllowedSection");
+  if (bFTAllowedSection) bFTAllowedSection.style.display = isTT ? "none" : "block";
+  const injuryBoxA = document.getElementById("injuryBoxA");
+  if (injuryBoxA) injuryBoxA.style.display = isTT ? "none" : "none";
+  const injuryBoxB = document.getElementById("injuryBoxB");
+  if (injuryBoxB) injuryBoxB.style.display = isTT ? "none" : "none";
+
+  ["a2HSection","b2HSection","h2h2HSection","h2MarketSection"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isTT ? "none" : (id.includes("Market") || id.includes("1H") || id.includes("2H") ? el.style.display : "block");
+  });
+  ["a1HSection","b1HSection","h2h1HSection"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isTT ? "block" : el.style.display;
+  });
 
   const bbBtn = document.getElementById("bbModeBtn");
   const ttBtn = document.getElementById("ttModeBtn");
-  if (bbBtn) bbBtn.classList.toggle("active", mode !== "tt");
-  if (ttBtn) ttBtn.classList.toggle("active", mode === "tt");
+  if (bbBtn) bbBtn.classList.toggle("active", !isTT);
+  if (ttBtn) ttBtn.classList.toggle("active", isTT);
 
-  window.__engineMode = mode;
+  window.__engineMode = isTT ? "tt" : "bb";
+}
+
+function setEngineMode(mode = "bb", fromUser = false) {
+  g_currentSportMode = mode === "tt" ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
+  try { localStorage.setItem(SPORT_MODE_STORAGE_KEY, g_currentSportMode); } catch (e) {}
+  applySportModeUI();
+
+  const leagueSelect = document.getElementById("leagueSelect");
+  if (leagueSelect) {
+    if (g_currentSportMode === SPORT_MODE_TT) leagueSelect.value = "tt";
+    else if (leagueSelect.value === "tt") leagueSelect.value = "";
+  }
+
+  if (typeof onLeagueChange === "function") {
+    onLeagueChange();
+    applySportModeUI();
+  }
+
+  if (fromUser) {
+    if (typeof accordionOpen === "function") accordionOpen(g_currentSportMode === SPORT_MODE_TT ? "espnSection" : "leagueSection");
+  }
+}
+
+function toggleSportMode() {
+  setEngineMode(getCurrentSportMode() === SPORT_MODE_TT ? "bb" : "tt", true);
 }
 
       const runBtn = document.getElementById("runBtn");
@@ -11160,12 +11321,28 @@ function setEngineMode(mode = "bb") {
       if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
       const bbModeBtn = document.getElementById("bbModeBtn");
-      if (bbModeBtn) bbModeBtn.addEventListener("click", () => setEngineMode("bb"));
+      if (bbModeBtn) bbModeBtn.addEventListener("click", () => setEngineMode("bb", true));
 
       const ttModeBtn = document.getElementById("ttModeBtn");
-      if (ttModeBtn) ttModeBtn.addEventListener("click", () => setEngineMode("tt"));
+      if (ttModeBtn) ttModeBtn.addEventListener("click", () => setEngineMode("tt", true));
 
-      setEngineMode("bb");
+      const brandModeToggle = document.getElementById("brandModeToggle");
+      if (brandModeToggle) {
+        brandModeToggle.addEventListener("click", toggleSportMode);
+        brandModeToggle.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleSportMode();
+          }
+        });
+      }
+
+      let startMode = SPORT_MODE_BASKETBALL;
+      try {
+        const savedMode = localStorage.getItem(SPORT_MODE_STORAGE_KEY);
+        if (savedMode === SPORT_MODE_TT) startMode = SPORT_MODE_TT;
+      } catch (e) {}
+      setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb");
 
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => {
