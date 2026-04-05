@@ -2797,7 +2797,7 @@ const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_NETWORK_TIMEOUT_MS = 12000;
-const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
+const TRACKER_FIXED_USER_KEY = "thebetceo_main_tracker_001"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
@@ -9062,6 +9062,10 @@ function getMarketKeyFromName(name) {
   if (name === "2H Total") return "h2";
   if (name === "Team A Total") return "team_a";
   if (name === "Team B Total") return "team_b";
+  if (name === "Match Total Sets") return "ft";
+  if (name === "Player A Sets") return "team_a";
+  if (name === "Player B Sets") return "team_b";
+  if (name === "1st Game Total Points") return "h1";
   return "other";
 }
 
@@ -10477,6 +10481,11 @@ async function runEngine() {
       return;
     }
 
+    if (league === "tt") {
+      await runTableTennisEngine(table);
+      return;
+    }
+
     const teamAKey = getTeamIdentityKey(document.getElementById("teamAName")?.value || "", league);
     const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
 
@@ -10918,6 +10927,7 @@ if (trackedToSave.length) {
       g_lastFetchedTeams = { A: "", B: "" };
       g_fetchMeta = defaultFetchMeta();
       g_massacreFetchContext = defaultMassacreFetchContext();
+      g_ttFetchContext = defaultTTFetchContext();
       g_h2hManualPreference.ft = null;
       g_h2hManualPreference.h1 = null;
       g_h2hManualPreference.h2 = null;
@@ -10992,17 +11002,22 @@ resetResultsTable();
       setFieldValues(FIELD_GROUPS.intelFields);
 
       const league = document.getElementById("leagueSelect").value;
+      const isTT = league === "tt";
       const isNbaOrNcaa = league === "nba" || league === "ncaa";
       const isNba = league === "nba";
 
-      document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
+      document.getElementById("espnSection").style.display = (isNbaOrNcaa || isTT) ? "block" : "none";
 
-     ["a1HSection", "b1HSection", "a2HSection", "b2HSection", "h2h1HSection", "h2h2HSection", "h1MarketSection", "h2MarketSection"].forEach(id => {
+     ["a1HSection", "b1HSection", "h2h1HSection", "h1MarketSection"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.style.display = (isNbaOrNcaa || isTT) ? "block" : "none";
+});
+     ["a2HSection", "b2HSection", "h2h2HSection", "h2MarketSection"].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
 });
 
-                 if (!isNbaOrNcaa) {
+                 if (!isNbaOrNcaa && !isTT) {
         setFieldValues(FIELD_GROUPS.periodInputs);
 
         ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(id => {
@@ -11050,6 +11065,7 @@ if (!league) {
 
       updateSectionLocks();
 if (isNbaOrNcaa) { accordionOpen("espnSection"); loadFixtures(0); }
+else if (isTT) { accordionOpen("espnSection"); }
 else accordionOpen("marketSection");
 validateFetchSection();
     }
@@ -11140,6 +11156,378 @@ const TT_LEAGUE_OPTIONS_HTML = `
         </optgroup>`;
 let g_currentSportMode = SPORT_MODE_BASKETBALL;
 let g_basketballLeagueOptionsHtml = "";
+const TT_DEFAULT_MAX_SETS = 5;
+let g_ttFetchContext = defaultTTFetchContext();
+
+function defaultTTFetchContext() {
+  return {
+    fixture: null,
+    A: { playerName: "", setsWon: [], firstGamePoints: [] },
+    B: { playerName: "", setsWon: [], firstGamePoints: [] },
+    h2h: { aWon: [], bWon: [], aFirstGame: [], bFirstGame: [] },
+    source: "manual"
+  };
+}
+
+function safeSetInputLabel(inputId, value) {
+  const input = document.getElementById(inputId);
+  const label = input ? input.previousElementSibling : null;
+  if (label && label.tagName === "LABEL") label.textContent = value;
+}
+
+function ttNums(arr) {
+  return (Array.isArray(arr) ? arr : []).map(Number).filter(v => isFinite(v));
+}
+
+function ttMean(arr) {
+  const clean = ttNums(arr);
+  return clean.length ? clean.reduce((s, v) => s + v, 0) / clean.length : NaN;
+}
+
+function ttClamp(value, minValue, maxValue) {
+  const v = Number(value);
+  if (!isFinite(v)) return NaN;
+  return Math.min(maxValue, Math.max(minValue, v));
+}
+
+function inferTTMaxSets(seriesA = [], seriesB = [], h2hA = [], h2hB = []) {
+  const all = [...ttNums(seriesA), ...ttNums(seriesB), ...ttNums(h2hA), ...ttNums(h2hB)];
+  const maxWon = all.length ? Math.max(...all) : 3;
+  return maxWon >= 4 ? 7 : 5;
+}
+
+function getTTSeriesShare(seriesA = [], seriesB = []) {
+  const a = ttMean(seriesA);
+  const b = ttMean(seriesB);
+  if (!isFinite(a) || !isFinite(b) || (a + b) <= 0) return NaN;
+  return a / (a + b);
+}
+
+function getTTPick(edge, marketKey = "ft") {
+  const absEdge = Math.abs(Number(edge) || 0);
+  let floor = 0.22;
+  if (marketKey === "team_a" || marketKey === "team_b") floor = 0.16;
+  if (marketKey === "h1") floor = 1.25;
+  if (!isFinite(edge) || absEdge < floor) return "NO PLAY";
+  return edge > 0 ? "OVER" : "UNDER";
+}
+
+function getTTConfidenceGrade({ pick, edge, sampleSize, h2hCount, marketKey }) {
+  if (!pick || pick === "NO PLAY" || !isFinite(edge)) return "—";
+  const absEdge = Math.abs(Number(edge) || 0);
+  const strongSample = Number(sampleSize || 0) >= 8;
+  const decentSample = Number(sampleSize || 0) >= 5;
+  const h2hBonus = Number(h2hCount || 0) >= 2;
+
+  if (marketKey === "h1") {
+    if (absEdge >= 2.6 && strongSample && h2hBonus) return "A";
+    if (absEdge >= 1.9 && decentSample) return "B";
+    if (absEdge >= 1.25) return "C";
+    return "D";
+  }
+
+  if (absEdge >= 0.55 && strongSample && h2hBonus) return "A";
+  if (absEdge >= 0.35 && decentSample) return "B";
+  if (absEdge >= 0.22) return "C";
+  return "D";
+}
+
+function parseTTSeries(id) {
+  const raw = String(document.getElementById(id)?.value || "").trim();
+  if (!raw) return [];
+  const parsed = parseGames(id);
+  if (!parsed || parsed.err) return [];
+  return ttNums(parsed);
+}
+
+function validateTTInputs() {
+  const errors = [];
+  const markInvalid = id => {
+    const el = document.getElementById(id);
+    if (el) el.style.borderColor = "#c91920";
+  };
+  const clearInvalid = id => {
+    const el = document.getElementById(id);
+    if (el) el.style.borderColor = "";
+  };
+
+  ["ftMarket","h1Market","teamAMarket","teamBMarket","aFTScored","bFTScored","a1HScored","b1HScored","aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(clearInvalid);
+
+  const teamAName = String(document.getElementById("teamAName")?.value || "").trim();
+  const teamBName = String(document.getElementById("teamBName")?.value || "").trim();
+  if (!teamAName) { errors.push("Player A Name: missing"); markInvalid("teamAName"); }
+  if (!teamBName) { errors.push("Player B Name: missing"); markInvalid("teamBName"); }
+  if (teamAName && teamBName && normalizeTeamName(teamAName) === normalizeTeamName(teamBName)) {
+    errors.push("Player A and Player B cannot be the same.");
+    markInvalid("teamAName");
+    markInvalid("teamBName");
+  }
+
+  const ftLine = parseMarketLine(document.getElementById("ftMarket")?.value || "");
+  const h1LineRaw = String(document.getElementById("h1Market")?.value || "").trim();
+  const h1Line = h1LineRaw ? parseMarketLine(h1LineRaw) : null;
+  const aLineRaw = String(document.getElementById("teamAMarket")?.value || "").trim();
+  const aLine = aLineRaw ? parseMarketLine(aLineRaw) : null;
+  const bLineRaw = String(document.getElementById("teamBMarket")?.value || "").trim();
+  const bLine = bLineRaw ? parseMarketLine(bLineRaw) : null;
+
+  if (document.getElementById("ftMarket")?.value?.trim() && ftLine === null) { errors.push("Match Total Sets: invalid line"); markInvalid("ftMarket"); }
+  if (h1LineRaw && h1Line === null) { errors.push("1st Game Total Points: invalid line"); markInvalid("h1Market"); }
+  if (aLineRaw && aLine === null) { errors.push("Player A Sets: invalid line"); markInvalid("teamAMarket"); }
+  if (bLineRaw && bLine === null) { errors.push("Player B Sets: invalid line"); markInvalid("teamBMarket"); }
+
+  if (ftLine === null && h1Line === null && aLine === null && bLine === null) {
+    errors.push("Enter at least one TT market line first.");
+  }
+
+  const aWon = parseTTSeries("aFTScored");
+  const bWon = parseTTSeries("bFTScored");
+  const aFirst = parseTTSeries("a1HScored");
+  const bFirst = parseTTSeries("b1HScored");
+  const useFTH2H = !!document.getElementById("useFTH2H")?.checked;
+  const use1HH2H = !!document.getElementById("use1HH2H")?.checked;
+  const h2hA = useFTH2H ? parseTTSeries("aFTH2H") : [];
+  const h2hB = useFTH2H ? parseTTSeries("bFTH2H") : [];
+  const h2hAFirst = use1HH2H ? parseTTSeries("a1HH2H") : [];
+  const h2hBFirst = use1HH2H ? parseTTSeries("b1HH2H") : [];
+
+  if (ftLine !== null || aLine !== null || bLine !== null) {
+    if (Math.min(aWon.length, bWon.length) < 2) {
+      errors.push("TT sets model needs at least 2 recent sets-won entries for both players.");
+      if (aWon.length < 2) markInvalid("aFTScored");
+      if (bWon.length < 2) markInvalid("bFTScored");
+    }
+  }
+
+  if (h1Line !== null) {
+    if (Math.min(aFirst.length, bFirst.length) < 2) {
+      errors.push("1st Game Total Points needs at least 2 first-game points entries for both players.");
+      if (aFirst.length < 2) markInvalid("a1HScored");
+      if (bFirst.length < 2) markInvalid("b1HScored");
+    }
+  }
+
+  if (useFTH2H && Math.min(h2hA.length, h2hB.length) < 2) {
+    errors.push("TT H2H is checked, but both TT H2H fields need at least 2 matches.");
+    if (h2hA.length < 2) markInvalid("aFTH2H");
+    if (h2hB.length < 2) markInvalid("bFTH2H");
+  }
+
+  if (use1HH2H && Math.min(h2hAFirst.length, h2hBFirst.length) < 2) {
+    errors.push("First Game H2H is checked, but both first-game H2H fields need at least 2 matches.");
+    if (h2hAFirst.length < 2) markInvalid("a1HH2H");
+    if (h2hBFirst.length < 2) markInvalid("b1HH2H");
+  }
+
+  if (errors.length) {
+    return { ok: false, errorHtml: errors.map(x => "• " + safeText(x)).join("<br>") };
+  }
+
+  return {
+    ok: true,
+    parsed: { aWon, bWon, aFirst, bFirst, h2hA, h2hB, h2hAFirst, h2hBFirst },
+    lines: { ftLine, h1Line, aLine, bLine }
+  };
+}
+
+async function runTableTennisEngine(table) {
+  const validation = validateTTInputs();
+  if (!validation.ok) {
+    showRunError(table, validation.errorHtml);
+    return;
+  }
+
+  const { parsed, lines } = validation;
+  const { aWon, bWon, aFirst, bFirst, h2hA, h2hB, h2hAFirst, h2hBFirst } = parsed;
+  const { ftLine, h1Line, aLine, bLine } = lines;
+  const league = "tt";
+  const teamAName = String(document.getElementById("teamAName")?.value || "").trim();
+  const teamBName = String(document.getElementById("teamBName")?.value || "").trim();
+
+  g_ttFetchContext = {
+    fixture: null,
+    A: { playerName: teamAName, setsWon: [...aWon], firstGamePoints: [...aFirst] },
+    B: { playerName: teamBName, setsWon: [...bWon], firstGamePoints: [...bFirst] },
+    h2h: { aWon: [...h2hA], bWon: [...h2hB], aFirstGame: [...h2hAFirst], bFirstGame: [...h2hBFirst] },
+    source: "manual"
+  };
+
+  const maxSets = inferTTMaxSets(aWon, bWon, h2hA, h2hB);
+  const maxPlayerSets = maxSets > 5 ? 4 : 3;
+
+  const baseShareParts = [];
+  const formShare = getTTSeriesShare(aWon, bWon);
+  if (isFinite(formShare)) baseShareParts.push([formShare, 0.60]);
+  const recentShare = getTTSeriesShare(aWon.slice(0, 3), bWon.slice(0, 3));
+  if (isFinite(recentShare)) baseShareParts.push([recentShare, 0.20]);
+  const h2hShare = getTTSeriesShare(h2hA, h2hB);
+  if (isFinite(h2hShare)) baseShareParts.push([h2hShare, 0.20]);
+  const weightedShareA = ttClamp(
+    baseShareParts.length
+      ? baseShareParts.reduce((s, part) => s + part[0] * part[1], 0) / baseShareParts.reduce((s, part) => s + part[1], 0)
+      : 0.5,
+    0.18,
+    0.82
+  );
+
+  const h2hTotals = h2hA.map((v, i) => Number(v) + Number(h2hB[i])).filter(v => isFinite(v) && v > 0);
+  const balanceFactor = 1 - Math.abs(weightedShareA - 0.5) * 2;
+  const syntheticTotal = 3.2 + (Math.max(0, balanceFactor) * (maxSets > 5 ? 2.6 : 1.6));
+  const projectedTotal = ttClamp(
+    isFinite(ttMean(h2hTotals))
+      ? (ttMean(h2hTotals) * 0.72) + (syntheticTotal * 0.28)
+      : syntheticTotal,
+    3,
+    maxSets
+  );
+
+  let projA = ttClamp(projectedTotal * weightedShareA, 0.5, maxPlayerSets);
+  let projB = ttClamp(projectedTotal - projA, 0.5, maxPlayerSets);
+  const projTotal = projA + projB;
+  if (isFinite(projTotal) && Math.abs(projTotal - projectedTotal) > 0.001 && projTotal > 0) {
+    const scale = projectedTotal / projTotal;
+    projA = ttClamp(projA * scale, 0.5, maxPlayerSets);
+    projB = ttClamp(projectedTotal - projA, 0.5, maxPlayerSets);
+  }
+
+  const firstParts = [];
+  const formFirst = ttMean(aFirst) + ttMean(bFirst);
+  if (isFinite(formFirst)) firstParts.push([formFirst, 0.72]);
+  const h2hFirstTotals = h2hAFirst.map((v, i) => Number(v) + Number(h2hBFirst[i])).filter(v => isFinite(v) && v > 0);
+  if (isFinite(ttMean(h2hFirstTotals))) firstParts.push([ttMean(h2hFirstTotals), 0.28]);
+  const projectedFirstGame = firstParts.length
+    ? firstParts.reduce((s, part) => s + part[0] * part[1], 0) / firstParts.reduce((s, part) => s + part[1], 0)
+    : NaN;
+
+  const h2hCount = Math.min(h2hA.length, h2hB.length);
+  const sampleSize = Math.min(aWon.length, bWon.length) * 2;
+  const firstSampleSize = Math.min(aFirst.length, bFirst.length) * 2;
+  const firstH2HCount = Math.min(h2hAFirst.length, h2hBFirst.length);
+
+  const rows = [];
+  if (isFinite(ftLine) && ftLine > 0) {
+    const ftEdge = projectedTotal - ftLine;
+    const ftPick = getTTPick(ftEdge, "ft");
+    rows.push({
+      _idx: 0,
+      name: "Match Total Sets",
+      marketKey: "ft",
+      marketType: "ft",
+      league,
+      context: { aSc: projA, bSc: projB },
+      line: ftLine,
+      proj: projectedTotal,
+      edge: ftEdge,
+      pick: ftPick,
+      confidence: getTTConfidenceGrade({ pick: ftPick, edge: ftEdge, sampleSize, h2hCount, marketKey: "ft" }),
+      note: sampleSize < 6 ? "Thin TT sample" : null,
+      fullModel: true
+    });
+  }
+
+  if (isFinite(h1Line) && h1Line > 0 && isFinite(projectedFirstGame)) {
+    const h1Edge = projectedFirstGame - h1Line;
+    const h1Pick = getTTPick(h1Edge, "h1");
+    rows.push({
+      _idx: 1,
+      name: "1st Game Total Points",
+      marketKey: "h1",
+      marketType: "h1",
+      league,
+      context: {},
+      line: h1Line,
+      proj: projectedFirstGame,
+      edge: h1Edge,
+      pick: h1Pick,
+      confidence: getTTConfidenceGrade({ pick: h1Pick, edge: h1Edge, sampleSize: firstSampleSize, h2hCount: firstH2HCount, marketKey: "h1" }),
+      note: firstSampleSize < 6 ? "Thin TT first-game sample" : null,
+      fullModel: true
+    });
+  }
+
+  if (isFinite(aLine) && aLine > 0) {
+    const aEdge = projA - aLine;
+    const aPick = getTTPick(aEdge, "team_a");
+    rows.push({
+      _idx: 3,
+      name: "Player A Sets",
+      marketKey: "team_a",
+      marketType: "team",
+      league,
+      context: { teamSc: projA },
+      line: aLine,
+      proj: projA,
+      edge: aEdge,
+      pick: aPick,
+      confidence: getTTConfidenceGrade({ pick: aPick, edge: aEdge, sampleSize, h2hCount, marketKey: "team_a" }),
+      note: sampleSize < 6 ? "Thin TT sample" : null,
+      fullModel: true
+    });
+  }
+
+  if (isFinite(bLine) && bLine > 0) {
+    const bEdge = projB - bLine;
+    const bPick = getTTPick(bEdge, "team_b");
+    rows.push({
+      _idx: 4,
+      name: "Player B Sets",
+      marketKey: "team_b",
+      marketType: "team",
+      league,
+      context: { teamSc: projB },
+      line: bLine,
+      proj: projB,
+      edge: bEdge,
+      pick: bPick,
+      confidence: getTTConfidenceGrade({ pick: bPick, edge: bEdge, sampleSize, h2hCount, marketKey: "team_b" }),
+      note: sampleSize < 6 ? "Thin TT sample" : null,
+      fullModel: true
+    });
+  }
+
+  if (!rows.length) {
+    showRunError(table, "⚠ Enter at least one TT market line first.");
+    return;
+  }
+
+  const markets = rows.map(p => ({
+    _idx: p._idx,
+    edge: p.edge,
+    line: p.line,
+    pick: p.pick,
+    fullModel: p.fullModel,
+    confidence: p.confidence,
+    note: p.note,
+    lockStrength: 0,
+    lockRestricted: false
+  }));
+  const lockIdx = selectLock(markets);
+
+  const trackedToSave = buildResultRows({
+    table,
+    finalPicks: rows,
+    lockIdx,
+    fixtureMeta: getCurrentFixtureMeta(),
+    league,
+    diagnostics: {
+      phase2Activation: null,
+      ftSampleTier: sampleSize >= 8 ? "strong" : sampleSize >= 5 ? "solid" : sampleSize >= 4 ? "thin" : "insufficient",
+      h1SampleTier: firstSampleSize >= 8 ? "strong" : firstSampleSize >= 5 ? "solid" : firstSampleSize >= 4 ? "thin" : "insufficient",
+      h2SampleTier: "insufficient",
+      ftProjectionOnly: false,
+      h1ProjectionOnly: false,
+      h2ProjectionOnly: true,
+      ftHasH2H: h2hCount >= 2,
+      h1HasH2H: firstH2HCount >= 2,
+      h2HasH2H: false,
+      aVol: NaN, bVol: NaN, aVol1: NaN, bVol1: NaN, aVol2: NaN, bVol2: NaN,
+      injMultA: 1, injMultB: 1,
+      ttMode: true
+    }
+  });
+
+  if (trackedToSave.length) addTrackedPicks(trackedToSave);
+}
 
 function getCurrentSportMode() {
   return g_currentSportMode === SPORT_MODE_TT ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
@@ -11203,11 +11591,12 @@ function applySportModeUI() {
   safeSetSectionTitle("espnSection", isTT
     ? '🏓 TT Inputs <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(header switch mode)</span>'
     : '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
-  safeSetText("fixtureSelectLabel", "Select match");
+  safeSetText("fixtureSelectLabel", isTT ? "Select Setka Cup match" : "Select match");
   safeSetText("teamALabel", isTT ? "Player A Name" : "Team A Name (Home)");
   safeSetText("teamBLabel", isTT ? "Player B Name" : "Team B Name (Away)");
   safeSetSectionTitle("marketSection", isTT ? "TT Market Lines" : "Market Lines");
   safeSetText("ftMarketLabel", isTT ? "Match Total Sets" : "FT Total");
+  safeSetInputLabel("h1Market", isTT ? "1st Game Total Points" : "1H Total");
   safeSetText("teamAMarketLabel", isTT ? "Player A Sets" : "Team A Total");
   safeSetText("teamBMarketLabel", isTT ? "Player B Sets" : "Team B Total");
   safeSetSectionTitle("teamASection", isTT ? 'Player A - Recent Sets <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
@@ -11237,22 +11626,23 @@ function applySportModeUI() {
 
   safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
   safeSetPlaceholder("teamBName", isTT ? "e.g. Wang Chuqin" : "e.g. Celtics");
-  safeSetPlaceholder("ftMarket", isTT ? "3.5 - 5.5" : "150.5 - 160.5");
+  safeSetPlaceholder("ftMarket", isTT ? "3.5 - 4.5" : "150.5 - 160.5");
+  safeSetPlaceholder("h1Market", isTT ? "18.5 - 20.5" : "105.5 - 110.5");
   safeSetPlaceholder("teamAMarket", isTT ? "2.5 - 3.5" : "75.5 - 79.5");
   safeSetPlaceholder("teamBMarket", isTT ? "1.5 - 2.5" : "75.5 - 79.5");
   safeSetPlaceholder("aFTScored", isTT ? "3,3,2,3,3" : "85,79,88,74,82");
-  safeSetPlaceholder("bFTScored", isTT ? "3,2,3,3,1" : "83,77,81,79,80");
+  safeSetPlaceholder("bFTScored", isTT ? "2,1,3,2,1" : "83,77,81,79,80");
   safeSetPlaceholder("a1HScored", isTT ? "11,10,12,11,10" : "42,38,45,40,41");
-  safeSetPlaceholder("b1HScored", isTT ? "8,9,11,7,8" : "40,39,42,38,41");
+  safeSetPlaceholder("b1HScored", isTT ? "8,9,11,8,9" : "40,39,42,38,41");
   safeSetPlaceholder("aFTH2H", isTT ? "3,3,2,3" : "82,78,84,76,82");
   safeSetPlaceholder("bFTH2H", isTT ? "1,2,3,1" : "79,81,77,80,78");
   safeSetPlaceholder("a1HH2H", isTT ? "11,12,10,11" : "41,39,43,38,41");
   safeSetPlaceholder("b1HH2H", isTT ? "8,9,11,8" : "39,41,38,42,39");
 
-  safeSetText("aFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
-  safeSetText("bFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
-  safeSetText("a1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
-  safeSetText("b1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
+  safeSetInputLabel("aFTScored", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
+  safeSetInputLabel("bFTScored", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
+  safeSetInputLabel("a1HScored", isTT ? "First Game Points" : "1H Scored");
+  safeSetInputLabel("b1HScored", isTT ? "First Game Points" : "1H Scored");
 
   const fixtureToolbar = document.getElementById("fixtureToolbar");
   if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
@@ -11262,6 +11652,24 @@ function applySportModeUI() {
   if (fetchBtn) fetchBtn.style.display = isTT ? "none" : "inline-block";
   const fetchStatus = document.getElementById("fetchStatus");
   if (fetchStatus) fetchStatus.style.display = isTT ? "none" : "block";
+
+  const leagueSection = document.getElementById("leagueSection");
+  if (leagueSection) leagueSection.style.display = "block";
+  const espnSection = document.getElementById("espnSection");
+  if (espnSection) espnSection.style.display = "block";
+  const marketSection = document.getElementById("marketSection");
+  if (marketSection) marketSection.style.display = "block";
+  const teamASection = document.getElementById("teamASection");
+  if (teamASection) teamASection.style.display = "block";
+  const teamBSection = document.getElementById("teamBSection");
+  if (teamBSection) teamBSection.style.display = "block";
+  const h2hSection = document.getElementById("h2hSection");
+  if (h2hSection) h2hSection.style.display = "block";
+
+  const actions = document.querySelector(".actions");
+  if (actions) actions.style.display = "block";
+  const resultsWrap = document.getElementById("results")?.closest(".table-wrap");
+  if (resultsWrap) resultsWrap.style.display = "block";
 
   const aFTAllowedSection = document.getElementById("aFTAllowedSection");
   if (aFTAllowedSection) aFTAllowedSection.style.display = isTT ? "none" : "block";
@@ -11274,11 +11682,11 @@ function applySportModeUI() {
 
   ["a2HSection","b2HSection","h2h2HSection","h2MarketSection"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = isTT ? "none" : (id.includes("Market") || id.includes("1H") || id.includes("2H") ? el.style.display : "block");
+    if (el) el.style.display = isTT ? "none" : "block";
   });
-  ["a1HSection","b1HSection","h2h1HSection"].forEach(id => {
+  ["a1HSection","b1HSection","h2h1HSection","h1MarketSection"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = isTT ? "block" : el.style.display;
+    if (el) el.style.display = "block";
   });
 
   const bbBtn = document.getElementById("bbModeBtn");
@@ -11351,7 +11759,7 @@ function toggleSportMode() {
       });
 
       const ls0 = document.getElementById("leagueSelect");
-      if (ls0) ls0.value = "";
+      if (ls0 && getCurrentSportMode() !== SPORT_MODE_TT) ls0.value = "";
 
       const espnEl = document.getElementById("espnSection");
       if (espnEl) espnEl.style.display = "none";
