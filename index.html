@@ -238,6 +238,40 @@ body.dark-mode {
       padding: 0 10px;
     }
 
+
+    .engine-mode-bar {
+      display: flex;
+      gap: 8px;
+      margin: 8px auto;
+      flex-wrap: wrap;
+    }
+
+    .engine-mode-btn {
+      background: #eceff3 !important;
+      color: #2a2f38 !important;
+      border: 1px solid #d7dbe1 !important;
+      padding: 6px 10px !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      margin: 0 !important;
+      min-width: 90px !important;
+      text-align: center;
+    }
+
+    .engine-mode-btn.active {
+      background: #49a443 !important;
+      color: #fff !important;
+      border-color: #49a443 !important;
+    }
+
+    .tt-shell-note {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--muted);
+      font-weight: 700;
+      margin: 0 0 10px 0;
+    }
+
    .section {
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -275,10 +309,6 @@ body.dark-mode {
     .section-body {
       padding: 0 10px 10px;
       margin-top: 0;
-    }
-
-    .section:not([data-collapsible-ready="1"]) > :not(h3) {
-      display: none;
     }
 
     .section.collapsed .section-body {
@@ -1872,6 +1902,22 @@ body.dark-mode .tracker-analytics-section-head {
 </header>
 
   <div class="wrapper">
+    <div class="engine-mode-bar" id="engineModeBar" style="display:none;">
+      <button type="button" class="engine-mode-btn active" id="bbModeBtn">Basketball</button>
+      <button type="button" class="engine-mode-btn" id="ttModeBtn">TT</button>
+    </div>
+
+    <div class="section" id="ttPage" style="display:none;">
+      <h3>TT Mode Shell</h3>
+      <div class="tt-shell-note">Table Tennis page restored. This shell is visible again, but its dedicated calculations are still intentionally not wired into the live engine yet.</div>
+      <label>Side A / Player A</label>
+      <input id="ttSideA" placeholder="e.g. Player A" />
+      <label>Side B / Player B</label>
+      <input id="ttSideB" placeholder="e.g. Player B" />
+      <label>TT Market</label>
+      <input id="ttMarket" placeholder="e.g. 74.5" />
+      <small>TT shell restored only. Basketball run logic is unchanged unless TT calculations are wired later.</small>
+    </div>
     <div class="section" id="leagueSection">
       <h3>League Tier</h3>
       <label>Select League</label>
@@ -2042,10 +2088,8 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="a1HScoredLabel">1H Scored</label>
     <input id="a1HScored" placeholder="42,38,45,40,41" />
 
-    <div id="a1HAllowedSection">
-      <label id="a1HAllowedLabel">1H Allowed</label>
-      <input id="a1HAllowed" placeholder="39,36,41,35,38" />
-    </div>
+    <label>1H Allowed</label>
+    <input id="a1HAllowed" placeholder="39,36,41,35,38" />
 
   </div>
 
@@ -2075,10 +2119,8 @@ body.dark-mode .tracker-analytics-section-head {
     <label id="b1HScoredLabel">1H Scored</label>
     <input id="b1HScored" placeholder="40,39,42,38,41" />
 
-    <div id="b1HAllowedSection">
-      <label id="b1HAllowedLabel">1H Allowed</label>
-      <input id="b1HAllowed" placeholder="38,39,37,36,40" />
-    </div>
+    <label>1H Allowed</label>
+    <input id="b1HAllowed" placeholder="38,39,37,36,40" />
 
   </div>
 
@@ -2713,14 +2755,7 @@ function syncH2HCheckbox(kind, forceAuto = false) {
 }
 
 function syncAllH2HCheckboxes(forceAuto = false) {
-  const kinds = (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT)
-    ? ["ft", "h1"]
-    : ["ft", "h1", "h2"];
-  kinds.forEach(kind => syncH2HCheckbox(kind, forceAuto));
-  if (typeof getCurrentSportMode === "function" && getCurrentSportMode() === SPORT_MODE_TT) {
-    const cb = document.getElementById("use2HH2H");
-    if (cb) cb.checked = false;
-  }
+  ["ft", "h1", "h2"].forEach(kind => syncH2HCheckbox(kind, forceAuto));
 }
 
 function queueH2HCheckboxSync(forceAuto = false) {
@@ -2762,7 +2797,7 @@ const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_NETWORK_TIMEOUT_MS = 12000;
-const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key"; // pinned tracker key
+const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
@@ -3714,8 +3749,6 @@ function buildFetchAuditIssues({
 }) {
   const issues = [];
   const fixtureOpt = getSelectedFixtureOption();
-  const aLabel = league === "tt" ? (teamAName || "Player A") : (teamAName || "Team A");
-  const bLabel = league === "tt" ? (teamBName || "Player B") : (teamBName || "Team B");
 
   if (fixtureOpt) {
     const homeId = String(fixtureOpt.dataset.homeId || "");
@@ -3723,25 +3756,32 @@ function buildFetchAuditIssues({
     const fixtureHome = String(fixtureOpt.dataset.home || "");
     const fixtureAway = String(fixtureOpt.dataset.away || "");
 
-    const sameHomeById = homeId && String(selectedTeamIds.A || "") && String(selectedTeamIds.A) === homeId;
-    const sameAwayById = awayId && String(selectedTeamIds.B || "") && String(selectedTeamIds.B) === awayId;
-    const sameHomeByName = !!teamAName && normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
-    const sameAwayByName = !!teamBName && normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
+    const sameHomeById =
+      homeId &&
+      String(selectedTeamIds.A || "") &&
+      String(selectedTeamIds.A) === homeId;
 
-    if (!(sameHomeById || sameHomeByName)) issues.push(`${aLabel} no longer matches the selected fixture.`);
-    if (!(sameAwayById || sameAwayByName)) issues.push(`${bLabel} no longer matches the selected fixture.`);
+    const sameAwayById =
+      awayId &&
+      String(selectedTeamIds.B || "") &&
+      String(selectedTeamIds.B) === awayId;
+
+    const sameHomeByName =
+      !!teamAName &&
+      normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
+
+    const sameAwayByName =
+      !!teamBName &&
+      normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
+
+    if (!(sameHomeById || sameHomeByName)) {
+      issues.push("Team A no longer matches the selected fixture.");
+    }
+
+    if (!(sameAwayById || sameAwayByName)) {
+      issues.push("Team B no longer matches the selected fixture.");
+    }
   }
-
-  const requireSeriesSample = (count, need, label) => {
-    const n = Number(count || 0);
-    if (!n) {
-      issues.push(`${label} is missing.`);
-      return;
-    }
-    if (n < need) {
-      issues.push(`${label} has only ${n} ${n === 1 ? "entry" : "entries"} — full model needs ${need}.`);
-    }
-  };
 
   const requirePairSample = (scoredCount, allowedCount, need, label) => {
     const scored = Number(scoredCount || 0);
@@ -3758,31 +3798,57 @@ function buildFetchAuditIssues({
     }
   };
 
-  if (league === "tt") {
-    requireSeriesSample(aStats?.scored?.length, 5, `${aLabel} recent match-points sample`);
-    requireSeriesSample(bStats?.scored?.length, 5, `${bLabel} recent match-points sample`);
-    requireSeriesSample(aStats?.h1Scored?.length, 5, `${aLabel} recent 1st-set sample`);
-    requireSeriesSample(bStats?.h1Scored?.length, 5, `${bLabel} recent 1st-set sample`);
-  } else {
-    requirePairSample(aStats?.scored?.length, aStats?.allowed?.length, 5, `${aLabel} overall FT sample`);
-    requirePairSample(bStats?.scored?.length, bStats?.allowed?.length, 5, `${bLabel} overall FT sample`);
+  requirePairSample(
+    aStats?.scored?.length,
+    aStats?.scored?.length,
+    5,
+    `${teamAName || "Team A"} overall FT sample`
+  );
 
-    if (league === "nba" || league === "ncaa") {
-      requirePairSample(aStats?.h1Scored?.length, aStats?.h1Allowed?.length, 5, `${aLabel} overall 1H sample`);
-      requirePairSample(bStats?.h1Scored?.length, bStats?.h1Allowed?.length, 5, `${bLabel} overall 1H sample`);
+  requirePairSample(
+    bStats?.scored?.length,
+    bStats?.scored?.length,
+    5,
+    `${teamBName || "Team B"} overall FT sample`
+  );
 
-      if (document.getElementById("h2Market")?.value?.trim()) {
-        requirePairSample(aStats?.h2Scored?.length, aStats?.h2Allowed?.length, 2, `${aLabel} overall exact 2H sample`);
-        requirePairSample(bStats?.h2Scored?.length, bStats?.h2Allowed?.length, 2, `${bLabel} overall exact 2H sample`);
-      }
+  if (league === "nba" || league === "ncaa") {
+    requirePairSample(
+      aStats?.h1Scored?.length,
+      aStats?.h1Scored?.length,
+      5,
+      `${teamAName || "Team A"} overall 1H sample`
+    );
+
+    if (document.getElementById("h2Market")?.value?.trim()) {
+      requirePairSample(
+        aStats?.h2Scored?.length,
+        aStats?.h2Scored?.length,
+        2,
+        `${teamAName || "Team A"} overall exact 2H sample`
+      );
+      requirePairSample(
+        bStats?.h2Scored?.length,
+        bStats?.h2Scored?.length,
+        2,
+        `${teamBName || "Team B"} overall exact 2H sample`
+      );
     }
+
+    requirePairSample(
+      bStats?.h1Scored?.length,
+      bStats?.h1Scored?.length,
+      5,
+      `${teamBName || "Team B"} overall 1H sample`
+    );
+
   }
 
-  const h2hCount = Number(h2hGames?.length || 0);
-  if (h2hCount === 0) {
-    issues.push(league === "tt" ? "No recent TT H2H matches were found for this pairing." : "No 2024+ H2H games were found for this matchup.");
-  } else if (h2hCount === 1) {
-    issues.push(league === "tt" ? "Only 1 TT H2H match was found, so H2H is not fully confirmed." : "Only 1 H2H game was found, so H2H is not fully confirmed.");
+
+  if ((h2hGames?.length || 0) === 0) {
+    issues.push("No 2024+ H2H games were found for this matchup.");
+  } else if ((h2hGames?.length || 0) === 1) {
+    issues.push("Only 1 H2H game was found, so H2H is not fully confirmed.");
   }
 
   return issues;
@@ -3793,11 +3859,9 @@ function validateFetchSection() {
   const fetchBtn = document.getElementById("fetchBtn");
   const teamAName = document.getElementById("teamAName")?.value.trim() || "";
   const teamBName = document.getElementById("teamBName")?.value.trim() || "";
-  const supported = league === "nba" || league === "ncaa" || league === "tt";
+  const supported = league === "nba" || league === "ncaa";
   const fixtureOpt = getSelectedFixtureOption();
   const hasActivity = !!teamAName || !!teamBName || !!fixtureOpt;
-  const sideALabel = league === "tt" ? "Player A" : "Team A";
-  const sideBLabel = league === "tt" ? "Player B" : "Team B";
 
   if (!supported) {
     if (fetchBtn) fetchBtn.disabled = true;
@@ -3807,35 +3871,64 @@ function validateFetchSection() {
 
   const errors = [];
 
-  if (hasActivity) {
-    if (!teamAName) errors.push(`${sideALabel} is empty.`);
-    if (!teamBName) errors.push(`${sideBLabel} is empty.`);
+    if (hasActivity) {
+    if (!teamAName) errors.push("Team A is empty.");
+    if (!teamBName) errors.push("Team B is empty.");
 
-    const sameById = selectedTeamIds.A && selectedTeamIds.B && String(selectedTeamIds.A) === String(selectedTeamIds.B);
-    const sameByName = teamAName && teamBName && normalizeTeamName(teamAName) === normalizeTeamName(teamBName);
+    const sameById =
+      selectedTeamIds.A &&
+      selectedTeamIds.B &&
+      String(selectedTeamIds.A) === String(selectedTeamIds.B);
+
+    const sameByName =
+      teamAName &&
+      teamBName &&
+      normalizeTeamName(teamAName) === normalizeTeamName(teamBName);
 
     if (sameById || sameByName) {
-      errors.push(`${sideALabel} and ${sideBLabel} cannot be the same ${league === "tt" ? "player" : "team"}.`);
+      errors.push("Team A and Team B cannot be the same team.");
     }
 
     if (fixtureOpt) {
-      const homeId = String(fixtureOpt.dataset.homeId || "");
-      const awayId = String(fixtureOpt.dataset.awayId || "");
-      const fixtureHome = String(fixtureOpt.dataset.home || "");
-      const fixtureAway = String(fixtureOpt.dataset.away || "");
+  const homeId = String(fixtureOpt.dataset.homeId || "");
+  const awayId = String(fixtureOpt.dataset.awayId || "");
+  const fixtureHome = String(fixtureOpt.dataset.home || "");
+  const fixtureAway = String(fixtureOpt.dataset.away || "");
 
-      const sameHomeById = homeId && String(selectedTeamIds.A || "") && String(selectedTeamIds.A) === homeId;
-      const sameAwayById = awayId && String(selectedTeamIds.B || "") && String(selectedTeamIds.B) === awayId;
-      const sameHomeByName = !!teamAName && normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
-      const sameAwayByName = !!teamBName && normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
+  const sameHomeById =
+    homeId &&
+    String(selectedTeamIds.A || "") &&
+    String(selectedTeamIds.A) === homeId;
 
-      if (!(sameHomeById || sameHomeByName)) errors.push(`${sideALabel} no longer matches the selected fixture.`);
-      if (!(sameAwayById || sameAwayByName)) errors.push(`${sideBLabel} no longer matches the selected fixture.`);
-    }
+  const sameAwayById =
+    awayId &&
+    String(selectedTeamIds.B || "") &&
+    String(selectedTeamIds.B) === awayId;
+
+  const sameHomeByName =
+    !!teamAName &&
+    normalizeTeamName(teamAName) === normalizeTeamName(fixtureHome);
+
+  const sameAwayByName =
+    !!teamBName &&
+    normalizeTeamName(teamBName) === normalizeTeamName(fixtureAway);
+
+  if (!(sameHomeById || sameHomeByName)) {
+    errors.push("Team A no longer matches the selected fixture.");
   }
 
-  const isValid = errors.length === 0 && !!teamAName && !!teamBName;
+  if (!(sameAwayById || sameAwayByName)) {
+    errors.push("Team B no longer matches the selected fixture.");
+  }
+}
+  }
+
+  const isValid =
+    errors.length === 0 &&
+    !!teamAName &&
+    !!teamBName;
   if (fetchBtn) fetchBtn.disabled = !isValid;
+
   setFetchInputErrors(hasActivity ? errors : []);
   return isValid;
 }
@@ -5178,17 +5271,13 @@ function isTrackedPickVisibleOnPage(pick) {
         ) || null;
       })();
 
-      const ttFixture = (!matchedOpt && (document.getElementById("leagueSelect")?.value || "") === "tt")
-        ? (g_ttFetchContext?.fixture || findBestTTFixture(g_ttBoardCache?.data, teamAName, teamBName))
-        : null;
-
       return {
-        eventId: matchedOpt ? (matchedOpt.value || "") : (ttFixture?.eventId || ""),
-        eventDate: matchedOpt ? (matchedOpt.dataset.eventDate || "") : (ttFixture?.eventDate || ""),
-        homeTeam: matchedOpt ? (matchedOpt.dataset.home || teamAName) : (ttFixture?.playerA || teamAName),
-        awayTeam: matchedOpt ? (matchedOpt.dataset.away || teamBName) : (ttFixture?.playerB || teamBName),
-        homeId: matchedOpt ? (matchedOpt.dataset.homeId || String(selectedTeamIds.A || "")) : (ttFixture?.homeId || String(selectedTeamIds.A || "")),
-        awayId: matchedOpt ? (matchedOpt.dataset.awayId || String(selectedTeamIds.B || "")) : (ttFixture?.awayId || String(selectedTeamIds.B || ""))
+        eventId: matchedOpt ? (matchedOpt.value || "") : "",
+        eventDate: matchedOpt ? (matchedOpt.dataset.eventDate || "") : "",
+        homeTeam: matchedOpt ? (matchedOpt.dataset.home || teamAName) : teamAName,
+        awayTeam: matchedOpt ? (matchedOpt.dataset.away || teamBName) : teamBName,
+        homeId: matchedOpt ? (matchedOpt.dataset.homeId || String(selectedTeamIds.A || "")) : String(selectedTeamIds.A || ""),
+        awayId: matchedOpt ? (matchedOpt.dataset.awayId || String(selectedTeamIds.B || "")) : String(selectedTeamIds.B || "")
       };
     }
 
@@ -6284,12 +6373,10 @@ function getTrackedLeagueBase(league) {
 
     let changed = false;
     const pendingPicks = allBuckets.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
-    const pendingTTPicks = pendingPicks.filter(p => p.league === "tt");
-    const pendingEspnPicks = pendingPicks.filter(p => p.league !== "tt");
 
-    if (pendingEspnPicks.length) {
+    if (pendingPicks.length) {
       const eventEntries = [...new Map(
-        pendingEspnPicks
+        pendingPicks
           .map(p => {
             const base = getTrackedLeagueBase(p.league);
             if (!base) return null;
@@ -6309,7 +6396,7 @@ function getTrackedLeagueBase(league) {
 
       const eventMap = new Map(eventResults);
 
-      pendingEspnPicks.forEach(pick => {
+      pendingPicks.forEach(pick => {
         const data = eventMap.get(`${pick.league}:${pick.eventId}`);
         const competition = data?.header?.competitions?.[0];
         if (!competition) return;
@@ -6328,20 +6415,6 @@ function getTrackedLeagueBase(league) {
           changed = true;
         }
       });
-    }
-
-    if (pendingTTPicks.length) {
-      const ttBoard = await fetchTTBoard(true).catch(() => null);
-      if (ttBoard) {
-        pendingTTPicks.forEach(pick => {
-          const settled = settleTrackedTTPickFromBoard(pick, ttBoard);
-          if (settled !== "pending" && pick.resultStatus !== settled) {
-            pick.resultStatus = settled;
-            pick.settledAt = new Date().toISOString();
-            changed = true;
-          }
-        });
-      }
     }
 
     const archivedChanged = archiveExpiredTrackedPicks();
@@ -7212,8 +7285,8 @@ resetResultsTable();
     }
 
     function updateSectionLocks() {
-  const league = document.getElementById("leagueSelect")?.value || "";
-  const fetchEnabledLeague = league === "nba" || league === "ncaa" || league === "tt";
+  const league = document.getElementById("leagueSelect").value;
+  const isNbaOrNcaa = league === "nba" || league === "ncaa";
 
   if (!league) {
     [
@@ -7233,7 +7306,7 @@ resetResultsTable();
   unlockSection("h2hSection");
   unlockSection("intelSection");
 
-  if (fetchEnabledLeague) unlockSection("espnSection");
+  if (isNbaOrNcaa) unlockSection("espnSection");
   else lockSection("espnSection");
 }
 
@@ -7538,16 +7611,6 @@ validateFetchSection();
         section.classList.add("collapsed");
         section.dataset.collapsibleReady = "1";
       });
-    }
-
-
-    function resetBootCollapsedLayout() {
-      document.querySelectorAll(".section").forEach(section => {
-        section.classList.add("collapsed");
-        section.classList.remove("locked");
-      });
-      lockFrom("espnSection");
-      openSection("leagueSection");
     }
 
     function validateTeamId(id, league) {
@@ -8169,15 +8232,11 @@ const cls =
       const sel = document.getElementById("fixtureSelect");
       if (!toolbar || !sel) return;
 
-      const supported = league === "nba" || league === "ncaa" || league === "tt";
+      const supported = league === "nba" || league === "ncaa";
       if (!supported) {
         toolbar.style.display = "none";
         sel.style.display = "none";
         sel.innerHTML = '<option value="">— Select match —</option>';
-        return;
-      }
-      if (league === "tt") {
-        await loadTTFixtures();
         return;
       }
 
@@ -8303,10 +8362,6 @@ return isPreGame;
       const teamAName = document.getElementById("teamAName").value.trim();
       const teamBName = document.getElementById("teamBName").value.trim();
 
-      if (league === "tt") {
-        await fetchTTAuto();
-        return;
-      }
       if (!teamAName || !teamBName) {
         setStatusText("❌ Enter both team names first.", "err");
         return;
@@ -9007,8 +9062,6 @@ function getMarketKeyFromName(name) {
   if (name === "2H Total") return "h2";
   if (name === "Team A Total") return "team_a";
   if (name === "Team B Total") return "team_b";
-  if (name === "Match Total Points") return "ft";
-  if (name === "1st Set Total Points") return "h1";
   return "other";
 }
 
@@ -10083,7 +10136,7 @@ function getTrackedInputSource(marketKey = "ft") {
   if (!rawSources.length) return "unknown";
 
   const normalized = rawSources.map(src => {
-    if (src === "espn" || src === "tt_auto") return "auto";
+    if (src === "espn") return "auto";
     if (src === "manual") return "manual";
     return src;
   });
@@ -10421,11 +10474,6 @@ async function runEngine() {
 
     if (!league) {
       showRunError(table, "⚠ Select a league first.");
-      return;
-    }
-
-    if (league === "tt") {
-      await runTableTennisEngine(table);
       return;
     }
 
@@ -10870,16 +10918,12 @@ if (trackedToSave.length) {
       g_lastFetchedTeams = { A: "", B: "" };
       g_fetchMeta = defaultFetchMeta();
       g_massacreFetchContext = defaultMassacreFetchContext();
-      g_ttFetchContext = defaultTTFetchContext();
       g_h2hManualPreference.ft = null;
       g_h2hManualPreference.h1 = null;
       g_h2hManualPreference.h2 = null;
 
-      const currentMode = getCurrentSportMode();
-      const isTTMode = currentMode === SPORT_MODE_TT;
-
       const ls = document.getElementById("leagueSelect");
-      if (ls) ls.value = isTTMode ? "tt" : "";
+      if (ls) ls.value = "";
 
       document.querySelectorAll("input").forEach(i => {
         if (i.type !== "checkbox") i.value = "";
@@ -10927,14 +10971,9 @@ if (t) {
         s.classList.remove("locked");
       });
 
-applySportModeUI();
-if (isTTMode) {
-  const ls2 = document.getElementById("leagueSelect");
-  if (ls2) ls2.value = "tt";
-}
 lockFrom("espnSection");
 updateSectionLocks();
-accordionOpen(isTTMode ? "espnSection" : "leagueSection");
+accordionOpen("leagueSection");
 validateFetchSection();
     }
 
@@ -10953,22 +10992,17 @@ resetResultsTable();
       setFieldValues(FIELD_GROUPS.intelFields);
 
       const league = document.getElementById("leagueSelect").value;
-      const isTT = league === "tt";
       const isNbaOrNcaa = league === "nba" || league === "ncaa";
       const isNba = league === "nba";
 
-      document.getElementById("espnSection").style.display = (isNbaOrNcaa || isTT) ? "block" : "none";
+      document.getElementById("espnSection").style.display = isNbaOrNcaa ? "block" : "none";
 
-     ["a1HSection", "b1HSection", "h2h1HSection", "h1MarketSection"].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.style.display = (isNbaOrNcaa || isTT) ? "block" : "none";
-});
-     ["a2HSection", "b2HSection", "h2h2HSection", "h2MarketSection"].forEach(id => {
+     ["a1HSection", "b1HSection", "a2HSection", "b2HSection", "h2h1HSection", "h2h2HSection", "h1MarketSection", "h2MarketSection"].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.style.display = isNbaOrNcaa ? "block" : "none";
 });
 
-                 if (!isNbaOrNcaa && !isTT) {
+                 if (!isNbaOrNcaa) {
         setFieldValues(FIELD_GROUPS.periodInputs);
 
         ["aAutoTag", "bAutoTag", "h2hAutoTag"].forEach(id => {
@@ -11016,7 +11050,6 @@ if (!league) {
 
       updateSectionLocks();
 if (isNbaOrNcaa) { accordionOpen("espnSection"); loadFixtures(0); }
-else if (isTT) { accordionOpen("espnSection"); loadTTFixtures(); }
 else accordionOpen("marketSection");
 validateFetchSection();
     }
@@ -11107,880 +11140,6 @@ const TT_LEAGUE_OPTIONS_HTML = `
         </optgroup>`;
 let g_currentSportMode = SPORT_MODE_BASKETBALL;
 let g_basketballLeagueOptionsHtml = "";
-const TT_DEFAULT_MAX_SETS = 5;
-let g_ttFetchContext = defaultTTFetchContext();
-
-function defaultTTFetchContext() {
-  return {
-    fixture: null,
-    A: { playerName: "", totalPoints: [], firstSetPoints: [] },
-    B: { playerName: "", totalPoints: [], firstSetPoints: [] },
-    h2h: { aTotalPoints: [], bTotalPoints: [], aFirstSet: [], bFirstSet: [] },
-    source: "manual"
-  };
-}
-
-const TT_BOARD_SOURCE_URL = "https://scores24.live/en/table-tennis/l-setka-cup-0";
-const TT_BOARD_CACHE_MS = 60 * 1000;
-let g_ttBoardCache = { ts: 0, data: null, inFlight: null };
-
-function proxyFetchRaw(url, timeoutMs = 15000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-
-  return fetch(WORKER_URL + "?url=" + encodeURIComponent(url), {
-    signal: ctrl.signal,
-    headers: {}
-  })
-    .then(res => {
-      if (!res.ok) throw new Error("Worker HTTP " + res.status);
-      return res.text();
-    })
-    .then(text => {
-      try {
-        const parsed = JSON.parse(text);
-        if (parsed && typeof parsed === "object") {
-          if (typeof parsed.text === "string") return parsed.text;
-          if (typeof parsed.html === "string") return parsed.html;
-          if (typeof parsed.body === "string") return parsed.body;
-          if (typeof parsed.content === "string") return parsed.content;
-        }
-      } catch (e) {}
-      return text;
-    })
-    .finally(() => clearTimeout(timer));
-}
-
-function normalizeTTPlayerName(name) {
-  return normalizeTeamName(String(name || "")).replace(/\s+/g, " ").trim();
-}
-
-function isTTDateLine(line) {
-  return /^\d{2}[./-]\d{2}[./-]\d{2,4}$/.test(String(line || "").trim());
-}
-
-function isTTTimeLine(line) {
-  return /^\d{1,2}:\d{2}$/.test(String(line || "").trim());
-}
-
-function parseTTDateKey(line) {
-  const m = String(line || "").trim().match(/^(\d{2})[./-](\d{2})[./-](\d{2,4})$/);
-  if (!m) return "";
-  let year = Number(m[3]);
-  if (year < 100) year += 2000;
-  return `${String(year).padStart(4, "0")}-${m[2]}-${m[1]}`;
-}
-
-function parseDateKeyFromIso(raw) {
-  const s = String(raw || "").trim();
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (m) return m[1];
-  const parsed = Date.parse(s);
-  if (!Number.isFinite(parsed)) return "";
-  const d = new Date(parsed);
-  return [d.getUTCFullYear(), String(d.getUTCMonth() + 1).padStart(2, "0"), String(d.getUTCDate()).padStart(2, "0")].join("-");
-}
-
-function buildTTEventDate(dateLine, timeLine = "00:00") {
-  const dateKey = parseTTDateKey(dateLine);
-  if (!dateKey) return "";
-  const time = isTTTimeLine(timeLine) ? timeLine.padStart(5, "0") : "00:00";
-  return `${dateKey}T${time}:00`;
-}
-
-function buildTTSyntheticPlayerId(name) {
-  const clean = normalizeTTPlayerName(name);
-  return clean ? `tt:${clean}` : "";
-}
-
-function buildTTSyntheticEventId(playerA, playerB, dateLine, timeLine = "", suffix = "") {
-  return [
-    "tt",
-    parseTTDateKey(dateLine) || "",
-    isTTTimeLine(timeLine) ? timeLine : "",
-    normalizeTTPlayerName(playerA),
-    normalizeTTPlayerName(playerB),
-    suffix || ""
-  ].join("|");
-}
-
-function stripHtmlToTTLines(raw) {
-  let text = String(raw || "");
-  try {
-    if (/<[a-z][\s\S]*>/i.test(text) && typeof DOMParser !== "undefined") {
-      const doc = new DOMParser().parseFromString(text, "text/html");
-      const inner = doc?.body?.innerText || doc?.body?.textContent || "";
-      if (String(inner).trim()) text = inner;
-    }
-  } catch (e) {}
-
-  return text
-    .replace(/\r/g, "\n")
-    .split(/\n+/)
-    .map(s => String(s || "").replace(/\u00a0/g, " ").trim())
-    .filter(Boolean);
-}
-
-function isTTNoiseLine(line) {
-  const s = String(line || "").trim();
-  if (!s) return true;
-  if (/^image:/i.test(s)) return true;
-  if (/^(subscribe|show more|my matches|favourite|featured event|matches|overview|predictions|details|company|empty for now)$/i.test(s)) return true;
-  if (/^add the matches you are interested in/i.test(s)) return true;
-  if (/^there are no events$/i.test(s)) return true;
-  if (/^w[12]$/i.test(s)) return true;
-  if (s === "-") return true;
-  return false;
-}
-
-function isTTNameLine(line) {
-  const s = String(line || "").trim();
-  if (!s || isTTNoiseLine(s) || isTTDateLine(s) || isTTTimeLine(s)) return false;
-  if (/^(ended|ft|live|scheduled)$/i.test(s)) return false;
-  if (/^\d+(?:st|nd|rd|th) game$/i.test(s)) return false;
-  if (/^(schedule of upcoming matches|latest results|setka cup, world - live matches|other tournaments|articles)$/i.test(s)) return false;
-  if (/^-?\d+(?:\.\d+)?$/.test(s)) return false;
-  return /[A-Za-zÀ-ÿА-Яа-яЁёІіЇїЄє]/.test(s);
-}
-
-function parseTTMatchBlocks(lines, startHeading, endHeadings = [], completed = true) {
-  const startIdx = lines.findIndex(line => String(line || "").toLowerCase().includes(String(startHeading || "").toLowerCase()));
-  if (startIdx === -1) return [];
-
-  const endIdx = (() => {
-    for (let i = startIdx + 1; i < lines.length; i++) {
-      const raw = String(lines[i] || "").toLowerCase();
-      if (endHeadings.some(h => raw.includes(String(h || "").toLowerCase()))) return i;
-    }
-    return lines.length;
-  })();
-
-  const matches = [];
-  let currentDate = "";
-  let ordinal = 0;
-
-  for (let i = startIdx + 1; i < endIdx; i++) {
-    const line = lines[i];
-    if (isTTDateLine(line)) {
-      currentDate = line;
-      continue;
-    }
-    if (!currentDate || !isTTNameLine(line)) continue;
-
-    const playerA = line;
-    let j = i + 1;
-    while (j < endIdx && !isTTNameLine(lines[j]) && !isTTDateLine(lines[j])) j += 1;
-    if (j >= endIdx || !isTTNameLine(lines[j])) continue;
-    const playerB = lines[j];
-
-    let k = j + 1;
-    const nums = [];
-    while (k < endIdx) {
-      const token = String(lines[k] || "").trim();
-      if (isTTDateLine(token)) break;
-      if (/^(other tournaments|articles)$/i.test(token)) break;
-      if (/^(ended|ft|scheduled|live)$/i.test(token) || /^\d+(?:st|nd|rd|th) game$/i.test(token) || isTTNoiseLine(token)) {
-        k += 1;
-        continue;
-      }
-      if (/^-?\d+(?:\.\d+)?$/.test(token)) {
-        nums.push(Number(token));
-        k += 1;
-        continue;
-      }
-      if (isTTNameLine(token) && nums.length > 0) break;
-      k += 1;
-    }
-
-    if (nums.length >= 4) {
-      ordinal += 1;
-      const setsA = Number(nums[0]);
-      const setsB = Number(nums[1]);
-      const firstGameA = Number(nums[2]);
-      const firstGameB = Number(nums[3]);
-      const setScores = [];
-      for (let p = 2; p + 1 < nums.length; p += 2) {
-        setScores.push([Number(nums[p]), Number(nums[p + 1])]);
-      }
-      matches.push({
-        playerA,
-        playerB,
-        setsA,
-        setsB,
-        firstGameA,
-        firstGameB,
-        firstGameTotal: (isFinite(firstGameA) && isFinite(firstGameB)) ? (firstGameA + firstGameB) : NaN,
-        setScores,
-        dateRaw: currentDate,
-        timeRaw: "",
-        eventDate: buildTTEventDate(currentDate),
-        eventId: buildTTSyntheticEventId(playerA, playerB, currentDate, "", String(ordinal)),
-        completed,
-        orderIndex: ordinal
-      });
-      i = k - 1;
-    }
-  }
-
-  return matches;
-}
-
-function parseTTUpcomingFixtures(lines) {
-  const startIdx = lines.findIndex(line => String(line || "").toLowerCase().includes("schedule of upcoming matches"));
-  if (startIdx === -1) return [];
-  const endIdx = (() => {
-    for (let i = startIdx + 1; i < lines.length; i++) {
-      const raw = String(lines[i] || "").toLowerCase();
-      if (raw.includes("latest results") || raw.includes("other tournaments") || raw.includes("articles")) return i;
-    }
-    return lines.length;
-  })();
-
-  const fixtures = [];
-  let currentDate = "";
-
-  for (let i = startIdx + 1; i < endIdx; i++) {
-    const line = lines[i];
-    if (isTTDateLine(line)) {
-      currentDate = line;
-      continue;
-    }
-    if (!currentDate || !isTTTimeLine(line)) continue;
-
-    const timeRaw = line;
-    const names = [];
-    let j = i + 1;
-    while (j < endIdx && names.length < 2) {
-      const token = lines[j];
-      if (isTTDateLine(token) || isTTTimeLine(token)) break;
-      if (isTTNameLine(token)) names.push(token);
-      j += 1;
-    }
-
-    if (names.length === 2) {
-      const playerA = names[0];
-      const playerB = names[1];
-      fixtures.push({
-        playerA,
-        playerB,
-        dateRaw: currentDate,
-        timeRaw,
-        eventDate: buildTTEventDate(currentDate, timeRaw),
-        eventId: buildTTSyntheticEventId(playerA, playerB, currentDate, timeRaw),
-        homeId: buildTTSyntheticPlayerId(playerA),
-        awayId: buildTTSyntheticPlayerId(playerB)
-      });
-      i = j - 1;
-    }
-  }
-
-  return fixtures;
-}
-
-function parseTTBoardPayload(raw) {
-  const lines = stripHtmlToTTLines(raw);
-  return {
-    sourceUrl: TT_BOARD_SOURCE_URL,
-    lines,
-    live: parseTTMatchBlocks(lines, "live matches", ["schedule of upcoming matches"], false),
-    upcoming: parseTTUpcomingFixtures(lines),
-    results: parseTTMatchBlocks(lines, "latest results", ["other tournaments", "articles"], true),
-    fetchedAt: new Date().toISOString()
-  };
-}
-
-async function fetchTTBoard(force = false) {
-  const now = Date.now();
-  if (!force && g_ttBoardCache.data && (now - g_ttBoardCache.ts) < TT_BOARD_CACHE_MS) {
-    return g_ttBoardCache.data;
-  }
-  if (!force && g_ttBoardCache.inFlight) return g_ttBoardCache.inFlight;
-
-  const req = proxyFetchRaw(TT_BOARD_SOURCE_URL, 18000)
-    .then(raw => parseTTBoardPayload(raw))
-    .then(data => {
-      g_ttBoardCache = { ts: Date.now(), data, inFlight: null };
-      return data;
-    })
-    .catch(err => {
-      g_ttBoardCache.inFlight = null;
-      throw err;
-    });
-
-  g_ttBoardCache.inFlight = req;
-  return req;
-}
-
-function getTTPairOrder(result, playerA, playerB) {
-  const a = normalizeTTPlayerName(playerA);
-  const b = normalizeTTPlayerName(playerB);
-  const rA = normalizeTTPlayerName(result?.playerA);
-  const rB = normalizeTTPlayerName(result?.playerB);
-  if (a && b && rA === a && rB === b) return 1;
-  if (a && b && rA === b && rB === a) return -1;
-  return 0;
-}
-
-function getTTPlayerMatchPoints(result, targetOrder = 1) {
-  const sets = Array.isArray(result?.setScores) ? result.setScores : [];
-  if (!sets.length) return NaN;
-  const idx = targetOrder === 1 ? 0 : 1;
-  const total = sets.reduce((sum, pair) => sum + (Number(pair?.[idx]) || 0), 0);
-  return isFinite(total) && total > 0 ? total : NaN;
-}
-
-function getTTMatchTotalPoints(result) {
-  const sets = Array.isArray(result?.setScores) ? result.setScores : [];
-  if (!sets.length) return NaN;
-  const total = sets.reduce((sum, pair) => sum + (Number(pair?.[0]) || 0) + (Number(pair?.[1]) || 0), 0);
-  return isFinite(total) && total > 0 ? total : NaN;
-}
-
-function findTTRecentSeries(board, playerName, limit = 5) {
-  const target = normalizeTTPlayerName(playerName);
-  const recent = { totalPoints: [], firstSetPoints: [] };
-  if (!target) return recent;
-
-  (Array.isArray(board?.results) ? board.results : []).forEach(result => {
-    if (recent.totalPoints.length >= limit) return;
-    const rA = normalizeTTPlayerName(result?.playerA);
-    const rB = normalizeTTPlayerName(result?.playerB);
-    if (target !== rA && target !== rB) return;
-    const order = target === rA ? 1 : -1;
-    const matchPoints = getTTPlayerMatchPoints(result, order === 1 ? 1 : -1);
-    const firstSetPoints = order === 1 ? Number(result.firstGameA) : Number(result.firstGameB);
-    if (isFinite(matchPoints)) recent.totalPoints.push(matchPoints);
-    if (isFinite(firstSetPoints)) recent.firstSetPoints.push(firstSetPoints);
-  });
-
-  return recent;
-}
-
-function findTTH2HSeries(board, playerA, playerB, limit = 5) {
-  const out = { aTotalPoints: [], bTotalPoints: [], aFirstSet: [], bFirstSet: [], count: 0 };
-  (Array.isArray(board?.results) ? board.results : []).forEach(result => {
-    if (out.aTotalPoints.length >= limit) return;
-    const order = getTTPairOrder(result, playerA, playerB);
-    if (!order) return;
-    const aPoints = getTTPlayerMatchPoints(result, order === 1 ? 1 : -1);
-    const bPoints = getTTPlayerMatchPoints(result, order === 1 ? -1 : 1);
-    const aFirst = order === 1 ? Number(result.firstGameA) : Number(result.firstGameB);
-    const bFirst = order === 1 ? Number(result.firstGameB) : Number(result.firstGameA);
-    if (isFinite(aPoints) && isFinite(bPoints)) {
-      out.aTotalPoints.push(aPoints);
-      out.bTotalPoints.push(bPoints);
-    }
-    if (isFinite(aFirst) && isFinite(bFirst)) {
-      out.aFirstSet.push(aFirst);
-      out.bFirstSet.push(bFirst);
-    }
-  });
-  out.count = Math.min(out.aTotalPoints.length, out.bTotalPoints.length);
-  return out;
-}
-
-function findBestTTFixture(board, playerA, playerB) {
-  const fixtures = Array.isArray(board?.upcoming) ? board.upcoming : [];
-  return fixtures.find(f => getTTPairOrder({ playerA: f.playerA, playerB: f.playerB }, playerA, playerB) === 1) || null;
-}
-
-async function loadTTFixtures() {
-  const myToken = ++_fixtureLoadToken;
-  const sel = document.getElementById("fixtureSelect");
-  const toolbar = document.getElementById("fixtureToolbar");
-  if (!sel) return;
-  if (toolbar) toolbar.style.display = "none";
-  sel.style.display = "block";
-  sel.innerHTML = '<option value="">Loading TT matches...</option>';
-  sel.value = "";
-  selectedTeamIds = { A: null, B: null };
-  validateFetchSection();
-
-  try {
-    const board = await fetchTTBoard(true);
-    if (myToken !== _fixtureLoadToken) return;
-    const fixtures = Array.isArray(board?.upcoming) ? board.upcoming : [];
-    if (!fixtures.length) {
-      sel.innerHTML = '<option value="">No upcoming TT matches</option>';
-      return;
-    }
-
-    sel.innerHTML = '<option value="">— Select TT match —</option>';
-    fixtures.forEach(f => {
-      const opt = document.createElement("option");
-      opt.value = String(f.eventId || "");
-      opt.textContent = `${f.timeRaw || "--:--"} — ${f.playerA} vs ${f.playerB}`;
-      opt.dataset.home = f.playerA || "";
-      opt.dataset.away = f.playerB || "";
-      opt.dataset.homeId = f.homeId || buildTTSyntheticPlayerId(f.playerA);
-      opt.dataset.awayId = f.awayId || buildTTSyntheticPlayerId(f.playerB);
-      opt.dataset.eventDate = f.eventDate || "";
-      sel.appendChild(opt);
-    });
-  } catch (e) {
-    if (myToken !== _fixtureLoadToken) return;
-    logDebug("loadTTFixtures failed", e);
-    sel.innerHTML = '<option value="">Unable to load TT matches</option>';
-  }
-}
-
-async function fetchTTAuto() {
-  const league = document.getElementById("leagueSelect")?.value || "";
-  const teamAInput = document.getElementById("teamAName");
-  const teamBInput = document.getElementById("teamBName");
-  const fixtureOpt = getSelectedFixtureOption();
-  if (fixtureOpt?.dataset?.home && teamAInput && !teamAInput.value.trim()) teamAInput.value = fixtureOpt.dataset.home;
-  if (fixtureOpt?.dataset?.away && teamBInput && !teamBInput.value.trim()) teamBInput.value = fixtureOpt.dataset.away;
-
-  const teamAName = String(teamAInput?.value || "").trim();
-  const teamBName = String(teamBInput?.value || "").trim();
-  if (!teamAName || !teamBName) {
-    setStatusText("❌ Enter both player names first.", "err");
-    return;
-  }
-  if (league !== "tt") {
-    setStatusText("❌ TT auto-fetch only works in TT mode.", "err");
-    return;
-  }
-  if (normalizeTTPlayerName(teamAName) === normalizeTTPlayerName(teamBName)) {
-    setStatusText("❌ Player A and Player B cannot be the same.", "err");
-    return;
-  }
-
-  const btn = document.getElementById("fetchBtn");
-  if (btn) btn.disabled = true;
-  setFetchAuditIssues([]);
-  resetResultsTable();
-  setStatusHTML('<span class="spinner"></span>Fetching TT board...', "loading");
-
-  try {
-    const board = await fetchTTBoard(true);
-    const recentA = findTTRecentSeries(board, teamAName, 5);
-    const recentB = findTTRecentSeries(board, teamBName, 5);
-    const h2h = findTTH2HSeries(board, teamAName, teamBName, 5);
-    const fixture = fixtureOpt?.value
-      ? {
-          eventId: String(fixtureOpt.value || ""),
-          eventDate: String(fixtureOpt.dataset.eventDate || ""),
-          playerA: String(fixtureOpt.dataset.home || teamAName),
-          playerB: String(fixtureOpt.dataset.away || teamBName),
-          homeId: String(fixtureOpt.dataset.homeId || buildTTSyntheticPlayerId(teamAName)),
-          awayId: String(fixtureOpt.dataset.awayId || buildTTSyntheticPlayerId(teamBName))
-        }
-      : findBestTTFixture(board, teamAName, teamBName);
-
-    if (!recentA.totalPoints.length && !recentB.totalPoints.length && !h2h.count) {
-      throw new Error("No recent TT data found for these players.");
-    }
-
-    clearSideFields("A");
-    clearSideFields("B");
-    clearH2HFields();
-
-    document.getElementById("aFTScored").value = recentA.totalPoints.join(",");
-    document.getElementById("bFTScored").value = recentB.totalPoints.join(",");
-    document.getElementById("a1HScored").value = recentA.firstSetPoints.join(",");
-    document.getElementById("b1HScored").value = recentB.firstSetPoints.join(",");
-
-    if (h2h.aTotalPoints.length) document.getElementById("aFTH2H").value = h2h.aTotalPoints.join(",");
-    if (h2h.bTotalPoints.length) document.getElementById("bFTH2H").value = h2h.bTotalPoints.join(",");
-    if (h2h.aFirstSet.length) document.getElementById("a1HH2H").value = h2h.aFirstSet.join(",");
-    if (h2h.bFirstSet.length) document.getElementById("b1HH2H").value = h2h.bFirstSet.join(",");
-
-    if (h2h.count >= 2) {
-      syncH2HCheckbox("ft", false);
-      syncH2HCheckbox("h1", false);
-      queueH2HCheckboxSync(false);
-    } else {
-      syncAllH2HCheckboxes(false);
-      queueH2HCheckboxSync(false);
-    }
-
-    const aTag = document.getElementById("aAutoTag");
-    const bTag = document.getElementById("bAutoTag");
-    const h2hTag = document.getElementById("h2hAutoTag");
-    if (aTag) aTag.style.display = recentA.totalPoints.length ? "inline" : "none";
-    if (bTag) bTag.style.display = recentB.totalPoints.length ? "inline" : "none";
-    if (h2hTag) h2hTag.style.display = h2h.count ? "inline" : "none";
-
-    selectedTeamIds.A = fixture?.homeId || buildTTSyntheticPlayerId(teamAName);
-    selectedTeamIds.B = fixture?.awayId || buildTTSyntheticPlayerId(teamBName);
-
-    g_fetchMeta.A = {
-      ft: { source: "tt_auto", venueReliable: true },
-      h1: { source: "tt_auto", venueReliable: true },
-      h2: { source: "manual", venueReliable: true }
-    };
-    g_fetchMeta.B = {
-      ft: { source: "tt_auto", venueReliable: true },
-      h1: { source: "tt_auto", venueReliable: true },
-      h2: { source: "manual", venueReliable: true }
-    };
-
-    g_ttFetchContext = {
-      fixture: fixture ? {
-        eventId: fixture.eventId || "",
-        eventDate: fixture.eventDate || "",
-        playerA: fixture.playerA || teamAName,
-        playerB: fixture.playerB || teamBName,
-        homeId: fixture.homeId || selectedTeamIds.A,
-        awayId: fixture.awayId || selectedTeamIds.B
-      } : null,
-      A: { playerName: teamAName, totalPoints: [...recentA.totalPoints], firstSetPoints: [...recentA.firstSetPoints] },
-      B: { playerName: teamBName, totalPoints: [...recentB.totalPoints], firstSetPoints: [...recentB.firstSetPoints] },
-      h2h: { aTotalPoints: [...h2h.aTotalPoints], bTotalPoints: [...h2h.bTotalPoints], aFirstSet: [...h2h.aFirstSet], bFirstSet: [...h2h.bFirstSet] },
-      source: "auto"
-    };
-
-    const notes = [];
-    notes.push(`${safeText(teamAName)} recent: ${recentA.totalPoints.length} matches ✅`);
-    notes.push(`${safeText(teamBName)} recent: ${recentB.totalPoints.length} matches ✅`);
-    if (h2h.count >= 2) notes.push(`TT H2H: ${h2h.count} matches ✅`);
-    else if (h2h.count === 1) notes.push("TT H2H: 1 match found (min 2 to auto-enable)");
-    else notes.push("TT H2H: no recent matchup found");
-    if (fixture?.eventDate) notes.push(`Fixture linked: ${safeText((fixture.playerA || teamAName) + " vs " + (fixture.playerB || teamBName))} ✅`);
-    setStatusText(notes.join(" • "), "ok");
-  } catch (e) {
-    logDebug("fetchTTAuto failed", e);
-    setStatusText(`❌ ${e?.message || "Unable to fetch TT data."}`, "err");
-  } finally {
-    if (btn) btn.disabled = false;
-    validateFetchSection();
-  }
-}
-
-function settleTrackedTTPickFromBoard(pick, board) {
-  if (!pick || !board) return "pending";
-  const results = Array.isArray(board.results) ? board.results : [];
-  const pickDateKey = parseDateKeyFromIso(pick.eventDate);
-
-  const candidates = results
-    .map(result => {
-      const order = getTTPairOrder(result, pick.homeTeam, pick.awayTeam);
-      if (!order) return null;
-      const resultDateKey = parseDateKeyFromIso(result.eventDate || buildTTEventDate(result.dateRaw || ""));
-      return {
-        result,
-        order,
-        sameDate: !!pickDateKey && !!resultDateKey && pickDateKey === resultDateKey,
-        score: (!!pickDateKey && !!resultDateKey && pickDateKey === resultDateKey ? 10 : 0) + (order === 1 ? 3 : 1) - Number(result.orderIndex || 0) * 0.001
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.score - a.score);
-
-  if (!candidates.length) return "pending";
-
-  const best = candidates[0];
-  const result = best.result;
-  const setsA = best.order === 1 ? Number(result.setsA) : Number(result.setsB);
-  const setsB = best.order === 1 ? Number(result.setsB) : Number(result.setsA);
-  let actual = NaN;
-
-  if (pick.marketKey === "ft") actual = getTTMatchTotalPoints(result);
-  else if (pick.marketKey === "h1") actual = Number(result.firstGameTotal);
-
-  if (!isFinite(actual)) return "pending";
-  const line = Number(pick.line);
-  if (!isFinite(line)) return "pending";
-  if (Math.abs(actual - line) < 0.001) return "push";
-  if (pick.side === "over") return actual > line ? "win" : "loss";
-  if (pick.side === "under") return actual < line ? "win" : "loss";
-  return "pending";
-}
-
-function safeSetInputLabel(inputId, value) {
-  const input = document.getElementById(inputId);
-  const label = input ? input.previousElementSibling : null;
-  if (label && label.tagName === "LABEL") label.textContent = value;
-}
-
-function ttNums(arr) {
-  return (Array.isArray(arr) ? arr : []).map(Number).filter(v => isFinite(v));
-}
-
-function ttMean(arr) {
-  const clean = ttNums(arr);
-  return clean.length ? clean.reduce((s, v) => s + v, 0) / clean.length : NaN;
-}
-
-function ttClamp(value, minValue, maxValue) {
-  const v = Number(value);
-  if (!isFinite(v)) return NaN;
-  return Math.min(maxValue, Math.max(minValue, v));
-}
-
-function inferTTMaxSets(seriesA = [], seriesB = [], h2hA = [], h2hB = []) {
-  const all = [...ttNums(seriesA), ...ttNums(seriesB), ...ttNums(h2hA), ...ttNums(h2hB)];
-  const maxWon = all.length ? Math.max(...all) : 3;
-  return maxWon >= 4 ? 7 : 5;
-}
-
-function getTTSeriesShare(seriesA = [], seriesB = []) {
-  const a = ttMean(seriesA);
-  const b = ttMean(seriesB);
-  if (!isFinite(a) || !isFinite(b) || (a + b) <= 0) return NaN;
-  return a / (a + b);
-}
-
-function getTTPick(edge, marketKey = "ft") {
-  const absEdge = Math.abs(Number(edge) || 0);
-  let floor = 2.1;
-  if (marketKey === "h1") floor = 1.25;
-  if (!isFinite(edge) || absEdge < floor) return "NO PLAY";
-  return edge > 0 ? "OVER" : "UNDER";
-}
-
-function getTTConfidenceGrade({ pick, edge, sampleSize, h2hCount, marketKey }) {
-  if (!pick || pick === "NO PLAY" || !isFinite(edge)) return "—";
-  const absEdge = Math.abs(Number(edge) || 0);
-  const strongSample = Number(sampleSize || 0) >= 8;
-  const decentSample = Number(sampleSize || 0) >= 5;
-  const h2hBonus = Number(h2hCount || 0) >= 2;
-
-  if (marketKey === "h1") {
-    if (absEdge >= 2.6 && strongSample && h2hBonus) return "A";
-    if (absEdge >= 1.9 && decentSample) return "B";
-    if (absEdge >= 1.25) return "C";
-    return "D";
-  }
-
-  if (absEdge >= 4.2 && strongSample && h2hBonus) return "A";
-  if (absEdge >= 3.0 && decentSample) return "B";
-  if (absEdge >= 2.1) return "C";
-  return "D";
-}
-
-function parseTTSeries(id) {
-  const raw = String(document.getElementById(id)?.value || "").trim();
-  if (!raw) return [];
-  const parsed = parseGames(id);
-  if (!parsed || parsed.err) return [];
-  return ttNums(parsed);
-}
-
-function validateTTInputs() {
-  const errors = [];
-  const markInvalid = id => {
-    const el = document.getElementById(id);
-    if (el) el.style.borderColor = "#c91920";
-  };
-  const clearInvalid = id => {
-    const el = document.getElementById(id);
-    if (el) el.style.borderColor = "";
-  };
-
-  ["ftMarket","h1Market","aFTScored","bFTScored","a1HScored","b1HScored","aFTH2H","bFTH2H","a1HH2H","b1HH2H"].forEach(clearInvalid);
-
-  const teamAName = String(document.getElementById("teamAName")?.value || "").trim();
-  const teamBName = String(document.getElementById("teamBName")?.value || "").trim();
-  if (!teamAName) { errors.push("Player A Name: missing"); markInvalid("teamAName"); }
-  if (!teamBName) { errors.push("Player B Name: missing"); markInvalid("teamBName"); }
-  if (teamAName && teamBName && normalizeTeamName(teamAName) === normalizeTeamName(teamBName)) {
-    errors.push("Player A and Player B cannot be the same.");
-    markInvalid("teamAName");
-    markInvalid("teamBName");
-  }
-
-  const ftLine = parseMarketLine(document.getElementById("ftMarket")?.value || "");
-  const h1LineRaw = String(document.getElementById("h1Market")?.value || "").trim();
-  const h1Line = h1LineRaw ? parseMarketLine(h1LineRaw) : null;
-  if (document.getElementById("ftMarket")?.value?.trim() && ftLine === null) { errors.push("Match Total Points: invalid line"); markInvalid("ftMarket"); }
-  if (h1LineRaw && h1Line === null) { errors.push("1st Set Total Points: invalid line"); markInvalid("h1Market"); }
-
-  if (ftLine === null && h1Line === null) {
-    errors.push("Enter at least one TT market line first.");
-  }
-
-  const aPoints = parseTTSeries("aFTScored");
-  const bPoints = parseTTSeries("bFTScored");
-  const aFirst = parseTTSeries("a1HScored");
-  const bFirst = parseTTSeries("b1HScored");
-  const useFTH2H = !!document.getElementById("useFTH2H")?.checked;
-  const use1HH2H = !!document.getElementById("use1HH2H")?.checked;
-  const h2hA = useFTH2H ? parseTTSeries("aFTH2H") : [];
-  const h2hB = useFTH2H ? parseTTSeries("bFTH2H") : [];
-  const h2hAFirst = use1HH2H ? parseTTSeries("a1HH2H") : [];
-  const h2hBFirst = use1HH2H ? parseTTSeries("b1HH2H") : [];
-
-  if (ftLine !== null) {
-    if (Math.min(aPoints.length, bPoints.length) < 2) {
-      errors.push("Match Total Points needs at least 2 recent match-points entries for both players.");
-      if (aPoints.length < 2) markInvalid("aFTScored");
-      if (bPoints.length < 2) markInvalid("bFTScored");
-    }
-  }
-
-  if (h1Line !== null) {
-    if (Math.min(aFirst.length, bFirst.length) < 2) {
-      errors.push("1st Set Total Points needs at least 2 first-set points entries for both players.");
-      if (aFirst.length < 2) markInvalid("a1HScored");
-      if (bFirst.length < 2) markInvalid("b1HScored");
-    }
-  }
-
-  if (useFTH2H && Math.min(h2hA.length, h2hB.length) < 2) {
-    errors.push("TT H2H is checked, but both TT H2H fields need at least 2 matches.");
-    if (h2hA.length < 2) markInvalid("aFTH2H");
-    if (h2hB.length < 2) markInvalid("bFTH2H");
-  }
-
-  if (use1HH2H && Math.min(h2hAFirst.length, h2hBFirst.length) < 2) {
-    errors.push("1st Set H2H is checked, but both 1st-set H2H fields need at least 2 matches.");
-    if (h2hAFirst.length < 2) markInvalid("a1HH2H");
-    if (h2hBFirst.length < 2) markInvalid("b1HH2H");
-  }
-
-  if (errors.length) {
-    return { ok: false, errorHtml: errors.map(x => "• " + safeText(x)).join("<br>") };
-  }
-
-  return {
-    ok: true,
-    parsed: { aPoints, bPoints, aFirst, bFirst, h2hA, h2hB, h2hAFirst, h2hBFirst },
-    lines: { ftLine, h1Line }
-  };
-}
-
-async function runTableTennisEngine(table) {
-  const validation = validateTTInputs();
-  if (!validation.ok) {
-    showRunError(table, validation.errorHtml);
-    return;
-  }
-
-  const { parsed, lines } = validation;
-  const { aPoints, bPoints, aFirst, bFirst, h2hA, h2hB, h2hAFirst, h2hBFirst } = parsed;
-  const { ftLine, h1Line } = lines;
-  const league = "tt";
-  const teamAName = String(document.getElementById("teamAName")?.value || "").trim();
-  const teamBName = String(document.getElementById("teamBName")?.value || "").trim();
-
-  const priorTTFixture = g_ttFetchContext?.fixture || findBestTTFixture(g_ttBoardCache?.data, teamAName, teamBName) || null;
-  const sameAutoTTContext =
-    g_ttFetchContext?.source === "auto" &&
-    normalizeTTPlayerName(g_ttFetchContext?.A?.playerName) === normalizeTTPlayerName(teamAName) &&
-    normalizeTTPlayerName(g_ttFetchContext?.B?.playerName) === normalizeTTPlayerName(teamBName);
-
-  g_ttFetchContext = {
-    fixture: priorTTFixture,
-    A: { playerName: teamAName, totalPoints: [...aPoints], firstSetPoints: [...aFirst] },
-    B: { playerName: teamBName, totalPoints: [...bPoints], firstSetPoints: [...bFirst] },
-    h2h: { aTotalPoints: [...h2hA], bTotalPoints: [...h2hB], aFirstSet: [...h2hAFirst], bFirstSet: [...h2hBFirst] },
-    source: sameAutoTTContext ? "auto" : "manual"
-  };
-
-  const formMatchPoints = ttMean(aPoints) + ttMean(bPoints);
-  const recentMatchPoints = ttMean(aPoints.slice(0, 3)) + ttMean(bPoints.slice(0, 3));
-  const h2hMatchTotals = h2hA.map((v, i) => Number(v) + Number(h2hB[i])).filter(v => isFinite(v) && v > 0);
-  const h2hMatchMean = ttMean(h2hMatchTotals);
-  const projectedTotal = (() => {
-    const parts = [];
-    if (isFinite(formMatchPoints)) parts.push([formMatchPoints, 0.58]);
-    if (isFinite(recentMatchPoints)) parts.push([recentMatchPoints, 0.17]);
-    if (isFinite(h2hMatchMean)) parts.push([h2hMatchMean, 0.25]);
-    if (!parts.length) return NaN;
-    return parts.reduce((s, part) => s + part[0] * part[1], 0) / parts.reduce((s, part) => s + part[1], 0);
-  })();
-
-  const firstParts = [];
-  const formFirst = ttMean(aFirst) + ttMean(bFirst);
-  if (isFinite(formFirst)) firstParts.push([formFirst, 0.72]);
-  const h2hFirstTotals = h2hAFirst.map((v, i) => Number(v) + Number(h2hBFirst[i])).filter(v => isFinite(v) && v > 0);
-  if (isFinite(ttMean(h2hFirstTotals))) firstParts.push([ttMean(h2hFirstTotals), 0.28]);
-  const projectedFirstGame = firstParts.length
-    ? firstParts.reduce((s, part) => s + part[0] * part[1], 0) / firstParts.reduce((s, part) => s + part[1], 0)
-    : NaN;
-
-  const h2hCount = Math.min(h2hA.length, h2hB.length);
-  const sampleSize = Math.min(aPoints.length, bPoints.length) * 2;
-  const firstSampleSize = Math.min(aFirst.length, bFirst.length) * 2;
-  const firstH2HCount = Math.min(h2hAFirst.length, h2hBFirst.length);
-
-  const rows = [];
-  if (isFinite(ftLine) && ftLine > 0) {
-    const ftEdge = projectedTotal - ftLine;
-    const ftPick = getTTPick(ftEdge, "ft");
-    rows.push({
-      _idx: 0,
-      name: "Match Total Points",
-      marketKey: "ft",
-      marketType: "ft",
-      league,
-      context: { aSc: ttMean(aPoints), bSc: ttMean(bPoints) },
-      line: ftLine,
-      proj: projectedTotal,
-      edge: ftEdge,
-      pick: ftPick,
-      confidence: getTTConfidenceGrade({ pick: ftPick, edge: ftEdge, sampleSize, h2hCount, marketKey: "ft" }),
-      note: sampleSize < 6 ? "Thin TT sample" : null,
-      fullModel: true
-    });
-  }
-
-  if (isFinite(h1Line) && h1Line > 0 && isFinite(projectedFirstGame)) {
-    const h1Edge = projectedFirstGame - h1Line;
-    const h1Pick = getTTPick(h1Edge, "h1");
-    rows.push({
-      _idx: 1,
-      name: "1st Set Total Points",
-      marketKey: "h1",
-      marketType: "h1",
-      league,
-      context: {},
-      line: h1Line,
-      proj: projectedFirstGame,
-      edge: h1Edge,
-      pick: h1Pick,
-      confidence: getTTConfidenceGrade({ pick: h1Pick, edge: h1Edge, sampleSize: firstSampleSize, h2hCount: firstH2HCount, marketKey: "h1" }),
-      note: firstSampleSize < 6 ? "Thin TT first-set sample" : null,
-      fullModel: true
-    });
-  }
-
-  if (!rows.length) {
-    showRunError(table, "⚠ Enter at least one TT market line first.");
-    return;
-  }
-
-  const markets = rows.map(p => ({
-    _idx: p._idx,
-    edge: p.edge,
-    line: p.line,
-    pick: p.pick,
-    fullModel: p.fullModel,
-    confidence: p.confidence,
-    note: p.note,
-    lockStrength: 0,
-    lockRestricted: false
-  }));
-  const lockIdx = selectLock(markets);
-
-  const trackedToSave = buildResultRows({
-    table,
-    finalPicks: rows,
-    lockIdx,
-    fixtureMeta: getCurrentFixtureMeta(),
-    league,
-    diagnostics: {
-      phase2Activation: null,
-      ftSampleTier: sampleSize >= 8 ? "strong" : sampleSize >= 5 ? "solid" : sampleSize >= 4 ? "thin" : "insufficient",
-      h1SampleTier: firstSampleSize >= 8 ? "strong" : firstSampleSize >= 5 ? "solid" : firstSampleSize >= 4 ? "thin" : "insufficient",
-      h2SampleTier: "insufficient",
-      ftProjectionOnly: false,
-      h1ProjectionOnly: false,
-      h2ProjectionOnly: true,
-      ftHasH2H: h2hCount >= 2,
-      h1HasH2H: firstH2HCount >= 2,
-      h2HasH2H: false,
-      aVol: NaN, bVol: NaN, aVol1: NaN, bVol1: NaN, aVol2: NaN, bVol2: NaN,
-      injMultA: 1, injMultB: 1,
-      ttMode: true
-    }
-  });
-
-  if (trackedToSave.length) addTrackedPicks(trackedToSave);
-}
 
 function getCurrentSportMode() {
   return g_currentSportMode === SPORT_MODE_TT ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
@@ -12013,11 +11172,19 @@ function applySportModeUI() {
   const isTT = mode === SPORT_MODE_TT;
   document.body.dataset.sportMode = mode;
 
+  const engineModeBar = document.getElementById("engineModeBar");
+  if (engineModeBar) engineModeBar.style.display = "none";
+
+  const ttPage = document.getElementById("ttPage");
+  if (ttPage) ttPage.style.display = "none";
+
   const themeToggleBtn = document.getElementById("themeToggleBtn");
   if (themeToggleBtn) themeToggleBtn.textContent = isTT ? "🏓" : "🏀";
 
   const brandModeToggle = document.getElementById("brandModeToggle");
-  if (brandModeToggle) brandModeToggle.title = isTT ? "Switch back to Basketball" : "Switch to TT";
+  if (brandModeToggle) {
+    brandModeToggle.title = isTT ? "Switch back to Basketball" : "Switch to TT";
+  }
 
   const leagueSelect = document.getElementById("leagueSelect");
   if (leagueSelect) {
@@ -12034,36 +11201,34 @@ function applySportModeUI() {
   }
 
   safeSetSectionTitle("espnSection", isTT
-    ? '🏓 TT Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(Setka Cup)</span>'
+    ? '🏓 TT Inputs <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(header switch mode)</span>'
     : '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
-  safeSetText("fixtureSelectLabel", isTT ? "Select Setka Cup match" : "Select match");
+  safeSetText("fixtureSelectLabel", "Select match");
   safeSetText("teamALabel", isTT ? "Player A Name" : "Team A Name (Home)");
   safeSetText("teamBLabel", isTT ? "Player B Name" : "Team B Name (Away)");
   safeSetSectionTitle("marketSection", isTT ? "TT Market Lines" : "Market Lines");
-  safeSetText("ftMarketLabel", isTT ? "Match Total Points" : "FT Total");
-  safeSetInputLabel("h1Market", isTT ? "1st Set Total Points" : "1H Total");
-  safeSetText("teamAMarketLabel", isTT ? "" : "Team A Total");
-  safeSetText("teamBMarketLabel", isTT ? "" : "Team B Total");
-  safeSetSectionTitle("teamASection", isTT ? 'Player A - Recent Match Points <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
-  safeSetSectionTitle("teamBSection", isTT ? 'Player B - Recent Match Points <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>' : 'Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>');
+  safeSetText("ftMarketLabel", isTT ? "Match Total Sets" : "FT Total");
+  safeSetText("teamAMarketLabel", isTT ? "Player A Sets" : "Team A Total");
+  safeSetText("teamBMarketLabel", isTT ? "Player B Sets" : "Team B Total");
+  safeSetSectionTitle("teamASection", isTT ? 'Player A - Recent Sets <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
+  safeSetSectionTitle("teamBSection", isTT ? 'Player B - Recent Sets <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>' : 'Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>');
   safeSetSectionTitle("h2hSection", isTT ? 'TT H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled recent matchup history</span>' : 'H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span>');
 
   const useFtLabel = document.getElementById("useFTH2HLabel");
   if (useFtLabel) {
     const useFtBox = useFtLabel.querySelector("input");
     if (useFtBox) {
-      const trailingText = isTT ? " Use Match Points H2H (min 2 matches)" : " Use FT H2H (min 2 games)";
+      const trailingText = isTT ? " Use TT H2H (min 2 matches)" : " Use FT H2H (min 2 games)";
       const nodes = [...useFtLabel.childNodes].filter(node => node.nodeType === Node.TEXT_NODE);
       if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
       else useFtLabel.appendChild(document.createTextNode(trailingText));
     }
   }
-
   const use1HLabel = document.getElementById("use1HH2HLabel");
   if (use1HLabel) {
     const use1HBox = use1HLabel.querySelector("input");
     if (use1HBox) {
-      const trailingText = isTT ? " Use 1st Set H2H (min 2 matches)" : " Use 1H H2H (min 2 games)";
+      const trailingText = isTT ? " Use First Game H2H (min 2 matches)" : " Use 1H H2H (min 2 games)";
       const nodes = [...use1HLabel.childNodes].filter(node => node.nodeType === Node.TEXT_NODE);
       if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
       else use1HLabel.appendChild(document.createTextNode(trailingText));
@@ -12072,109 +11237,59 @@ function applySportModeUI() {
 
   safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
   safeSetPlaceholder("teamBName", isTT ? "e.g. Wang Chuqin" : "e.g. Celtics");
-  safeSetPlaceholder("ftMarket", isTT ? "73.5 - 77.5" : "150.5 - 160.5");
-  safeSetPlaceholder("h1Market", isTT ? "18.5 - 20.5" : "105.5 - 110.5");
-  safeSetPlaceholder("teamAMarket", isTT ? "" : "75.5 - 79.5");
-  safeSetPlaceholder("teamBMarket", isTT ? "" : "75.5 - 79.5");
-  safeSetPlaceholder("aFTScored", isTT ? "38,41,35,39,42" : "85,79,88,74,82");
-  safeSetPlaceholder("bFTScored", isTT ? "35,39,37,34,40" : "83,77,81,79,80");
+  safeSetPlaceholder("ftMarket", isTT ? "3.5 - 5.5" : "150.5 - 160.5");
+  safeSetPlaceholder("teamAMarket", isTT ? "2.5 - 3.5" : "75.5 - 79.5");
+  safeSetPlaceholder("teamBMarket", isTT ? "1.5 - 2.5" : "75.5 - 79.5");
+  safeSetPlaceholder("aFTScored", isTT ? "3,3,2,3,3" : "85,79,88,74,82");
+  safeSetPlaceholder("bFTScored", isTT ? "3,2,3,3,1" : "83,77,81,79,80");
   safeSetPlaceholder("a1HScored", isTT ? "11,10,12,11,10" : "42,38,45,40,41");
-  safeSetPlaceholder("b1HScored", isTT ? "8,9,11,8,9" : "40,39,42,38,41");
-  safeSetPlaceholder("aFTH2H", isTT ? "39,38,36,41" : "82,78,84,76,82");
-  safeSetPlaceholder("bFTH2H", isTT ? "37,35,39,34" : "79,81,77,80,78");
+  safeSetPlaceholder("b1HScored", isTT ? "8,9,11,7,8" : "40,39,42,38,41");
+  safeSetPlaceholder("aFTH2H", isTT ? "3,3,2,3" : "82,78,84,76,82");
+  safeSetPlaceholder("bFTH2H", isTT ? "1,2,3,1" : "79,81,77,80,78");
   safeSetPlaceholder("a1HH2H", isTT ? "11,12,10,11" : "41,39,43,38,41");
   safeSetPlaceholder("b1HH2H", isTT ? "8,9,11,8" : "39,41,38,42,39");
 
-  safeSetInputLabel("aFTScored", isTT ? "Recent Match Points" : "FT Scored (recent → oldest)");
-  safeSetInputLabel("bFTScored", isTT ? "Recent Match Points" : "FT Scored (recent → oldest)");
-  safeSetInputLabel("a1HScored", isTT ? "1st Set Points" : "1H Scored");
-  safeSetInputLabel("b1HScored", isTT ? "1st Set Points" : "1H Scored");
-
-  const baseVisibleSections = ["leagueSection", "espnSection", "marketSection", "teamASection", "teamBSection", "h2hSection"];
-  baseVisibleSections.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = "block";
-  });
-
-  const actions = document.querySelector(".actions");
-  if (actions) actions.style.display = "block";
-  const resultsWrap = document.getElementById("results")?.closest(".table-wrap");
-  if (resultsWrap) resultsWrap.style.display = "block";
+  safeSetText("aFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
+  safeSetText("bFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
+  safeSetText("a1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
+  safeSetText("b1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
 
   const fixtureToolbar = document.getElementById("fixtureToolbar");
   if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
   const fixtureSelect = document.getElementById("fixtureSelect");
-  if (fixtureSelect) fixtureSelect.style.display = "block";
+  if (fixtureSelect) fixtureSelect.style.display = isTT ? "none" : "block";
   const fetchBtn = document.getElementById("fetchBtn");
-  if (fetchBtn) {
-    fetchBtn.style.display = "inline-block";
-    fetchBtn.textContent = isTT ? "🏓 Fetch TT Stats" : "📡 Fetch Stats";
-  }
+  if (fetchBtn) fetchBtn.style.display = isTT ? "none" : "inline-block";
   const fetchStatus = document.getElementById("fetchStatus");
-  if (fetchStatus) fetchStatus.style.display = "block";
+  if (fetchStatus) fetchStatus.style.display = isTT ? "none" : "block";
 
-  const showOrHide = (id, show) => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = show ? "block" : "none";
-  };
-  const clearInput = id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  };
-  const clearCheckbox = id => {
-    const el = document.getElementById(id);
-    if (el) el.checked = false;
-  };
-
-  showOrHide("aFTAllowedSection", !isTT);
-  showOrHide("bFTAllowedSection", !isTT);
-  showOrHide("a1HAllowedSection", !isTT);
-  showOrHide("b1HAllowedSection", !isTT);
-  showOrHide("a1HSection", true);
-  showOrHide("b1HSection", true);
-  showOrHide("h2h1HSection", true);
-  showOrHide("h1MarketSection", true);
-  showOrHide("a2HSection", !isTT);
-  showOrHide("b2HSection", !isTT);
-  showOrHide("h2h2HSection", !isTT);
-  showOrHide("h2MarketSection", !isTT);
-
-  const teamAMarketInput = document.getElementById("teamAMarket");
-  if (teamAMarketInput) {
-    const teamALabel = teamAMarketInput.previousElementSibling;
-    teamAMarketInput.style.display = isTT ? "none" : "block";
-    if (teamALabel && teamALabel.tagName === "LABEL") teamALabel.style.display = isTT ? "none" : "block";
-    if (isTT) teamAMarketInput.value = "";
-  }
-  const teamBMarketInput = document.getElementById("teamBMarket");
-  if (teamBMarketInput) {
-    const teamBLabel = teamBMarketInput.previousElementSibling;
-    teamBMarketInput.style.display = isTT ? "none" : "block";
-    if (teamBLabel && teamBLabel.tagName === "LABEL") teamBLabel.style.display = isTT ? "none" : "block";
-    if (isTT) teamBMarketInput.value = "";
-  }
-
+  const aFTAllowedSection = document.getElementById("aFTAllowedSection");
+  if (aFTAllowedSection) aFTAllowedSection.style.display = isTT ? "none" : "block";
+  const bFTAllowedSection = document.getElementById("bFTAllowedSection");
+  if (bFTAllowedSection) bFTAllowedSection.style.display = isTT ? "none" : "block";
   const injuryBoxA = document.getElementById("injuryBoxA");
-  if (injuryBoxA) injuryBoxA.style.display = "none";
+  if (injuryBoxA) injuryBoxA.style.display = isTT ? "none" : "none";
   const injuryBoxB = document.getElementById("injuryBoxB");
-  if (injuryBoxB) injuryBoxB.style.display = "none";
+  if (injuryBoxB) injuryBoxB.style.display = isTT ? "none" : "none";
 
-  if (isTT) {
-    g_h2hManualPreference.h2 = null;
-    clearCheckbox("use2HH2H");
-    [
-      "aFTAllowed","bFTAllowed","a1HAllowed","b1HAllowed",
-      "a2HScored","b2HScored","a2HAllowed","b2HAllowed",
-      "a2HH2H","b2HH2H","h2Market","teamAMarket","teamBMarket"
-    ].forEach(clearInput);
-  }
+  ["a2HSection","b2HSection","h2h2HSection","h2MarketSection"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isTT ? "none" : (id.includes("Market") || id.includes("1H") || id.includes("2H") ? el.style.display : "block");
+  });
+  ["a1HSection","b1HSection","h2h1HSection"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isTT ? "block" : el.style.display;
+  });
+
+  const bbBtn = document.getElementById("bbModeBtn");
+  const ttBtn = document.getElementById("ttModeBtn");
+  if (bbBtn) bbBtn.classList.toggle("active", !isTT);
+  if (ttBtn) ttBtn.classList.toggle("active", isTT);
 
   window.__engineMode = isTT ? "tt" : "bb";
 }
 
-function setEngineMode(mode = "bb", fromUser = false, options = {}) {
-  const bootRestore = !!(options && options.bootRestore);
-
+function setEngineMode(mode = "bb", fromUser = false) {
   g_currentSportMode = mode === "tt" ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
   try { localStorage.setItem(SPORT_MODE_STORAGE_KEY, g_currentSportMode); } catch (e) {}
   applySportModeUI();
@@ -12186,13 +11301,8 @@ function setEngineMode(mode = "bb", fromUser = false, options = {}) {
   }
 
   if (typeof onLeagueChange === "function") {
-    if (bootRestore) {
-      updateSectionLocks();
-      validateFetchSection();
-    } else {
-      onLeagueChange();
-      applySportModeUI();
-    }
+    onLeagueChange();
+    applySportModeUI();
   }
 
   if (fromUser) {
@@ -12210,6 +11320,12 @@ function toggleSportMode() {
       const clearBtn = document.getElementById("clearBtn");
       if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
+      const bbModeBtn = document.getElementById("bbModeBtn");
+      if (bbModeBtn) bbModeBtn.addEventListener("click", () => setEngineMode("bb", true));
+
+      const ttModeBtn = document.getElementById("ttModeBtn");
+      if (ttModeBtn) ttModeBtn.addEventListener("click", () => setEngineMode("tt", true));
+
       const brandModeToggle = document.getElementById("brandModeToggle");
       if (brandModeToggle) {
         brandModeToggle.addEventListener("click", toggleSportMode);
@@ -12221,19 +11337,21 @@ function toggleSportMode() {
         });
       }
 
-      makeSectionsCollapsible();
-      resetBootCollapsedLayout();
-
       let startMode = SPORT_MODE_BASKETBALL;
       try {
         const savedMode = localStorage.getItem(SPORT_MODE_STORAGE_KEY);
         if (savedMode === SPORT_MODE_TT) startMode = SPORT_MODE_TT;
       } catch (e) {}
-      setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb", false, { bootRestore: true });
-      resetBootCollapsedLayout();
+      setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb");
+
+      makeSectionsCollapsible();
+      document.querySelectorAll(".section").forEach(s => {
+        s.classList.add("collapsed");
+        s.classList.remove("locked");
+      });
 
       const ls0 = document.getElementById("leagueSelect");
-      if (ls0 && getCurrentSportMode() !== SPORT_MODE_TT) ls0.value = "";
+      if (ls0) ls0.value = "";
 
       const espnEl = document.getElementById("espnSection");
       if (espnEl) espnEl.style.display = "none";
@@ -12248,10 +11366,6 @@ function toggleSportMode() {
       lockFrom("espnSection");
       openSection("leagueSection");
       refreshTrackerInBackground(false);
-
-      // Keep the saved sport labels/placeholders in sync after bootstrap without auto-opening sections.
-      applySportModeUI();
-      resetBootCollapsedLayout();
 
       window.addEventListener("focus", () => refreshTrackerInBackground(true));
       window.addEventListener("pageshow", () => refreshTrackerInBackground(true));
