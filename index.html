@@ -4441,7 +4441,6 @@ async function hydrateTrackedPicks(force = false) {
 
   g_trackerHydratePromise = (async () => {
     const localState = loadTrackerStateFromLocal();
-
     const hadLocalState =
       !!localState &&
       (
@@ -4449,10 +4448,10 @@ async function hydrateTrackedPicks(force = false) {
         (Array.isArray(localState.archivedPicks) && localState.archivedPicks.length > 0)
       );
 
-if (localState) {
-  normalizeTrackerState(localState);
-  backfillLineMemoryFromTrackedPicks();
-}
+    if (localState) {
+      normalizeTrackerState(localState);
+      backfillLineMemoryFromTrackedPicks();
+    }
 
     try {
       const { res, data } = await fetchTrackerJson(
@@ -4467,36 +4466,48 @@ if (localState) {
       if (!res.ok) throw new Error("Tracker GET failed (" + res.status + ")");
       if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
 
-            const localUpdatedAt = Date.parse(g_trackerState?.updatedAt || "") || 0;
-      const serverUpdatedAt = Date.parse(data.state?.updatedAt || "") || 0;
-
+      const serverState = data.state || {};
       const serverHasState =
-        (Array.isArray(data.state?.activePicks) && data.state.activePicks.length > 0) ||
-        (Array.isArray(data.state?.archivedPicks) && data.state.archivedPicks.length > 0);
-
-      const localPendingActive = getPendingActivePickCount(g_trackerState);
-      const serverPendingActive = getPendingActivePickCount(data.state);
+        (Array.isArray(serverState.activePicks) && serverState.activePicks.length > 0) ||
+        (Array.isArray(serverState.archivedPicks) && serverState.archivedPicks.length > 0);
 
       if (hadLocalState && !serverHasState) {
         await forceTrackerSaveNow();
         return g_trackerState;
       }
 
-      if (serverPendingActive > localPendingActive) {
-        normalizeTrackerState(data.state);
-        backfillLineMemoryFromTrackedPicks();
-        saveTrackerStateToLocal();
-        return g_trackerState;
-      }
+      const mergedState = mergeTrackerStates(localState || {}, serverState);
+      normalizeTrackerState(mergedState);
+      backfillLineMemoryFromTrackedPicks();
+      saveTrackerStateToLocal();
 
-      if (localUpdatedAt > serverUpdatedAt) {
-        await forceTrackerSaveNow();
-        return g_trackerState;
-      }
+      const localPendingActive = getPendingActivePickCount(localState);
+      const serverPendingActive = getPendingActivePickCount(serverState);
+      const mergedPendingActive = getPendingActivePickCount(mergedState);
 
-      normalizeTrackerState(data.state);
-backfillLineMemoryFromTrackedPicks();
-saveTrackerStateToLocal();
+      const localActiveCount = getTrackerActivePickCount(localState);
+      const serverActiveCount = getTrackerActivePickCount(serverState);
+      const mergedActiveCount = getTrackerActivePickCount(mergedState);
+
+      const shouldPushMerged =
+        mergedPendingActive > serverPendingActive ||
+        localPendingActive > serverPendingActive ||
+        mergedActiveCount > serverActiveCount ||
+        (hadLocalState && !serverHasState);
+
+      if (shouldPushMerged) {
+        try {
+          g_trackerState.updatedAt = new Date().toISOString();
+          const pushed = await pushTrackerStateToServer(JSON.parse(JSON.stringify(g_trackerState)));
+          if (pushed?.ok && pushed?.state) {
+            normalizeTrackerState(pushed.state);
+            backfillLineMemoryFromTrackedPicks();
+            saveTrackerStateToLocal();
+          }
+        } catch (pushErr) {
+          console.error("[BB Engine] hydrateTrackedPicks merge push failed", pushErr);
+        }
+      }
 
       if (!serverHasState && !hadLocalState) {
         console.warn("[BB Engine] tracker loaded empty state for key:", getTrackerUserKey());
@@ -4523,6 +4534,141 @@ saveTrackerStateToLocal();
 function getPendingActivePickCount(state) {
   const active = Array.isArray(state?.activePicks) ? state.activePicks : [];
   return active.filter(p => String(p?.resultStatus || "pending").toLowerCase() === "pending").length;
+}
+
+function getTrackerActivePickCount(state) {
+  return Array.isArray(state?.activePicks) ? state.activePicks.length : 0;
+}
+
+function getTrackerArchivedPickCount(state) {
+  return Array.isArray(state?.archivedPicks) ? state.archivedPicks.length : 0;
+}
+
+function getTrackerStateUpdatedAtMs(state) {
+  return Date.parse(state?.updatedAt || "") || 0;
+}
+
+function getTrackerPickStamp(pick) {
+  return (
+    Date.parse(pick?.updatedAt || "") ||
+    Date.parse(pick?.settledAt || "") ||
+    Date.parse(pick?.createdAt || "") ||
+    Date.parse(pick?.eventDate || "") ||
+    0
+  );
+}
+
+function makeTrackerActiveMergeKey(pick = {}) {
+  const safe = ensureTrackedPickKeys(pick);
+  return [
+    String(safe.eventId || ""),
+    String(safe.marketKey || ""),
+    normalizeTeamName(safe.homeTeam || ""),
+    normalizeTeamName(safe.awayTeam || "")
+  ].join("|");
+}
+
+function choosePreferredActivePick(existingPick, incomingPick) {
+  const current = ensureTrackedPickKeys(existingPick || {});
+  const incoming = ensureTrackedPickKeys(incomingPick || {});
+
+  const currentStatus = String(current.resultStatus || "pending").toLowerCase();
+  const incomingStatus = String(incoming.resultStatus || "pending").toLowerCase();
+
+  if (incomingStatus === "pending" && currentStatus !== "pending") return incoming;
+  if (currentStatus === "pending" && incomingStatus !== "pending") return current;
+
+  const sameSide = String(current.side || "") === String(incoming.side || "");
+  if (sameSide && ["over", "under"].includes(String(current.side || "").toLowerCase())) {
+    if (isBetterLineForSide(current.side, incoming.line, current.line)) return incoming;
+    if (isBetterLineForSide(current.side, current.line, incoming.line)) return current;
+  }
+
+  const incomingStamp = getTrackerPickStamp(incoming);
+  const currentStamp = getTrackerPickStamp(current);
+  if (incomingStamp !== currentStamp) return incomingStamp > currentStamp ? incoming : current;
+
+  const incomingEdge = Math.abs(Number(incoming.edgePct || 0));
+  const currentEdge = Math.abs(Number(current.edgePct || 0));
+  if (incomingEdge !== currentEdge) return incomingEdge > currentEdge ? incoming : current;
+
+  return current;
+}
+
+function mergeTrackerActivePicks(localActive = [], serverActive = []) {
+  const merged = new Map();
+
+  [...(serverActive || []), ...(localActive || [])].forEach(rawPick => {
+    const pick = ensureTrackedPickKeys(rawPick || {});
+    const key = makeTrackerActiveMergeKey(pick) || makeTrackedSignature(pick);
+    if (!key) return;
+
+    if (!merged.has(key)) {
+      merged.set(key, pick);
+      return;
+    }
+
+    merged.set(key, choosePreferredActivePick(merged.get(key), pick));
+  });
+
+  return [...merged.values()]
+    .sort((a, b) => getTrackerPickStamp(b) - getTrackerPickStamp(a))
+    .slice(0, TRACKED_PICKS_LIMIT);
+}
+
+function mergeTrackerArchivedPicks(localArchived = [], serverArchived = []) {
+  const merged = new Map();
+
+  [...(serverArchived || []), ...(localArchived || [])].forEach(rawPick => {
+    const pick = ensureTrackedPickKeys(rawPick || {});
+    const key = makeTrackedSignature(pick);
+    if (!key) return;
+
+    if (!merged.has(key)) {
+      merged.set(key, pick);
+      return;
+    }
+
+    const existing = merged.get(key);
+    if (getTrackerPickStamp(pick) > getTrackerPickStamp(existing)) {
+      merged.set(key, pick);
+    }
+  });
+
+  return [...merged.values()]
+    .sort((a, b) => getTrackerPickStamp(b) - getTrackerPickStamp(a))
+    .slice(0, TRACKER_ARCHIVED_LIMIT);
+}
+
+function mergeTrackerStates(localState, serverState) {
+  const local = localState && typeof localState === "object" ? localState : {};
+  const server = serverState && typeof serverState === "object" ? serverState : {};
+
+  const merged = {
+    activePicks: mergeTrackerActivePicks(local.activePicks, server.activePicks),
+    archivedPicks: mergeTrackerArchivedPicks(local.archivedPicks, server.archivedPicks),
+    stats: { total: 0, settled: 0, wins: 0, losses: 0, pushes: 0 },
+    updatedAt: new Date(Math.max(
+      getTrackerStateUpdatedAtMs(local),
+      getTrackerStateUpdatedAtMs(server),
+      Date.now()
+    )).toISOString(),
+    lineMemory: {
+      ...(server.lineMemory && typeof server.lineMemory === "object" ? server.lineMemory : {}),
+      ...(local.lineMemory && typeof local.lineMemory === "object" ? local.lineMemory : {})
+    }
+  };
+
+  const activeKeys = new Set(
+    merged.activePicks.map(p => makeTrackerActiveMergeKey(p)).filter(Boolean)
+  );
+
+  merged.archivedPicks = merged.archivedPicks.filter(p => {
+    const slotKey = makeTrackerActiveMergeKey(p);
+    return !slotKey || !activeKeys.has(slotKey);
+  });
+
+  return merged;
 }
 
 function isTrackerStateMeaningfullyEmpty(state) {
