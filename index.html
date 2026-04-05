@@ -5206,7 +5206,7 @@ function isTrackedPickVisibleOnPage(pick) {
         ) || null;
       })();
 
-      const ttFixture = (!matchedOpt && (document.getElementById("leagueSelect")?.value || "") === "tt")
+      const ttFixture = (!matchedOpt && (((document.getElementById("leagueSelect")?.value || "") === "tt") || isTTStandaloneMode()))
         ? (g_ttFetchContext?.fixture || findBestTTFixture(g_ttBoardCache?.data, teamAName, teamBName))
         : null;
 
@@ -10437,14 +10437,18 @@ async function runEngine() {
   if (runBtn) runBtn.disabled = true;
 
   try {
-    primeTrackerStateForRun();
-    refreshTrackerInBackground(false);
+    const ttStandalone = isTTStandaloneMode();
+
+    if (!ttStandalone) {
+      primeTrackerStateForRun();
+      refreshTrackerInBackground(false);
+    }
     if (!table) return;
 
     table.style.display = "table";
     table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
 
-    if (isTTStandaloneMode()) {
+    if (ttStandalone) {
       await runTableTennisEngine(table);
       return;
     }
@@ -10965,10 +10969,13 @@ applySportModeUI();
 if (isTTMode) {
   const ls2 = document.getElementById("leagueSelect");
   if (ls2) ls2.value = "tt";
+  updateSectionLocks();
+  accordionOpen("marketSection");
+} else {
+  lockFrom("espnSection");
+  updateSectionLocks();
+  accordionOpen("leagueSection");
 }
-lockFrom("espnSection");
-updateSectionLocks();
-accordionOpen(isTTMode ? "marketSection" : "leagueSection");
 validateFetchSection();
     }
 
@@ -12013,7 +12020,7 @@ async function runTableTennisEngine(table) {
     }
   });
 
-  if (trackedToSave.length) addTrackedPicks(trackedToSave);
+  // TT tracker wiring comes later. Manual TT run must not depend on tracker state now.
 }
 
 function getCurrentSportMode() {
@@ -12230,8 +12237,14 @@ function setEngineMode(mode = "bb", fromUser = false, options = {}) {
 
   if (typeof onLeagueChange === "function") {
     if (bootRestore) {
-      updateSectionLocks();
-      validateFetchSection();
+      if (g_currentSportMode === SPORT_MODE_TT) {
+        onLeagueChange();
+        applySportModeUI();
+        if (typeof resetBootCollapsedLayout === "function") resetBootCollapsedLayout();
+      } else {
+        updateSectionLocks();
+        validateFetchSection();
+      }
     } else {
       onLeagueChange();
       applySportModeUI();
@@ -12275,21 +12288,28 @@ function toggleSportMode() {
       setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb", false, { bootRestore: true });
       resetBootCollapsedLayout();
 
+      const bootIsTTMode = getCurrentSportMode() === SPORT_MODE_TT;
       const ls0 = document.getElementById("leagueSelect");
-      if (ls0 && getCurrentSportMode() !== SPORT_MODE_TT) ls0.value = "";
+      if (ls0 && !bootIsTTMode) ls0.value = "";
 
-      const espnEl = document.getElementById("espnSection");
-      if (espnEl) espnEl.style.display = "none";
+      if (!bootIsTTMode) {
+        const espnEl = document.getElementById("espnSection");
+        if (espnEl) espnEl.style.display = "none";
 
-      [
-        "a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection"
-      ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = "none";
-      });
+        [
+          "a1HSection","b1HSection","a2HSection","b2HSection","h2h1HSection","h2h2HSection","h1MarketSection","h2MarketSection"
+        ].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = "none";
+        });
 
-      lockFrom("espnSection");
-      openSection("leagueSection");
+        lockFrom("espnSection");
+        openSection("leagueSection");
+      } else {
+        updateSectionLocks();
+        validateFetchSection();
+      }
+
       refreshTrackerInBackground(false);
 
       // Keep the saved sport labels/placeholders in sync after bootstrap without auto-opening sections.
