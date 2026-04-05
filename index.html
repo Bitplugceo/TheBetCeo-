@@ -238,40 +238,6 @@ body.dark-mode {
       padding: 0 10px;
     }
 
-
-    .engine-mode-bar {
-      display: flex;
-      gap: 8px;
-      margin: 8px auto;
-      flex-wrap: wrap;
-    }
-
-    .engine-mode-btn {
-      background: #eceff3 !important;
-      color: #2a2f38 !important;
-      border: 1px solid #d7dbe1 !important;
-      padding: 6px 10px !important;
-      font-size: 12px !important;
-      font-weight: 700 !important;
-      margin: 0 !important;
-      min-width: 90px !important;
-      text-align: center;
-    }
-
-    .engine-mode-btn.active {
-      background: #49a443 !important;
-      color: #fff !important;
-      border-color: #49a443 !important;
-    }
-
-    .tt-shell-note {
-      font-size: 11px;
-      line-height: 1.5;
-      color: var(--muted);
-      font-weight: 700;
-      margin: 0 0 10px 0;
-    }
-
    .section {
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -1902,22 +1868,6 @@ body.dark-mode .tracker-analytics-section-head {
 </header>
 
   <div class="wrapper">
-    <div class="engine-mode-bar" id="engineModeBar" style="display:none;">
-      <button type="button" class="engine-mode-btn active" id="bbModeBtn">Basketball</button>
-      <button type="button" class="engine-mode-btn" id="ttModeBtn">TT</button>
-    </div>
-
-    <div class="section" id="ttPage" style="display:none !important;">
-      <h3>TT Mode Shell</h3>
-      <div class="tt-shell-note">Table Tennis page restored. This shell is visible again, but its dedicated calculations are still intentionally not wired into the live engine yet.</div>
-      <label>Side A / Player A</label>
-      <input id="ttSideA" placeholder="e.g. Player A" />
-      <label>Side B / Player B</label>
-      <input id="ttSideB" placeholder="e.g. Player B" />
-      <label>TT Market</label>
-      <input id="ttMarket" placeholder="e.g. 74.5" />
-      <small>TT shell restored only. Basketball run logic is unchanged unless TT calculations are wired later.</small>
-    </div>
     <div class="section" id="leagueSection">
       <h3>League Tier</h3>
       <label>Select League</label>
@@ -3882,17 +3832,6 @@ function validateFetchSection() {
 
   const isValid = errors.length === 0 && !!teamAName && !!teamBName;
   if (fetchBtn) fetchBtn.disabled = !isValid;
-  setFetchInputErrors(hasActivity ? errors : []);
-  return isValid;
-}
-  }
-
-  const isValid =
-    errors.length === 0 &&
-    !!teamAName &&
-    !!teamBName;
-  if (fetchBtn) fetchBtn.disabled = !isValid;
-
   setFetchInputErrors(hasActivity ? errors : []);
   return isValid;
 }
@@ -12060,12 +11999,6 @@ function applySportModeUI() {
   const isTT = mode === SPORT_MODE_TT;
   document.body.dataset.sportMode = mode;
 
-  const engineModeBar = document.getElementById("engineModeBar");
-  if (engineModeBar) engineModeBar.style.display = "none";
-
-  const ttPage = document.getElementById("ttPage");
-  if (ttPage) ttPage.style.display = "none";
-
   const themeToggleBtn = document.getElementById("themeToggleBtn");
   if (themeToggleBtn) themeToggleBtn.textContent = isTT ? "🏓" : "🏀";
 
@@ -12222,11 +12155,6 @@ function applySportModeUI() {
     ].forEach(clearInput);
   }
 
-  const bbBtn = document.getElementById("bbModeBtn");
-  const ttBtn = document.getElementById("ttModeBtn");
-  if (bbBtn) bbBtn.classList.toggle("active", !isTT);
-  if (ttBtn) ttBtn.classList.toggle("active", isTT);
-
   window.__engineMode = isTT ? "tt" : "bb";
 }
 
@@ -12260,12 +12188,6 @@ function toggleSportMode() {
 
       const clearBtn = document.getElementById("clearBtn");
       if (clearBtn) clearBtn.addEventListener("click", clearAll);
-
-      const bbModeBtn = document.getElementById("bbModeBtn");
-      if (bbModeBtn) bbModeBtn.addEventListener("click", () => setEngineMode("bb", true));
-
-      const ttModeBtn = document.getElementById("ttModeBtn");
-      if (ttModeBtn) ttModeBtn.addEventListener("click", () => setEngineMode("tt", true));
 
       const brandModeToggle = document.getElementById("brandModeToggle");
       if (brandModeToggle) {
