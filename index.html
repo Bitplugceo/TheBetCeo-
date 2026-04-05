@@ -183,8 +183,6 @@ body.dark-mode {
       font-weight: 800;
       letter-spacing: 0.3px;
       color: #fff;
-      cursor: pointer;
-      user-select: none;
     }
 
     .brand-right {
@@ -1885,7 +1883,7 @@ body.dark-mode .tracker-analytics-section-head {
 </head>
 <body>
  <header class="app-header">
-  <span class="brand-name" id="brandModeToggle" role="button" tabindex="0" title="Switch Basketball / TT">TheBetCeo ⚡️</span>
+  <span class="brand-name">TheBetCeo ⚡️</span>
 
   <button
     class="header-error-btn"
@@ -1904,14 +1902,14 @@ body.dark-mode .tracker-analytics-section-head {
 </header>
 
   <div class="wrapper">
-    <div class="engine-mode-bar" id="engineModeBar" style="display:none;">
+    <div class="engine-mode-bar" id="engineModeBar">
       <button type="button" class="engine-mode-btn active" id="bbModeBtn">Basketball</button>
       <button type="button" class="engine-mode-btn" id="ttModeBtn">TT</button>
     </div>
 
     <div class="section" id="ttPage" style="display:none;">
       <h3>TT Mode Shell</h3>
-      <div class="tt-shell-note">Table Tennis page restored. Switch using the TheBetCeo header. This shell is visible again, but its dedicated calculations are still intentionally not wired into the live engine yet.</div>
+      <div class="tt-shell-note">Table Tennis page restored. This shell is visible again, but its dedicated calculations are still intentionally not wired into the live engine yet.</div>
       <label>Side A / Player A</label>
       <input id="ttSideA" placeholder="e.g. Player A" />
       <label>Side B / Player B</label>
@@ -3798,14 +3796,14 @@ function buildFetchAuditIssues({
 
   requirePairSample(
     aStats?.scored?.length,
-    aStats?.allowed?.length,
+    aStats?.scored?.length,
     5,
     `${teamAName || "Team A"} overall FT sample`
   );
 
   requirePairSample(
     bStats?.scored?.length,
-    bStats?.allowed?.length,
+    bStats?.scored?.length,
     5,
     `${teamBName || "Team B"} overall FT sample`
   );
@@ -3813,7 +3811,7 @@ function buildFetchAuditIssues({
   if (league === "nba" || league === "ncaa") {
     requirePairSample(
       aStats?.h1Scored?.length,
-      aStats?.h1Allowed?.length,
+      aStats?.h1Scored?.length,
       5,
       `${teamAName || "Team A"} overall 1H sample`
     );
@@ -3821,13 +3819,13 @@ function buildFetchAuditIssues({
     if (document.getElementById("h2Market")?.value?.trim()) {
       requirePairSample(
         aStats?.h2Scored?.length,
-        aStats?.h2Allowed?.length,
+        aStats?.h2Scored?.length,
         2,
         `${teamAName || "Team A"} overall exact 2H sample`
       );
       requirePairSample(
         bStats?.h2Scored?.length,
-        bStats?.h2Allowed?.length,
+        bStats?.h2Scored?.length,
         2,
         `${teamBName || "Team B"} overall exact 2H sample`
       );
@@ -3835,7 +3833,7 @@ function buildFetchAuditIssues({
 
     requirePairSample(
       bStats?.h1Scored?.length,
-      bStats?.h1Allowed?.length,
+      bStats?.h1Scored?.length,
       5,
       `${teamBName || "Team B"} overall 1H sample`
     );
@@ -6440,41 +6438,24 @@ function getTrackedLeagueBase(league) {
   const archived = Array.isArray(g_trackerState.archivedPicks) ? g_trackerState.archivedPicks : [];
   let changed = false;
 
-  function sameTrackedMarketKey(a, b) {
-    return (
-      String(a.eventId || "") === String(b.eventId || "") &&
-      String(a.marketKey || "") === String(b.marketKey || "") &&
-      normalizeTeamName(a.homeTeam || "") === normalizeTeamName(b.homeTeam || "") &&
-      normalizeTeamName(a.awayTeam || "") === normalizeTeamName(b.awayTeam || "")
-    );
-  }
-
-  function sameTrackedSideKey(a, b) {
-    return (
-      sameTrackedMarketKey(a, b) &&
-      String(a.side || "") === String(b.side || "")
-    );
-  }
-
   newPicks.forEach(raw => {
     const p = ensureTrackedPickKeys(raw);
     if (!p.signature) p.signature = makeTrackedSignature(p);
 
-    const existingIdx = current.findIndex(x => sameTrackedMarketKey(x, p));
+    const exactIdx = current.findIndex(x => makeTrackedSignature(x) === p.signature);
 
-    if (existingIdx !== -1) {
-      const existing = current[existingIdx];
+    if (exactIdx !== -1) {
+      const existing = current[exactIdx];
 
       if (String(existing.resultStatus || "pending").toLowerCase() !== "pending") {
         return;
       }
 
-      const sameSide = sameTrackedSideKey(existing, p);
       const sameLine = String(displayLine(existing.line)) === String(displayLine(p.line));
-      const betterLine = sameSide && isBetterLineForSide(p.side, p.line, existing.line);
+      const betterLine = isBetterLineForSide(p.side, p.line, existing.line);
 
-      if (!sameSide || sameLine || betterLine) {
-        current[existingIdx] = ensureTrackedPickKeys({
+      if (sameLine || betterLine) {
+        current[exactIdx] = ensureTrackedPickKeys({
           ...existing,
           ...p,
           createdAt: existing.createdAt || p.createdAt,
@@ -6486,7 +6467,7 @@ function getTrackedLeagueBase(league) {
       return;
     }
 
-    const archivedIdx = archived.findIndex(x => sameTrackedMarketKey(x, p));
+    const archivedIdx = archived.findIndex(x => makeTrackedSignature(x) === p.signature);
     if (archivedIdx !== -1) {
       return;
     }
@@ -8446,29 +8427,53 @@ clearH2HFields();
 
         if (aStats?.scored?.length > 0) {
           document.getElementById("aFTScored").value = aStats.scored.join(",");
+          if (aStats.allowed?.length > 0) {
+            document.getElementById("aFTAllowed").value = aStats.allowed.join(",");
+          }
           if (aStats.h1Scored?.length > 0) {
             document.getElementById("a1HScored").value = aStats.h1Scored.join(",");
+          }
+          if (aStats.h1Allowed?.length > 0) {
+            document.getElementById("a1HAllowed").value = aStats.h1Allowed.join(",");
           }
           if (aStats.h2Scored?.length > 0) {
             document.getElementById("a2HScored").value = aStats.h2Scored.join(",");
             messages.push(`${safeText(teamAName)} 2H: ${aStats.h2Scored.length} games ✅`);
           }
+          if (aStats.h2Allowed?.length > 0) {
+            document.getElementById("a2HAllowed").value = aStats.h2Allowed.join(",");
+          }
           document.getElementById("aAutoTag").style.display = "inline";
           messages.push(`${safeText(teamAName)}: ${aStats.scored.length} games ✅`);
+          if (aStats.allowed?.length > 0) {
+            messages.push(`${safeText(teamAName)} allowed: ${aStats.allowed.length} games ✅`);
+          }
         } else {
           messages.push(`${safeText(teamAName)}: no data ❌`);
         }
         if (bStats?.scored?.length > 0) {
           document.getElementById("bFTScored").value = bStats.scored.join(",");
+          if (bStats.allowed?.length > 0) {
+            document.getElementById("bFTAllowed").value = bStats.allowed.join(",");
+          }
           if (bStats.h1Scored?.length > 0) {
             document.getElementById("b1HScored").value = bStats.h1Scored.join(",");
+          }
+          if (bStats.h1Allowed?.length > 0) {
+            document.getElementById("b1HAllowed").value = bStats.h1Allowed.join(",");
           }
           if (bStats.h2Scored?.length > 0) {
             document.getElementById("b2HScored").value = bStats.h2Scored.join(",");
             messages.push(`${safeText(teamBName)} 2H: ${bStats.h2Scored.length} games ✅`);
           }
+          if (bStats.h2Allowed?.length > 0) {
+            document.getElementById("b2HAllowed").value = bStats.h2Allowed.join(",");
+          }
           document.getElementById("bAutoTag").style.display = "inline";
           messages.push(`${safeText(teamBName)}: ${bStats.scored.length} games ✅`);
+          if (bStats.allowed?.length > 0) {
+            messages.push(`${safeText(teamBName)} allowed: ${bStats.allowed.length} games ✅`);
+          }
         } else {
           messages.push(`${safeText(teamBName)}: no data ❌`);
         }
@@ -11067,18 +11072,6 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
       const trackerToggleBtn = document.getElementById("trackerToggleBtn");
       if (trackerToggleBtn) trackerToggleBtn.addEventListener("click", openTrackerModal);
 
-      const brandModeToggle = document.getElementById("brandModeToggle");
-      const toggleHeaderEngineMode = () => setEngineMode(window.__engineMode === "tt" ? "bb" : "tt");
-      if (brandModeToggle) {
-        brandModeToggle.addEventListener("click", toggleHeaderEngineMode);
-        brandModeToggle.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            toggleHeaderEngineMode();
-          }
-        });
-      }
-
       const trackerCloseBtn = document.getElementById("trackerCloseBtn");
       if (trackerCloseBtn) trackerCloseBtn.addEventListener("click", closeTrackerModal);
 
@@ -11156,13 +11149,6 @@ function setEngineMode(mode = "bb") {
   const ttBtn = document.getElementById("ttModeBtn");
   if (bbBtn) bbBtn.classList.toggle("active", mode !== "tt");
   if (ttBtn) ttBtn.classList.toggle("active", mode === "tt");
-
-  const brandModeToggle = document.getElementById("brandModeToggle");
-  if (brandModeToggle) {
-    brandModeToggle.title = mode === "tt"
-      ? "Switch back to Basketball"
-      : "Switch to TT";
-  }
 
   window.__engineMode = mode;
 }
