@@ -277,6 +277,10 @@ body.dark-mode {
       margin-top: 0;
     }
 
+    .section:not([data-collapsible-ready="1"]) > :not(h3) {
+      display: none;
+    }
+
     .section.collapsed .section-body {
       display: none;
     }
@@ -7536,6 +7540,16 @@ validateFetchSection();
       });
     }
 
+
+    function resetBootCollapsedLayout() {
+      document.querySelectorAll(".section").forEach(section => {
+        section.classList.add("collapsed");
+        section.classList.remove("locked");
+      });
+      lockFrom("espnSection");
+      openSection("leagueSection");
+    }
+
     function validateTeamId(id, league) {
       if (!id) return false;
       const n = parseInt(id, 10);
@@ -12158,7 +12172,9 @@ function applySportModeUI() {
   window.__engineMode = isTT ? "tt" : "bb";
 }
 
-function setEngineMode(mode = "bb", fromUser = false) {
+function setEngineMode(mode = "bb", fromUser = false, options = {}) {
+  const bootRestore = !!(options && options.bootRestore);
+
   g_currentSportMode = mode === "tt" ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
   try { localStorage.setItem(SPORT_MODE_STORAGE_KEY, g_currentSportMode); } catch (e) {}
   applySportModeUI();
@@ -12170,8 +12186,13 @@ function setEngineMode(mode = "bb", fromUser = false) {
   }
 
   if (typeof onLeagueChange === "function") {
-    onLeagueChange();
-    applySportModeUI();
+    if (bootRestore) {
+      updateSectionLocks();
+      validateFetchSection();
+    } else {
+      onLeagueChange();
+      applySportModeUI();
+    }
   }
 
   if (fromUser) {
@@ -12200,18 +12221,16 @@ function toggleSportMode() {
         });
       }
 
+      makeSectionsCollapsible();
+      resetBootCollapsedLayout();
+
       let startMode = SPORT_MODE_BASKETBALL;
       try {
         const savedMode = localStorage.getItem(SPORT_MODE_STORAGE_KEY);
         if (savedMode === SPORT_MODE_TT) startMode = SPORT_MODE_TT;
       } catch (e) {}
-      setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb");
-
-      makeSectionsCollapsible();
-      document.querySelectorAll(".section").forEach(s => {
-        s.classList.add("collapsed");
-        s.classList.remove("locked");
-      });
+      setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb", false, { bootRestore: true });
+      resetBootCollapsedLayout();
 
       const ls0 = document.getElementById("leagueSelect");
       if (ls0 && getCurrentSportMode() !== SPORT_MODE_TT) ls0.value = "";
@@ -12230,8 +12249,9 @@ function toggleSportMode() {
       openSection("leagueSection");
       refreshTrackerInBackground(false);
 
-      // Re-apply the active sport mode after the generic bootstrap so TT is not overwritten by BB defaults.
-      setEngineMode(getCurrentSportMode() === SPORT_MODE_TT ? "tt" : "bb");
+      // Keep the saved sport labels/placeholders in sync after bootstrap without auto-opening sections.
+      applySportModeUI();
+      resetBootCollapsedLayout();
 
       window.addEventListener("focus", () => refreshTrackerInBackground(true));
       window.addEventListener("pageshow", () => refreshTrackerInBackground(true));
