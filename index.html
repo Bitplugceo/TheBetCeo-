@@ -4686,12 +4686,33 @@ async function pushTrackerStateToServer(stateSnapshot) {
     return { ok: true, state: g_trackerState };
   }
 
+  let payloadState = JSON.parse(JSON.stringify(stateSnapshot || {}));
+
+  try {
+    const { res: preRes, data: preData } = await fetchTrackerJson(
+      TRACKER_API_URL,
+      {
+        method: "GET",
+        cache: "no-store",
+        headers: getTrackerHeaders(false)
+      }
+    );
+
+    if (preRes.ok && preData?.ok && preData?.state) {
+      payloadState = mergeTrackerStates(payloadState, preData.state);
+    }
+  } catch (err) {
+    console.error("[BB Engine] tracker pre-merge GET failed", err);
+  }
+
+  payloadState.updatedAt = new Date().toISOString();
+
   const { res, data } = await fetchTrackerJson(
     TRACKER_API_URL,
     {
       method: "POST",
       headers: getTrackerHeaders(true),
-      body: JSON.stringify(stateSnapshot)
+      body: JSON.stringify(payloadState)
     }
   );
 
@@ -4699,7 +4720,11 @@ async function pushTrackerStateToServer(stateSnapshot) {
     throw new Error("Tracker POST failed (" + res.status + ")");
   }
 
-  return data;
+  if (data?.ok && data?.state) {
+    return data;
+  }
+
+  return { ok: true, state: payloadState };
 }
 
 function scheduleTrackerSave() {
@@ -4787,7 +4812,14 @@ function saveTrackedPicks(picks) {
 
   rebuildTrackerStats();
   scheduleTrackerSave();
-  Promise.resolve().then(() => forceTrackerSaveNow());
+  Promise.resolve().then(async () => {
+    try {
+      await forceTrackerSaveNow();
+      await hydrateTrackedPicks(true);
+    } catch (err) {
+      console.error("[BB Engine] saveTrackedPicks hard sync failed", err);
+    }
+  });
 }
 
   function archiveExpiredTrackedPicks() {
