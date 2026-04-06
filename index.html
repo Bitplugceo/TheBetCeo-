@@ -7,7 +7,7 @@
     name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
   />
-  <meta. name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
@@ -237,7 +237,7 @@ body.dark-mode {
       margin: 10px auto;
       padding: 0 10px;
     }
-}
+
 
    .section {
   border: 1px solid var(--panel-border);
@@ -968,12 +968,28 @@ body.dark-mode.engine-alert .section {
 }
 
 .tracker-insights-btn {
-  font-size: 16px !important;
-  opacity: 0.82;
+  font-size: 18px !important;
+  opacity: 0.88;
+}
+
+.tracker-insights-btn.state-good:not(.active) {
+  color: #49d45f !important;
+  text-shadow: 0 0 10px rgba(73, 212, 95, 0.28);
+}
+
+.tracker-insights-btn.state-error:not(.active) {
+  color: #ff3b30 !important;
+  text-shadow: 0 0 10px rgba(255, 59, 48, 0.30);
+}
+
+.tracker-insights-btn.state-idle:not(.active) {
+  color: var(--tracker-head-text) !important;
 }
 
 .tracker-insights-btn.active {
   opacity: 1;
+  color: var(--tracker-head-text) !important;
+  text-shadow: none !important;
 }
 
 .tracker-summary {
@@ -2355,7 +2371,7 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="tracker-head">
         <span id="trackerHeadTitle">Tracked Picks</span>
         <div class="tracker-head-actions">
-          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn" title="Open engine debug" aria-label="Open engine debug">🐞 Debug</button>
+          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open engine debug" aria-label="Open engine debug">🐞</button>
           <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
         </div>
       </div>
@@ -3838,6 +3854,7 @@ function trackerDebug(message, extra = null) {
       triggerGlobalEngineAlert(line);
     }
     renderTrackerDebugPanel();
+    updateTrackerInsightsButton();
   } catch (err) {
     console.error("[BB Engine] trackerDebug failed", err);
   }
@@ -3878,6 +3895,7 @@ function engineDebug(message, extra = null) {
       triggerGlobalEngineAlert(line);
     }
     renderEngineDebugPanel();
+    updateTrackerInsightsButton();
   } catch (err) {
     console.error("[BB Engine] engineDebug failed", err);
   }
@@ -3895,6 +3913,7 @@ let g_engineAlertLastLine = "";
 function applyGlobalEngineAlertState() {
   document.body.classList.toggle("engine-alert", !!g_engineAlertNeedsReview && !g_trackerInsightsOpen);
   renderHeaderErrorState();
+  updateTrackerInsightsButton();
 }
 
 function triggerGlobalEngineAlert(line = "") {
@@ -3999,6 +4018,88 @@ function buildReportDebugCard(title, lines = [], limit = 10, emptyText = "No deb
       </div>
     </div>
   `;
+}
+
+function isImportantDebugLine(line = "", scope = "engine") {
+  const text = String(line || "").toLowerCase();
+  if (!text) return false;
+  const severity = getDebugSeverity(text);
+  if (severity === "error") return true;
+
+  const commonSignals = [
+    "ignored worse server response",
+    "kept local payload over worse server response",
+    "run finished successfully",
+    "run failed",
+    "tracked picks saved",
+    "validation failed",
+    "refresh final game still returned pending",
+    "flush save failed",
+    "hydrate failed",
+    "missing competition data",
+    "runtime error",
+    "unhandled rejection"
+  ];
+
+  if (commonSignals.some(signal => text.includes(signal))) return true;
+
+  if (scope === "tracker") {
+    return text.includes("refresh detected tracker changes") ||
+      text.includes("refresh finished with no tracker changes") ||
+      text.includes("refresh settled pick");
+  }
+
+  if (scope === "engine") {
+    return text.includes("run blocked") ||
+      text.includes("fetch worker failed") ||
+      text.includes("fetch direct failed") ||
+      text.includes("fetch ok via direct");
+  }
+
+  return false;
+}
+
+function getImportantDebugFingerprint(line = "") {
+  const text = String(line || "").toLowerCase();
+  if (text.includes("ignored worse server response")) return "server-response-blocked";
+  if (text.includes("kept local payload over worse server response")) return "local-payload-kept";
+  if (text.includes("run finished successfully")) return "run-finished-successfully";
+  if (text.includes("tracked picks saved")) return "tracked-picks-saved";
+  if (text.includes("run failed")) return "run-failed";
+  if (text.includes("validation failed")) return "validation-failed";
+  if (text.includes("runtime error")) return "runtime-error";
+  if (text.includes("unhandled rejection")) return "unhandled-rejection";
+  if (text.includes("flush save failed")) return "flush-save-failed";
+  if (text.includes("hydrate failed")) return "hydrate-failed";
+  if (text.includes("missing competition data")) return "missing-competition-data";
+  if (text.includes("refresh final game still returned pending")) return "refresh-final-still-pending";
+  return String(line || "").trim();
+}
+
+function getVisibleDebugLines(lines = [], scope = "engine", limit = 6) {
+  const filtered = (Array.isArray(lines) ? lines : []).filter(line => isImportantDebugLine(line, scope));
+  const seen = new Set();
+  const deduped = [];
+
+  filtered.forEach(line => {
+    const key = getImportantDebugFingerprint(line);
+    if (seen.has(key)) return;
+    seen.add(key);
+    deduped.push(line);
+  });
+
+  return prioritizeDebugLines(deduped, limit);
+}
+
+function getDebugButtonState() {
+  const engineLines = getVisibleDebugLines(g_engineDebugLog, "engine", 6);
+  const trackerLines = getVisibleDebugLines(g_trackerDebugLog, "tracker", 6);
+  const hasError = g_engineAlertNeedsReview || engineLines.some(line => getDebugSeverity(line) === "error") || trackerLines.some(line => getDebugSeverity(line) === "error");
+  if (hasError) return "error";
+
+  const snapshot = getTrackerStateDebugScore(g_trackerState || {});
+  const hasUseful = Number(snapshot?.settledCount || 0) > 0 || Number(snapshot?.wins || 0) > 0 || engineLines.length > 0 || trackerLines.length > 0;
+  return hasUseful ? "good" : "idle";
 }
 
 function summarizeFetchMetaForDebug() {
@@ -4112,10 +4213,22 @@ function isTrackerStateWorseThan(candidateState, baselineState) {
 function updateTrackerInsightsButton() {
   const btn = document.getElementById("trackerInsightsBtn");
   if (!btn) return;
+
+  const state = getDebugButtonState();
   btn.classList.toggle("active", !!g_trackerInsightsOpen);
-  btn.setAttribute("title", g_trackerInsightsOpen ? "Hide engine debug" : "Open engine debug");
+  btn.classList.remove("state-good", "state-error", "state-idle");
+  btn.classList.add(g_trackerInsightsOpen ? "state-idle" : `state-${state}`);
+
+  const closedTitle = state === "error"
+    ? "Open engine debug. A real engine issue needs review."
+    : state === "good"
+      ? "Open engine debug. Useful results and feedback are ready."
+      : "Open engine debug";
+
+  btn.setAttribute("title", g_trackerInsightsOpen ? "Return to tracked picks" : closedTitle);
   btn.setAttribute("aria-pressed", g_trackerInsightsOpen ? "true" : "false");
-  btn.textContent = g_trackerInsightsOpen ? "← Picks" : "🐞 Debug";
+  btn.setAttribute("aria-label", g_trackerInsightsOpen ? "Return to tracked picks" : closedTitle);
+  btn.textContent = g_trackerInsightsOpen ? "← Picks" : "🐞";
 }
 
 function syncTrackerModalView() {
@@ -4146,6 +4259,7 @@ function toggleTrackerInsights() {
   }
   updateTrackerInsightsButton();
   syncTrackerModalView();
+  updateTrackerInsightsButton();
   renderTrackerAnalytics();
 }
 let g_trackerSaveFailureCount = 0;
@@ -6378,6 +6492,25 @@ function renderTrackerAnalytics() {
   const marketDisplayRows = marketRows.slice(0, 5);
   const leagueDisplayRows = leagueRows.slice(0, 5);
 
+  const pendingActiveCount = Array.isArray(g_trackerState?.activePicks)
+    ? g_trackerState.activePicks.filter(p => !["win", "loss", "push"].includes(String(p?.resultStatus || "").toLowerCase())).length
+    : 0;
+
+  const importantEngineLines = [];
+  const rawImportantEngineLines = getVisibleDebugLines(g_engineDebugLog, "engine", 6);
+  if (rawImportantEngineLines.length) {
+    importantEngineLines.push(...rawImportantEngineLines);
+  } else {
+    importantEngineLines.push(`[engine] stable build snapshot | {"settled":${settled},"active":${activeCount},"checkpoint":"${safeText(checkpointStatus)}"}`);
+  }
+
+  const importantTrackerLines = [];
+  importantTrackerLines.push(`[tracker] record snapshot | {"settled":${settled},"pending":${pendingActiveCount},"wins":${overallRecord.wins},"losses":${overallRecord.losses},"pushes":${overallRecord.pushes}}`);
+  const rawImportantTrackerLines = getVisibleDebugLines(g_trackerDebugLog, "tracker", 6);
+  rawImportantTrackerLines.forEach(line => {
+    if (!importantTrackerLines.includes(line)) importantTrackerLines.push(line);
+  });
+
   syncTrackerModalView();
   panel.classList.toggle("tracker-hidden", !g_trackerInsightsOpen);
   panel.style.display = g_trackerInsightsOpen ? "block" : "none";
@@ -6386,14 +6519,14 @@ function renderTrackerAnalytics() {
       <div class="tracker-analytics-topbar">
         <div class="tracker-analytics-heading">
           <div class="tracker-analytics-kicker">Engine debug</div>
-          <div class="tracker-analytics-title">Debug center</div>
-          <div class="tracker-analytics-subtitle">Debug signals, pick records, and engine feedback in one place without dumping logs on the main screen.</div>
+          <div class="tracker-analytics-title">Important signals</div>
+          <div class="tracker-analytics-subtitle">Only useful engine and tracker notes are shown here. No noisy filler.</div>
         </div>
       </div>
 
       <div class="report-debug-grid">
-        ${buildReportDebugCard("Engine checks", g_engineDebugLog, 12, "Run the engine once and engine checks will show here.")}
-        ${buildReportDebugCard("Tracker checks", g_trackerDebugLog, 12, "Tracker sync, settlement, and sync conflicts will show here.")}
+        ${buildReportDebugCard("Important engine notes", importantEngineLines, 6, "No urgent engine issues. The engine is quiet.")}
+        ${buildReportDebugCard("Important tracker notes", importantTrackerLines, 6, "No urgent tracker issues. Settled results and sync notes will show here.")}
       </div>
 
       <div class="tracker-kpi-grid">
