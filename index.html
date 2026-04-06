@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v11_soft_live" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
+  <link rel="manifest" href="manifest.json?v=tracker_settlement_patch_v1" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_settlement_patch_v1" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_settlement_patch_v1" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2355,7 +2355,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live";
+    const APP_BUILD_VERSION = "tracker_settlement_patch_v1";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -4882,8 +4882,8 @@ function choosePreferredActivePick(existingPick, incomingPick) {
   const currentStatus = String(current.resultStatus || "pending").toLowerCase();
   const incomingStatus = String(incoming.resultStatus || "pending").toLowerCase();
 
-  if (incomingStatus === "pending" && currentStatus !== "pending") return current;
-  if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
+  if (incomingStatus !== "pending" && currentStatus === "pending") return incoming;
+  if (currentStatus !== "pending" && incomingStatus === "pending") return current;
 
   const sameSide = String(current.side || "") === String(incoming.side || "");
   if (sameSide && ["over", "under"].includes(String(current.side || "").toLowerCase())) {
@@ -6298,52 +6298,56 @@ function getTrackedLeagueBase(league) {
   return "";
 }
 
-function getTrackedLeagueBaseCandidates(league) {
-  const ordered = [];
-  const primary = getTrackedLeagueBase(String(league || "").trim().toLowerCase());
-  if (primary) ordered.push(primary);
+function getTrackedScoreboardDateCandidates(pick) {
+  const out = [];
+  const seen = new Set();
+  const add = val => {
+    const s = String(val || "").replace(/\D/g, "");
+    if (s.length !== 8 || seen.has(s)) return;
+    seen.add(s);
+    out.push(s);
+  };
 
-  [
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
-    "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball"
-  ].forEach(base => {
-    if (!ordered.includes(base)) ordered.push(base);
+  const rawEvent = String(pick?.eventDate || "").trim();
+  if (rawEvent) {
+    const d = new Date(rawEvent);
+    if (!isNaN(d.getTime())) add(d.toISOString().slice(0, 10));
+    add(rawEvent);
+  }
+
+  const now = new Date();
+  const offsets = [-1, 0, 1];
+  offsets.forEach(offset => {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() + offset);
+    add(d.toISOString().slice(0, 10));
   });
 
-  return ordered;
+  return out;
 }
 
-function extractTrackedCompetitionFromPayload(data, eventId) {
-  const wantedId = String(eventId || "").trim();
-  if (!data) return null;
+function extractTrackedCompetitionFromPayload(data, eventId = "") {
+  const wantedId = String(eventId || "");
 
-  const direct = data?.header?.competitions?.[0] || data?.competitions?.[0] || null;
+  const direct = data?.header?.competitions?.[0];
   if (direct) return direct;
 
-  const fromEvents = Array.isArray(data?.events)
-    ? data.events.find(ev => String(ev?.id || "") === wantedId) || data.events[0]
-    : null;
-  if (fromEvents?.competitions?.[0]) return fromEvents.competitions[0];
+  const events = Array.isArray(data?.events) ? data.events : [];
+  if (wantedId) {
+    const matched = events.find(ev => String(ev?.id || ev?.uid || "") === wantedId);
+    const comp = matched?.competitions?.[0];
+    if (comp) return comp;
+  }
+
+  for (const ev of events) {
+    const comp = ev?.competitions?.[0];
+    if (comp) return comp;
+  }
+
+  const eventish = data?.event || data?.game || null;
+  if (eventish?.competitions?.[0]) return eventish.competitions[0];
 
   return null;
-}
-
-function isTrackedCompetitionFinal(competition) {
-  return !!(
-    competition?.status?.type?.completed ||
-    competition?.status?.type?.state === "post" ||
-    competition?.status?.type?.name === "STATUS_FINAL"
-  );
-}
-
-
-function getTrackedEventDateKey(eventDate) {
-  const dt = new Date(eventDate || "");
-  if (Number.isNaN(dt.getTime())) return "";
-  const y = dt.getUTCFullYear();
-  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(dt.getUTCDate()).padStart(2, "0");
-  return `${y}${m}${d}`;
 }
 
     function sumLineScores(lines, count) {
@@ -6425,53 +6429,72 @@ function getTrackedEventDateKey(eventDate) {
     if (pendingPicks.length) {
       const eventEntries = [...new Map(
         pendingPicks
-          .flatMap(p => {
-            const eventId = String(p?.eventId || "").trim();
-            if (!eventId) return [];
-            const eventDateKey = getTrackedEventDateKey(p?.eventDate);
-            return getTrackedLeagueBaseCandidates(p?.league).map(base => {
-              const cacheKey = `${base}|${eventId}`;
-              return [cacheKey, { cacheKey, base, eventId, eventDateKey }];
-            });
+          .map(p => {
+            const base = getTrackedLeagueBase(p.league);
+            if (!base) return null;
+            const cacheKey = `${p.league}:${p.eventId}`;
+            return [cacheKey, {
+              cacheKey,
+              base,
+              eventId: p.eventId,
+              dateCandidates: getTrackedScoreboardDateCandidates(p)
+            }];
           })
+          .filter(Boolean)
       ).values()];
 
       const eventResults = await Promise.all(
         eventEntries.map(async entry => {
-          const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
+          const stamp = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${stamp}`;
           const summaryData = await proxyFetch(summaryUrl, 15000).catch(() => null);
+
           let competition = extractTrackedCompetitionFromPayload(summaryData, entry.eventId);
+          let summaryWasFinal = !!(
+            competition?.status?.type?.completed ||
+            competition?.status?.type?.state === "post" ||
+            competition?.status?.type?.name === "STATUS_FINAL"
+          );
 
-          if (!competition && entry.eventDateKey) {
-            const scoreboardUrl = `${entry.base}/scoreboard?dates=${entry.eventDateKey}&limit=200&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
-            const scoreboardData = await proxyFetch(scoreboardUrl, 15000).catch(() => null);
-            competition = extractTrackedCompetitionFromPayload(scoreboardData, entry.eventId);
+          const scoreboardPayloads = [];
+          if (!summaryWasFinal) {
+            for (const dateKey of entry.dateCandidates) {
+              const boardUrl = `${entry.base}/scoreboard?dates=${dateKey}&limit=200&_=${stamp}`;
+              const boardData = await proxyFetch(boardUrl, 15000).catch(() => null);
+              if (boardData) scoreboardPayloads.push(boardData);
+              competition = extractTrackedCompetitionFromPayload(boardData, entry.eventId) || competition;
+              summaryWasFinal = !!(
+                competition?.status?.type?.completed ||
+                competition?.status?.type?.state === "post" ||
+                competition?.status?.type?.name === "STATUS_FINAL"
+              );
+              if (summaryWasFinal) break;
+            }
           }
 
-          if (competition) {
-            return [entry.cacheKey, { competition, source: "summary_or_scoreboard" }];
-          }
-
-          return [entry.cacheKey, null];
+          return [entry.cacheKey, { summaryData, scoreboardPayloads, competition }];
         })
       );
 
       const eventMap = new Map(eventResults);
 
       pendingPicks.forEach(pick => {
-        const eventId = String(pick?.eventId || "").trim();
-        if (!eventId) return;
+        const payload = eventMap.get(`${pick.league}:${pick.eventId}`);
+        const competition = payload?.competition || extractTrackedCompetitionFromPayload(payload?.summaryData, pick.eventId);
+        if (!competition) return;
 
-        const competition = getTrackedLeagueBaseCandidates(pick?.league)
-          .map(base => eventMap.get(`${base}|${eventId}`)?.competition || null)
-          .find(Boolean);
+        const isFinal =
+          competition?.status?.type?.completed ||
+          competition?.status?.type?.state === "post" ||
+          competition?.status?.type?.name === "STATUS_FINAL";
 
-        if (!competition || !isTrackedCompetitionFinal(competition)) return;
+        if (!isFinal) return;
 
         const settled = settleTrackedPickFromCompetition(pick, competition);
         if (settled !== "pending" && pick.resultStatus !== settled) {
           pick.resultStatus = settled;
           pick.settledAt = new Date().toISOString();
+          pick.updatedAt = new Date().toISOString();
           changed = true;
         }
       });
