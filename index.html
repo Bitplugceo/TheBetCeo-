@@ -2306,7 +2306,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v12_bb_clean";
+    const APP_BUILD_VERSION = "tracker_cleanup_v13_bb_clean_reset";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -2748,7 +2748,7 @@ const TRACKER_SAVE_DEBOUNCE_MS = 400;
 const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_NETWORK_TIMEOUT_MS = 12000;
-const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
+const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key_v2"; // rotated to break away from stale remote/local tracker state tied to the older shared key.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v11_soft_live", "tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
@@ -4036,26 +4036,44 @@ proven in this exact build.
 If proof is absent, this section must be skipped completely.
 Any suggestion made here without proof is an audit error.
 */
-    function proxyFetch(url, timeoutMs = 12000) {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    async function proxyFetch(url, timeoutMs = 12000) {
+      async function fetchJson(requestUrl, label) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
 
-      return fetch(WORKER_URL + "?url=" + encodeURIComponent(url), {
-        signal: ctrl.signal,
-        headers: {}
-      })
-        .then(res => {
-          if (!res.ok) throw new Error("Worker HTTP " + res.status);
-          return res.text();
-        })
-        .then(text => {
+        try {
+          const res = await fetch(requestUrl, {
+            signal: ctrl.signal,
+            headers: {},
+            cache: "no-store"
+          });
+
+          if (!res.ok) throw new Error(label + " HTTP " + res.status);
+
+          const text = await res.text();
+
           try {
             return JSON.parse(text);
           } catch (e) {
-            throw new Error("Bad JSON: " + text.slice(0, 120));
+            throw new Error(label + " bad JSON: " + text.slice(0, 120));
           }
-        })
-        .finally(() => clearTimeout(timer));
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      try {
+        return await fetchJson(WORKER_URL + "?url=" + encodeURIComponent(url), "Worker");
+      } catch (workerErr) {
+        console.error("[BB Engine] worker proxy failed, trying direct fetch", workerErr, url);
+
+        try {
+          return await fetchJson(url, "Direct fetch");
+        } catch (directErr) {
+          console.error("[BB Engine] direct fetch failed", directErr, url);
+          throw workerErr;
+        }
+      }
     }
 
     function openSection(id) {
