@@ -4155,39 +4155,66 @@ function buildReportDebugCard(title, lines = [], limit = 10, emptyText = "No deb
 }
 
 function isImportantDebugLine(line = "", scope = "engine") {
-  const text = String(line || "").toLowerCase();
+  const text = String(line || "").toLowerCase().trim();
   if (!text) return false;
+
+  const fatalSignals = [
+    "runtime error",
+    "unhandled rejection",
+    "unexpected token",
+    "syntaxerror",
+    "uncaught",
+    "exception",
+    "cannot read",
+    "is not defined",
+    "referenceerror",
+    "typeerror",
+    "boot failed",
+    "boot timeout",
+    "watchdog"
+  ];
+
+  const actionableSignals = [
+    "run failed",
+    "run blocked",
+    "validation failed",
+    "fetch worker failed",
+    "fetch direct failed",
+    "summary worker fetch failed",
+    "summary direct fetch failed",
+    "flush save failed",
+    "hydrate failed",
+    "tracker push failed",
+    "missing competition data",
+    "refresh final game still returned pending",
+    "invalid",
+    "nan",
+    "mismatch",
+    "rejected"
+  ];
+
+  if (fatalSignals.some(signal => text.includes(signal))) return true;
+  if (actionableSignals.some(signal => text.includes(signal))) return true;
+
   const severity = getDebugSeverity(text);
   if (severity === "error") return true;
 
-  const commonSignals = [
-    "ignored worse server response",
-    "kept local payload over worse server response",
-    "run finished successfully",
-    "run failed",
-    "tracked picks saved",
-    "validation failed",
-    "refresh final game still returned pending",
-    "flush save failed",
-    "hydrate failed",
-    "missing competition data",
-    "runtime error",
-    "unhandled rejection"
-  ];
-
-  if (commonSignals.some(signal => text.includes(signal))) return true;
-
   if (scope === "tracker") {
-    return text.includes("refresh detected tracker changes") ||
-      text.includes("refresh finished with no tracker changes") ||
-      text.includes("refresh settled pick");
+    return text.includes("refresh missing competition data") ||
+      text.includes("refresh final game still returned pending") ||
+      text.includes("flush save failed") ||
+      text.includes("hydrate failed") ||
+      text.includes("tracker push failed");
   }
 
   if (scope === "engine") {
-    return text.includes("run blocked") ||
+    return text.includes("run failed") ||
+      text.includes("run blocked") ||
+      text.includes("validation failed") ||
       text.includes("fetch worker failed") ||
       text.includes("fetch direct failed") ||
-      text.includes("fetch ok via direct");
+      text.includes("summary worker fetch failed") ||
+      text.includes("summary direct fetch failed");
   }
 
   return false;
@@ -4195,18 +4222,26 @@ function isImportantDebugLine(line = "", scope = "engine") {
 
 function getImportantDebugFingerprint(line = "") {
   const text = String(line || "").toLowerCase();
-  if (text.includes("ignored worse server response")) return "server-response-blocked";
-  if (text.includes("kept local payload over worse server response")) return "local-payload-kept";
-  if (text.includes("run finished successfully")) return "run-finished-successfully";
-  if (text.includes("tracked picks saved")) return "tracked-picks-saved";
-  if (text.includes("run failed")) return "run-failed";
-  if (text.includes("validation failed")) return "validation-failed";
   if (text.includes("runtime error")) return "runtime-error";
   if (text.includes("unhandled rejection")) return "unhandled-rejection";
+  if (text.includes("unexpected token") || text.includes("syntaxerror")) return "syntax-error";
+  if (text.includes("boot failed")) return "boot-failed";
+  if (text.includes("boot timeout")) return "boot-timeout";
+  if (text.includes("run failed")) return "run-failed";
+  if (text.includes("run blocked")) return "run-blocked";
+  if (text.includes("validation failed")) return "validation-failed";
+  if (text.includes("fetch worker failed")) return "fetch-worker-failed";
+  if (text.includes("fetch direct failed")) return "fetch-direct-failed";
+  if (text.includes("summary worker fetch failed")) return "summary-worker-fetch-failed";
+  if (text.includes("summary direct fetch failed")) return "summary-direct-fetch-failed";
   if (text.includes("flush save failed")) return "flush-save-failed";
   if (text.includes("hydrate failed")) return "hydrate-failed";
+  if (text.includes("tracker push failed")) return "tracker-push-failed";
   if (text.includes("missing competition data")) return "missing-competition-data";
   if (text.includes("refresh final game still returned pending")) return "refresh-final-still-pending";
+  if (text.includes("nan")) return "calc-nan";
+  if (text.includes("mismatch")) return "calc-mismatch";
+  if (text.includes("invalid")) return "invalid-data";
   return String(line || "").trim();
 }
 
@@ -6683,12 +6718,9 @@ function renderTrackerAnalytics() {
   const rawImportantEngineLines = getVisibleDebugLines(g_engineDebugLog, "engine", 6);
   if (rawImportantEngineLines.length) {
     importantEngineLines.push(...rawImportantEngineLines);
-  } else {
-    importantEngineLines.push(`[engine] stable build snapshot | {"settled":${settled},"active":${activeCount},"checkpoint":"${safeText(checkpointStatus)}"}`);
   }
 
   const importantTrackerLines = [];
-  importantTrackerLines.push(`[tracker] record snapshot | {"settled":${settled},"pending":${pendingActiveCount},"wins":${overallRecord.wins},"losses":${overallRecord.losses},"pushes":${overallRecord.pushes}}`);
   const rawImportantTrackerLines = getVisibleDebugLines(g_trackerDebugLog, "tracker", 6);
   rawImportantTrackerLines.forEach(line => {
     if (!importantTrackerLines.includes(line)) importantTrackerLines.push(line);
@@ -6701,8 +6733,8 @@ function renderTrackerAnalytics() {
 
   const debugBodyHtml = `
       <div class="report-debug-grid">
-        ${buildReportDebugCard("Important engine notes", importantEngineLines, 6, "No urgent engine issues. The engine is quiet.")}
-        ${buildReportDebugCard("Important tracker notes", importantTrackerLines, 6, "No urgent tracker issues. Settled results and sync notes will show here.")}
+        ${buildReportDebugCard("Important engine errors", importantEngineLines, 6, "No active engine errors. The watchdog is quiet.")}
+        ${buildReportDebugCard("Important tracker errors", importantTrackerLines, 6, "No active tracker errors. Nothing urgent needs review.")}
       </div>
   `;
 
@@ -6870,8 +6902,8 @@ function renderTrackerAnalytics() {
         <div class="tracker-analytics-topbar">
           <div class="tracker-analytics-heading">
             <div class="tracker-analytics-kicker">Engine debug</div>
-            <div class="tracker-analytics-title">Important signals</div>
-            <div class="tracker-analytics-subtitle">Only useful engine and tracker notes are shown here. No noisy filler.</div>
+            <div class="tracker-analytics-title">Error watch</div>
+            <div class="tracker-analytics-subtitle">Only real engine or tracker problems show here. Healthy activity stays hidden in the backend logs.</div>
           </div>
         </div>
         ${debugBodyHtml}
