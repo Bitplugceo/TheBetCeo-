@@ -2355,7 +2355,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live_settle_merge_fix";
+    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -4882,9 +4882,7 @@ function choosePreferredActivePick(existingPick, incomingPick) {
   const currentStatus = String(current.resultStatus || "pending").toLowerCase();
   const incomingStatus = String(incoming.resultStatus || "pending").toLowerCase();
 
-  // Settled must always beat pending during local/server merge.
-  // Otherwise a stale pending copy can overwrite a win/loss/push after reload.
-  if (currentStatus !== "pending" && incomingStatus === "pending") return current;
+  if (incomingStatus === "pending" && currentStatus !== "pending") return current;
   if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
 
   const sameSide = String(current.side || "") === String(incoming.side || "");
@@ -6414,6 +6412,7 @@ function getTrackedLeagueBase(league) {
         if (settled !== "pending" && pick.resultStatus !== settled) {
           pick.resultStatus = settled;
           pick.settledAt = new Date().toISOString();
+          pick.updatedAt = pick.settledAt;
           changed = true;
         }
       });
