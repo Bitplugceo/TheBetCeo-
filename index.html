@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v11_soft_live" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v12_bb_settle_hotfix" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_settle_hotfix" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_settle_hotfix" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2355,7 +2355,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live";
+    const APP_BUILD_VERSION = "tracker_cleanup_v12_bb_settle_hotfix";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -4782,21 +4782,19 @@ async function hydrateTrackedPicks(force = false) {
       const serverPushes = Number(serverState?.stats?.pushes || 0);
       const mergedPushes = Number(mergedState?.stats?.pushes || 0);
 
+      const mergedUpdatedAtMs = getTrackerStateUpdatedAtMs(mergedState);
+      const serverUpdatedAtMs = getTrackerStateUpdatedAtMs(serverState);
+
       const shouldPushMerged =
-        mergedPendingActive > serverPendingActive ||
-        localPendingActive > serverPendingActive ||
+        (hadLocalState && !serverHasState) ||
         mergedActiveCount > serverActiveCount ||
-        localArchivedCount > serverArchivedCount ||
         mergedArchivedCount > serverArchivedCount ||
-        localSettledCount > serverSettledCount ||
         mergedSettledCount > serverSettledCount ||
-        localWins > serverWins ||
         mergedWins > serverWins ||
-        localLosses > serverLosses ||
         mergedLosses > serverLosses ||
-        localPushes > serverPushes ||
         mergedPushes > serverPushes ||
-        (hadLocalState && !serverHasState);
+        mergedPendingActive < serverPendingActive ||
+        mergedUpdatedAtMs > serverUpdatedAtMs;
 
       if (shouldPushMerged) {
         try {
@@ -6433,6 +6431,7 @@ function isTrackedCompetitionFinal(competition) {
           pick.resultStatus = settled;
           pick.settledAt = new Date().toISOString();
           pick.updatedAt = pick.settledAt;
+          g_trackerState.updatedAt = pick.updatedAt;
           changed = true;
         }
       });
@@ -6441,10 +6440,15 @@ function isTrackedCompetitionFinal(competition) {
     const archivedChanged = archiveExpiredTrackedPicks();
 
     if (changed || archivedChanged) {
+      g_trackerState.updatedAt = new Date().toISOString();
       rebuildTrackerStats();
       saveTrackerStateToLocal();
       scheduleTrackerSave();
-      Promise.resolve().then(() => forceTrackerSaveNow());
+      try {
+        await forceTrackerSaveNow();
+      } catch (settleSaveErr) {
+        console.error("[BB Engine] tracker settle save failed", settleSaveErr);
+      }
     }
 
     renderTrackedPicks();
