@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v12_bb_settle_hotfix" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_settle_hotfix" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_settle_hotfix" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v11_soft_live" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2355,7 +2355,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v12_bb_settle_hotfix";
+    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -3205,14 +3205,14 @@ function isBetterTrackerStateCandidate(nextState, bestState) {
   const best = getTrackerStateLocalScore(bestState);
 
   if (next.hasPicks !== best.hasPicks) return next.hasPicks > best.hasPicks;
+  if (next.pendingActive !== best.pendingActive) return next.pendingActive > best.pendingActive;
+  if (next.totalCount !== best.totalCount) return next.totalCount > best.totalCount;
   if (next.settledCount !== best.settledCount) return next.settledCount > best.settledCount;
   if (next.wins !== best.wins) return next.wins > best.wins;
   if (next.losses !== best.losses) return next.losses > best.losses;
   if (next.pushes !== best.pushes) return next.pushes > best.pushes;
-  if (next.totalCount !== best.totalCount) return next.totalCount > best.totalCount;
   if (next.activeCount !== best.activeCount) return next.activeCount > best.activeCount;
   if (next.archivedCount !== best.archivedCount) return next.archivedCount > best.archivedCount;
-  if (next.pendingActive !== best.pendingActive) return next.pendingActive < best.pendingActive;
   if (next.updatedAtMs !== best.updatedAtMs) return next.updatedAtMs > best.updatedAtMs;
 
   return false;
@@ -4782,19 +4782,21 @@ async function hydrateTrackedPicks(force = false) {
       const serverPushes = Number(serverState?.stats?.pushes || 0);
       const mergedPushes = Number(mergedState?.stats?.pushes || 0);
 
-      const mergedUpdatedAtMs = getTrackerStateUpdatedAtMs(mergedState);
-      const serverUpdatedAtMs = getTrackerStateUpdatedAtMs(serverState);
-
       const shouldPushMerged =
-        (hadLocalState && !serverHasState) ||
+        mergedPendingActive > serverPendingActive ||
+        localPendingActive > serverPendingActive ||
         mergedActiveCount > serverActiveCount ||
+        localArchivedCount > serverArchivedCount ||
         mergedArchivedCount > serverArchivedCount ||
+        localSettledCount > serverSettledCount ||
         mergedSettledCount > serverSettledCount ||
+        localWins > serverWins ||
         mergedWins > serverWins ||
+        localLosses > serverLosses ||
         mergedLosses > serverLosses ||
+        localPushes > serverPushes ||
         mergedPushes > serverPushes ||
-        mergedPendingActive < serverPendingActive ||
-        mergedUpdatedAtMs > serverUpdatedAtMs;
+        (hadLocalState && !serverHasState);
 
       if (shouldPushMerged) {
         try {
@@ -4880,10 +4882,8 @@ function choosePreferredActivePick(existingPick, incomingPick) {
   const currentStatus = String(current.resultStatus || "pending").toLowerCase();
   const incomingStatus = String(incoming.resultStatus || "pending").toLowerCase();
 
-  // FIXED — keeps the SETTLED pick when one side is pending
-if (incomingStatus === "pending" && currentStatus !== "pending") return current;
-if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
-
+  if (incomingStatus === "pending" && currentStatus !== "pending") return current;
+  if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
 
   const sameSide = String(current.side || "") === String(incoming.side || "");
   if (sameSide && ["over", "under"].includes(String(current.side || "").toLowerCase())) {
@@ -6293,34 +6293,9 @@ function applySoftTrackerInfluenceToPicks(picks, fixtureMeta, phase2Activation =
   });
 }
 function getTrackedLeagueBase(league) {
-  return getLeagueBase(league);
-}
-
-function getTrackedCompetitionFromSummary(data) {
-  return (
-    data?.header?.competitions?.[0] ||
-    data?.event?.competitions?.[0] ||
-    data?.competitions?.[0] ||
-    null
-  );
-}
-
-function isTrackedCompetitionFinal(competition) {
-  const type = competition?.status?.type || {};
-  const state = String(type.state || "").toLowerCase();
-  const name = String(type.name || "").toUpperCase();
-  const description = String(type.description || "").toLowerCase();
-  const detail = String(type.detail || competition?.status?.displayClock || "").toLowerCase();
-  const shortDetail = String(type.shortDetail || competition?.status?.type?.shortDetail || "").toLowerCase();
-
-  if (type.completed === true) return true;
-  if (state === "post") return true;
-  if (name.startsWith("STATUS_FINAL")) return true;
-  if (description.includes("final")) return true;
-  if (detail.includes("final")) return true;
-  if (shortDetail.includes("final")) return true;
-
-  return false;
+  if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+  if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
+  return "";
 }
 
     function sumLineScores(lines, count) {
@@ -6423,17 +6398,20 @@ function isTrackedCompetitionFinal(competition) {
 
       pendingPicks.forEach(pick => {
         const data = eventMap.get(`${pick.league}:${pick.eventId}`);
-        const competition = getTrackedCompetitionFromSummary(data);
+        const competition = data?.header?.competitions?.[0];
         if (!competition) return;
 
-        if (!isTrackedCompetitionFinal(competition)) return;
+        const isFinal =
+          competition?.status?.type?.completed ||
+          competition?.status?.type?.state === "post" ||
+          competition?.status?.type?.name === "STATUS_FINAL";
+
+        if (!isFinal) return;
 
         const settled = settleTrackedPickFromCompetition(pick, competition);
         if (settled !== "pending" && pick.resultStatus !== settled) {
           pick.resultStatus = settled;
           pick.settledAt = new Date().toISOString();
-          pick.updatedAt = pick.settledAt;
-          g_trackerState.updatedAt = pick.updatedAt;
           changed = true;
         }
       });
@@ -6442,15 +6420,10 @@ function isTrackedCompetitionFinal(competition) {
     const archivedChanged = archiveExpiredTrackedPicks();
 
     if (changed || archivedChanged) {
-      g_trackerState.updatedAt = new Date().toISOString();
       rebuildTrackerStats();
       saveTrackerStateToLocal();
       scheduleTrackerSave();
-      try {
-        await forceTrackerSaveNow();
-      } catch (settleSaveErr) {
-        console.error("[BB Engine] tracker settle save failed", settleSaveErr);
-      }
+      Promise.resolve().then(() => forceTrackerSaveNow());
     }
 
     renderTrackedPicks();
