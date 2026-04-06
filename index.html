@@ -239,39 +239,6 @@ body.dark-mode {
     }
 
 
-    .engine-mode-bar {
-      display: flex;
-      gap: 8px;
-      margin: 8px auto;
-      flex-wrap: wrap;
-    }
-
-    .engine-mode-btn {
-      background: #eceff3 !important;
-      color: #2a2f38 !important;
-      border: 1px solid #d7dbe1 !important;
-      padding: 6px 10px !important;
-      font-size: 12px !important;
-      font-weight: 700 !important;
-      margin: 0 !important;
-      min-width: 90px !important;
-      text-align: center;
-    }
-
-    .engine-mode-btn.active {
-      background: #49a443 !important;
-      color: #fff !important;
-      border-color: #49a443 !important;
-    }
-
-    .tt-shell-note {
-      font-size: 11px;
-      line-height: 1.5;
-      color: var(--muted);
-      font-weight: 700;
-      margin: 0 0 10px 0;
-    }
-
    .section {
   border: 1px solid var(--panel-border);
   background: var(--panel);
@@ -1883,7 +1850,7 @@ body.dark-mode .tracker-analytics-section-head {
 </head>
 <body>
  <header class="app-header">
-  <span class="brand-name" id="brandModeToggle" role="button" tabindex="0" title="Switch Basketball / TT">TheBetCeo ⚡️</span>
+  <span class="brand-name">TheBetCeo ⚡️</span>
 
   <button
     class="header-error-btn"
@@ -1902,22 +1869,6 @@ body.dark-mode .tracker-analytics-section-head {
 </header>
 
   <div class="wrapper">
-    <div class="engine-mode-bar" id="engineModeBar" style="display:none;">
-      <button type="button" class="engine-mode-btn active" id="bbModeBtn">Basketball</button>
-      <button type="button" class="engine-mode-btn" id="ttModeBtn">TT</button>
-    </div>
-
-    <div class="section" id="ttPage" style="display:none;">
-      <h3>TT Mode Shell</h3>
-      <div class="tt-shell-note">Table Tennis page restored. This shell is visible again, but its dedicated calculations are still intentionally not wired into the live engine yet.</div>
-      <label>Side A / Player A</label>
-      <input id="ttSideA" placeholder="e.g. Player A" />
-      <label>Side B / Player B</label>
-      <input id="ttSideB" placeholder="e.g. Player B" />
-      <label>TT Market</label>
-      <input id="ttMarket" placeholder="e.g. 74.5" />
-      <small>TT shell restored only. Basketball run logic is unchanged unless TT calculations are wired later.</small>
-    </div>
     <div class="section" id="leagueSection">
       <h3>League Tier</h3>
       <label>Select League</label>
@@ -5297,8 +5248,6 @@ function unlockPageBehindTracker() {
 }
 
 function openTrackerModal() {
-  if (getCurrentSportMode() === SPORT_MODE_TT) return;
-
   const modal = document.getElementById("trackerModal");
   if (!modal) return;
 
@@ -11143,19 +11092,10 @@ if (fetchBtn) fetchBtn.addEventListener("click", fetchESPN);
 
 
 
-const SPORT_MODE_STORAGE_KEY = "bb_engine_sport_mode";
 const SPORT_MODE_BASKETBALL = "basketball";
-const SPORT_MODE_TT = "tt";
-const TT_LEAGUE_OPTIONS_HTML = `
-        <option value="">- Select League -</option>
-        <optgroup label="── TABLE TENNIS ───────">
-          <option value="tt">Table Tennis - Setka Cup</option>
-        </optgroup>`;
-let g_currentSportMode = SPORT_MODE_BASKETBALL;
-let g_basketballLeagueOptionsHtml = "";
 
 function getCurrentSportMode() {
-  return g_currentSportMode === SPORT_MODE_TT ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
+  return SPORT_MODE_BASKETBALL;
 }
 
 function safeSetText(id, value) {
@@ -11180,160 +11120,102 @@ function safeSetPlaceholder(id, value) {
   if (el) el.placeholder = value;
 }
 
-function applySportModeUI() {
-  const mode = getCurrentSportMode();
-  const isTT = mode === SPORT_MODE_TT;
-  document.body.dataset.sportMode = mode;
-
-  const engineModeBar = document.getElementById("engineModeBar");
-  if (engineModeBar) engineModeBar.style.display = "none";
-
-  const ttPage = document.getElementById("ttPage");
-  if (ttPage) ttPage.style.display = "none";
+function applyBasketballOnlyUI() {
+  document.body.dataset.sportMode = SPORT_MODE_BASKETBALL;
 
   const themeToggleBtn = document.getElementById("themeToggleBtn");
-  if (themeToggleBtn) themeToggleBtn.textContent = isTT ? "🏓" : "🏀";
+  if (themeToggleBtn) themeToggleBtn.textContent = "🏀";
 
   const trackerToggleBtn = document.getElementById("trackerToggleBtn");
-  if (trackerToggleBtn) trackerToggleBtn.style.display = isTT ? "none" : "";
+  if (trackerToggleBtn) trackerToggleBtn.style.display = "";
 
-  if (isTT) {
-    g_trackerInsightsOpen = false;
-    closeTrackerModal();
-    updateTrackerInsightsButton();
-  }
-
-  const brandModeToggle = document.getElementById("brandModeToggle");
-  if (brandModeToggle) {
-    brandModeToggle.title = isTT ? "Switch back to Basketball" : "Switch to TT";
-  }
-
-  const leagueSelect = document.getElementById("leagueSelect");
-  if (leagueSelect) {
-    if (!g_basketballLeagueOptionsHtml) g_basketballLeagueOptionsHtml = leagueSelect.innerHTML;
-    if (isTT) {
-      if (leagueSelect.innerHTML !== TT_LEAGUE_OPTIONS_HTML) leagueSelect.innerHTML = TT_LEAGUE_OPTIONS_HTML;
-      if (!leagueSelect.value) leagueSelect.value = "tt";
-    } else {
-      if (g_basketballLeagueOptionsHtml && leagueSelect.innerHTML !== g_basketballLeagueOptionsHtml) {
-        leagueSelect.innerHTML = g_basketballLeagueOptionsHtml;
-      }
-      if (leagueSelect.value === "tt") leagueSelect.value = "";
-    }
-  }
-
-  safeSetSectionTitle("espnSection", isTT
-    ? '🏓 TT Inputs <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(header switch mode)</span>'
-    : '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
+  safeSetSectionTitle("espnSection", '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
   safeSetText("fixtureSelectLabel", "Select match");
-  safeSetText("teamALabel", isTT ? "Player A Name" : "Team A Name (Home)");
-  safeSetText("teamBLabel", isTT ? "Player B Name" : "Team B Name (Away)");
-  safeSetSectionTitle("marketSection", isTT ? "TT Market Lines" : "Market Lines");
-  safeSetText("ftMarketLabel", isTT ? "Match Total Sets" : "FT Total");
-  safeSetText("teamAMarketLabel", isTT ? "Player A Sets" : "Team A Total");
-  safeSetText("teamBMarketLabel", isTT ? "Player B Sets" : "Team B Total");
-  safeSetSectionTitle("teamASection", isTT ? 'Player A - Recent Sets <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>' : 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
-  safeSetSectionTitle("teamBSection", isTT ? 'Player B - Recent Sets <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>' : 'Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>');
-  safeSetSectionTitle("h2hSection", isTT ? 'TT H2H <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled recent matchup history</span>' : 'H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span>');
+  safeSetText("teamALabel", "Team A Name (Home)");
+  safeSetText("teamBLabel", "Team B Name (Away)");
+  safeSetSectionTitle("marketSection", "Market Lines");
+  safeSetText("ftMarketLabel", "FT Total");
+  safeSetText("teamAMarketLabel", "Team A Total");
+  safeSetText("teamBMarketLabel", "Team B Total");
+  safeSetSectionTitle("teamASection", 'Team A - Last 5 Overall <span class="autofill-indicator" id="aAutoTag">✅ Auto-filled</span>');
+  safeSetSectionTitle("teamBSection", 'Team B - Last 5 Overall <span class="autofill-indicator" id="bAutoTag">✅ Auto-filled</span>');
+  safeSetSectionTitle("h2hSection", 'H2H TEST <span class="autofill-indicator" id="h2hAutoTag">✅ Auto-filled (2024+, OT stripped, expanded matchup history)</span>');
 
   const useFtLabel = document.getElementById("useFTH2HLabel");
   if (useFtLabel) {
     const useFtBox = useFtLabel.querySelector("input");
     if (useFtBox) {
-      const trailingText = isTT ? " Use TT H2H (min 2 matches)" : " Use FT H2H (min 2 games)";
+      const trailingText = " Use FT H2H (min 2 games)";
       const nodes = [...useFtLabel.childNodes].filter(node => node.nodeType === Node.TEXT_NODE);
       if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
       else useFtLabel.appendChild(document.createTextNode(trailingText));
     }
   }
+
   const use1HLabel = document.getElementById("use1HH2HLabel");
   if (use1HLabel) {
     const use1HBox = use1HLabel.querySelector("input");
     if (use1HBox) {
-      const trailingText = isTT ? " Use First Game H2H (min 2 matches)" : " Use 1H H2H (min 2 games)";
+      const trailingText = " Use 1H H2H (min 2 games)";
       const nodes = [...use1HLabel.childNodes].filter(node => node.nodeType === Node.TEXT_NODE);
       if (nodes.length) nodes[nodes.length - 1].textContent = trailingText;
       else use1HLabel.appendChild(document.createTextNode(trailingText));
     }
   }
 
-  safeSetPlaceholder("teamAName", isTT ? "e.g. Fan Zhendong" : "e.g. Lakers");
-  safeSetPlaceholder("teamBName", isTT ? "e.g. Wang Chuqin" : "e.g. Celtics");
-  safeSetPlaceholder("ftMarket", isTT ? "3.5 - 5.5" : "150.5 - 160.5");
-  safeSetPlaceholder("teamAMarket", isTT ? "2.5 - 3.5" : "75.5 - 79.5");
-  safeSetPlaceholder("teamBMarket", isTT ? "1.5 - 2.5" : "75.5 - 79.5");
-  safeSetPlaceholder("aFTScored", isTT ? "3,3,2,3,3" : "85,79,88,74,82");
-  safeSetPlaceholder("bFTScored", isTT ? "3,2,3,3,1" : "83,77,81,79,80");
-  safeSetPlaceholder("a1HScored", isTT ? "11,10,12,11,10" : "42,38,45,40,41");
-  safeSetPlaceholder("b1HScored", isTT ? "8,9,11,7,8" : "40,39,42,38,41");
-  safeSetPlaceholder("aFTH2H", isTT ? "3,3,2,3" : "82,78,84,76,82");
-  safeSetPlaceholder("bFTH2H", isTT ? "1,2,3,1" : "79,81,77,80,78");
-  safeSetPlaceholder("a1HH2H", isTT ? "11,12,10,11" : "41,39,43,38,41");
-  safeSetPlaceholder("b1HH2H", isTT ? "8,9,11,8" : "39,41,38,42,39");
+  safeSetPlaceholder("teamAName", "e.g. Lakers");
+  safeSetPlaceholder("teamBName", "e.g. Celtics");
+  safeSetPlaceholder("ftMarket", "150.5 - 160.5");
+  safeSetPlaceholder("teamAMarket", "75.5 - 79.5");
+  safeSetPlaceholder("teamBMarket", "75.5 - 79.5");
+  safeSetPlaceholder("aFTScored", "85,79,88,74,82");
+  safeSetPlaceholder("bFTScored", "83,77,81,79,80");
+  safeSetPlaceholder("a1HScored", "42,38,45,40,41");
+  safeSetPlaceholder("b1HScored", "40,39,42,38,41");
+  safeSetPlaceholder("aFTH2H", "82,78,84,76,82");
+  safeSetPlaceholder("bFTH2H", "79,81,77,80,78");
+  safeSetPlaceholder("a1HH2H", "41,39,43,38,41");
+  safeSetPlaceholder("b1HH2H", "39,41,38,42,39");
 
-  safeSetText("aFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
-  safeSetText("bFTScoredLabel", isTT ? "Recent Sets Won" : "FT Scored (recent → oldest)");
-  safeSetText("a1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
-  safeSetText("b1HScoredLabel", isTT ? "First Game Points" : "1H Scored");
+  safeSetText("aFTScoredLabel", "FT Scored (recent → oldest)");
+  safeSetText("bFTScoredLabel", "FT Scored (recent → oldest)");
+  safeSetText("a1HScoredLabel", "1H Scored");
+  safeSetText("b1HScoredLabel", "1H Scored");
 
   const fixtureToolbar = document.getElementById("fixtureToolbar");
-  if (fixtureToolbar) fixtureToolbar.style.display = isTT ? "none" : "flex";
+  if (fixtureToolbar) fixtureToolbar.style.display = "flex";
   const fixtureSelect = document.getElementById("fixtureSelect");
-  if (fixtureSelect) fixtureSelect.style.display = isTT ? "none" : "block";
+  if (fixtureSelect) fixtureSelect.style.display = "block";
   const fetchBtn = document.getElementById("fetchBtn");
-  if (fetchBtn) fetchBtn.style.display = isTT ? "none" : "inline-block";
+  if (fetchBtn) fetchBtn.style.display = "inline-block";
   const fetchStatus = document.getElementById("fetchStatus");
-  if (fetchStatus) fetchStatus.style.display = isTT ? "none" : "block";
+  if (fetchStatus) fetchStatus.style.display = "block";
 
   const aFTAllowedSection = document.getElementById("aFTAllowedSection");
-  if (aFTAllowedSection) aFTAllowedSection.style.display = isTT ? "none" : "block";
+  if (aFTAllowedSection) aFTAllowedSection.style.display = "block";
   const bFTAllowedSection = document.getElementById("bFTAllowedSection");
-  if (bFTAllowedSection) bFTAllowedSection.style.display = isTT ? "none" : "block";
+  if (bFTAllowedSection) bFTAllowedSection.style.display = "block";
   const injuryBoxA = document.getElementById("injuryBoxA");
-  if (injuryBoxA) injuryBoxA.style.display = isTT ? "none" : "none";
+  if (injuryBoxA) injuryBoxA.style.display = "none";
   const injuryBoxB = document.getElementById("injuryBoxB");
-  if (injuryBoxB) injuryBoxB.style.display = isTT ? "none" : "none";
+  if (injuryBoxB) injuryBoxB.style.display = "none";
 
-  ["a2HSection","b2HSection","h2h2HSection","h2MarketSection"].forEach(id => {
+  ["a1HSection", "b1HSection", "a2HSection", "b2HSection", "h2h1HSection", "h2h2HSection", "h2MarketSection"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = isTT ? "none" : (id.includes("Market") || id.includes("1H") || id.includes("2H") ? el.style.display : "block");
-  });
-  ["a1HSection","b1HSection","h2h1HSection"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = isTT ? "block" : el.style.display;
+    if (el) el.style.display = "block";
   });
 
-  const bbBtn = document.getElementById("bbModeBtn");
-  const ttBtn = document.getElementById("ttModeBtn");
-  if (bbBtn) bbBtn.classList.toggle("active", !isTT);
-  if (ttBtn) ttBtn.classList.toggle("active", isTT);
-
-  window.__engineMode = isTT ? "tt" : "bb";
+  window.__engineMode = "bb";
 }
 
-function setEngineMode(mode = "bb", fromUser = false) {
-  g_currentSportMode = mode === "tt" ? SPORT_MODE_TT : SPORT_MODE_BASKETBALL;
-  try { localStorage.setItem(SPORT_MODE_STORAGE_KEY, g_currentSportMode); } catch (e) {}
-  applySportModeUI();
+function setEngineMode() {
+  applyBasketballOnlyUI();
 
   const leagueSelect = document.getElementById("leagueSelect");
-  if (leagueSelect) {
-    if (g_currentSportMode === SPORT_MODE_TT) leagueSelect.value = "tt";
-    else if (leagueSelect.value === "tt") leagueSelect.value = "";
-  }
-
   if (typeof onLeagueChange === "function") {
     onLeagueChange();
-    applySportModeUI();
+    applyBasketballOnlyUI();
   }
-
-  if (fromUser) {
-    if (typeof accordionOpen === "function") accordionOpen(g_currentSportMode === SPORT_MODE_TT ? "espnSection" : "leagueSection");
-  }
-}
-
-function toggleSportMode() {
-  setEngineMode(getCurrentSportMode() === SPORT_MODE_TT ? "bb" : "tt", true);
 }
 
       const runBtn = document.getElementById("runBtn");
@@ -11342,29 +11224,7 @@ function toggleSportMode() {
       const clearBtn = document.getElementById("clearBtn");
       if (clearBtn) clearBtn.addEventListener("click", clearAll);
 
-      const bbModeBtn = document.getElementById("bbModeBtn");
-      if (bbModeBtn) bbModeBtn.addEventListener("click", () => setEngineMode("bb", true));
-
-      const ttModeBtn = document.getElementById("ttModeBtn");
-      if (ttModeBtn) ttModeBtn.addEventListener("click", () => setEngineMode("tt", true));
-
-      const brandModeToggle = document.getElementById("brandModeToggle");
-      if (brandModeToggle) {
-        brandModeToggle.addEventListener("click", toggleSportMode);
-        brandModeToggle.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            toggleSportMode();
-          }
-        });
-      }
-
-      let startMode = SPORT_MODE_BASKETBALL;
-      try {
-        const savedMode = localStorage.getItem(SPORT_MODE_STORAGE_KEY);
-        if (savedMode === SPORT_MODE_TT) startMode = SPORT_MODE_TT;
-      } catch (e) {}
-      setEngineMode(startMode === SPORT_MODE_TT ? "tt" : "bb");
+      setEngineMode();
 
       makeSectionsCollapsible();
       document.querySelectorAll(".section").forEach(s => {
