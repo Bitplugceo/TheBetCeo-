@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v19_manual_settle_trust_audit" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v19_manual_settle_trust_audit" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v19_manual_settle_trust_audit" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v21_buffer_output_only" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_buffer_output_only" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_buffer_output_only" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2764,7 +2764,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v19_manual_settle_trust_audit";
+    const APP_BUILD_VERSION = "tracker_cleanup_v21_buffer_output_only";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -5213,99 +5213,40 @@ function getPickThresholdPct(league, marketType, side) {
 function applySmartLineToPick(pickRow, rawInput, league) {
   if (!pickRow) return pickRow;
 
-  const baseLine = isFinite(pickRow.line) ? Number(pickRow.line) : null;
-  const baseEdge = isFinite(pickRow.edge) ? Number(pickRow.edge) : NaN;
   const rangeMeta = parseMarketRangeMeta(rawInput);
+  const sourceLine =
+    rangeMeta && isFinite(rangeMeta.mid)
+      ? Number(rangeMeta.mid)
+      : (isFinite(pickRow.line) ? Number(pickRow.line) : null);
+
+  const sourceEdge = isFinite(pickRow.edge) ? Number(pickRow.edge) : NaN;
+  const sourceProj = isFinite(pickRow.proj) ? Number(pickRow.proj) : NaN;
   const side = getPickSideFromText(pickRow.pick);
-  const marketType = pickRow.marketType || "ft";
-  const proj = Number(pickRow.proj);
-  const context = pickRow.context || {};
+  const buffer = 2;
 
-  if (!rangeMeta || !rangeMeta.isRange || !side || !isFinite(proj)) {
+  if (!side || !isFinite(sourceLine) || pickRow.pick === "NO PLAY") {
     return {
       ...pickRow,
-      decisionLine: baseLine,
-      trackerLine: baseLine,
-      displayLineUsed: baseLine,
-      displayEdge: baseEdge,
+      decisionLine: sourceLine,
+      trackerLine: sourceLine,
+      displayLineUsed: sourceLine,
+      displayEdge: sourceEdge,
       displayPick: pickRow.pick,
-      smartLineMeta: {
-        ...(rangeMeta || {}),
-        applied: false,
-        smartLine: baseLine,
-        cushion: 0,
-        reason: rangeMeta?.isRange ? "range_kept_mid" : "single_line"
-      }
+      smartLineMeta: null
     };
   }
 
-  const thresholdPct = getPickThresholdPct(league, marketType, side);
-  const marketCushion =
-    marketType === "ft" ? 1.5 :
-    marketType === "team" ? 1.25 :
-    marketType === "h2" ? 1.5 :
-    0.75;
-
-  const candidates = enumerateRangeLines(rangeMeta)
-    .map(line => {
-      const edge = proj - line;
-      const pct = isFinite(line) && line > 0 ? Math.abs(edge / line) : NaN;
-      const candidatePick = getPick(edge, line, league, marketType, context);
-      const candidateSide = getPickSideFromText(candidatePick);
-      return { line, edge, pct, candidatePick, candidateSide };
-    })
-    .filter(row =>
-      row &&
-      row.candidateSide === side &&
-      isFinite(row.pct) &&
-      row.pct >= thresholdPct &&
-      Math.abs(row.edge) >= marketCushion
-    );
-
-  if (!candidates.length) {
-    return {
-      ...pickRow,
-      pick: "NO PLAY",
-      confidence: "—",
-      note: pickRow.note || "Range gate: edge does not hold across the entered band",
-      decisionLine: baseLine,
-      trackerLine: baseLine,
-      displayLineUsed: baseLine,
-      displayEdge: baseEdge,
-      displayPick: "NO PLAY",
-      smartLineMeta: {
-        ...rangeMeta,
-        applied: false,
-        smartLine: baseLine,
-        cushion: marketCushion,
-        reason: "range_rejected"
-      }
-    };
-  }
-
-  const chosen =
-    side === "over"
-      ? candidates.reduce((best, row) => !best || row.line > best.line ? row : best, null)
-      : candidates.reduce((best, row) => !best || row.line < best.line ? row : best, null);
-
+  const bufferedLineRaw = side === "over" ? sourceLine - buffer : sourceLine + buffer;
+  const bufferedLine = Math.round(bufferedLineRaw * 2) / 2;
+  const bufferedPick = side.toUpperCase() + " " + displayLine(bufferedLine);
   return {
     ...pickRow,
-    line: chosen.line,
-    edge: chosen.edge,
-    pick: chosen.candidatePick,
-    decisionLine: baseLine,
-    trackerLine: chosen.line,
-    displayLineUsed: chosen.line,
-    displayEdge: chosen.edge,
-    displayPick: chosen.candidatePick,
-    smartLineMeta: {
-      ...rangeMeta,
-      applied: true,
-      smartLine: chosen.line,
-      cushion: marketCushion,
-      boundary: side === "over" ? "max_playable" : "min_playable",
-      reason: side === "over" ? "highest_qualified_over_line" : "lowest_qualified_under_line"
-    }
+    decisionLine: sourceLine,
+    trackerLine: sourceLine,
+    displayLineUsed: sourceLine,
+    displayEdge: sourceEdge,
+    displayPick: bufferedPick,
+    smartLineMeta: null
   };
 }
 
@@ -12036,8 +11977,8 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     marketName: pickRow.name,
     line: trackedLine,
     decisionLine: isFinite(pickRow.decisionLine) ? Number(pickRow.decisionLine) : Number(pickRow.line),
-    smartLineApplied: !!pickRow.smartLineMeta?.applied,
-    smartLineMeta: pickRow.smartLineMeta || null,
+    smartLineApplied: false,
+    smartLineMeta: null,
     side,
     predictionText: pickRow.displayPick || pickRow.pick,
     inputSource: getTrackedInputSource(marketKey),
@@ -12142,10 +12083,6 @@ function buildResultRows({
     const shownLine = isFinite(p.displayLineUsed) ? p.displayLineUsed : p.line;
     const shownEdge = isFinite(p.displayEdge) ? p.displayEdge : p.edge;
     const shownPrediction = p.displayPick || displayPrediction;
-    const explanation = getPredictionExplanationMeta(p, league, diagnostics);
-    const explanationClass = explanation
-      ? (explanation.severity === "error" ? "error-note" : explanation.severity === "warn" ? "warn-note" : explanation.severity === "info" ? "info-note" : "muted-note")
-      : "";
 
     const row = table.insertRow();
     row.innerHTML = `
@@ -12155,7 +12092,6 @@ function buildResultRows({
 <td class="${getConfidenceClass(confText)}">${safeText(confText)}</td>
 <td class="${getPredictionClass(p.pick, p.recommendationTier || "")}">
   ${safeText(shownPrediction)}${isLock ? ' <span class="lock">🔒</span>' : ""}
-  ${explanation ? `<small class="${explanationClass}">${safeText(explanation.text)}</small>` : ""}
 </td>
     `;
 
