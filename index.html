@@ -4880,8 +4880,10 @@ function choosePreferredActivePick(existingPick, incomingPick) {
   const currentStatus = String(current.resultStatus || "pending").toLowerCase();
   const incomingStatus = String(incoming.resultStatus || "pending").toLowerCase();
 
-  if (incomingStatus === "pending" && currentStatus !== "pending") return current;
-  if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
+  // FIXED — keeps the SETTLED pick when one side is pending
+if (incomingStatus === "pending" && currentStatus !== "pending") return current;
+if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
+
 
   const sameSide = String(current.side || "") === String(incoming.side || "");
   if (sameSide && ["over", "under"].includes(String(current.side || "").toLowerCase())) {
