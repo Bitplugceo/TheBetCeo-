@@ -744,6 +744,57 @@ input,
   word-break: break-word;
 }
 
+.engine-debug-panel {
+  display: none;
+  margin: 0 10px 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-soft);
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+}
+
+.engine-debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.engine-debug-title {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.engine-debug-meta {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.engine-debug-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.engine-debug-log li {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 7px 8px;
+  font-size: 10px;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .tracker-modal {
   position: fixed;
   inset: 0;
@@ -2200,6 +2251,8 @@ body.dark-mode .tracker-analytics-section-head {
       </tr>
     </table>
   </div>
+
+  <div class="engine-debug-panel" id="engineDebugPanel"></div>
 
   <div id="trackerModal" class="tracker-modal" aria-hidden="true">
     <div class="tracker-panel">
@@ -3711,6 +3764,163 @@ function renderTrackerDebugPanel() {
   `;
 }
 
+const ENGINE_DEBUG_LIMIT = 180;
+let g_engineDebugLog = [];
+
+function engineDebug(message, extra = null) {
+  try {
+    const stamp = new Date().toLocaleTimeString([], { hour12: false });
+    let detail = "";
+    if (extra !== null && extra !== undefined) {
+      if (typeof extra === "string") {
+        detail = extra;
+      } else {
+        try {
+          detail = JSON.stringify(extra);
+        } catch (err) {
+          detail = String(extra);
+        }
+      }
+    }
+    const line = detail ? `[${stamp}] ${message} | ${detail}` : `[${stamp}] ${message}`;
+    g_engineDebugLog.unshift(line);
+    if (g_engineDebugLog.length > ENGINE_DEBUG_LIMIT) {
+      g_engineDebugLog = g_engineDebugLog.slice(0, ENGINE_DEBUG_LIMIT);
+    }
+    console.log("[BB Engine Debug]", message, extra ?? "");
+    renderEngineDebugPanel();
+  } catch (err) {
+    console.error("[BB Engine] engineDebug failed", err);
+  }
+}
+
+function renderEngineDebugPanel() {
+  const panel = document.getElementById("engineDebugPanel");
+  if (!panel) return;
+  const log = Array.isArray(g_engineDebugLog) ? g_engineDebugLog.slice(0, 18) : [];
+  if (!log.length) {
+    panel.style.display = "none";
+    panel.innerHTML = "";
+    return;
+  }
+  panel.style.display = "block";
+  panel.innerHTML = `
+    <div class="engine-debug-head">
+      <div class="engine-debug-title">Engine debug</div>
+      <div class="engine-debug-meta">latest ${log.length} events</div>
+    </div>
+    <ul class="engine-debug-log">${log.map(line => `<li>${safeText(line)}</li>`).join("")}</ul>
+  `;
+}
+
+function summarizeFetchMetaForDebug() {
+  const out = {};
+  ["A", "B"].forEach(side => {
+    const sideMeta = g_fetchMeta?.[side] || {};
+    out[side] = {};
+    ["ft", "h1", "h2"].forEach(bucket => {
+      out[side][bucket] = {
+        source: String(sideMeta?.[bucket]?.source || "manual"),
+        venueReliable: sideMeta?.[bucket]?.venueReliable !== false
+      };
+    });
+  });
+  return out;
+}
+
+function summarizeFixtureMetaForDebug(meta = {}) {
+  return {
+    league: String(meta?.league || ""),
+    eventId: String(meta?.eventId || ""),
+    eventDate: String(meta?.eventDate || ""),
+    homeTeam: String(meta?.homeTeam || ""),
+    awayTeam: String(meta?.awayTeam || "")
+  };
+}
+
+function summarizeParsedForDebug(parsed = {}) {
+  const summary = {};
+  Object.keys(parsed || {}).slice(0, 40).forEach(key => {
+    const value = parsed[key];
+    if (Array.isArray(value)) {
+      summary[key] = { type: "array", count: value.length, sample: value.slice(0, 3) };
+    } else if (value && typeof value === "object") {
+      summary[key] = { type: "object", keys: Object.keys(value).slice(0, 8) };
+    } else {
+      summary[key] = value;
+    }
+  });
+  return summary;
+}
+
+function summarizeCalcForDebug(calc = {}) {
+  return {
+    ftProj: Number(calc?.ftProj),
+    h1Proj: Number(calc?.h1Proj),
+    h2Proj: Number(calc?.h2Proj),
+    projAFT: Number(calc?.projAFT),
+    projBFT: Number(calc?.projBFT),
+    ftEdge: Number(calc?.ftEdge),
+    h1Edge: Number(calc?.h1Edge),
+    h2Edge: Number(calc?.h2Edge),
+    aEdge: Number(calc?.aEdge),
+    bEdge: Number(calc?.bEdge),
+    ftSampleTier: String(calc?.ftSampleTier || ""),
+    h1SampleTier: String(calc?.h1SampleTier || ""),
+    h2SampleTier: String(calc?.h2SampleTier || ""),
+    ftProjectionOnly: !!calc?.ftProjectionOnly,
+    h1ProjectionOnly: !!calc?.h1ProjectionOnly,
+    h2ProjectionOnly: !!calc?.h2ProjectionOnly,
+    ftHasH2H: !!calc?.ftHasH2H,
+    h1HasH2H: !!calc?.h1HasH2H,
+    h2HasH2H: !!calc?.h2HasH2H,
+    pace: Number(calc?.pace),
+    paceGapRisk: !!calc?.paceGapRisk,
+    defensiveFloorFlag: !!calc?.defensiveFloorFlag,
+    blowoutGap: Number(calc?.blowoutGap),
+    volatilityBlock: !!calc?.volatilityBlock,
+    aS: Number(calc?.aS),
+    bS: Number(calc?.bS),
+    aS1: Number(calc?.aS1),
+    bS1: Number(calc?.bS1),
+    aS2: Number(calc?.aS2),
+    bS2: Number(calc?.bS2)
+  };
+}
+
+function summarizePickDecisionForDebug(name, pick, line, edge, confidence, note, trap = false) {
+  return {
+    name,
+    pick,
+    line: Number(line),
+    edge: Number(edge),
+    confidence: String(confidence || ""),
+    note: note ? String(note) : "",
+    trap: !!trap
+  };
+}
+
+function getEngineFetchLabel(url) {
+  try {
+    const u = new URL(String(url), window.location.href);
+    const params = new URLSearchParams(u.search);
+    if (params.has("event")) params.set("event", params.get("event") || "");
+    if (params.has("dates")) params.set("dates", params.get("dates") || "");
+    return `${u.pathname}${params.toString() ? "?" + params.toString() : ""}`;
+  } catch (err) {
+    return String(url || "").slice(0, 160);
+  }
+}
+
+function getTrackerStateDebugScore(state) {
+  return getTrackerStateLocalScore(state || {});
+}
+
+function isTrackerStateWorseThan(candidateState, baselineState) {
+  if (!candidateState || !baselineState) return false;
+  return isBetterTrackerStateCandidate(baselineState, candidateState);
+}
+
 function updateTrackerInsightsButton() {
   const btn = document.getElementById("trackerInsightsBtn");
   if (!btn) return;
@@ -4135,6 +4345,8 @@ If proof is absent, this section must be skipped completely.
 Any suggestion made here without proof is an audit error.
 */
     async function proxyFetch(url, timeoutMs = 12000) {
+      const fetchLabel = getEngineFetchLabel(url);
+      engineDebug("fetch start", { request: fetchLabel, timeoutMs });
       async function fetchJson(requestUrl, label) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -4162,24 +4374,28 @@ Any suggestion made here without proof is an audit error.
 
       try {
         const workerData = await fetchJson(WORKER_URL + "?url=" + encodeURIComponent(url), "Worker");
+        engineDebug("fetch ok via worker", { request: fetchLabel });
         if (String(url).includes("/summary?event=")) {
           trackerDebug("summary fetch ok via worker", { event: String(url).split("event=")[1]?.split("&")[0] || "", source: "worker" });
         }
         return workerData;
       } catch (workerErr) {
         console.error("[BB Engine] worker proxy failed, trying direct fetch", workerErr, url);
+        engineDebug("fetch worker failed", { request: fetchLabel, error: String(workerErr?.message || workerErr) });
         if (String(url).includes("/summary?event=")) {
           trackerDebug("summary worker fetch failed", { event: String(url).split("event=")[1]?.split("&")[0] || "", error: String(workerErr?.message || workerErr) });
         }
 
         try {
           const directData = await fetchJson(url, "Direct fetch");
+          engineDebug("fetch ok via direct", { request: fetchLabel });
           if (String(url).includes("/summary?event=")) {
             trackerDebug("summary fetch ok via direct", { event: String(url).split("event=")[1]?.split("&")[0] || "", source: "direct" });
           }
           return directData;
         } catch (directErr) {
           console.error("[BB Engine] direct fetch failed", directErr, url);
+          engineDebug("fetch direct failed", { request: fetchLabel, error: String(directErr?.message || directErr) });
           if (String(url).includes("/summary?event=")) {
             trackerDebug("summary direct fetch failed", { event: String(url).split("event=")[1]?.split("&")[0] || "", error: String(directErr?.message || directErr) });
           }
@@ -4840,6 +5056,16 @@ async function hydrateTrackedPicks(force = false) {
       if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
 
       const serverState = data.state || {};
+      engineDebug("hydrate state snapshot", {
+        local: getTrackerStateDebugScore(localState || {}),
+        server: getTrackerStateDebugScore(serverState || {})
+      });
+      if (localState && isBetterTrackerStateCandidate(localState, serverState)) {
+        trackerDebug("hydrate local outranks server before merge", {
+          local: getTrackerStateDebugScore(localState || {}),
+          server: getTrackerStateDebugScore(serverState || {})
+        });
+      }
       trackerDebug("hydrate server state loaded", {
         active: getTrackerActivePickCount(serverState),
         archived: getTrackerArchivedPickCount(serverState),
@@ -4916,6 +5142,11 @@ async function hydrateTrackedPicks(force = false) {
           serverSettledCount,
           mergedSettledCount
         });
+        engineDebug("hydrate pushing merged state", {
+          local: getTrackerStateDebugScore(localState || {}),
+          server: getTrackerStateDebugScore(serverState || {}),
+          merged: getTrackerStateDebugScore(mergedState || {})
+        });
         try {
           g_trackerState.updatedAt = new Date().toISOString();
           const pushed = await pushTrackerStateToServer(JSON.parse(JSON.stringify(g_trackerState)));
@@ -4935,6 +5166,11 @@ async function hydrateTrackedPicks(force = false) {
           trackerDebug("hydrate push failed", { error: String(pushErr?.message || pushErr) });
         }
       } else {
+        engineDebug("hydrate kept state without push", {
+          local: getTrackerStateDebugScore(localState || {}),
+          server: getTrackerStateDebugScore(serverState || {}),
+          merged: getTrackerStateDebugScore(mergedState || {})
+        });
         trackerDebug("hydrate kept server/local state without push", {
           localPendingActive,
           serverPendingActive,
@@ -5243,10 +5479,12 @@ async function pushTrackerStateToServer(stateSnapshot) {
   syncLineMemoryIntoTrackerState();
 
   if (isTrackerStateMeaningfullyEmpty(stateSnapshot)) {
+    engineDebug("tracker push skipped for empty state", { snapshot: getTrackerStateDebugScore(g_trackerState) });
     return { ok: true, state: g_trackerState };
   }
 
   let payloadState = JSON.parse(JSON.stringify(stateSnapshot || {}));
+  engineDebug("tracker push start", { payload: getTrackerStateDebugScore(payloadState) });
 
   try {
     const { res: preRes, data: preData } = await fetchTrackerJson(
@@ -5259,7 +5497,12 @@ async function pushTrackerStateToServer(stateSnapshot) {
     );
 
     if (preRes.ok && preData?.ok && preData?.state) {
+      engineDebug("tracker push premerge state", {
+        payload: getTrackerStateDebugScore(payloadState),
+        server: getTrackerStateDebugScore(preData.state)
+      });
       payloadState = mergeTrackerStates(payloadState, preData.state);
+      engineDebug("tracker push premerge merged", { merged: getTrackerStateDebugScore(payloadState) });
     }
   } catch (err) {
     console.error("[BB Engine] tracker pre-merge GET failed", err);
@@ -5281,9 +5524,25 @@ async function pushTrackerStateToServer(stateSnapshot) {
   }
 
   if (data?.ok && data?.state) {
+    engineDebug("tracker push response", {
+      payload: getTrackerStateDebugScore(payloadState),
+      response: getTrackerStateDebugScore(data.state)
+    });
+    if (isTrackerStateWorseThan(data.state, payloadState)) {
+      trackerDebug("tracker push ignored worse server response", {
+        payload: getTrackerStateDebugScore(payloadState),
+        response: getTrackerStateDebugScore(data.state)
+      });
+      engineDebug("tracker push kept local payload over worse server response", {
+        payload: getTrackerStateDebugScore(payloadState),
+        response: getTrackerStateDebugScore(data.state)
+      });
+      return { ok: true, state: payloadState };
+    }
     return data;
   }
 
+  engineDebug("tracker push fell back to payload state", { payload: getTrackerStateDebugScore(payloadState) });
   return { ok: true, state: payloadState };
 }
 
@@ -5325,6 +5584,8 @@ async function flushTrackerSave() {
   const stateSnapshot = JSON.parse(JSON.stringify(g_trackerState));
 
   try {
+    trackerDebug("flush save start", { saveVersion, snapshot: getTrackerStateDebugScore(stateSnapshot) });
+    engineDebug("flush save start", { saveVersion, snapshot: getTrackerStateDebugScore(stateSnapshot) });
     const data = await pushTrackerStateToServer(stateSnapshot);
 
     if (!data?.ok || !data?.state) {
@@ -5332,6 +5593,11 @@ async function flushTrackerSave() {
     }
 
     if (saveVersion === g_trackerSaveVersion) {
+      engineDebug("flush save apply response", {
+        saveVersion,
+        applied: getTrackerStateDebugScore(data.state),
+        snapshot: getTrackerStateDebugScore(stateSnapshot)
+      });
       normalizeTrackerState(data.state);
       saveTrackerStateToLocal();
     }
@@ -5346,6 +5612,8 @@ async function flushTrackerSave() {
   } catch (err) {
     g_trackerSaveFailureCount++;
     console.error("[BB Engine] tracker save failed", err);
+    trackerDebug("flush save failed", { error: String(err?.message || err), snapshot: getTrackerStateDebugScore(stateSnapshot) });
+    engineDebug("flush save failed", { error: String(err?.message || err), snapshot: getTrackerStateDebugScore(stateSnapshot) });
         console.warn("[BB Engine] tracker sync failed. Local copy kept on this device.");
     scheduleTrackerRetry();
   } finally {
@@ -6712,6 +6980,12 @@ function getTrackedLeagueBase(league) {
 
     if (changed || archivedChanged || conflictsChanged) {
       trackerDebug("refresh detected tracker changes", { changed, archivedChanged, conflictsChanged });
+      engineDebug("refresh applying tracker changes", {
+        changed,
+        archivedChanged,
+        conflictsChanged,
+        stateBeforeSave: getTrackerStateDebugScore(g_trackerState)
+      });
       rebuildTrackerStats();
       saveTrackerStateToLocal();
       scheduleTrackerSave();
@@ -10755,10 +11029,18 @@ async function runEngine() {
   const runBtn = document.getElementById("runBtn");
   const table = document.getElementById("results");
 
+  g_engineDebugLog = [];
+  renderEngineDebugPanel();
   if (runBtn) runBtn.disabled = true;
+  engineDebug("run start", {
+    trackerKey: getTrackerUserKey(),
+    trackerState: getTrackerStateDebugScore(g_trackerState),
+    build: APP_BUILD_VERSION
+  });
 
   try {
     primeTrackerStateForRun();
+    engineDebug("tracker primed for run", { trackerState: getTrackerStateDebugScore(g_trackerState) });
     refreshTrackerInBackground(false);
     if (!table) return;
 
@@ -10770,6 +11052,7 @@ async function runEngine() {
     const isNbaOrNcaa = league === "nba" || league === "ncaa";
 
     if (!league) {
+      engineDebug("run blocked missing league");
       showRunError(table, "⚠ Select a league first.");
       return;
     }
@@ -10778,18 +11061,27 @@ async function runEngine() {
     const teamBKey = getTeamIdentityKey(document.getElementById("teamBName")?.value || "", league);
 
     if (teamAKey && teamBKey && teamAKey === teamBKey) {
+      engineDebug("run blocked duplicate teams", { teamAKey, teamBKey });
       showRunError(table, "⚠ Team A and Team B cannot be the same.");
       return;
     }
 
     const validation = validateInputs(league);
     if (!validation.ok) {
+      engineDebug("validation failed", { league, errorHtml: validation.errorHtml });
       showRunError(table, validation.errorHtml);
       return;
     }
 
     const { parsed, lines } = validation;
 const fixtureMeta = getCurrentFixtureMeta();
+    engineDebug("validation passed", {
+      league,
+      fixture: summarizeFixtureMetaForDebug(fixtureMeta),
+      sourceMeta: summarizeFetchMetaForDebug(),
+      rawLines: lines,
+      parsed: summarizeParsedForDebug(parsed)
+    });
 
 let resolvedLines = {
   ftLine: lines.ftLine,
@@ -10822,6 +11114,12 @@ let h2Calc = compute2HProjection({
   injMultA: g_injA.scoringMult,
   injMultB: g_injB.scoringMult
 });
+
+    engineDebug("projection pass 1", {
+      ft: summarizeCalcForDebug(ftCalc),
+      h1: summarizeCalcForDebug(h1Calc),
+      h2: summarizeCalcForDebug(h2Calc)
+    });
 
 resolvedLines = {
   ftLine: resolveStoredLineBeforeDecision({
@@ -10895,7 +11193,16 @@ h2Calc = compute2HProjection({
   injMultB: g_injB.scoringMult
 });
 
+    engineDebug("line resolution", {
+      resolvedLines
+    });
+
 const { ftLine, h1Line, h2Line, aLine, bLine } = resolvedLines;
+    engineDebug("projection pass 2", {
+      ft: summarizeCalcForDebug(ftCalc),
+      h1: summarizeCalcForDebug(h1Calc),
+      h2: summarizeCalcForDebug(h2Calc)
+    });
 
     let ftPick = getPick(ftCalc.ftEdge, ftLine, league, "ft", { aSc: ftCalc.aS, bSc: ftCalc.bS });
     let h1Pick = getPick(h1Calc.h1Edge, h1Line, league, "h1", { aSc: h1Calc.aS1, bSc: h1Calc.bS1 });
@@ -10924,6 +11231,14 @@ const { ftLine, h1Line, h2Line, aLine, bLine } = resolvedLines;
     if (h2Trap) h2Pick = "NO PLAY";
     if (aTrap) aPick = "NO PLAY";
     if (bTrap) bPick = "NO PLAY";
+
+    engineDebug("pick decisions after trap filter", {
+      ft: summarizePickDecisionForDebug("FT Total", ftPick, ftLine, ftCalc.ftEdge, "", ftCalc.ftNote || ftCalc.ftProjectionNote || null, ftTrap),
+      h1: summarizePickDecisionForDebug("1H Total", h1Pick, h1Line, h1Calc.h1Edge, "", h1Calc.h1Note || h1Calc.h1ProjectionNote || null, h1Trap),
+      h2: summarizePickDecisionForDebug("2H Total", h2Pick, h2Line, h2Calc.h2Edge, "", h2Calc.h2Note || h2Calc.h2ProjectionNote || null, h2Trap),
+      teamA: summarizePickDecisionForDebug("Team A Total", aPick, aLine, ftCalc.aEdge, "", ftCalc.ftNote || ftCalc.ftProjectionNote || null, aTrap),
+      teamB: summarizePickDecisionForDebug("Team B Total", bPick, bLine, ftCalc.bEdge, "", ftCalc.ftNote || ftCalc.ftProjectionNote || null, bTrap)
+    });
 
 const ftNote = ftCalc.ftNote || ftCalc.ftProjectionNote || null;
     const h1Note = h1Calc.h1Note || h1Calc.h1ProjectionNote || null;
@@ -11172,6 +11487,16 @@ h2DefensiveFloorFlag: h2Calc.defensiveFloorFlag,
   }
 });
 
+    engineDebug("final picks for display", finalPicksForDisplay.map(p => summarizePickDecisionForDebug(
+      p.name,
+      p.pick,
+      p.displayLineUsed ?? p.line,
+      isFinite(p.displayEdge) ? p.displayEdge : p.edge,
+      p.confidence,
+      p.note,
+      !!p.lockRestricted
+    )));
+
 const actionablePicks = finalPicksForDisplay.filter(p =>
   p &&
   p.pick !== "NO PLAY" &&
@@ -11180,8 +11505,19 @@ const actionablePicks = finalPicksForDisplay.filter(p =>
   (p.displayLineUsed ?? p.line) > 0
 );
 
+engineDebug("run output prepared", {
+  lockIdx,
+  trackedToSave: trackedToSave.length,
+  actionablePicks: actionablePicks.length,
+  trackerStateBeforeSave: getTrackerStateDebugScore(g_trackerState)
+});
+
 if (trackedToSave.length) {
   addTrackedPicks(trackedToSave);
+  engineDebug("tracked picks saved", {
+    trackedToSave: trackedToSave.length,
+    trackerStateAfterSave: getTrackerStateDebugScore(g_trackerState)
+  });
 } else if (actionablePicks.length) {
   setStatusText(
     "⚠ Picks were generated, but they were not saved to tracker because no valid fixture event is linked.",
@@ -11189,18 +11525,25 @@ if (trackedToSave.length) {
   );
 }
 
+    engineDebug("run finished successfully", {
+      trackerState: getTrackerStateDebugScore(g_trackerState),
+      resultsShown: finalPicksForDisplay.length
+    });
+
     setTimeout(() => {
       table.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
 
   } catch (err) {
     console.error("[BB Engine] runEngine failed", err);
+    engineDebug("run failed", { error: String(err?.message || err) });
     if (table) {
       table.style.display = "table";
       table.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
       showRunError(table, "⚠ Unexpected engine error. Check the latest edit.");
     }
   } finally {
+    engineDebug("run finally", { trackerState: getTrackerStateDebugScore(g_trackerState) });
     if (runBtn) runBtn.disabled = false;
   }
 }
@@ -11260,6 +11603,8 @@ if (t) {
   t.innerHTML = "<tr><th>Pick</th><th>Projection</th><th>Edge</th><th>Model Grade</th><th>Prediction</th></tr>";
   t.style.display = "none";
 }
+      g_engineDebugLog = [];
+      renderEngineDebugPanel();
       const fixtureSelect = document.getElementById("fixtureSelect");
       if (fixtureSelect) { fixtureSelect.innerHTML = '<option value="">— Select match —</option>'; fixtureSelect.value = ""; }
 
