@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v12_bb_clean" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_clean" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_clean" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v14_bb_recovery" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v14_bb_recovery" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v14_bb_recovery" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2306,7 +2306,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v13_bb_clean_reset";
+    const APP_BUILD_VERSION = "tracker_cleanup_v14_bb_recovery";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -2749,6 +2749,9 @@ const TRACKER_SAVE_RETRY_BASE_MS = 1500;
 const TRACKER_SAVE_RETRY_MAX_MS = 15000;
 const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key_v2"; // rotated to break away from stale remote/local tracker state tied to the older shared key.
+const TRACKER_PREVIOUS_USER_KEYS = ["The_Bet_Ceo_Key"];
+const TRACKER_RECOVERY_MIGRATION_STORAGE = "bb_engine_tracker_recovery_v1";
+const TRACKER_PENDING_RECOVERY_MAX_AGE_MS = Math.max(6, TRACKER_ARCHIVE_AFTER_HOURS + 2) * 60 * 60 * 1000;
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
 const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v11_soft_live", "tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
@@ -3120,6 +3123,22 @@ function getTrackerLocalStateCandidateKeys() {
   return [...new Set(keys.filter(Boolean))];
 }
 
+function getTrackerLocalStateCandidateKeysForUserKey(userKey) {
+  const cleanKey = String(userKey || "").trim();
+  if (!cleanKey) return [];
+
+  const keys = [
+    TRACKER_LOCAL_STATE_PREFIX + cleanKey,
+    TRACKER_LOCAL_STATE_PREFIX + String(APP_BUILD_VERSION || "") + "_" + cleanKey
+  ];
+
+  TRACKER_LEGACY_BUILD_KEYS.forEach(buildKey => {
+    keys.push(TRACKER_LOCAL_STATE_PREFIX + String(buildKey || "") + "_" + cleanKey);
+  });
+
+  return [...new Set(keys.filter(Boolean))];
+}
+
 function getTrackerStateLocalScore(state) {
   const active = Array.isArray(state?.activePicks) ? state.activePicks : [];
   const archived = Array.isArray(state?.archivedPicks) ? state.archivedPicks : [];
@@ -3163,7 +3182,7 @@ function isBetterTrackerStateCandidate(nextState, bestState) {
   if (next.totalCount !== best.totalCount) return next.totalCount > best.totalCount;
   if (next.activeCount !== best.activeCount) return next.activeCount > best.activeCount;
   if (next.archivedCount !== best.archivedCount) return next.archivedCount > best.archivedCount;
-  if (next.pendingActive !== best.pendingActive) return next.pendingActive > best.pendingActive;
+  if (next.pendingActive !== best.pendingActive) return next.pendingActive < best.pendingActive;
   if (next.updatedAtMs !== best.updatedAtMs) return next.updatedAtMs > best.updatedAtMs;
 
   return false;
@@ -3198,6 +3217,49 @@ function loadTrackerStateFromLocal() {
   }
 }
 
+function loadTrackerStateFromLocalForUserKey(userKey) {
+  try {
+    let bestState = null;
+
+    for (const key of getTrackerLocalStateCandidateKeysForUserKey(userKey)) {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        console.error("[BB Engine] loadTrackerStateFromLocalForUserKey parse failed for key", key, err);
+        continue;
+      }
+
+      if (!parsed || typeof parsed !== "object") continue;
+      if (!isBetterTrackerStateCandidate(parsed, bestState)) continue;
+
+      bestState = parsed;
+    }
+
+    return bestState;
+  } catch (err) {
+    console.error("[BB Engine] loadTrackerStateFromLocalForUserKey failed", err);
+    return null;
+  }
+}
+
+function clearTrackerLocalStateForUserKey(userKey) {
+  try {
+    getTrackerLocalStateCandidateKeysForUserKey(userKey).forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch (err) {
+        console.error("[BB Engine] clearTrackerLocalStateForUserKey failed for key", key, err);
+      }
+    });
+  } catch (err) {
+    console.error("[BB Engine] clearTrackerLocalStateForUserKey failed", err);
+  }
+}
+
 function saveTrackerStateToLocal() {
   try {
     syncLineMemoryIntoTrackerState();
@@ -3227,9 +3289,9 @@ function saveTrackerStateToLocal() {
   }
 }
 
-function getTrackerHeaders(includeJson = false) {
+function getTrackerHeadersForUserKey(userKey, includeJson = false) {
   const headers = {
-    "X-Tracker-User": getTrackerUserKey()
+    "X-Tracker-User": String(userKey || "").trim() || getTrackerUserKey()
   };
 
   if (includeJson) {
@@ -3237,6 +3299,171 @@ function getTrackerHeaders(includeJson = false) {
   }
 
   return headers;
+}
+
+function getTrackerRecoveryMarker() {
+  try {
+    const raw = localStorage.getItem(TRACKER_RECOVERY_MIGRATION_STORAGE);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (err) {
+    console.error("[BB Engine] getTrackerRecoveryMarker failed", err);
+    return null;
+  }
+}
+
+function setTrackerRecoveryMarker(payload = {}) {
+  try {
+    const next = {
+      ...(payload && typeof payload === "object" ? payload : {}),
+      currentKey: getTrackerUserKey(),
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(TRACKER_RECOVERY_MIGRATION_STORAGE, JSON.stringify(next));
+    return next;
+  } catch (err) {
+    console.error("[BB Engine] setTrackerRecoveryMarker failed", err);
+    return null;
+  }
+}
+
+function isPendingPickRecoverable(pick) {
+  if (isTrackedPickSettled(pick)) return true;
+
+  const referenceMs =
+    Date.parse(pick?.eventDate || "") ||
+    Date.parse(pick?.updatedAt || "") ||
+    Date.parse(pick?.createdAt || "") ||
+    0;
+
+  if (!referenceMs) return false;
+  return referenceMs >= (Date.now() - TRACKER_PENDING_RECOVERY_MAX_AGE_MS);
+}
+
+function buildTrackerRecoveryState(rawState = {}) {
+  const active = Array.isArray(rawState?.activePicks)
+    ? rawState.activePicks.map(p => ensureTrackedPickKeys(p))
+    : [];
+  const archived = Array.isArray(rawState?.archivedPicks)
+    ? rawState.archivedPicks.map(p => ensureTrackedPickKeys(p))
+    : [];
+
+  const firstPass = reconcileTrackerBucketConflicts(active, archived);
+
+  const filteredActive = firstPass.activePicks.filter(p => isTrackedPickSettled(p) || isPendingPickRecoverable(p));
+  const filteredArchived = firstPass.archivedPicks.filter(p => isTrackedPickSettled(p) || isPendingPickRecoverable(p));
+  const finalPass = reconcileTrackerBucketConflicts(filteredActive, filteredArchived);
+
+  return {
+    activePicks: finalPass.activePicks.slice(0, TRACKED_PICKS_LIMIT),
+    archivedPicks: mergeTrackerArchivedPicks([], finalPass.archivedPicks).slice(0, TRACKER_ARCHIVED_LIMIT),
+    stats: { total: 0, settled: 0, wins: 0, losses: 0, pushes: 0 },
+    updatedAt: rawState?.updatedAt || new Date().toISOString(),
+    lineMemory: rawState?.lineMemory && typeof rawState.lineMemory === "object"
+      ? JSON.parse(JSON.stringify(rawState.lineMemory))
+      : {}
+  };
+}
+
+async function fetchTrackerStateForUserKey(userKey) {
+  const cleanKey = String(userKey || "").trim();
+  if (!cleanKey) return null;
+
+  try {
+    const { res, data } = await fetchTrackerJson(
+      TRACKER_API_URL,
+      {
+        method: "GET",
+        cache: "no-store",
+        headers: getTrackerHeadersForUserKey(cleanKey, false)
+      }
+    );
+
+    if (!res.ok || !data?.ok || !data?.state) return null;
+    return data.state || null;
+  } catch (err) {
+    console.error("[BB Engine] fetchTrackerStateForUserKey failed for", cleanKey, err);
+    return null;
+  }
+}
+
+async function runTrackerRecoveryMigration(force = false) {
+  const currentKey = getTrackerUserKey();
+  const marker = getTrackerRecoveryMarker();
+
+  if (!force && marker && marker.currentKey === currentKey && ["done", "checked", "skipped"].includes(String(marker.status || ""))) {
+    return null;
+  }
+
+  const currentLocalState = loadTrackerStateFromLocal();
+  if (!force && currentLocalState && !isTrackerStateMeaningfullyEmpty(currentLocalState)) {
+    setTrackerRecoveryMarker({ status: "skipped", reason: "current_state_present" });
+    return currentLocalState;
+  }
+
+  const legacyKeys = TRACKER_PREVIOUS_USER_KEYS
+    .map(key => String(key || "").trim())
+    .filter(key => key && key !== currentKey);
+
+  if (!legacyKeys.length) {
+    setTrackerRecoveryMarker({ status: "checked", reason: "no_source_keys" });
+    return null;
+  }
+
+  let mergedLegacyState = null;
+
+  for (const legacyKey of legacyKeys) {
+    const localLegacyState = loadTrackerStateFromLocalForUserKey(legacyKey);
+    if (localLegacyState && !isTrackerStateMeaningfullyEmpty(localLegacyState)) {
+      mergedLegacyState = mergedLegacyState
+        ? mergeTrackerStates(mergedLegacyState, localLegacyState)
+        : localLegacyState;
+    }
+
+    const remoteLegacyState = await fetchTrackerStateForUserKey(legacyKey);
+    if (remoteLegacyState && !isTrackerStateMeaningfullyEmpty(remoteLegacyState)) {
+      mergedLegacyState = mergedLegacyState
+        ? mergeTrackerStates(mergedLegacyState, remoteLegacyState)
+        : remoteLegacyState;
+    }
+  }
+
+  if (!mergedLegacyState || isTrackerStateMeaningfullyEmpty(mergedLegacyState)) {
+    setTrackerRecoveryMarker({ status: "checked", reason: "no_legacy_data" });
+    return null;
+  }
+
+  const recoveredState = buildTrackerRecoveryState(mergedLegacyState);
+
+  if (isTrackerStateMeaningfullyEmpty(recoveredState)) {
+    legacyKeys.forEach(clearTrackerLocalStateForUserKey);
+    setTrackerRecoveryMarker({ status: "checked", reason: "no_recoverable_picks" });
+    return null;
+  }
+
+  normalizeTrackerState(recoveredState);
+  backfillLineMemoryFromTrackedPicks();
+  saveTrackerStateToLocal();
+
+  try {
+    await pushTrackerStateToServer(g_trackerState);
+  } catch (err) {
+    console.error("[BB Engine] tracker recovery push failed", err);
+  }
+
+  legacyKeys.forEach(clearTrackerLocalStateForUserKey);
+  setTrackerRecoveryMarker({
+    status: "done",
+    sources: legacyKeys,
+    recoveredTotal: Number(g_trackerState?.stats?.total || 0),
+    recoveredSettled: Number(g_trackerState?.stats?.settled || 0)
+  });
+
+  return g_trackerState;
+}
+
+function getTrackerHeaders(includeJson = false) {
+  return getTrackerHeadersForUserKey(getTrackerUserKey(), includeJson);
 }
 let g_trackerState = {
   activePicks: [],
@@ -4692,6 +4919,8 @@ async function hydrateTrackedPicks(force = false) {
   if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
   g_trackerHydratePromise = (async () => {
+    await runTrackerRecoveryMigration();
+
     const localState = loadTrackerStateFromLocal();
     const hadLocalState =
       !!localState &&
