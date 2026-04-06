@@ -3205,14 +3205,14 @@ function isBetterTrackerStateCandidate(nextState, bestState) {
   const best = getTrackerStateLocalScore(bestState);
 
   if (next.hasPicks !== best.hasPicks) return next.hasPicks > best.hasPicks;
-  if (next.pendingActive !== best.pendingActive) return next.pendingActive > best.pendingActive;
-  if (next.totalCount !== best.totalCount) return next.totalCount > best.totalCount;
   if (next.settledCount !== best.settledCount) return next.settledCount > best.settledCount;
   if (next.wins !== best.wins) return next.wins > best.wins;
   if (next.losses !== best.losses) return next.losses > best.losses;
   if (next.pushes !== best.pushes) return next.pushes > best.pushes;
+  if (next.totalCount !== best.totalCount) return next.totalCount > best.totalCount;
   if (next.activeCount !== best.activeCount) return next.activeCount > best.activeCount;
   if (next.archivedCount !== best.archivedCount) return next.archivedCount > best.archivedCount;
+  if (next.pendingActive !== best.pendingActive) return next.pendingActive > best.pendingActive;
   if (next.updatedAtMs !== best.updatedAtMs) return next.updatedAtMs > best.updatedAtMs;
 
   return false;
@@ -5297,6 +5297,8 @@ function unlockPageBehindTracker() {
 }
 
 function openTrackerModal() {
+  if (getCurrentSportMode() === SPORT_MODE_TT) return;
+
   const modal = document.getElementById("trackerModal");
   if (!modal) return;
 
@@ -5439,10 +5441,18 @@ function renderTrackerAnalytics() {
   const panel = document.getElementById("trackerAnalyticsPanel");
   if (!panel) return;
 
-  const derived = rebuildTrackerDerivedState();
-  const learningPicks = getLearningTrackedPicks()
+  const allReportPicks = getAllTrackedPicksForReport().map(p => ensureTrackedPickKeys(p));
+  const currentVersionSettledPicks = getLearningTrackedPicks()
     .map(p => ensureTrackedPickKeys(p))
     .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
+  const fallbackSettledPicks = allReportPicks
+    .filter(p => ["win", "loss", "push"].includes(String(p.resultStatus || "").toLowerCase()));
+  const useFallbackReport = !currentVersionSettledPicks.length && fallbackSettledPicks.length > 0;
+
+  const derived = useFallbackReport
+    ? buildTrackerDerivedStateFromPicks(allReportPicks)
+    : rebuildTrackerDerivedState();
+  const learningPicks = useFallbackReport ? fallbackSettledPicks : currentVersionSettledPicks;
 
   const versionStates = buildTrackerVersionStates();
   const currentVersion = getCurrentModelVersion();
@@ -5550,6 +5560,9 @@ function renderTrackerAnalytics() {
 
   const checkpointStatus = settled >= trackerMin ? "Review ready" : "Building";
   const checkpointLeft = Math.max(0, trackerMin - settled);
+  const reviewVersionSub = useFallbackReport
+    ? "Fallback: all tracked picks"
+    : (priorVersions.length ? `${priorVersions.length + 1} tracked versions` : "Current version only");
 
   const reviewRows = [];
 
@@ -5691,7 +5704,7 @@ function renderTrackerAnalytics() {
         <div class="tracker-kpi-card">
           <div class="tracker-kpi-label">Review status</div>
           <div class="tracker-kpi-value">${safeText(checkpointStatus)}</div>
-          <div class="tracker-kpi-sub">${priorVersions.length ? `${priorVersions.length + 1} tracked versions` : "Current version only"}</div>
+          <div class="tracker-kpi-sub">${safeText(reviewVersionSub)}</div>
         </div>
       </div>
 
@@ -11180,6 +11193,15 @@ function applySportModeUI() {
 
   const themeToggleBtn = document.getElementById("themeToggleBtn");
   if (themeToggleBtn) themeToggleBtn.textContent = isTT ? "🏓" : "🏀";
+
+  const trackerToggleBtn = document.getElementById("trackerToggleBtn");
+  if (trackerToggleBtn) trackerToggleBtn.style.display = isTT ? "none" : "";
+
+  if (isTT) {
+    g_trackerInsightsOpen = false;
+    closeTrackerModal();
+    updateTrackerInsightsButton();
+  }
 
   const brandModeToggle = document.getElementById("brandModeToggle");
   if (brandModeToggle) {
