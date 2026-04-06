@@ -6298,6 +6298,54 @@ function getTrackedLeagueBase(league) {
   return "";
 }
 
+function getTrackedLeagueBaseCandidates(league) {
+  const ordered = [];
+  const primary = getTrackedLeagueBase(String(league || "").trim().toLowerCase());
+  if (primary) ordered.push(primary);
+
+  [
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
+    "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball"
+  ].forEach(base => {
+    if (!ordered.includes(base)) ordered.push(base);
+  });
+
+  return ordered;
+}
+
+function extractTrackedCompetitionFromPayload(data, eventId) {
+  const wantedId = String(eventId || "").trim();
+  if (!data) return null;
+
+  const direct = data?.header?.competitions?.[0] || data?.competitions?.[0] || null;
+  if (direct) return direct;
+
+  const fromEvents = Array.isArray(data?.events)
+    ? data.events.find(ev => String(ev?.id || "") === wantedId) || data.events[0]
+    : null;
+  if (fromEvents?.competitions?.[0]) return fromEvents.competitions[0];
+
+  return null;
+}
+
+function isTrackedCompetitionFinal(competition) {
+  return !!(
+    competition?.status?.type?.completed ||
+    competition?.status?.type?.state === "post" ||
+    competition?.status?.type?.name === "STATUS_FINAL"
+  );
+}
+
+
+function getTrackedEventDateKey(eventDate) {
+  const dt = new Date(eventDate || "");
+  if (Number.isNaN(dt.getTime())) return "";
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
     function sumLineScores(lines, count) {
       if (!Array.isArray(lines) || !lines.length) return 0;
       let total = 0;
@@ -6377,36 +6425,48 @@ function getTrackedLeagueBase(league) {
     if (pendingPicks.length) {
       const eventEntries = [...new Map(
         pendingPicks
-          .map(p => {
-            const base = getTrackedLeagueBase(p.league);
-            if (!base) return null;
-            const cacheKey = `${p.league}:${p.eventId}`;
-            return [cacheKey, { cacheKey, base, eventId: p.eventId }];
+          .flatMap(p => {
+            const eventId = String(p?.eventId || "").trim();
+            if (!eventId) return [];
+            const eventDateKey = getTrackedEventDateKey(p?.eventDate);
+            return getTrackedLeagueBaseCandidates(p?.league).map(base => {
+              const cacheKey = `${base}|${eventId}`;
+              return [cacheKey, { cacheKey, base, eventId, eventDateKey }];
+            });
           })
-          .filter(Boolean)
       ).values()];
 
       const eventResults = await Promise.all(
         eventEntries.map(async entry => {
           const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
-          const data = await proxyFetch(summaryUrl, 15000).catch(() => null);
-          return [entry.cacheKey, data];
+          const summaryData = await proxyFetch(summaryUrl, 15000).catch(() => null);
+          let competition = extractTrackedCompetitionFromPayload(summaryData, entry.eventId);
+
+          if (!competition && entry.eventDateKey) {
+            const scoreboardUrl = `${entry.base}/scoreboard?dates=${entry.eventDateKey}&limit=200&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
+            const scoreboardData = await proxyFetch(scoreboardUrl, 15000).catch(() => null);
+            competition = extractTrackedCompetitionFromPayload(scoreboardData, entry.eventId);
+          }
+
+          if (competition) {
+            return [entry.cacheKey, { competition, source: "summary_or_scoreboard" }];
+          }
+
+          return [entry.cacheKey, null];
         })
       );
 
       const eventMap = new Map(eventResults);
 
       pendingPicks.forEach(pick => {
-        const data = eventMap.get(`${pick.league}:${pick.eventId}`);
-        const competition = data?.header?.competitions?.[0];
-        if (!competition) return;
+        const eventId = String(pick?.eventId || "").trim();
+        if (!eventId) return;
 
-        const isFinal =
-          competition?.status?.type?.completed ||
-          competition?.status?.type?.state === "post" ||
-          competition?.status?.type?.name === "STATUS_FINAL";
+        const competition = getTrackedLeagueBaseCandidates(pick?.league)
+          .map(base => eventMap.get(`${base}|${eventId}`)?.competition || null)
+          .find(Boolean);
 
-        if (!isFinal) return;
+        if (!competition || !isTrackedCompetitionFinal(competition)) return;
 
         const settled = settleTrackedPickFromCompetition(pick, competition);
         if (settled !== "pending" && pick.resultStatus !== settled) {
