@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v17_league_trust" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v17_league_trust" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v17_league_trust" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v18_manual_settle" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v18_manual_settle" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v18_manual_settle" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -694,6 +694,47 @@ input,
       color: #fff !important;
       font-weight: 800 !important;
     }
+
+.tracker-status-stack {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.tracker-manual-settle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tracker-manual-btn {
+  background: #eceff3 !important;
+  color: #2a2f38 !important;
+  border: 1px solid #d7dbe1 !important;
+  box-shadow: none !important;
+  padding: 3px 6px !important;
+  margin: 0 !important;
+  min-width: 26px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+}
+
+body.dark-mode .tracker-manual-btn {
+  background: #151515 !important;
+  color: #d4af37 !important;
+  border-color: #333 !important;
+}
+
+.tracker-manual-hint {
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--tracker-subtext);
+  font-weight: 800;
+  text-transform: uppercase;
+}
 
 .tracker-debug-panel {
   display: none;
@@ -2699,7 +2740,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v17_league_trust";
+    const APP_BUILD_VERSION = "tracker_cleanup_v18_manual_settle";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -6580,6 +6621,7 @@ function renderTrackedPicks() {
         : (p.edgePct > 0 ? "+" : "") + Number(p.edgePct).toFixed(2) + "%";
 
     const statusLabel = status.toUpperCase();
+    const manualSettleMarkup = getManualSettlementControlsMarkup(p);
 
     return `
       <tr>
@@ -6589,7 +6631,7 @@ function renderTrackedPicks() {
         <td>${safeText(displayLine(p.line))}</td>
         <td>${safeText(p.predictionText || "—")}${p.isLock ? ' <span class="lock">🔒</span>' : ""}</td>
         <td>${safeText(edgeText)}</td>
-        <td class="${statusClass}">${safeText(statusLabel)}</td>
+        <td class="${statusClass}"><div class="tracker-status-stack"><div>${safeText(statusLabel)}</div>${manualSettleMarkup}</div></td>
       </tr>
     `;
   }).join("");
@@ -7065,6 +7107,7 @@ function renderTrackerAnalytics() {
             </table>
           </div>
           <div class="league-trust-note">Trusted = full plays allowed. Needs retune = advisory-only. Do not use = blocked to no-play until recalibrated.</div>
+          <div class="league-trust-note">Non-NBA / non-NCAA picks can now be settled manually from Tracked Picks so Report can learn from them too.</div>
         </div>
       </div>
 
@@ -7617,6 +7660,125 @@ function getTrackedLeagueBase(league) {
   if (league === "nba") return "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
   if (league === "ncaa") return "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball";
   return "";
+}
+
+function isManualSettlementLeague(league) {
+  return !getTrackedLeagueBase(String(league || "").toLowerCase());
+}
+
+function canManuallySettleTrackedPick(pick) {
+  if (!pick) return false;
+  const status = String(pick?.resultStatus || "pending").toLowerCase();
+  if (status !== "pending") return false;
+  return isManualSettlementLeague(pick?.league);
+}
+
+function getManualSettlementControlsMarkup(pick) {
+  if (!canManuallySettleTrackedPick(pick)) return "";
+  const signature = encodeURIComponent(String(pick?.signature || makeTrackedSignature(pick) || ""));
+  if (!signature) return "";
+
+  return `
+    <div class="tracker-manual-settle">
+      <button type="button" class="tracker-manual-btn" data-manual-settle="win" data-signature="${signature}" title="Mark win">W</button>
+      <button type="button" class="tracker-manual-btn" data-manual-settle="loss" data-signature="${signature}" title="Mark loss">L</button>
+      <button type="button" class="tracker-manual-btn" data-manual-settle="push" data-signature="${signature}" title="Mark push">P</button>
+    </div>
+    <div class="tracker-manual-hint">Manual settle</div>
+  `;
+}
+
+async function applyManualSettlementToTrackedPick(signature, resultStatus) {
+  const normalizedStatus = String(resultStatus || "").toLowerCase();
+  if (!signature || !["win", "loss", "push"].includes(normalizedStatus)) return false;
+
+  const nowIso = new Date().toISOString();
+  let changed = false;
+  let touchedPick = null;
+
+  ["activePicks", "archivedPicks"].forEach(bucketName => {
+    const bucket = Array.isArray(g_trackerState?.[bucketName]) ? g_trackerState[bucketName] : [];
+    g_trackerState[bucketName] = bucket.map(raw => {
+      const pick = ensureTrackedPickKeys({ ...raw });
+      const pickSignature = makeTrackedSignature(pick);
+
+      if (pickSignature !== signature) return pick;
+
+      touchedPick = pick;
+      changed = true;
+
+      return ensureTrackedPickKeys({
+        ...pick,
+        resultStatus: normalizedStatus,
+        settledAt: nowIso,
+        updatedAt: nowIso,
+        settlementSource: "manual",
+        manualSettlement: true,
+        manualSettledAt: nowIso
+      });
+    });
+  });
+
+  if (!changed || !touchedPick) return false;
+
+  const reconciled = reconcileTrackerBucketConflicts(
+    Array.isArray(g_trackerState?.activePicks) ? g_trackerState.activePicks : [],
+    Array.isArray(g_trackerState?.archivedPicks) ? g_trackerState.archivedPicks : []
+  );
+
+  g_trackerState.activePicks = reconciled.activePicks.slice(0, TRACKED_PICKS_LIMIT);
+  g_trackerState.archivedPicks = reconciled.archivedPicks.slice(0, TRACKER_ARCHIVED_LIMIT);
+  g_trackerState.updatedAt = nowIso;
+
+  rebuildTrackerStats();
+  saveTrackerStateToLocal();
+  trackerDebug("manual settle applied", {
+    league: touchedPick?.league || "",
+    eventId: touchedPick?.eventId || "",
+    market: touchedPick?.marketKey || "",
+    result: normalizedStatus,
+    line: touchedPick?.line
+  });
+  renderTrackedPicks();
+  scheduleTrackerSave();
+
+  Promise.resolve().then(async () => {
+    try {
+      await forceTrackerSaveNow();
+      await hydrateTrackedPicks(true);
+    } catch (err) {
+      console.error("[BB Engine] manual settle hard sync failed", err);
+      trackerDebug("manual settle sync failed", {
+        result: normalizedStatus,
+        error: String(err?.message || err)
+      });
+    } finally {
+      renderTrackedPicks();
+    }
+  });
+
+  return true;
+}
+
+function handleTrackedPicksActionClick(event) {
+  const btn = event?.target?.closest?.("[data-manual-settle]");
+  if (!btn) return;
+
+  const resultStatus = String(btn.getAttribute("data-manual-settle") || "").toLowerCase();
+  const encodedSignature = String(btn.getAttribute("data-signature") || "");
+  const signature = encodedSignature ? decodeURIComponent(encodedSignature) : "";
+
+  if (!signature || !["win", "loss", "push"].includes(resultStatus)) return;
+
+  btn.disabled = true;
+  applyManualSettlementToTrackedPick(signature, resultStatus)
+    .catch(err => {
+      console.error("[BB Engine] manual settle failed", err);
+      trackerDebug("manual settle failed", { error: String(err?.message || err), result: resultStatus });
+    })
+    .finally(() => {
+      btn.disabled = false;
+    });
 }
 
     function sumLineScores(lines, count) {
@@ -12571,6 +12733,9 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
       if (trackerModal) {
         trackerModal.addEventListener("click", e => { if (e.target === trackerModal) closeTrackerModal(); });
       }
+
+      const trackedPicksBody = document.getElementById("trackedPicksBody");
+      if (trackedPicksBody) trackedPicksBody.addEventListener("click", handleTrackedPicksActionClick);
 
       const leagueSelect = document.getElementById("leagueSelect");
       if (leagueSelect) leagueSelect.addEventListener("change", onLeagueChange);
