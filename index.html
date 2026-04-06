@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v21_buffer_output_only" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_buffer_output_only" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_buffer_output_only" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -11803,13 +11803,24 @@ function getTrackedInputSource(marketKey = "ft") {
   return unique[0] || "unknown";
 }
 
+function makeManualTrackerEventId(league, fixtureMeta = {}) {
+  const home = normalizeTeamName(fixtureMeta?.homeTeam || document.getElementById("teamAName")?.value || "team_a") || "team_a";
+  const away = normalizeTeamName(fixtureMeta?.awayTeam || document.getElementById("teamBName")?.value || "team_b") || "team_b";
+  const leagueKey = normalizeLeagueTrustKey(league || document.getElementById("league")?.value || "unknown");
+  const eventDateRaw = String(fixtureMeta?.eventDate || "").trim();
+  const dayKey = eventDateRaw ? eventDateRaw.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  return `manual:${leagueKey}:${home}:vs:${away}:${dayKey}`;
+}
+
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
+  const resolvedEventId = String(fixtureMeta?.eventId || "").trim() || makeManualTrackerEventId(league, fixtureMeta || {});
+  const resolvedEventDate = String(fixtureMeta?.eventDate || "").trim() || new Date().toISOString();
+
   if (
   !pickRow ||
   pickRow.pick === "NO PLAY" ||
   pickRow.note ||
-  !isFinite(pickRow.line) ||
-  !fixtureMeta?.eventId
+  !isFinite(pickRow.line)
 ) {
   return null;
 }
@@ -11966,8 +11977,8 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
   ].join("|");
 
   return {
-    eventId: fixtureMeta.eventId || "",
-    eventDate: fixtureMeta.eventDate || "",
+    eventId: resolvedEventId,
+    eventDate: resolvedEventDate,
     league,
     homeTeam: fixtureMeta.homeTeam || "—",
     awayTeam: fixtureMeta.awayTeam || "—",
