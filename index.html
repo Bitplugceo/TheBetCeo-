@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v16_bb_report_modal" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_bb_report_modal" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_bb_report_modal" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v17_league_trust" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v17_league_trust" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v17_league_trust" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -1356,6 +1356,63 @@ body.dark-mode .tracker-analytics-panel {
 }
 
 
+.league-trust-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 4px 8px;
+  border: 1px solid var(--table-border);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.league-trust-pill.trust-trusted {
+  background: rgba(47,143,74,0.14);
+  border-color: rgba(47,143,74,0.34);
+  color: #1f6a39;
+}
+
+.league-trust-pill.trust-advisory {
+  background: rgba(217,138,0,0.14);
+  border-color: rgba(217,138,0,0.34);
+  color: #9a6200;
+}
+
+.league-trust-pill.trust-blocked {
+  background: rgba(201,25,32,0.14);
+  border-color: rgba(201,25,32,0.30);
+  color: #b11a20;
+}
+
+body.dark-mode .league-trust-pill.trust-trusted {
+  color: #9ae2a7;
+  border-color: rgba(154,226,167,0.24);
+  background: rgba(47,143,74,0.22);
+}
+
+body.dark-mode .league-trust-pill.trust-advisory {
+  color: #ffcf73;
+  border-color: rgba(255,207,115,0.24);
+  background: rgba(217,138,0,0.22);
+}
+
+body.dark-mode .league-trust-pill.trust-blocked {
+  color: #ff8f95;
+  border-color: rgba(255,143,149,0.24);
+  background: rgba(201,25,32,0.24);
+}
+
+.league-trust-note {
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--tracker-subtext);
+  font-weight: 700;
+}
+
+
 /* === tracker analytics redesign === */
 .tracker-analytics-panel {
   padding: 12px;
@@ -2642,7 +2699,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v16_bb_report_modal";
+    const APP_BUILD_VERSION = "tracker_cleanup_v17_league_trust";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -2904,6 +2961,72 @@ const LEAGUE_VOL_LIMITS = {
   taipei_sbl:11,taipei_tpbl:11,bleague:12,pba:13,korea_kbl:12,ausnbl:12,nznbl:11,fiba_wc:11,
   fiba_eb:11,fiba_ac:11,unknown:12
 };
+
+
+const LEAGUE_TRUST_PROFILES = {
+  trusted: [
+    "nba","ncaa","euroleague","eurocup","acb","lba","bbl","bcl","bsl","isl","cba","pba"
+  ],
+  advisory: [
+    "aba","lkl","plk","proa","prob","elbl","germany_proa","germany_prob","serbia_kls",
+    "croatia_premier","romania_ln","hungary_nb1","nbl_cz","denmark_bliga","england_slb",
+    "finland_koris","finland_koris_w","a2","italy_a2","italy_serb","lithuania_nkl","poland_1liga",
+    "portugal_lpb","portugal_proliga","spain_primera","spain_segunda","sweden_super","sweden_sbl",
+    "swiss_nlb","swiss_sbl","turkey_tbl","turkey_tb2l","turkey_tkbl_w","united_league",
+    "china_nbl","taipei_pleague","taipei_sbl","taipei_tpbl","bleague","korea_kbl",
+    "austria_zweite","belgium_top","bih_1st","bulgaria_nbl","georgia_super","serbia_2mls"
+  ],
+  blocked: [
+    "lnb","nbb","cebl","bal","nigeria","rwanda","ausnbl","nznbl","fiba_wc","fiba_eb","fiba_ac","unknown"
+  ]
+};
+
+function normalizeLeagueTrustKey(league) {
+  return String(league || "unknown").trim().toLowerCase() || "unknown";
+}
+
+function getLeagueTrustMeta(league) {
+  const key = normalizeLeagueTrustKey(league);
+  if (LEAGUE_TRUST_PROFILES.trusted.includes(key)) {
+    return {
+      key,
+      level: "trusted",
+      label: "Trusted",
+      mode: "full",
+      guidance: "Full plays are allowed. Keep monitoring record and checkpoint review."
+    };
+  }
+  if (LEAGUE_TRUST_PROFILES.blocked.includes(key)) {
+    return {
+      key,
+      level: "blocked",
+      label: "Do not use",
+      mode: "block",
+      guidance: "No-play only until this league is retuned and revalidated."
+    };
+  }
+  return {
+    key,
+    level: "advisory",
+    label: "Needs retune",
+    mode: "advisory",
+    guidance: "Advisory only for now. Treat any edge as a lean until thresholds are retuned."
+  };
+}
+
+function getLeagueTrustCssClass(level) {
+  const key = String(level || "advisory").toLowerCase();
+  if (key === "trusted") return "trust-trusted";
+  if (key === "blocked") return "trust-blocked";
+  return "trust-advisory";
+}
+
+function getLeagueTrustSortRank(level) {
+  const key = String(level || "advisory").toLowerCase();
+  if (key === "trusted") return 0;
+  if (key === "advisory") return 1;
+  return 2;
+}
 
 
 const LEAGUE_FETCH_RULES = {
@@ -6579,6 +6702,35 @@ function renderTrackerAnalytics() {
   ).filter(row => row.key !== "unknown")
    .sort((a, b) => b.winPct - a.winPct || b.settled - a.settled);
 
+  const selectedLeagueKey = normalizeLeagueTrustKey(document.getElementById("leagueSelect")?.value || "unknown");
+  const trackedLeagueKeys = [...new Set(allReportPicks
+    .map(p => normalizeLeagueTrustKey(p?.league || "unknown"))
+    .filter(key => key && key !== "unknown"))];
+  const trustLeagueKeys = [...new Set([selectedLeagueKey, ...trackedLeagueKeys].filter(Boolean))];
+  const leagueRecordMap = new Map(leagueRows.map(row => [normalizeLeagueTrustKey(row.key), row]));
+  const leagueTrustRows = trustLeagueKeys
+    .map(key => {
+      const trust = getLeagueTrustMeta(key);
+      const record = leagueRecordMap.get(key) || buildRecord([]);
+      return {
+        key,
+        label: String(key || "unknown").toUpperCase(),
+        trust,
+        settled: Number(record.settled || 0),
+        wins: Number(record.wins || 0),
+        losses: Number(record.losses || 0),
+        pushes: Number(record.pushes || 0),
+        winPct: isFinite(record.winPct) ? Number(record.winPct) : NaN
+      };
+    })
+    .sort((a, b) => {
+      const trustDiff = getLeagueTrustSortRank(a.trust.level) - getLeagueTrustSortRank(b.trust.level);
+      if (trustDiff !== 0) return trustDiff;
+      const settledDiff = Number(b.settled || 0) - Number(a.settled || 0);
+      if (settledDiff !== 0) return settledDiff;
+      return String(a.label).localeCompare(String(b.label));
+    });
+
   const teamRows = Object.entries(derived?.teams || {})
     .map(([key, bucket]) => ({ key, ...bucket }))
     .filter(row => Number(row.settled || 0) >= 1)
@@ -6595,6 +6747,7 @@ function renderTrackerAnalytics() {
   const bestMarket = marketRows.find(row => row.settled >= 2) || null;
   const weakMarket = [...marketRows].reverse().find(row => row.settled >= 2) || null;
   const bestLeague = leagueRows.find(row => row.settled >= 2) || null;
+  const selectedLeagueTrust = getLeagueTrustMeta(selectedLeagueKey);
 
   const checkpointStatus = settled >= trackerMin ? "Review ready" : "Building";
   const checkpointLeft = Math.max(0, trackerMin - settled);
@@ -6603,6 +6756,40 @@ function renderTrackerAnalytics() {
     : (priorVersions.length ? `${priorVersions.length + 1} tracked versions` : "Current version only");
 
   const reviewRows = [];
+
+  if (selectedLeagueKey !== "unknown") {
+    if (selectedLeagueTrust.level === "blocked") {
+      reviewRows.push(
+        makeReviewItem(
+          "League trust",
+          "NO PLAY",
+          "Candidate review",
+          `${String(selectedLeagueKey).toUpperCase()} is currently blocked from full plays.`,
+          selectedLeagueTrust.guidance
+        )
+      );
+    } else if (selectedLeagueTrust.level === "advisory") {
+      reviewRows.push(
+        makeReviewItem(
+          "League trust",
+          "ADVISORY ONLY",
+          "Watching",
+          `${String(selectedLeagueKey).toUpperCase()} is still in the retune bucket.`,
+          selectedLeagueTrust.guidance
+        )
+      );
+    } else {
+      reviewRows.push(
+        makeReviewItem(
+          "League trust",
+          "TRUSTED",
+          "Watching",
+          `${String(selectedLeagueKey).toUpperCase()} is allowed for full plays with ongoing review.`,
+          selectedLeagueTrust.guidance
+        )
+      );
+    }
+  }
 
   if (settled >= trackerMin) {
     if (bestMarket && bestMarket.settled >= 4 && bestMarket.winPct >= 70) {
@@ -6840,6 +7027,44 @@ function renderTrackerAnalytics() {
               </table>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="tracker-analytics-card">
+        <div class="tracker-analytics-card-head">
+          <div class="tracker-analytics-card-title">League trust board</div>
+          <div class="tracker-analytics-card-meta">Usage labels for the selected and tracked leagues</div>
+        </div>
+        <div class="tracker-analytics-card-body">
+          <div class="table-wrap tracker-report-table-wrap">
+            <table class="tracker-analytics-table">
+              <thead>
+                <tr>
+                  <th>League</th>
+                  <th>Trust</th>
+                  <th class="num">Settled</th>
+                  <th class="rate">Win rate</th>
+                  <th>Guidance</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${leagueTrustRows.length ? leagueTrustRows.map(row => `
+                  <tr>
+                    <td>${safeText(row.label)}</td>
+                    <td><span class="league-trust-pill ${safeText(getLeagueTrustCssClass(row.trust.level))}">${safeText(row.trust.label)}</span></td>
+                    <td class="num">${Number(row.settled || 0)}</td>
+                    <td class="rate">${row.settled ? safeText(formatPct(row.winPct)) : "—"}</td>
+                    <td class="note">${safeText(row.trust.guidance)}</td>
+                  </tr>
+                `).join("") : `
+                  <tr>
+                    <td colspan="5" class="note">Pick a league or settle some results to start building the trust board.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+          <div class="league-trust-note">Trusted = full plays allowed. Needs retune = advisory-only. Do not use = blocked to no-play until recalibrated.</div>
         </div>
       </div>
 
@@ -11268,6 +11493,45 @@ function applyMassacreFrameworkToPicks(picks, league, parsed, fixtureMeta) {
   rescueBestMassacreLean(picks);
 }
 
+
+function applyLeagueTrustToPicks(picks, league) {
+  if (!Array.isArray(picks) || !picks.length) return;
+
+  const trust = getLeagueTrustMeta(league);
+  picks.forEach(p => {
+    if (!p) return;
+    p.leagueTrust = trust;
+
+    if (trust.mode === "block") {
+      if (p.pick && p.pick !== "NO PLAY") {
+        p.pick = "NO PLAY";
+        p.confidence = "—";
+        p.note = trust.guidance;
+        p.lockRestricted = true;
+        p.trustAction = "blocked";
+      }
+      return;
+    }
+
+    if (trust.mode === "advisory" && p.pick && p.pick !== "NO PLAY") {
+      p.recommendationTier = "lean";
+      p.confidence = "—";
+      p.note = p.note ? `${p.note} • ${trust.guidance}` : trust.guidance;
+      p.lockRestricted = true;
+      p.trustAction = "advisory";
+    }
+  });
+
+  if (trust.mode !== "full") {
+    engineDebug("league trust gate applied", {
+      league: normalizeLeagueTrustKey(league),
+      trust: trust.label,
+      mode: trust.mode,
+      picks: picks.map(p => ({ market: p?.marketKey || p?.name || "unknown", pick: p?.pick || "NO PLAY", note: p?.note || "" }))
+    });
+  }
+}
+
 function getTrackedInputSource(marketKey = "ft") {
   const bucket = marketKey === "h1" ? "h1" : marketKey === "h2" ? "h2" : "ft";
   const aSource = String(g_fetchMeta?.A?.[bucket]?.source || "").trim().toLowerCase();
@@ -11997,6 +12261,7 @@ const finalPicksForDisplay = finalPicks
   .filter(Boolean);
 
 applySoftTrackerInfluenceToPicks(finalPicksForDisplay, fixtureMeta, phase2Activation);
+applyLeagueTrustToPicks(finalPicksForDisplay, league);
 
 persistLineMemoryFromFinalPicks(finalPicksForDisplay, fixtureMeta, league);
 
