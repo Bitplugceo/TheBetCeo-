@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v11_soft_live" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v12_bb_clean" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_clean" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_clean" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2306,7 +2306,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live";
+    const APP_BUILD_VERSION = "tracker_cleanup_v12_bb_clean";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -2751,7 +2751,7 @@ const TRACKER_NETWORK_TIMEOUT_MS = 12000;
 const TRACKER_FIXED_USER_KEY = "The_Bet_Ceo_Key"; // INTENTIONAL: private owner key for this single-user deployment across same-owner sessions/devices. Not an audit issue. Only change if this app becomes public/shared multi-user.
 const ENGINE_MODEL_VERSION = "engine_v1_final";
 const TRACKER_LEARNING_ENABLED = true;
-const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
+const TRACKER_LEGACY_BUILD_KEYS = ["tracker_cleanup_v11_soft_live", "tracker_cleanup_v10_advisory", "tracker_cleanup_v9", "tracker_cleanup_v8", "tracker_cleanup_v7", "tracker_cleanup_v6", "tracker_cleanup_v5", "tracker_cleanup_v4"];
 
 const ENGINE_LINE_MEMORY_STORAGE = "bb_engine_line_memory_v1";
 let g_engineLineMemory = loadEngineLineMemory();
@@ -3201,6 +3201,9 @@ function loadTrackerStateFromLocal() {
 function saveTrackerStateToLocal() {
   try {
     syncLineMemoryIntoTrackerState();
+    const reconciled = reconcileTrackerBucketConflicts(g_trackerState.activePicks, g_trackerState.archivedPicks);
+    g_trackerState.activePicks = reconciled.activePicks;
+    g_trackerState.archivedPicks = reconciled.archivedPicks;
 
     if (isTrackerStateMeaningfullyEmpty(g_trackerState)) {
       const existingBest = loadTrackerStateFromLocal();
@@ -4489,13 +4492,17 @@ function normalizeTrackerState(raw) {
     ? raw.lineMemory
     : {};
 
+  const normalizedActive = Array.isArray(raw?.activePicks)
+    ? raw.activePicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKED_PICKS_LIMIT)
+    : [];
+  const normalizedArchived = Array.isArray(raw?.archivedPicks)
+    ? raw.archivedPicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKER_ARCHIVED_LIMIT)
+    : [];
+  const reconciled = reconcileTrackerBucketConflicts(normalizedActive, normalizedArchived);
+
   g_trackerState = {
-    activePicks: Array.isArray(raw?.activePicks)
-      ? raw.activePicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKED_PICKS_LIMIT)
-      : [],
-    archivedPicks: Array.isArray(raw?.archivedPicks)
-      ? raw.archivedPicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKER_ARCHIVED_LIMIT)
-      : [],
+    activePicks: reconciled.activePicks,
+    archivedPicks: reconciled.archivedPicks,
     stats: {
       total: Number(raw?.stats?.total) || 0,
       settled: Number(raw?.stats?.settled) || 0,
@@ -4898,13 +4905,126 @@ function mergeTrackerArchivedPicks(localArchived = [], serverArchived = []) {
     .slice(0, TRACKER_ARCHIVED_LIMIT);
 }
 
+function isTrackedPickSettled(pick) {
+  const status = String(pick?.resultStatus || "pending").toLowerCase();
+  return status === "win" || status === "loss" || status === "push";
+}
+
+function choosePreferredBucketPick(existingPick, incomingPick) {
+  const current = ensureTrackedPickKeys(existingPick || {});
+  const incoming = ensureTrackedPickKeys(incomingPick || {});
+
+  const currentSettled = isTrackedPickSettled(current);
+  const incomingSettled = isTrackedPickSettled(incoming);
+  if (currentSettled !== incomingSettled) return incomingSettled ? incoming : current;
+
+  const currentStamp = getTrackerPickStamp(current);
+  const incomingStamp = getTrackerPickStamp(incoming);
+  if (incomingStamp !== currentStamp) return incomingStamp > currentStamp ? incoming : current;
+
+  const currentEdge = Math.abs(Number(current.edgePct || 0));
+  const incomingEdge = Math.abs(Number(incoming.edgePct || 0));
+  if (incomingEdge !== currentEdge) return incomingEdge > currentEdge ? incoming : current;
+
+  return current;
+}
+
+function reconcileTrackerBucketConflicts(activePicks = [], archivedPicks = []) {
+  const active = Array.isArray(activePicks)
+    ? activePicks.map(p => ensureTrackedPickKeys(p))
+    : [];
+  const archived = Array.isArray(archivedPicks)
+    ? archivedPicks.map(p => ensureTrackedPickKeys(p))
+    : [];
+
+  const archivedBySlot = new Map();
+  archived.forEach(pick => {
+    const slotKey = makeTrackerActiveMergeKey(pick);
+    if (!slotKey) return;
+
+    if (!archivedBySlot.has(slotKey)) {
+      archivedBySlot.set(slotKey, pick);
+      return;
+    }
+
+    archivedBySlot.set(slotKey, choosePreferredBucketPick(archivedBySlot.get(slotKey), pick));
+  });
+
+  const activeBySlot = new Map();
+  active.forEach(pick => {
+    const slotKey = makeTrackerActiveMergeKey(pick) || makeTrackedSignature(pick);
+    if (!slotKey) return;
+
+    const archivedPick = archivedBySlot.get(makeTrackerActiveMergeKey(pick));
+    if (archivedPick) {
+      const archivedSettled = isTrackedPickSettled(archivedPick);
+      const activeSettled = isTrackedPickSettled(pick);
+
+      if (archivedSettled && !activeSettled) {
+        return;
+      }
+
+      if (archivedSettled && activeSettled) {
+        const preferred = choosePreferredBucketPick(pick, archivedPick);
+        if (preferred === archivedPick) return;
+      }
+    }
+
+    if (!activeBySlot.has(slotKey)) {
+      activeBySlot.set(slotKey, pick);
+      return;
+    }
+
+    activeBySlot.set(slotKey, choosePreferredBucketPick(activeBySlot.get(slotKey), pick));
+  });
+
+  const keepActive = [...activeBySlot.values()]
+    .sort((a, b) => getTrackerPickStamp(b) - getTrackerPickStamp(a))
+    .slice(0, TRACKED_PICKS_LIMIT);
+
+  const keepActiveBySlot = new Map();
+  keepActive.forEach(pick => {
+    const slotKey = makeTrackerActiveMergeKey(pick);
+    if (!slotKey) return;
+    keepActiveBySlot.set(slotKey, pick);
+  });
+
+  const keepArchived = archived.filter(pick => {
+    const slotKey = makeTrackerActiveMergeKey(pick);
+    if (!slotKey) return true;
+
+    const activePick = keepActiveBySlot.get(slotKey);
+    if (!activePick) return true;
+
+    const archivedSettled = isTrackedPickSettled(pick);
+    const activeSettled = isTrackedPickSettled(activePick);
+
+    if (archivedSettled && !activeSettled) return true;
+    if (!archivedSettled && activeSettled) return false;
+
+    const preferred = choosePreferredBucketPick(activePick, pick);
+    return preferred === pick;
+  });
+
+  const dedupedArchived = mergeTrackerArchivedPicks([], keepArchived);
+
+  return {
+    activePicks: keepActive,
+    archivedPicks: dedupedArchived
+  };
+}
+
 function mergeTrackerStates(localState, serverState) {
   const local = localState && typeof localState === "object" ? localState : {};
   const server = serverState && typeof serverState === "object" ? serverState : {};
 
-  const merged = {
-    activePicks: mergeTrackerActivePicks(local.activePicks, server.activePicks),
-    archivedPicks: mergeTrackerArchivedPicks(local.archivedPicks, server.archivedPicks),
+  const mergedActive = mergeTrackerActivePicks(local.activePicks, server.activePicks);
+  const mergedArchived = mergeTrackerArchivedPicks(local.archivedPicks, server.archivedPicks);
+  const reconciled = reconcileTrackerBucketConflicts(mergedActive, mergedArchived);
+
+  return {
+    activePicks: reconciled.activePicks,
+    archivedPicks: reconciled.archivedPicks,
     stats: { total: 0, settled: 0, wins: 0, losses: 0, pushes: 0 },
     updatedAt: new Date(Math.max(
       getTrackerStateUpdatedAtMs(local),
@@ -4916,26 +5036,6 @@ function mergeTrackerStates(localState, serverState) {
       ...(local.lineMemory && typeof local.lineMemory === "object" ? local.lineMemory : {})
     }
   };
-
-  const archivedSignatures = new Set(
-    merged.archivedPicks.map(p => makeTrackedSignature(p)).filter(Boolean)
-  );
-
-  merged.activePicks = merged.activePicks.filter(p => {
-    const sig = makeTrackedSignature(p);
-    return !sig || !archivedSignatures.has(sig);
-  });
-
-  const activeKeys = new Set(
-    merged.activePicks.map(p => makeTrackerActiveMergeKey(p)).filter(Boolean)
-  );
-
-  merged.archivedPicks = merged.archivedPicks.filter(p => {
-    const slotKey = makeTrackerActiveMergeKey(p);
-    return !slotKey || !activeKeys.has(slotKey);
-  });
-
-  return merged;
 }
 
 function isTrackerStateMeaningfullyEmpty(state) {
@@ -5260,6 +5360,7 @@ function openTrackerModal() {
   primeTrackerStateForRun();
   refreshTrackerInBackground(true);
   queueTrackerFollowupRefresh(1200);
+  queueTrackerFollowupRefresh(3200);
 }
 
 function closeTrackerModal() {
@@ -6379,9 +6480,18 @@ function getTrackedLeagueBase(league) {
       });
     }
 
+    const activeSignaturesBeforeReconcile = JSON.stringify((g_trackerState.activePicks || []).map(makeTrackedSignature));
+    const archivedSignaturesBeforeReconcile = JSON.stringify((g_trackerState.archivedPicks || []).map(makeTrackedSignature));
+    const reconciled = reconcileTrackerBucketConflicts(g_trackerState.activePicks, g_trackerState.archivedPicks);
+    g_trackerState.activePicks = reconciled.activePicks;
+    g_trackerState.archivedPicks = reconciled.archivedPicks;
+    const conflictsChanged =
+      activeSignaturesBeforeReconcile !== JSON.stringify((g_trackerState.activePicks || []).map(makeTrackedSignature)) ||
+      archivedSignaturesBeforeReconcile !== JSON.stringify((g_trackerState.archivedPicks || []).map(makeTrackedSignature));
+
     const archivedChanged = archiveExpiredTrackedPicks();
 
-    if (changed || archivedChanged) {
+    if (changed || archivedChanged || conflictsChanged) {
       rebuildTrackerStats();
       saveTrackerStateToLocal();
       scheduleTrackerSave();
