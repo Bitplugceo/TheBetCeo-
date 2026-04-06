@@ -695,6 +695,55 @@ input,
       font-weight: 800 !important;
     }
 
+.tracker-debug-panel {
+  display: none;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--panel-border);
+  background: var(--tracker-summary-bg);
+}
+
+.tracker-debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tracker-debug-title {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.tracker-debug-meta {
+  color: var(--tracker-subtext);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tracker-debug-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.tracker-debug-log li {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 7px 8px;
+  font-size: 10px;
+  line-height: 1.35;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .tracker-modal {
   position: fixed;
   inset: 0;
@@ -2163,6 +2212,7 @@ body.dark-mode .tracker-analytics-section-head {
       </div>
           <div class="tracker-summary" id="trackerSummary">0 saved • 0 settled • 0 wins</div>
 <div class="tracker-market-summary" id="trackerMarketSummary"></div>
+<div class="tracker-debug-panel" id="trackerDebugPanel"></div>
 
 <div class="tracker-body-scroll" id="trackedPicksWrap">
   <div id="trackerAnalyticsPanel" class="tracker-analytics-panel"></div>
@@ -2306,7 +2356,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v14_bb_oldkey_settle_fix";
+    const APP_BUILD_VERSION = "tracker_cleanup_v15_bb_oldkey_debug";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -3612,6 +3662,54 @@ let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
 let g_trackerSaveInFlight = false;
 let g_trackerInsightsOpen = false;
+const TRACKER_DEBUG_LIMIT = 40;
+let g_trackerDebugLog = [];
+
+function trackerDebug(message, extra = null) {
+  try {
+    const stamp = new Date().toLocaleTimeString([], { hour12: false });
+    let detail = "";
+    if (extra !== null && extra !== undefined) {
+      if (typeof extra === "string") {
+        detail = extra;
+      } else {
+        try {
+          detail = JSON.stringify(extra);
+        } catch (err) {
+          detail = String(extra);
+        }
+      }
+    }
+    const line = detail ? `[${stamp}] ${message} | ${detail}` : `[${stamp}] ${message}`;
+    g_trackerDebugLog.unshift(line);
+    if (g_trackerDebugLog.length > TRACKER_DEBUG_LIMIT) {
+      g_trackerDebugLog = g_trackerDebugLog.slice(0, TRACKER_DEBUG_LIMIT);
+    }
+    console.log("[BB Tracker Debug]", message, extra ?? "");
+    renderTrackerDebugPanel();
+  } catch (err) {
+    console.error("[BB Engine] trackerDebug failed", err);
+  }
+}
+
+function renderTrackerDebugPanel() {
+  const panel = document.getElementById("trackerDebugPanel");
+  if (!panel) return;
+  const log = Array.isArray(g_trackerDebugLog) ? g_trackerDebugLog.slice(0, 12) : [];
+  if (!log.length) {
+    panel.style.display = "none";
+    panel.innerHTML = "";
+    return;
+  }
+  panel.style.display = "block";
+  panel.innerHTML = `
+    <div class="tracker-debug-head">
+      <div class="tracker-debug-title">Tracker debug</div>
+      <div class="tracker-debug-meta">latest ${log.length} events</div>
+    </div>
+    <ul class="tracker-debug-log">${log.map(line => `<li>${safeText(line)}</li>`).join("")}</ul>
+  `;
+}
 
 function updateTrackerInsightsButton() {
   const btn = document.getElementById("trackerInsightsBtn");
@@ -4063,14 +4161,28 @@ Any suggestion made here without proof is an audit error.
       }
 
       try {
-        return await fetchJson(WORKER_URL + "?url=" + encodeURIComponent(url), "Worker");
+        const workerData = await fetchJson(WORKER_URL + "?url=" + encodeURIComponent(url), "Worker");
+        if (String(url).includes("/summary?event=")) {
+          trackerDebug("summary fetch ok via worker", { event: String(url).split("event=")[1]?.split("&")[0] || "", source: "worker" });
+        }
+        return workerData;
       } catch (workerErr) {
         console.error("[BB Engine] worker proxy failed, trying direct fetch", workerErr, url);
+        if (String(url).includes("/summary?event=")) {
+          trackerDebug("summary worker fetch failed", { event: String(url).split("event=")[1]?.split("&")[0] || "", error: String(workerErr?.message || workerErr) });
+        }
 
         try {
-          return await fetchJson(url, "Direct fetch");
+          const directData = await fetchJson(url, "Direct fetch");
+          if (String(url).includes("/summary?event=")) {
+            trackerDebug("summary fetch ok via direct", { event: String(url).split("event=")[1]?.split("&")[0] || "", source: "direct" });
+          }
+          return directData;
         } catch (directErr) {
           console.error("[BB Engine] direct fetch failed", directErr, url);
+          if (String(url).includes("/summary?event=")) {
+            trackerDebug("summary direct fetch failed", { event: String(url).split("event=")[1]?.split("&")[0] || "", error: String(directErr?.message || directErr) });
+          }
           throw workerErr;
         }
       }
@@ -4692,6 +4804,7 @@ async function hydrateTrackedPicks(force = false) {
   if (g_trackerHydratePromise && !force) return g_trackerHydratePromise;
 
   g_trackerHydratePromise = (async () => {
+    trackerDebug("hydrate start", { force, key: getTrackerUserKey() });
     const localState = loadTrackerStateFromLocal();
     const hadLocalState =
       !!localState &&
@@ -4703,6 +4816,14 @@ async function hydrateTrackedPicks(force = false) {
     if (localState) {
       normalizeTrackerState(localState);
       backfillLineMemoryFromTrackedPicks();
+      trackerDebug("hydrate local state found", {
+        active: getTrackerActivePickCount(localState),
+        archived: getTrackerArchivedPickCount(localState),
+        pending: getPendingActivePickCount(localState),
+        settled: Number(localState?.stats?.settled || 0)
+      });
+    } else {
+      trackerDebug("hydrate local state empty", { key: getTrackerUserKey() });
     }
 
     try {
@@ -4719,6 +4840,12 @@ async function hydrateTrackedPicks(force = false) {
       if (!data?.ok || !data?.state) throw new Error("Invalid tracker response");
 
       const serverState = data.state || {};
+      trackerDebug("hydrate server state loaded", {
+        active: getTrackerActivePickCount(serverState),
+        archived: getTrackerArchivedPickCount(serverState),
+        pending: getPendingActivePickCount(serverState),
+        settled: Number(serverState?.stats?.settled || 0)
+      });
       const serverHasState =
         (Array.isArray(serverState.activePicks) && serverState.activePicks.length > 0) ||
         (Array.isArray(serverState.archivedPicks) && serverState.archivedPicks.length > 0);
@@ -4732,6 +4859,12 @@ async function hydrateTrackedPicks(force = false) {
       normalizeTrackerState(mergedState);
       backfillLineMemoryFromTrackedPicks();
       saveTrackerStateToLocal();
+      trackerDebug("hydrate merged state", {
+        active: getTrackerActivePickCount(mergedState),
+        archived: getTrackerArchivedPickCount(mergedState),
+        pending: getPendingActivePickCount(mergedState),
+        settled: Number(mergedState?.stats?.settled || 0)
+      });
 
       const localPendingActive = getPendingActivePickCount(localState);
       const serverPendingActive = getPendingActivePickCount(serverState);
@@ -4775,6 +4908,14 @@ async function hydrateTrackedPicks(force = false) {
         (hadLocalState && !serverHasState);
 
       if (shouldPushMerged) {
+        trackerDebug("hydrate decided to push merged state", {
+          localPendingActive,
+          serverPendingActive,
+          mergedPendingActive,
+          localSettledCount,
+          serverSettledCount,
+          mergedSettledCount
+        });
         try {
           g_trackerState.updatedAt = new Date().toISOString();
           const pushed = await pushTrackerStateToServer(JSON.parse(JSON.stringify(g_trackerState)));
@@ -4782,19 +4923,37 @@ async function hydrateTrackedPicks(force = false) {
             normalizeTrackerState(pushed.state);
             backfillLineMemoryFromTrackedPicks();
             saveTrackerStateToLocal();
+            trackerDebug("hydrate push succeeded", {
+              active: getTrackerActivePickCount(pushed.state),
+              archived: getTrackerArchivedPickCount(pushed.state),
+              pending: getPendingActivePickCount(pushed.state),
+              settled: Number(pushed.state?.stats?.settled || 0)
+            });
           }
         } catch (pushErr) {
           console.error("[BB Engine] hydrateTrackedPicks merge push failed", pushErr);
+          trackerDebug("hydrate push failed", { error: String(pushErr?.message || pushErr) });
         }
+      } else {
+        trackerDebug("hydrate kept server/local state without push", {
+          localPendingActive,
+          serverPendingActive,
+          mergedPendingActive,
+          localSettledCount,
+          serverSettledCount,
+          mergedSettledCount
+        });
       }
 
       if (!serverHasState && !hadLocalState) {
         console.warn("[BB Engine] tracker loaded empty state for key:", getTrackerUserKey());
+        trackerDebug("hydrate found empty server and local state", { key: getTrackerUserKey() });
       }
 
       return g_trackerState;
     } catch (err) {
       console.error("[BB Engine] hydrateTrackedPicks failed", err);
+      trackerDebug("hydrate failed", { error: String(err?.message || err), key: getTrackerUserKey() });
 
       if (hadLocalState) {
         return g_trackerState;
@@ -4858,8 +5017,24 @@ function choosePreferredActivePick(existingPick, incomingPick) {
   const currentStatus = String(current.resultStatus || "pending").toLowerCase();
   const incomingStatus = String(incoming.resultStatus || "pending").toLowerCase();
 
-  if (incomingStatus === "pending" && currentStatus !== "pending") return current;
-  if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
+  if (incomingStatus === "pending" && currentStatus !== "pending") {
+    trackerDebug("merge kept settled pick over pending", {
+      eventId: current.eventId || incoming.eventId || "",
+      market: current.marketKey || incoming.marketKey || "",
+      kept: currentStatus,
+      dropped: incomingStatus
+    });
+    return current;
+  }
+  if (currentStatus === "pending" && incomingStatus !== "pending") {
+    trackerDebug("merge replaced pending pick with settled", {
+      eventId: incoming.eventId || current.eventId || "",
+      market: incoming.marketKey || current.marketKey || "",
+      kept: incomingStatus,
+      dropped: currentStatus
+    });
+    return incoming;
+  }
 
   const sameSide = String(current.side || "") === String(incoming.side || "");
   if (sameSide && ["over", "under"].includes(String(current.side || "").toLowerCase())) {
@@ -5395,11 +5570,12 @@ function closeTrackerModal() {
 function renderTrackedPicks() {
   const summaryEl = document.getElementById("trackerSummary");
   const marketSummaryEl = document.getElementById("trackerMarketSummary");
+  const debugPanelEl = document.getElementById("trackerDebugPanel");
   const emptyEl = document.getElementById("trackerEmpty");
   const wrapEl = document.getElementById("trackedPicksWrap");
   const bodyEl = document.getElementById("trackedPicksBody");
 
-  if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl) return;
+  if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl || !debugPanelEl) return;
 
   const archivedChanged = archiveExpiredTrackedPicks();
   if (archivedChanged) {
@@ -5419,6 +5595,7 @@ function renderTrackedPicks() {
 
   rebuildTrackerStats();
   renderTrackerAnalytics();
+  renderTrackerDebugPanel();
 
   const stats = g_trackerState.stats || {
     total: 0,
@@ -6439,7 +6616,10 @@ function getTrackedLeagueBase(league) {
     }
 
     async function refreshTrackedPickResults() {
-  if (g_refreshTrackedPicksInFlight) return;
+  if (g_refreshTrackedPicksInFlight) {
+    trackerDebug("refresh skipped because another refresh is in flight");
+    return;
+  }
   g_refreshTrackedPicksInFlight = true;
 
   try {
@@ -6448,12 +6628,18 @@ function getTrackedLeagueBase(league) {
     const allBuckets = [...active, ...archived];
 
     if (!allBuckets.length) {
+      trackerDebug("refresh found no tracked picks", { key: getTrackerUserKey() });
       renderTrackedPicks();
       return;
     }
 
     let changed = false;
     const pendingPicks = allBuckets.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
+    trackerDebug("refresh started", {
+      totalBuckets: allBuckets.length,
+      pendingPicks: pendingPicks.length,
+      key: getTrackerUserKey()
+    });
 
     if (pendingPicks.length) {
       const eventEntries = [...new Map(
@@ -6467,6 +6653,7 @@ function getTrackedLeagueBase(league) {
           .filter(Boolean)
       ).values()];
 
+      trackerDebug("refresh fetching event summaries", { uniqueEvents: eventEntries.length });
       const eventResults = await Promise.all(
         eventEntries.map(async entry => {
           const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
@@ -6480,20 +6667,34 @@ function getTrackedLeagueBase(league) {
       pendingPicks.forEach(pick => {
         const data = eventMap.get(`${pick.league}:${pick.eventId}`);
         const competition = data?.header?.competitions?.[0];
-        if (!competition) return;
+        if (!competition) {
+          trackerDebug("refresh missing competition data", { eventId: pick.eventId, market: pick.marketKey, league: pick.league });
+          return;
+        }
 
         const isFinal =
           competition?.status?.type?.completed ||
           competition?.status?.type?.state === "post" ||
           competition?.status?.type?.name === "STATUS_FINAL";
 
-        if (!isFinal) return;
+        if (!isFinal) {
+          trackerDebug("refresh game not final yet", {
+            eventId: pick.eventId,
+            market: pick.marketKey,
+            state: competition?.status?.type?.state || "",
+            name: competition?.status?.type?.name || ""
+          });
+          return;
+        }
 
         const settled = settleTrackedPickFromCompetition(pick, competition);
         if (settled !== "pending" && pick.resultStatus !== settled) {
           pick.resultStatus = settled;
           pick.settledAt = new Date().toISOString();
           changed = true;
+          trackerDebug("refresh settled pick", { eventId: pick.eventId, market: pick.marketKey, result: settled, line: pick.line, side: pick.side });
+        } else if (settled === "pending") {
+          trackerDebug("refresh final game still returned pending", { eventId: pick.eventId, market: pick.marketKey, line: pick.line, side: pick.side });
         }
       });
     }
@@ -6510,10 +6711,16 @@ function getTrackedLeagueBase(league) {
     const archivedChanged = archiveExpiredTrackedPicks();
 
     if (changed || archivedChanged || conflictsChanged) {
+      trackerDebug("refresh detected tracker changes", { changed, archivedChanged, conflictsChanged });
       rebuildTrackerStats();
       saveTrackerStateToLocal();
       scheduleTrackerSave();
       Promise.resolve().then(() => forceTrackerSaveNow());
+    } else {
+      trackerDebug("refresh finished with no tracker changes", {
+        pendingAfter: getPendingActivePickCount(g_trackerState),
+        settled: Number(g_trackerState?.stats?.settled || 0)
+      });
     }
 
     renderTrackedPicks();
