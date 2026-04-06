@@ -2371,7 +2371,8 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="tracker-head">
         <span id="trackerHeadTitle">Tracked Picks</span>
         <div class="tracker-head-actions">
-          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open engine debug" aria-label="Open engine debug">🐞</button>
+          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn state-idle" title="Open report" aria-label="Open report">📊 Report</button>
+          <button type="button" id="trackerDebugBtn" class="tracker-insights-btn state-idle" title="Open debug" aria-label="Open debug" style="display:none;">🐞</button>
           <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
         </div>
       </div>
@@ -3825,9 +3826,21 @@ let g_trackerRetryTimer = null;
 let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
 let g_trackerSaveInFlight = false;
-let g_trackerInsightsOpen = false;
+let g_trackerModalView = "picks";
 const TRACKER_DEBUG_LIMIT = 40;
 let g_trackerDebugLog = [];
+
+function isTrackerPicksView() {
+  return g_trackerModalView === "picks";
+}
+
+function isTrackerReportView() {
+  return g_trackerModalView === "report";
+}
+
+function isTrackerDebugView() {
+  return g_trackerModalView === "debug";
+}
 
 function trackerDebug(message, extra = null) {
   try {
@@ -3862,7 +3875,7 @@ function trackerDebug(message, extra = null) {
 
 
 function renderTrackerDebugPanel() {
-  if (g_trackerInsightsOpen) {
+  if (!isTrackerPicksView()) {
     renderTrackerAnalytics();
   }
 }
@@ -3902,7 +3915,7 @@ function engineDebug(message, extra = null) {
 }
 
 function renderEngineDebugPanel() {
-  if (g_trackerInsightsOpen) {
+  if (!isTrackerPicksView()) {
     renderTrackerAnalytics();
   }
 }
@@ -3911,14 +3924,14 @@ let g_engineAlertNeedsReview = false;
 let g_engineAlertLastLine = "";
 
 function applyGlobalEngineAlertState() {
-  document.body.classList.toggle("engine-alert", !!g_engineAlertNeedsReview && !g_trackerInsightsOpen);
+  document.body.classList.toggle("engine-alert", !!g_engineAlertNeedsReview && !isTrackerDebugView());
   renderHeaderErrorState();
   updateTrackerInsightsButton();
 }
 
 function triggerGlobalEngineAlert(line = "") {
   if (line) g_engineAlertLastLine = String(line);
-  if (!g_trackerInsightsOpen) {
+  if (!isTrackerDebugView()) {
     g_engineAlertNeedsReview = true;
   }
   applyGlobalEngineAlertState();
@@ -4211,24 +4224,55 @@ function isTrackerStateWorseThan(candidateState, baselineState) {
 }
 
 function updateTrackerInsightsButton() {
-  const btn = document.getElementById("trackerInsightsBtn");
-  if (!btn) return;
-
+  const reportBtn = document.getElementById("trackerInsightsBtn");
+  const debugBtn = document.getElementById("trackerDebugBtn");
   const state = getDebugButtonState();
-  btn.classList.toggle("active", !!g_trackerInsightsOpen);
-  btn.classList.remove("state-good", "state-error", "state-idle");
-  btn.classList.add(g_trackerInsightsOpen ? "state-idle" : `state-${state}`);
 
-  const closedTitle = state === "error"
-    ? "Open engine debug. A real engine issue needs review."
-    : state === "good"
-      ? "Open engine debug. Useful results and feedback are ready."
-      : "Open engine debug";
+  if (reportBtn) {
+    reportBtn.classList.remove("active", "state-good", "state-error", "state-idle");
+    reportBtn.classList.add("state-idle");
 
-  btn.setAttribute("title", g_trackerInsightsOpen ? "Return to tracked picks" : closedTitle);
-  btn.setAttribute("aria-pressed", g_trackerInsightsOpen ? "true" : "false");
-  btn.setAttribute("aria-label", g_trackerInsightsOpen ? "Return to tracked picks" : closedTitle);
-  btn.textContent = g_trackerInsightsOpen ? "← Picks" : "🐞";
+    if (isTrackerPicksView()) {
+      reportBtn.textContent = "📊 Report";
+      reportBtn.setAttribute("title", "Open report");
+      reportBtn.setAttribute("aria-label", "Open report");
+      reportBtn.setAttribute("aria-pressed", "false");
+    } else if (isTrackerReportView()) {
+      reportBtn.textContent = "← Picks";
+      reportBtn.setAttribute("title", "Return to tracked picks");
+      reportBtn.setAttribute("aria-label", "Return to tracked picks");
+      reportBtn.setAttribute("aria-pressed", "true");
+    } else {
+      reportBtn.textContent = "📊 Report";
+      reportBtn.setAttribute("title", "Return to report");
+      reportBtn.setAttribute("aria-label", "Return to report");
+      reportBtn.setAttribute("aria-pressed", "true");
+    }
+  }
+
+  if (debugBtn) {
+    debugBtn.style.display = isTrackerPicksView() ? "none" : "";
+    debugBtn.classList.remove("active", "state-good", "state-error", "state-idle");
+
+    if (isTrackerDebugView()) {
+      debugBtn.textContent = "←";
+      debugBtn.classList.add("state-idle", "active");
+      debugBtn.setAttribute("title", "Return to report");
+      debugBtn.setAttribute("aria-label", "Return to report");
+      debugBtn.setAttribute("aria-pressed", "true");
+    } else {
+      debugBtn.textContent = "🐞";
+      debugBtn.classList.add(`state-${state}`);
+      const closedTitle = state === "error"
+        ? "Open debug. A real engine issue needs review."
+        : state === "good"
+          ? "Open debug. Useful results and feedback are ready."
+          : "Open debug";
+      debugBtn.setAttribute("title", closedTitle);
+      debugBtn.setAttribute("aria-label", closedTitle);
+      debugBtn.setAttribute("aria-pressed", "false");
+    }
+  }
 }
 
 function syncTrackerModalView() {
@@ -4236,31 +4280,47 @@ function syncTrackerModalView() {
   const headTitle = document.getElementById("trackerHeadTitle");
   const wrapEl = document.getElementById("trackedPicksWrap");
   const emptyEl = document.getElementById("trackerEmpty");
+  const analyticsEl = document.getElementById("trackerAnalyticsPanel");
+  const tableWrapEl = document.querySelector(".tracker-table-wrap");
+  const marketSummaryEl = document.getElementById("trackerMarketSummary");
 
-  if (panel) panel.classList.toggle("analytics-view", !!g_trackerInsightsOpen);
+  const isPicks = isTrackerPicksView();
+  const isReport = isTrackerReportView();
+
+  if (panel) panel.classList.toggle("analytics-view", !isPicks);
   if (headTitle) {
-    headTitle.textContent = g_trackerInsightsOpen ? "Engine Debug" : "Tracked Picks";
-    headTitle.style.cursor = "pointer";
+    headTitle.textContent = isPicks ? "Tracked Picks" : isReport ? "Engine Report" : "Engine Debug";
+    headTitle.style.cursor = isPicks ? "default" : "pointer";
   }
 
-  if (g_trackerInsightsOpen && wrapEl) {
-    wrapEl.style.display = "block";
-  }
-
-  if (g_trackerInsightsOpen && emptyEl) {
-    emptyEl.style.display = "none";
+  if (analyticsEl) analyticsEl.style.display = isPicks ? "none" : "block";
+  if (tableWrapEl) tableWrapEl.style.display = isPicks ? "block" : "none";
+  if (wrapEl) wrapEl.style.display = "block";
+  if (emptyEl && !isPicks) emptyEl.style.display = "none";
+  if (marketSummaryEl && !isPicks) {
+    marketSummaryEl.style.display = "none";
+    marketSummaryEl.innerHTML = "";
   }
 }
 
-function toggleTrackerInsights() {
-  g_trackerInsightsOpen = !g_trackerInsightsOpen;
-  if (g_trackerInsightsOpen) {
-    acknowledgeGlobalEngineAlert();
-  }
+function setTrackerModalView(view) {
+  const next = ["picks", "report", "debug"].includes(String(view || "")) ? String(view) : "picks";
+  g_trackerModalView = next;
+  if (isTrackerDebugView()) acknowledgeGlobalEngineAlert();
   updateTrackerInsightsButton();
   syncTrackerModalView();
-  updateTrackerInsightsButton();
   renderTrackerAnalytics();
+}
+
+function toggleTrackerInsights() {
+  if (isTrackerPicksView()) setTrackerModalView("report");
+  else if (isTrackerReportView()) setTrackerModalView("picks");
+  else setTrackerModalView("report");
+}
+
+function toggleTrackerDebugView() {
+  if (isTrackerDebugView()) setTrackerModalView("report");
+  else setTrackerModalView("debug");
 }
 let g_trackerSaveFailureCount = 0;
 let g_fetchInputErrors = [];
@@ -6120,6 +6180,7 @@ function openTrackerModal() {
   const modal = document.getElementById("trackerModal");
   if (!modal) return;
 
+  g_trackerModalView = "picks";
   lockPageBehindTracker();
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -6136,6 +6197,7 @@ function closeTrackerModal() {
   const modal = document.getElementById("trackerModal");
   if (!modal) return;
 
+  g_trackerModalView = "picks";
   clearTrackerFollowupRefresh();
   modal.classList.remove("open");
   syncTrackerModalView();
@@ -6210,12 +6272,12 @@ function renderTrackedPicks() {
   marketSummaryEl.style.display = chips.length ? "flex" : "none";
 
   if (!displayPicks.length) {
-    emptyEl.style.display = g_trackerInsightsOpen ? "none" : "block";
+    emptyEl.style.display = isTrackerPicksView() ? "block" : "none";
     emptyEl.textContent = "No live/recent tracked picks right now.";
 
     marketSummaryEl.style.display = "none";
     marketSummaryEl.innerHTML = "";
-    wrapEl.style.display = g_trackerInsightsOpen ? "block" : "none";
+    wrapEl.style.display = isTrackerPicksView() ? "none" : "block";
     bodyEl.innerHTML = "";
     return;
   }
@@ -6512,23 +6574,18 @@ function renderTrackerAnalytics() {
   });
 
   syncTrackerModalView();
-  panel.classList.toggle("tracker-hidden", !g_trackerInsightsOpen);
-  panel.style.display = g_trackerInsightsOpen ? "block" : "none";
-  panel.innerHTML = `
-    <div class="tracker-analytics-shell">
-      <div class="tracker-analytics-topbar">
-        <div class="tracker-analytics-heading">
-          <div class="tracker-analytics-kicker">Engine debug</div>
-          <div class="tracker-analytics-title">Important signals</div>
-          <div class="tracker-analytics-subtitle">Only useful engine and tracker notes are shown here. No noisy filler.</div>
-        </div>
-      </div>
+  const currentView = g_trackerModalView;
+  panel.classList.toggle("tracker-hidden", currentView === "picks");
+  panel.style.display = currentView === "picks" ? "none" : "block";
 
+  const debugBodyHtml = `
       <div class="report-debug-grid">
         ${buildReportDebugCard("Important engine notes", importantEngineLines, 6, "No urgent engine issues. The engine is quiet.")}
         ${buildReportDebugCard("Important tracker notes", importantTrackerLines, 6, "No urgent tracker issues. Settled results and sync notes will show here.")}
       </div>
+  `;
 
+  const reportBodyHtml = `
       <div class="tracker-kpi-grid">
         <div class="tracker-kpi-card featured">
           <div class="tracker-kpi-label">Overall</div>
@@ -6671,8 +6728,37 @@ function renderTrackerAnalytics() {
           </div>
         </div>
       </div>
-    </div>
   `;
+
+  if (currentView === "report") {
+    panel.innerHTML = `
+      <div class="tracker-analytics-shell">
+        <div class="tracker-analytics-topbar">
+          <div class="tracker-analytics-heading">
+            <div class="tracker-analytics-kicker">Engine report</div>
+            <div class="tracker-analytics-title">Tracked results and learning</div>
+            <div class="tracker-analytics-subtitle">Pick record, feedback, and post-checkpoint suggestions live here.</div>
+          </div>
+        </div>
+        ${reportBodyHtml}
+      </div>
+    `;
+  } else if (currentView === "debug") {
+    panel.innerHTML = `
+      <div class="tracker-analytics-shell">
+        <div class="tracker-analytics-topbar">
+          <div class="tracker-analytics-heading">
+            <div class="tracker-analytics-kicker">Engine debug</div>
+            <div class="tracker-analytics-title">Important signals</div>
+            <div class="tracker-analytics-subtitle">Only useful engine and tracker notes are shown here. No noisy filler.</div>
+          </div>
+        </div>
+        ${debugBodyHtml}
+      </div>
+    `;
+  } else {
+    panel.innerHTML = "";
+  }
   updateTrackerInsightsButton();
 }
 
@@ -12055,8 +12141,13 @@ if (headerErrorBtn) headerErrorBtn.addEventListener("click", showFetchInputError
       const trackerInsightsBtn = document.getElementById("trackerInsightsBtn");
       if (trackerInsightsBtn) trackerInsightsBtn.addEventListener("click", toggleTrackerInsights);
 
+      const trackerDebugBtn = document.getElementById("trackerDebugBtn");
+      if (trackerDebugBtn) trackerDebugBtn.addEventListener("click", toggleTrackerDebugView);
+
       const trackerHeadTitle = document.getElementById("trackerHeadTitle");
-      if (trackerHeadTitle) trackerHeadTitle.addEventListener("click", toggleTrackerInsights);
+      if (trackerHeadTitle) trackerHeadTitle.addEventListener("click", () => {
+        if (!isTrackerPicksView()) setTrackerModalView("picks");
+      });
 
       const trackerModal = document.getElementById("trackerModal");
       if (trackerModal) {
