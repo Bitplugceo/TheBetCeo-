@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v12_bb_clean" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_clean" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v12_bb_clean" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v16_bb_report_modal" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_bb_report_modal" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_bb_report_modal" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -795,296 +795,48 @@ input,
   word-break: break-word;
 }
 
-
-.tracker-report-tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tracker-report-tab {
-  background: var(--panel) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--table-border) !important;
-  padding: 7px 10px !important;
-  margin: 0 !important;
-  font-size: 11px !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.2px;
-}
-
-.tracker-report-tab.active {
-  background: #3a404c !important;
-  color: #fff !important;
-  border-color: #3a404c !important;
-}
-
-.tracker-report-pill-row {
-  display: flex;
-  flex-wrap: wrap;
+.report-debug-grid {
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
-.tracker-report-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 10px;
+.report-debug-empty {
   border: 1px solid var(--table-border);
   background: var(--panel);
-  color: var(--text);
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.tracker-report-pill.good {
-  border-color: rgba(47, 143, 74, 0.38);
-  color: #1e6e39;
-  background: linear-gradient(180deg, rgba(47,143,74,0.16) 0%, rgba(47,143,74,0.08) 100%);
-}
-
-.tracker-report-pill.warn {
-  border-color: rgba(217, 138, 0, 0.36);
-  color: #9a6200;
-  background: linear-gradient(180deg, rgba(217,138,0,0.16) 0%, rgba(217,138,0,0.08) 100%);
-}
-
-.tracker-report-pill.error {
-  border-color: rgba(201, 25, 32, 0.42);
-  color: #a51118;
-  background: linear-gradient(180deg, rgba(201,25,32,0.14) 0%, rgba(201,25,32,0.07) 100%);
-}
-
-body.dark-mode .tracker-report-pill.good {
-  color: #8fe29b;
-  background: linear-gradient(180deg, rgba(47,143,74,0.25) 0%, rgba(47,143,74,0.14) 100%);
-}
-
-body.dark-mode .tracker-report-pill.warn {
-  color: #ffcf73;
-  background: linear-gradient(180deg, rgba(217,138,0,0.22) 0%, rgba(217,138,0,0.12) 100%);
-}
-
-body.dark-mode .tracker-report-pill.error {
-  color: #ff8e93;
-  background: linear-gradient(180deg, rgba(201,25,32,0.25) 0%, rgba(201,25,32,0.14) 100%);
-}
-
-.tracker-health-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-@media (max-width: 560px) {
-  .tracker-health-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.tracker-health-card {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  padding: 10px;
-  display: grid;
-  gap: 4px;
-}
-
-.tracker-health-card.good {
-  border-left: 4px solid #2f8f4a;
-}
-
-.tracker-health-card.warn {
-  border-left: 4px solid #d98a00;
-}
-
-.tracker-health-card.error {
-  border-left: 4px solid #c91920;
-}
-
-.tracker-health-label {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
-}
-
-.tracker-health-value {
-  color: var(--tracker-strong);
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1.08;
-}
-
-.tracker-health-sub {
   color: var(--tracker-subtext);
-  font-size: 10px;
-  line-height: 1.3;
-  font-weight: 700;
-}
-
-.tracker-debug-stage-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-@media (max-width: 560px) {
-  .tracker-debug-stage-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.tracker-debug-stage-card {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  padding: 10px;
-  display: grid;
-  gap: 4px;
-}
-
-.tracker-debug-stage-card.good {
-  border-left: 4px solid #2f8f4a;
-}
-
-.tracker-debug-stage-card.warn {
-  border-left: 4px solid #d98a00;
-}
-
-.tracker-debug-stage-card.error {
-  border-left: 4px solid #c91920;
-}
-
-.tracker-debug-stage-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.tracker-debug-stage-name {
-  color: var(--tracker-strong);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.tracker-debug-stage-state {
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-
-.tracker-debug-event-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 8px;
-}
-
-.tracker-debug-event {
-  border: 1px solid var(--table-border);
-  background: var(--panel);
-  padding: 9px 10px;
-  display: grid;
-  gap: 6px;
-}
-
-.tracker-debug-event.good {
-  border-left: 4px solid #2f8f4a;
-}
-
-.tracker-debug-event.warn {
-  border-left: 4px solid #d98a00;
-}
-
-.tracker-debug-event.error {
-  border-left: 4px solid #c91920;
-}
-
-.tracker-debug-event-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.tracker-debug-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 6px;
-  border: 1px solid var(--table-border);
-  background: var(--panel-soft);
-  color: var(--text);
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
-.tracker-debug-badge.engine {
-  border-color: rgba(58, 64, 76, 0.25);
-}
-
-.tracker-debug-badge.tracker {
-  border-color: rgba(74, 163, 70, 0.25);
-}
-
-.tracker-debug-time {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.tracker-debug-message {
-  color: var(--text);
+  padding: 10px 12px;
   font-size: 11px;
-  line-height: 1.4;
-  font-weight: 900;
-  word-break: break-word;
-}
-
-.tracker-debug-message.error {
-  color: #c91920;
-}
-
-.tracker-debug-message.warn {
-  color: #9a6200;
-}
-
-.tracker-debug-message.good {
-  color: #1e6e39;
-}
-
-body.dark-mode .tracker-debug-message.error {
-  color: #ff8e93;
-}
-
-body.dark-mode .tracker-debug-message.warn {
-  color: #ffcf73;
-}
-
-body.dark-mode .tracker-debug-message.good {
-  color: #8fe29b;
-}
-
-.tracker-debug-detail {
-  color: var(--tracker-subtext);
-  font-size: 10px;
-  line-height: 1.35;
   font-weight: 700;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
-.tracker-debug-empty {
-  color: var(--tracker-subtext);
-  font-size: 12px;
-  font-weight: 700;
+.debug-ok {
+  border-left: 3px solid #2f8f4a !important;
+}
+
+.debug-warn {
+  border-left: 3px solid #d98a00 !important;
+  color: #8a5a00 !important;
+}
+
+.debug-error {
+  border-left: 3px solid #c91920 !important;
+  color: #9f1b20 !important;
+  font-weight: 800 !important;
+}
+
+body.dark-mode .debug-warn {
+  color: #ffcf73 !important;
+}
+
+body.dark-mode .debug-error {
+  color: #ff8f93 !important;
+}
+
+@media (min-width: 720px) {
+  .report-debug-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .tracker-modal {
@@ -2699,7 +2451,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v15_bb_oldkey_debug";
+    const APP_BUILD_VERSION = "tracker_cleanup_v16_bb_report_modal";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -4005,150 +3757,29 @@ let g_trackerSaveVersion = 0;
 let g_trackerPersistedVersion = 0;
 let g_trackerSaveInFlight = false;
 let g_trackerInsightsOpen = false;
-const TRACKER_DEBUG_LIMIT = 80;
+const TRACKER_DEBUG_LIMIT = 40;
 let g_trackerDebugLog = [];
-const ENGINE_DEBUG_LIMIT = 220;
-let g_engineDebugLog = [];
-let g_trackerReportTab = "overview";
-
-function normalizeDebugDetail(extra) {
-  if (extra === null || extra === undefined) return "";
-  if (typeof extra === "string") return extra;
-  try {
-    return JSON.stringify(extra);
-  } catch (err) {
-    return String(extra);
-  }
-}
-
-function getDebugSeverity(message = "", extra = null) {
-  const haystack = `${String(message || "")} ${normalizeDebugDetail(extra)}`.toLowerCase();
-  if (/(critical|failed|fail|error|invalid|missing|rejected|worse|blocked|mismatch|nan|overwrite|overwrote|conflict)/.test(haystack)) return "error";
-  if (/(warn|watch|pending|fallback|skipped|skip|not final|collect more|building)/.test(haystack)) return "warn";
-  if (/(ok|success|settled|saved|applied|kept local|finished successfully|passed|pushed|detected tracker changes)/.test(haystack)) return "good";
-  return "info";
-}
-
-function getDebugStage(message = "") {
-  const msg = String(message || "").toLowerCase();
-  if (msg.includes("validation") || msg.includes("run blocked")) return "validation";
-  if (msg.includes("fetch") || msg.includes("summary")) return "fetch";
-  if (msg.includes("projection") || msg.includes("line resolution") || msg.includes("manual") || msg.includes("auto")) return "calculation";
-  if (msg.includes("pick") || msg.includes("trap filter") || msg.includes("run output")) return "decision";
-  if (msg.includes("hydrate")) return "hydrate";
-  if (msg.includes("settled") || msg.includes("settle") || msg.includes("refresh applying tracker changes") || msg.includes("refresh detected tracker changes")) return "settlement";
-  if (msg.includes("tracker push") || msg.includes("flush save") || msg.includes("saved") || msg.includes("persist") || msg.includes("response")) return "sync";
-  if (msg.includes("tracker")) return "tracker";
-  return "general";
-}
-
-function buildDebugEntry(source, message, extra = null) {
-  const now = new Date();
-  const stamp = now.toLocaleTimeString([], { hour12: false });
-  const detail = normalizeDebugDetail(extra);
-  const line = detail ? `[${stamp}] ${message} | ${detail}` : `[${stamp}] ${message}`;
-  return {
-    id: `${source}_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
-    source,
-    message: String(message || ""),
-    detail,
-    line,
-    stamp,
-    timeMs: now.getTime(),
-    severity: getDebugSeverity(message, extra),
-    stage: getDebugStage(message)
-  };
-}
-
-function pushDebugEntry(storeName, entry, limit) {
-  if (!entry) return;
-  const bucket = storeName === "tracker" ? g_trackerDebugLog : g_engineDebugLog;
-  bucket.unshift(entry);
-  if (bucket.length > limit) {
-    bucket.length = limit;
-  }
-}
-
-function getSeverityRank(severity) {
-  if (severity === "error") return 3;
-  if (severity === "warn") return 2;
-  if (severity === "good") return 1;
-  return 0;
-}
-
-function getDebugStatusWord(severity) {
-  if (severity === "error") return "Fail";
-  if (severity === "warn") return "Watch";
-  if (severity === "good") return "OK";
-  return "Idle";
-}
-
-function getDebugStageLabel(stage) {
-  const map = {
-    validation: "Validation",
-    fetch: "Fetch",
-    calculation: "Calculation",
-    decision: "Decision",
-    hydrate: "Hydrate",
-    settlement: "Settlement",
-    sync: "Sync",
-    tracker: "Tracker",
-    general: "General"
-  };
-  return map[String(stage || "general")] || "General";
-}
-
-function getCombinedDebugEntries(limit = 60) {
-  return [...g_engineDebugLog, ...g_trackerDebugLog]
-    .sort((a, b) => Number(b?.timeMs || 0) - Number(a?.timeMs || 0))
-    .slice(0, limit);
-}
-
-function getDebugStageCards(entries = []) {
-  const order = ["validation", "fetch", "calculation", "decision", "settlement", "hydrate", "sync", "tracker", "general"];
-  return order.map(stage => {
-    const items = entries.filter(entry => entry.stage === stage);
-    let severity = "info";
-    if (items.some(entry => entry.severity === "error")) severity = "error";
-    else if (items.some(entry => entry.severity === "warn")) severity = "warn";
-    else if (items.some(entry => entry.severity === "good" || entry.severity === "info")) severity = items.length ? "good" : "info";
-    return {
-      stage,
-      label: getDebugStageLabel(stage),
-      severity,
-      status: getDebugStatusWord(severity),
-      count: items.length,
-      lastMessage: items.length ? items[0].message : "No events yet."
-    };
-  });
-}
-
-function getBuildHealthSummary(entries = []) {
-  const errors = entries.filter(entry => entry.severity === "error").length;
-  const warns = entries.filter(entry => entry.severity === "warn").length;
-  const settled = entries.filter(entry => entry.stage === "settlement" && entry.severity !== "error").length;
-  let severity = "good";
-  if (errors > 0) severity = "error";
-  else if (warns > 0) severity = "warn";
-  else if (!entries.length) severity = "info";
-  return {
-    errors,
-    warns,
-    settled,
-    severity,
-    status: getDebugStatusWord(severity)
-  };
-}
-
-function setTrackerReportTab(tab = "overview") {
-  g_trackerReportTab = ["overview", "debug", "learning"].includes(String(tab || "")) ? String(tab) : "overview";
-  renderTrackerAnalytics();
-}
 
 function trackerDebug(message, extra = null) {
   try {
-    const entry = buildDebugEntry("tracker", message, extra);
-    pushDebugEntry("tracker", entry, TRACKER_DEBUG_LIMIT);
+    const stamp = new Date().toLocaleTimeString([], { hour12: false });
+    let detail = "";
+    if (extra !== null && extra !== undefined) {
+      if (typeof extra === "string") {
+        detail = extra;
+      } else {
+        try {
+          detail = JSON.stringify(extra);
+        } catch (err) {
+          detail = String(extra);
+        }
+      }
+    }
+    const line = detail ? `[${stamp}] ${message} | ${detail}` : `[${stamp}] ${message}`;
+    g_trackerDebugLog.unshift(line);
+    if (g_trackerDebugLog.length > TRACKER_DEBUG_LIMIT) {
+      g_trackerDebugLog = g_trackerDebugLog.slice(0, TRACKER_DEBUG_LIMIT);
+    }
     console.log("[BB Tracker Debug]", message, extra ?? "");
     renderTrackerDebugPanel();
   } catch (err) {
@@ -4156,14 +3787,36 @@ function trackerDebug(message, extra = null) {
   }
 }
 
+
 function renderTrackerDebugPanel() {
-  if (g_trackerInsightsOpen) renderTrackerAnalytics();
+  if (g_trackerInsightsOpen) {
+    renderTrackerAnalytics();
+  }
 }
+
+const ENGINE_DEBUG_LIMIT = 180;
+let g_engineDebugLog = [];
 
 function engineDebug(message, extra = null) {
   try {
-    const entry = buildDebugEntry("engine", message, extra);
-    pushDebugEntry("engine", entry, ENGINE_DEBUG_LIMIT);
+    const stamp = new Date().toLocaleTimeString([], { hour12: false });
+    let detail = "";
+    if (extra !== null && extra !== undefined) {
+      if (typeof extra === "string") {
+        detail = extra;
+      } else {
+        try {
+          detail = JSON.stringify(extra);
+        } catch (err) {
+          detail = String(extra);
+        }
+      }
+    }
+    const line = detail ? `[${stamp}] ${message} | ${detail}` : `[${stamp}] ${message}`;
+    g_engineDebugLog.unshift(line);
+    if (g_engineDebugLog.length > ENGINE_DEBUG_LIMIT) {
+      g_engineDebugLog = g_engineDebugLog.slice(0, ENGINE_DEBUG_LIMIT);
+    }
     console.log("[BB Engine Debug]", message, extra ?? "");
     renderEngineDebugPanel();
   } catch (err) {
@@ -4172,7 +3825,74 @@ function engineDebug(message, extra = null) {
 }
 
 function renderEngineDebugPanel() {
-  if (g_trackerInsightsOpen) renderTrackerAnalytics();
+  if (g_trackerInsightsOpen) {
+    renderTrackerAnalytics();
+  }
+}
+
+function getDebugSeverityClass(line) {
+  const text = String(line || "").toLowerCase();
+  if (!text) return "";
+  if (
+    text.includes("kept local payload over worse server response") ||
+    text.includes("ignored worse server response") ||
+    text.includes("refresh settled pick") ||
+    text.includes("merge kept settled over pending")
+  ) {
+    return "debug-ok";
+  }
+  if (
+    text.includes(" fail") ||
+    text.includes("failed") ||
+    text.includes("error") ||
+    text.includes("missing competition data") ||
+    text.includes("invalid") ||
+    text.includes("nan") ||
+    text.includes("mismatch") ||
+    text.includes("rejected")
+  ) {
+    return "debug-error";
+  }
+  if (
+    text.includes("warning") ||
+    text.includes("warn") ||
+    text.includes("fallback") ||
+    text.includes("watch") ||
+    text.includes("pending")
+  ) {
+    return "debug-warn";
+  }
+  if (
+    text.includes("settled") ||
+    text.includes("success") ||
+    text.includes("pass") ||
+    text.includes("snapshot") ||
+    text.includes("merged") ||
+    text.includes("response") ||
+    text.includes("push start")
+  ) {
+    return "debug-ok";
+  }
+  return "";
+}
+
+function buildReportDebugCard(title, lines = [], limit = 10, emptyText = "No debug events yet.") {
+  const safeLines = Array.isArray(lines) ? lines.slice(0, limit) : [];
+  return `
+    <div class="tracker-analytics-card">
+      <div class="tracker-analytics-card-head">
+        <div class="tracker-analytics-card-title">${safeText(title)}</div>
+        <div class="tracker-analytics-card-meta">latest ${safeLines.length} events</div>
+      </div>
+      <div class="tracker-analytics-card-body">
+        ${
+          safeLines.length
+            ? `<ul class="tracker-debug-log">${safeLines.map(line => `<li class="${getDebugSeverityClass(line)}">${safeText(line)}</li>`).join("")}</ul>`
+            : `<div class="report-debug-empty">${safeText(emptyText)}</div>`
+        }
+      </div>
+    </div>
+  `;
 }
 
 function summarizeFetchMetaForDebug() {
@@ -6200,12 +5920,11 @@ function closeTrackerModal() {
 function renderTrackedPicks() {
   const summaryEl = document.getElementById("trackerSummary");
   const marketSummaryEl = document.getElementById("trackerMarketSummary");
-  const debugPanelEl = document.getElementById("trackerDebugPanel");
   const emptyEl = document.getElementById("trackerEmpty");
   const wrapEl = document.getElementById("trackedPicksWrap");
   const bodyEl = document.getElementById("trackedPicksBody");
 
-  if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl || !debugPanelEl) return;
+  if (!summaryEl || !marketSummaryEl || !emptyEl || !wrapEl || !bodyEl) return;
 
   const archivedChanged = archiveExpiredTrackedPicks();
   if (archivedChanged) {
@@ -6336,11 +6055,6 @@ function renderTrackerAnalytics() {
   const settled = Number(derived?.settledPicks || 0);
   const trackerMin = Number(TRACKER_POLICY?.reviewCheckpointSettled || PHASE2_ACTIVATION_RULES?.trackerFeedback?.minSettled || 20);
   const activeCount = Array.isArray(g_trackerState?.activePicks) ? g_trackerState.activePicks.length : 0;
-  const reportEntries = getCombinedDebugEntries(90);
-  const health = getBuildHealthSummary(reportEntries);
-  const stageCards = getDebugStageCards(reportEntries);
-  const latestErrors = reportEntries.filter(entry => entry.severity === "error").slice(0, 3);
-  const debugTab = ["overview", "debug", "learning"].includes(String(g_trackerReportTab || "")) ? g_trackerReportTab : "overview";
 
   function marketLabel(key) {
     const map = {
@@ -6552,13 +6266,29 @@ function renderTrackerAnalytics() {
   const marketDisplayRows = marketRows.slice(0, 5);
   const leagueDisplayRows = leagueRows.slice(0, 5);
 
-  function renderOverviewTab() {
-    return `
+  syncTrackerModalView();
+  panel.classList.toggle("tracker-hidden", !g_trackerInsightsOpen);
+  panel.style.display = g_trackerInsightsOpen ? "block" : "none";
+  panel.innerHTML = `
+    <div class="tracker-analytics-shell">
+      <div class="tracker-analytics-topbar">
+        <div class="tracker-analytics-heading">
+          <div class="tracker-analytics-kicker">Engine report</div>
+          <div class="tracker-analytics-title">Feedback center</div>
+          <div class="tracker-analytics-subtitle">Debug signals and tracker learning in one place without dumping logs on the main screen.</div>
+        </div>
+      </div>
+
+      <div class="report-debug-grid">
+        ${buildReportDebugCard("Engine debug", g_engineDebugLog, 10, "Run the engine once and debug events will show here.")}
+        ${buildReportDebugCard("Tracker debug", g_trackerDebugLog, 10, "Tracker sync and settlement events will show here.")}
+      </div>
+
       <div class="tracker-kpi-grid">
-        <div class="tracker-kpi-card featured ${health.severity === "error" ? "error" : ""}">
-          <div class="tracker-kpi-label">Build health</div>
-          <div class="tracker-kpi-value">${safeText(health.status)}</div>
-          <div class="tracker-kpi-sub">Errors ${health.errors} • Warnings ${health.warns} • Settled events ${health.settled}</div>
+        <div class="tracker-kpi-card featured">
+          <div class="tracker-kpi-label">Overall</div>
+          <div class="tracker-kpi-value">${overallRecord.wins}W</div>
+          <div class="tracker-kpi-sub">Losses ${overallRecord.losses} • Pushes ${overallRecord.pushes} • Win rate ${formatPct(overallRecord.winPct)}</div>
         </div>
         <div class="tracker-kpi-card">
           <div class="tracker-kpi-label">Active picks</div>
@@ -6574,35 +6304,6 @@ function renderTrackerAnalytics() {
           <div class="tracker-kpi-label">Review status</div>
           <div class="tracker-kpi-value">${safeText(checkpointStatus)}</div>
           <div class="tracker-kpi-sub">${safeText(reviewVersionSub)}</div>
-        </div>
-      </div>
-
-      <div class="tracker-analytics-card">
-        <div class="tracker-analytics-card-head">
-          <div class="tracker-analytics-card-title">Instant feedback</div>
-          <div class="tracker-analytics-card-meta">What the engine is telling you right now</div>
-        </div>
-        <div class="tracker-analytics-card-body">
-          <div class="tracker-report-pill-row">
-            <div class="tracker-report-pill ${safeText(health.severity === "info" ? "warn" : health.severity)}">Build ${safeText(health.status)}</div>
-            <div class="tracker-report-pill ${health.errors ? "error" : "good"}">Errors ${health.errors}</div>
-            <div class="tracker-report-pill ${health.warns ? "warn" : "good"}">Warnings ${health.warns}</div>
-            <div class="tracker-report-pill ${settled >= trackerMin ? "good" : "warn"}">Checkpoint ${safeText(checkpointStatus)}</div>
-          </div>
-          ${latestErrors.length ? `
-            <div class="tracker-review-list" style="margin-top:10px;">
-              ${latestErrors.map(entry => `
-                <div class="tracker-review-row">
-                  <div class="tracker-review-top">
-                    <div class="tracker-review-area">${safeText(getDebugStageLabel(entry.stage))}</div>
-                    <div class="tracker-review-status watching">Fix now</div>
-                  </div>
-                  <div class="tracker-review-text"><strong>${safeText(entry.message)}</strong></div>
-                  <div class="tracker-review-action">${safeText(entry.detail || "See Debug tab for the full payload.")}</div>
-                </div>
-              `).join("")}
-            </div>
-          ` : `<div class="tracker-empty-note" style="margin-top:10px;">No live engine errors right now. For once the machine is behaving.</div>`}
         </div>
       </div>
 
@@ -6626,11 +6327,7 @@ function renderTrackerAnalytics() {
           </div>
         </div>
       </div>
-    `;
-  }
 
-  function renderLearningTab() {
-    return `
       <div class="tracker-analytics-grid two">
         <div class="tracker-analytics-card">
           <div class="tracker-analytics-card-head">
@@ -6729,100 +6426,8 @@ function renderTrackerAnalytics() {
           </div>
         </div>
       </div>
-    `;
-  }
-
-  function renderDebugTab() {
-    return `
-      <div class="tracker-health-grid">
-        <div class="tracker-health-card ${safeText(health.severity === "info" ? "warn" : health.severity)}">
-          <div class="tracker-health-label">Build health</div>
-          <div class="tracker-health-value">${safeText(health.status)}</div>
-          <div class="tracker-health-sub">Errors ${health.errors} • Warnings ${health.warns} • Latest events ${reportEntries.length}</div>
-        </div>
-        <div class="tracker-health-card ${settled ? "good" : "warn"}">
-          <div class="tracker-health-label">Settlement health</div>
-          <div class="tracker-health-value">${settled}</div>
-          <div class="tracker-health-sub">Settled picks recorded in tracker state right now.</div>
-        </div>
-      </div>
-
-      <div class="tracker-analytics-card">
-        <div class="tracker-analytics-card-head">
-          <div class="tracker-analytics-card-title">Stage monitor</div>
-          <div class="tracker-analytics-card-meta">Red means that stage broke somewhere</div>
-        </div>
-        <div class="tracker-analytics-card-body">
-          <div class="tracker-debug-stage-grid">
-            ${stageCards.map(card => `
-              <div class="tracker-debug-stage-card ${safeText(card.severity === "info" ? "warn" : card.severity)}">
-                <div class="tracker-debug-stage-top">
-                  <div class="tracker-debug-stage-name">${safeText(card.label)}</div>
-                  <div class="tracker-debug-stage-state">${safeText(card.status)}</div>
-                </div>
-                <div class="tracker-health-sub">Events ${card.count}</div>
-                <div class="tracker-health-sub">${safeText(card.lastMessage)}</div>
-              </div>
-            `).join("")}
-          </div>
-        </div>
-      </div>
-
-      <div class="tracker-analytics-card">
-        <div class="tracker-analytics-card-head">
-          <div class="tracker-analytics-card-title">Full engine log</div>
-          <div class="tracker-analytics-card-meta">Latest ${reportEntries.length} events from run, settlement, hydrate, and save flow</div>
-        </div>
-        <div class="tracker-analytics-card-body">
-          ${reportEntries.length ? `
-            <ul class="tracker-debug-event-list">
-              ${reportEntries.map(entry => `
-                <li class="tracker-debug-event ${safeText(entry.severity === "info" ? "warn" : entry.severity)}">
-                  <div class="tracker-debug-event-top">
-                    <span class="tracker-debug-badge ${safeText(entry.source)}">${safeText(entry.source)}</span>
-                    <span class="tracker-debug-badge">${safeText(getDebugStageLabel(entry.stage))}</span>
-                    <span class="tracker-debug-badge ${safeText(entry.severity === "info" ? "warn" : entry.severity)}">${safeText(getDebugStatusWord(entry.severity))}</span>
-                    <span class="tracker-debug-time">${safeText(entry.stamp)}</span>
-                  </div>
-                  <div class="tracker-debug-message ${safeText(entry.severity === "info" ? "" : entry.severity)}">${safeText(entry.message)}</div>
-                  ${entry.detail ? `<div class="tracker-debug-detail">${safeText(entry.detail)}</div>` : ``}
-                </li>
-              `).join("")}
-            </ul>
-          ` : `<div class="tracker-debug-empty">No debug events yet. Run the engine and the report will start shouting at you properly.</div>`}
-        </div>
-      </div>
-    `;
-  }
-
-  let tabContent = renderOverviewTab();
-  if (debugTab === "debug") tabContent = renderDebugTab();
-  if (debugTab === "learning") tabContent = renderLearningTab();
-
-  syncTrackerModalView();
-  panel.classList.toggle("tracker-hidden", !g_trackerInsightsOpen);
-  panel.style.display = g_trackerInsightsOpen ? "block" : "none";
-  panel.innerHTML = `
-    <div class="tracker-analytics-shell">
-      <div class="tracker-analytics-topbar">
-        <div class="tracker-analytics-heading">
-          <div class="tracker-analytics-kicker">Engine report</div>
-          <div class="tracker-analytics-title">Feedback center</div>
-          <div class="tracker-analytics-subtitle">Debug, build health, learning signals, and tracker feedback in one place instead of scattered all over the page like loose screws.</div>
-        </div>
-        <div class="tracker-report-tabs">
-          <button type="button" class="tracker-report-tab ${debugTab === "overview" ? "active" : ""}" data-report-tab="overview">Overview</button>
-          <button type="button" class="tracker-report-tab ${debugTab === "debug" ? "active" : ""}" data-report-tab="debug">Debug</button>
-          <button type="button" class="tracker-report-tab ${debugTab === "learning" ? "active" : ""}" data-report-tab="learning">Learning</button>
-        </div>
-      </div>
-      ${tabContent}
     </div>
   `;
-
-  panel.querySelectorAll("[data-report-tab]").forEach(btn => {
-    btn.addEventListener("click", () => setTrackerReportTab(btn.getAttribute("data-report-tab") || "overview"));
-  });
   updateTrackerInsightsButton();
 }
 
