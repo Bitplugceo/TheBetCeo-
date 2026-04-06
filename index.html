@@ -817,20 +817,73 @@ input,
 .debug-warn {
   border-left: 3px solid #d98a00 !important;
   color: #8a5a00 !important;
+  background: rgba(217, 138, 0, 0.08) !important;
 }
 
 .debug-error {
-  border-left: 3px solid #c91920 !important;
-  color: #9f1b20 !important;
-  font-weight: 800 !important;
+  border-left: 4px solid #ff0000 !important;
+  background: #fff0f0 !important;
+  color: #d10000 !important;
+  font-weight: 900 !important;
 }
 
 body.dark-mode .debug-warn {
   color: #ffcf73 !important;
+  background: rgba(217, 138, 0, 0.14) !important;
 }
 
 body.dark-mode .debug-error {
-  color: #ff8f93 !important;
+  color: #ff5c61 !important;
+  background: rgba(201, 25, 32, 0.18) !important;
+}
+
+@keyframes engineAlertPulse {
+  from {
+    box-shadow: 0 0 0 0 rgba(217, 31, 38, 0.10);
+  }
+  to {
+    box-shadow: 0 0 0 1px rgba(217, 31, 38, 0.30), 0 0 24px rgba(217, 31, 38, 0.14);
+  }
+}
+
+body.engine-alert {
+  background: #2a0608 !important;
+}
+
+body.engine-alert .app-header {
+  background: linear-gradient(90deg, #7b0007 0%, #cf1119 52%, #820008 100%) !important;
+  animation: engineAlertPulse 1.15s ease-in-out infinite alternate;
+}
+
+body.engine-alert .section,
+body.engine-alert .table-wrap,
+body.engine-alert .actions {
+  border-color: #d91f26 !important;
+  animation: engineAlertPulse 1.15s ease-in-out infinite alternate;
+}
+
+body.engine-alert .section {
+  background: #fff6f6 !important;
+}
+
+body.engine-alert #trackerToggleBtn,
+body.engine-alert #headerErrorBtn.active {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.55);
+}
+
+body.engine-alert #runBtn,
+body.engine-alert #clearBtn {
+  box-shadow: 0 0 0 1px rgba(217, 31, 38, 0.40), 0 0 18px rgba(217, 31, 38, 0.18) !important;
+}
+
+body.dark-mode.engine-alert {
+  background: #140203 !important;
+}
+
+body.dark-mode.engine-alert .section {
+  background: #220b0d !important;
+  border-color: #ff3a41 !important;
 }
 
 @media (min-width: 720px) {
@@ -2302,7 +2355,7 @@ body.dark-mode .tracker-analytics-section-head {
       <div class="tracker-head">
         <span id="trackerHeadTitle">Tracked Picks</span>
         <div class="tracker-head-actions">
-          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn" title="Open tracker report" aria-label="Open tracker report">📊 Report</button>
+          <button type="button" id="trackerInsightsBtn" class="tracker-insights-btn" title="Open engine debug" aria-label="Open engine debug">🐞 Debug</button>
           <button type="button" id="trackerCloseBtn" class="tracker-close">✕</button>
         </div>
       </div>
@@ -3781,6 +3834,9 @@ function trackerDebug(message, extra = null) {
       g_trackerDebugLog = g_trackerDebugLog.slice(0, TRACKER_DEBUG_LIMIT);
     }
     console.log("[BB Tracker Debug]", message, extra ?? "");
+    if (getDebugSeverity(line) === "error") {
+      triggerGlobalEngineAlert(line);
+    }
     renderTrackerDebugPanel();
   } catch (err) {
     console.error("[BB Engine] trackerDebug failed", err);
@@ -3818,6 +3874,9 @@ function engineDebug(message, extra = null) {
       g_engineDebugLog = g_engineDebugLog.slice(0, ENGINE_DEBUG_LIMIT);
     }
     console.log("[BB Engine Debug]", message, extra ?? "");
+    if (getDebugSeverity(line) === "error") {
+      triggerGlobalEngineAlert(line);
+    }
     renderEngineDebugPanel();
   } catch (err) {
     console.error("[BB Engine] engineDebug failed", err);
@@ -3830,16 +3889,40 @@ function renderEngineDebugPanel() {
   }
 }
 
-function getDebugSeverityClass(line) {
+let g_engineAlertNeedsReview = false;
+let g_engineAlertLastLine = "";
+
+function applyGlobalEngineAlertState() {
+  document.body.classList.toggle("engine-alert", !!g_engineAlertNeedsReview && !g_trackerInsightsOpen);
+  renderHeaderErrorState();
+}
+
+function triggerGlobalEngineAlert(line = "") {
+  if (line) g_engineAlertLastLine = String(line);
+  if (!g_trackerInsightsOpen) {
+    g_engineAlertNeedsReview = true;
+  }
+  applyGlobalEngineAlertState();
+}
+
+function acknowledgeGlobalEngineAlert() {
+  g_engineAlertNeedsReview = false;
+  applyGlobalEngineAlertState();
+}
+
+function getDebugSeverity(line) {
   const text = String(line || "").toLowerCase();
   if (!text) return "";
   if (
     text.includes("kept local payload over worse server response") ||
     text.includes("ignored worse server response") ||
     text.includes("refresh settled pick") ||
-    text.includes("merge kept settled over pending")
+    text.includes("merge kept settled over pending") ||
+    text.includes("merge replaced pending pick with settled") ||
+    text.includes("push succeeded") ||
+    text.includes("finished with no tracker changes")
   ) {
-    return "debug-ok";
+    return "ok";
   }
   if (
     text.includes(" fail") ||
@@ -3849,9 +3932,12 @@ function getDebugSeverityClass(line) {
     text.includes("invalid") ||
     text.includes("nan") ||
     text.includes("mismatch") ||
-    text.includes("rejected")
+    text.includes("rejected") ||
+    text.includes("runtime") ||
+    text.includes("uncaught") ||
+    text.includes("exception")
   ) {
-    return "debug-error";
+    return "error";
   }
   if (
     text.includes("warning") ||
@@ -3860,7 +3946,7 @@ function getDebugSeverityClass(line) {
     text.includes("watch") ||
     text.includes("pending")
   ) {
-    return "debug-warn";
+    return "warn";
   }
   if (
     text.includes("settled") ||
@@ -3871,13 +3957,33 @@ function getDebugSeverityClass(line) {
     text.includes("response") ||
     text.includes("push start")
   ) {
-    return "debug-ok";
+    return "ok";
   }
   return "";
 }
 
+function getDebugSeverityClass(line) {
+  const severity = getDebugSeverity(line);
+  if (severity === "ok") return "debug-ok";
+  if (severity === "warn") return "debug-warn";
+  if (severity === "error") return "debug-error";
+  return "";
+}
+
+function prioritizeDebugLines(lines = [], limit = 10) {
+  const rank = { error: 0, warn: 1, ok: 2, "": 3 };
+  return (Array.isArray(lines) ? lines : [])
+    .map((line, index) => ({ line, index, severity: getDebugSeverity(line) }))
+    .sort((a, b) => {
+      const diff = (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9);
+      return diff !== 0 ? diff : a.index - b.index;
+    })
+    .slice(0, limit)
+    .map(row => row.line);
+}
+
 function buildReportDebugCard(title, lines = [], limit = 10, emptyText = "No debug events yet.") {
-  const safeLines = Array.isArray(lines) ? lines.slice(0, limit) : [];
+  const safeLines = prioritizeDebugLines(lines, limit);
   return `
     <div class="tracker-analytics-card">
       <div class="tracker-analytics-card-head">
@@ -4007,9 +4113,9 @@ function updateTrackerInsightsButton() {
   const btn = document.getElementById("trackerInsightsBtn");
   if (!btn) return;
   btn.classList.toggle("active", !!g_trackerInsightsOpen);
-  btn.setAttribute("title", g_trackerInsightsOpen ? "Hide tracker report" : "Open tracker report");
+  btn.setAttribute("title", g_trackerInsightsOpen ? "Hide engine debug" : "Open engine debug");
   btn.setAttribute("aria-pressed", g_trackerInsightsOpen ? "true" : "false");
-  btn.textContent = g_trackerInsightsOpen ? "← Picks" : "📊 Report";
+  btn.textContent = g_trackerInsightsOpen ? "← Picks" : "🐞 Debug";
 }
 
 function syncTrackerModalView() {
@@ -4020,7 +4126,7 @@ function syncTrackerModalView() {
 
   if (panel) panel.classList.toggle("analytics-view", !!g_trackerInsightsOpen);
   if (headTitle) {
-    headTitle.textContent = g_trackerInsightsOpen ? "Engine Report" : "Tracked Picks";
+    headTitle.textContent = g_trackerInsightsOpen ? "Engine Debug" : "Tracked Picks";
     headTitle.style.cursor = "pointer";
   }
 
@@ -4035,6 +4141,9 @@ function syncTrackerModalView() {
 
 function toggleTrackerInsights() {
   g_trackerInsightsOpen = !g_trackerInsightsOpen;
+  if (g_trackerInsightsOpen) {
+    acknowledgeGlobalEngineAlert();
+  }
   updateTrackerInsightsButton();
   syncTrackerModalView();
   renderTrackerAnalytics();
@@ -4047,8 +4156,11 @@ function renderHeaderErrorState() {
   const btn = document.getElementById("headerErrorBtn");
   if (!btn) return;
 
-  const hasIssues = g_fetchInputErrors.length > 0 || g_fetchAuditIssues.length > 0;
+  const hasIssues = g_fetchInputErrors.length > 0 || g_fetchAuditIssues.length > 0 || g_engineAlertNeedsReview;
   btn.classList.toggle("active", hasIssues);
+  btn.title = g_engineAlertNeedsReview
+    ? "Engine alert active. Open Debug to inspect the latest error."
+    : "Show fetch/input issues";
 }
 
 function setFetchInputErrors(errors = []) {
@@ -6273,15 +6385,15 @@ function renderTrackerAnalytics() {
     <div class="tracker-analytics-shell">
       <div class="tracker-analytics-topbar">
         <div class="tracker-analytics-heading">
-          <div class="tracker-analytics-kicker">Engine report</div>
-          <div class="tracker-analytics-title">Feedback center</div>
-          <div class="tracker-analytics-subtitle">Debug signals and tracker learning in one place without dumping logs on the main screen.</div>
+          <div class="tracker-analytics-kicker">Engine debug</div>
+          <div class="tracker-analytics-title">Debug center</div>
+          <div class="tracker-analytics-subtitle">Debug signals, pick records, and engine feedback in one place without dumping logs on the main screen.</div>
         </div>
       </div>
 
       <div class="report-debug-grid">
-        ${buildReportDebugCard("Engine debug", g_engineDebugLog, 10, "Run the engine once and debug events will show here.")}
-        ${buildReportDebugCard("Tracker debug", g_trackerDebugLog, 10, "Tracker sync and settlement events will show here.")}
+        ${buildReportDebugCard("Engine checks", g_engineDebugLog, 12, "Run the engine once and engine checks will show here.")}
+        ${buildReportDebugCard("Tracker checks", g_trackerDebugLog, 12, "Tracker sync, settlement, and sync conflicts will show here.")}
       </div>
 
       <div class="tracker-kpi-grid">
@@ -12111,6 +12223,28 @@ validateFetchSection();
 syncAllH2HCheckboxes(false);
 queueH2HCheckboxSync(false);
 updateIntelligencePack();
+
+window.addEventListener("error", event => {
+  const detail = {
+    message: event?.message || "Unknown runtime error",
+    file: event?.filename || "inline",
+    line: event?.lineno || 0,
+    column: event?.colno || 0
+  };
+  engineDebug("runtime error", detail);
+});
+
+window.addEventListener("unhandledrejection", event => {
+  let reason = event?.reason;
+  if (reason && typeof reason === "object") {
+    try {
+      reason = JSON.stringify(reason);
+    } catch (err) {
+      reason = String(reason);
+    }
+  }
+  engineDebug("unhandled rejection", reason || "Unknown promise rejection");
+});
     });
   </script>
 
