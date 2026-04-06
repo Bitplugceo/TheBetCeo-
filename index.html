@@ -2406,7 +2406,128 @@ body.dark-mode .tracker-analytics-section-head {
 </div>
 </div>
 
+
 <script>
+(function () {
+  if (window.__BETCEO_WATCHDOG_LOADED) return;
+  window.__BETCEO_WATCHDOG_LOADED = true;
+  window.__BETCEO_ENGINE_BOOT_SEEN = false;
+  window.__BETCEO_PANIC_LOGS = [];
+
+  function ensureStyles() {
+    if (document.getElementById("betceoPanicStyle")) return;
+    var style = document.createElement("style");
+    style.id = "betceoPanicStyle";
+    style.textContent = `
+      body.engine-panic {
+        background: #3b0000 !important;
+      }
+      body.engine-panic .app-header,
+      body.engine-panic .section,
+      body.engine-panic .tracker-panel,
+      body.engine-panic .tracker-head {
+        box-shadow: 0 0 0 2px rgba(255, 40, 40, 0.55) inset !important;
+      }
+      #betceoPanicBanner {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        top: max(8px, env(safe-area-inset-top));
+        z-index: 100000;
+        display: none;
+        background: #8f0000;
+        color: #fff;
+        border: 2px solid #ff2b2b;
+        padding: 10px 12px;
+        font-size: 12px;
+        line-height: 1.45;
+        font-weight: 800;
+        box-shadow: 0 8px 22px rgba(0,0,0,0.28);
+      }
+      body.engine-panic #betceoPanicBanner {
+        display: block;
+      }
+      #betceoPanicBanner .panic-title {
+        font-size: 13px;
+        font-weight: 900;
+        margin-bottom: 4px;
+        letter-spacing: 0.3px;
+      }
+      #betceoPanicBanner .panic-detail {
+        color: #ffd7d7;
+        font-weight: 800;
+        word-break: break-word;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureBanner() {
+    ensureStyles();
+    var banner = document.getElementById("betceoPanicBanner");
+    if (banner) return banner;
+    banner = document.createElement("div");
+    banner.id = "betceoPanicBanner";
+    banner.innerHTML = '<div class="panic-title">ENGINE PANIC</div><div class="panic-detail">Engine boot failure detected.</div>';
+    function attach() {
+      if (!document.body) return false;
+      if (!banner.parentNode) document.body.appendChild(banner);
+      return true;
+    }
+    if (!attach()) {
+      document.addEventListener("DOMContentLoaded", attach, { once: true });
+    }
+    return banner;
+  }
+
+  function panic(message) {
+    try {
+      var msg = String(message || "Unknown engine failure");
+      window.__BETCEO_PANIC_LOGS.push({ ts: Date.now(), msg: msg });
+      ensureBanner().querySelector(".panic-detail").textContent = msg;
+      if (document.body) document.body.classList.add("engine-panic");
+      else {
+        document.addEventListener("DOMContentLoaded", function () {
+          document.body.classList.add("engine-panic");
+        }, { once: true });
+      }
+    } catch (e) {}
+  }
+
+  window.__BETCEO_WATCHDOG_PANIC = panic;
+
+  window.addEventListener("error", function (event) {
+    var msg = event && event.message ? event.message : "";
+    var filename = event && event.filename ? event.filename.split("/").pop() : "";
+    var line = event && event.lineno ? " line " + event.lineno : "";
+    var detail = msg || "Unknown script error";
+    if (filename) detail += " @ " + filename + line;
+    panic(detail);
+  });
+
+  window.addEventListener("unhandledrejection", function (event) {
+    var reason = event && event.reason;
+    var detail = "Unhandled promise rejection";
+    if (reason) {
+      if (typeof reason === "string") detail += ": " + reason;
+      else if (reason && reason.message) detail += ": " + reason.message;
+      else detail += ": " + String(reason);
+    }
+    panic(detail);
+  });
+
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      if (!window.__BETCEO_ENGINE_BOOT_SEEN) {
+        panic("Main engine script failed to boot. Likely syntax error or broken script block.");
+      }
+    }, 700);
+  });
+})();
+</script>
+
+<script>
+window.__BETCEO_ENGINE_BOOT_SEEN = true;
 /*
 GLOBAL AUDIT INSTRUCTION
 
