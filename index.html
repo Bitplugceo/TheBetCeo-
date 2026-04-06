@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_settlement_patch_v1" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_settlement_patch_v1" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_settlement_patch_v1" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v11_soft_live" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v11_soft_live" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2355,7 +2355,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_settlement_patch_v1";
+    const APP_BUILD_VERSION = "tracker_cleanup_v11_soft_live_settle_merge_fix";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -4882,8 +4882,10 @@ function choosePreferredActivePick(existingPick, incomingPick) {
   const currentStatus = String(current.resultStatus || "pending").toLowerCase();
   const incomingStatus = String(incoming.resultStatus || "pending").toLowerCase();
 
-  if (incomingStatus !== "pending" && currentStatus === "pending") return incoming;
+  // Settled must always beat pending during local/server merge.
+  // Otherwise a stale pending copy can overwrite a win/loss/push after reload.
   if (currentStatus !== "pending" && incomingStatus === "pending") return current;
+  if (currentStatus === "pending" && incomingStatus !== "pending") return incoming;
 
   const sameSide = String(current.side || "") === String(incoming.side || "");
   if (sameSide && ["over", "under"].includes(String(current.side || "").toLowerCase())) {
@@ -6298,58 +6300,6 @@ function getTrackedLeagueBase(league) {
   return "";
 }
 
-function getTrackedScoreboardDateCandidates(pick) {
-  const out = [];
-  const seen = new Set();
-  const add = val => {
-    const s = String(val || "").replace(/\D/g, "");
-    if (s.length !== 8 || seen.has(s)) return;
-    seen.add(s);
-    out.push(s);
-  };
-
-  const rawEvent = String(pick?.eventDate || "").trim();
-  if (rawEvent) {
-    const d = new Date(rawEvent);
-    if (!isNaN(d.getTime())) add(d.toISOString().slice(0, 10));
-    add(rawEvent);
-  }
-
-  const now = new Date();
-  const offsets = [-1, 0, 1];
-  offsets.forEach(offset => {
-    const d = new Date(now);
-    d.setUTCDate(d.getUTCDate() + offset);
-    add(d.toISOString().slice(0, 10));
-  });
-
-  return out;
-}
-
-function extractTrackedCompetitionFromPayload(data, eventId = "") {
-  const wantedId = String(eventId || "");
-
-  const direct = data?.header?.competitions?.[0];
-  if (direct) return direct;
-
-  const events = Array.isArray(data?.events) ? data.events : [];
-  if (wantedId) {
-    const matched = events.find(ev => String(ev?.id || ev?.uid || "") === wantedId);
-    const comp = matched?.competitions?.[0];
-    if (comp) return comp;
-  }
-
-  for (const ev of events) {
-    const comp = ev?.competitions?.[0];
-    if (comp) return comp;
-  }
-
-  const eventish = data?.event || data?.game || null;
-  if (eventish?.competitions?.[0]) return eventish.competitions[0];
-
-  return null;
-}
-
     function sumLineScores(lines, count) {
       if (!Array.isArray(lines) || !lines.length) return 0;
       let total = 0;
@@ -6433,54 +6383,24 @@ function extractTrackedCompetitionFromPayload(data, eventId = "") {
             const base = getTrackedLeagueBase(p.league);
             if (!base) return null;
             const cacheKey = `${p.league}:${p.eventId}`;
-            return [cacheKey, {
-              cacheKey,
-              base,
-              eventId: p.eventId,
-              dateCandidates: getTrackedScoreboardDateCandidates(p)
-            }];
+            return [cacheKey, { cacheKey, base, eventId: p.eventId }];
           })
           .filter(Boolean)
       ).values()];
 
       const eventResults = await Promise.all(
         eventEntries.map(async entry => {
-          const stamp = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-          const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${stamp}`;
-          const summaryData = await proxyFetch(summaryUrl, 15000).catch(() => null);
-
-          let competition = extractTrackedCompetitionFromPayload(summaryData, entry.eventId);
-          let summaryWasFinal = !!(
-            competition?.status?.type?.completed ||
-            competition?.status?.type?.state === "post" ||
-            competition?.status?.type?.name === "STATUS_FINAL"
-          );
-
-          const scoreboardPayloads = [];
-          if (!summaryWasFinal) {
-            for (const dateKey of entry.dateCandidates) {
-              const boardUrl = `${entry.base}/scoreboard?dates=${dateKey}&limit=200&_=${stamp}`;
-              const boardData = await proxyFetch(boardUrl, 15000).catch(() => null);
-              if (boardData) scoreboardPayloads.push(boardData);
-              competition = extractTrackedCompetitionFromPayload(boardData, entry.eventId) || competition;
-              summaryWasFinal = !!(
-                competition?.status?.type?.completed ||
-                competition?.status?.type?.state === "post" ||
-                competition?.status?.type?.name === "STATUS_FINAL"
-              );
-              if (summaryWasFinal) break;
-            }
-          }
-
-          return [entry.cacheKey, { summaryData, scoreboardPayloads, competition }];
+          const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
+          const data = await proxyFetch(summaryUrl, 15000).catch(() => null);
+          return [entry.cacheKey, data];
         })
       );
 
       const eventMap = new Map(eventResults);
 
       pendingPicks.forEach(pick => {
-        const payload = eventMap.get(`${pick.league}:${pick.eventId}`);
-        const competition = payload?.competition || extractTrackedCompetitionFromPayload(payload?.summaryData, pick.eventId);
+        const data = eventMap.get(`${pick.league}:${pick.eventId}`);
+        const competition = data?.header?.competitions?.[0];
         if (!competition) return;
 
         const isFinal =
@@ -6494,7 +6414,6 @@ function extractTrackedCompetitionFromPayload(data, eventId = "") {
         if (settled !== "pending" && pick.resultStatus !== settled) {
           pick.resultStatus = settled;
           pick.settledAt = new Date().toISOString();
-          pick.updatedAt = new Date().toISOString();
           changed = true;
         }
       });
