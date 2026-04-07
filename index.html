@@ -2717,11 +2717,13 @@ body.dark-mode .tracker-analytics-section-head {
     if (!attach()) {
       document.addEventListener("DOMContentLoaded", attach, { once: true });
     }
+    setTimeout(refreshPanicDump, 0);
     return overlay;
   }
 
   function openOverlay() {
     var overlay = ensureOverlay();
+    refreshPanicDump();
     if (overlay) overlay.classList.add("open");
   }
 
