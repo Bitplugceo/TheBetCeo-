@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v24_nba_ncaa_tracker_only" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v24_nba_ncaa_tracker_only" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v24_nba_ncaa_tracker_only" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2953,7 +2953,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v21_buffer_output_only";
+    const APP_BUILD_VERSION = "tracker_cleanup_v24_nba_ncaa_tracker_only";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -5626,6 +5626,31 @@ function makeTrackedMatchupKey(pick) {
   return [home, away].sort().join(" vs ");
 }
 
+function isTrackerSupportedLeague(league = "") {
+  const key = String(league || "").trim().toLowerCase();
+  return key === "nba" || key === "ncaa";
+}
+
+function isTrackerSupportedPick(pick = {}) {
+  return isTrackerSupportedLeague(pick?.league || "");
+}
+
+function filterTrackerSupportedPicks(picks = [], limit = TRACKED_PICKS_LIMIT) {
+  return Array.isArray(picks)
+    ? picks
+        .map(p => ensureTrackedPickKeys(p))
+        .filter(isTrackerSupportedPick)
+        .slice(0, limit)
+    : [];
+}
+
+function refreshTrackerAvailabilityUI() {
+  const trackerToggleBtn = document.getElementById("trackerToggleBtn");
+  if (!trackerToggleBtn) return;
+  const league = document.getElementById("leagueSelect")?.value || "";
+  trackerToggleBtn.style.display = isTrackerSupportedLeague(league) ? "" : "none";
+}
+
 function ensureTrackedPickKeys(pick = {}) {
   const next = { ...pick };
 
@@ -5680,12 +5705,8 @@ function normalizeTrackerState(raw) {
     ? raw.lineMemory
     : {};
 
-  const normalizedActive = Array.isArray(raw?.activePicks)
-    ? raw.activePicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKED_PICKS_LIMIT)
-    : [];
-  const normalizedArchived = Array.isArray(raw?.archivedPicks)
-    ? raw.archivedPicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKER_ARCHIVED_LIMIT)
-    : [];
+  const normalizedActive = filterTrackerSupportedPicks(raw?.activePicks, TRACKED_PICKS_LIMIT);
+  const normalizedArchived = filterTrackerSupportedPicks(raw?.archivedPicks, TRACKER_ARCHIVED_LIMIT);
   const reconciled = reconcileTrackerBucketConflicts(normalizedActive, normalizedArchived);
 
   g_trackerState = {
@@ -6468,17 +6489,21 @@ async function flushTrackerSave() {
 }
 
 function loadTrackedPicks() {
-  return Array.isArray(g_trackerState.activePicks) ? g_trackerState.activePicks : [];
+  if (!Array.isArray(g_trackerState.activePicks)) return [];
+  g_trackerState.activePicks = filterTrackerSupportedPicks(g_trackerState.activePicks, TRACKED_PICKS_LIMIT);
+  return g_trackerState.activePicks;
 }
 
 function saveTrackedPicks(picks) {
-  g_trackerState.activePicks = Array.isArray(picks)
-    ? picks.map(p => ensureTrackedPickKeys({ ...p })).slice(0, TRACKED_PICKS_LIMIT)
-    : [];
+  g_trackerState.activePicks = filterTrackerSupportedPicks(
+    Array.isArray(picks) ? picks.map(p => ({ ...p })) : [],
+    TRACKED_PICKS_LIMIT
+  );
 
   if (!Array.isArray(g_trackerState.archivedPicks)) {
     g_trackerState.archivedPicks = [];
   }
+  g_trackerState.archivedPicks = filterTrackerSupportedPicks(g_trackerState.archivedPicks, TRACKER_ARCHIVED_LIMIT);
 
   rebuildTrackerStats();
   scheduleTrackerSave();
@@ -8082,6 +8107,11 @@ function handleTrackedPicksActionClick(event) {
       const eventMap = new Map(eventResults);
 
       pendingPicks.forEach(pick => {
+        const manualTrackedId = String(pick.eventId || "").startsWith("manual:");
+        const trackedBase = getTrackedLeagueBase(pick.league);
+        if (manualTrackedId || !trackedBase) {
+          return;
+        }
         const data = eventMap.get(`${pick.league}:${pick.eventId}`);
         const competition = data?.header?.competitions?.[0];
         if (!competition) {
@@ -12002,6 +12032,7 @@ function makeManualTrackerEventId(league, fixtureMeta = {}) {
 }
 
 function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnostics }) {
+  if (!isTrackerSupportedLeague(league)) return null;
   const resolvedEventId = String(fixtureMeta?.eventId || "").trim() || makeManualTrackerEventId(league, fixtureMeta || {});
   const resolvedEventDate = String(fixtureMeta?.eventDate || "").trim() || new Date().toISOString();
 
@@ -12902,6 +12933,7 @@ lockFrom("espnSection");
 updateSectionLocks();
 accordionOpen("leagueSection");
 validateFetchSection();
+refreshTrackerAvailabilityUI();
     }
 
     function onLeagueChange() {
@@ -12979,6 +13011,7 @@ if (!league) {
 if (isNbaOrNcaa) { accordionOpen("espnSection"); loadFixtures(0); }
 else accordionOpen("marketSection");
 validateFetchSection();
+refreshTrackerAvailabilityUI();
     }
 
     function toggleTheme() {
@@ -13099,8 +13132,7 @@ function applyBasketballOnlyUI() {
   const themeToggleBtn = document.getElementById("themeToggleBtn");
   if (themeToggleBtn) themeToggleBtn.textContent = "🏀";
 
-  const trackerToggleBtn = document.getElementById("trackerToggleBtn");
-  if (trackerToggleBtn) trackerToggleBtn.style.display = "";
+  refreshTrackerAvailabilityUI();
 
   safeSetSectionTitle("espnSection", '⚡ ESPN Auto-Fetch <span id="fetchSectionNote" style="font-size:11px;color:#aaa;">(NBA &amp; NCAA only)</span>');
   safeSetText("fixtureSelectLabel", "Select match");
@@ -13379,6 +13411,73 @@ window.addEventListener("unhandledrejection", event => {
       stack: err && err.stack ? err.stack : ""
     });
   }
+})();
+</script>
+
+<script>
+(function () {
+  function safeCollapseInit() {
+    try {
+      document.querySelectorAll(".section").forEach(function (section) {
+        if (!section || section.dataset.collapsibleReady === "1") return;
+        var heading = section.querySelector("h3");
+        if (!heading) return;
+        var titleHTML = heading.innerHTML;
+        var body = document.createElement("div");
+        body.className = "section-body";
+        Array.prototype.slice.call(section.childNodes).forEach(function (node) {
+          if (node !== heading) body.appendChild(node);
+        });
+
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "section-toggle";
+
+        var titleSpan = document.createElement("span");
+        titleSpan.className = "toggle-title";
+        titleSpan.innerHTML = titleHTML;
+
+        var iconSpan = document.createElement("span");
+        iconSpan.className = "toggle-icon";
+        iconSpan.innerHTML = "&#9662;";
+
+        btn.appendChild(titleSpan);
+        btn.appendChild(iconSpan);
+        btn.addEventListener("click", function () {
+          section.classList.toggle("collapsed");
+          if (typeof window.updateSectionLocks === "function") {
+            try { window.updateSectionLocks(); } catch (err) {}
+          }
+        });
+
+        section.innerHTML = "";
+        section.appendChild(btn);
+        section.appendChild(body);
+        section.classList.add("collapsed");
+        section.dataset.collapsibleReady = "1";
+      });
+
+      var league = document.getElementById("leagueSection");
+      if (league && league.dataset.collapsibleReady === "1") {
+        league.classList.remove("collapsed");
+      }
+    } catch (err) {
+      if (window.__BETCEO_WATCHDOG_PANIC) {
+        window.__BETCEO_WATCHDOG_PANIC("Fallback collapse initializer failed: " + (err && err.message ? err.message : String(err)), {
+          phase: "collapse-fallback",
+          stack: err && err.stack ? err.stack : ""
+        });
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", safeCollapseInit, { once: true });
+  } else {
+    safeCollapseInit();
+  }
+  window.addEventListener("load", safeCollapseInit, { once: true });
+  setTimeout(safeCollapseInit, 250);
 })();
 </script>
 
