@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v23_manual_refresh_quiet" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v23_manual_refresh_quiet" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v23_manual_refresh_quiet" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2580,6 +2580,76 @@ body.dark-mode .tracker-analytics-section-head {
         font-weight: 800;
         word-break: break-word;
       }
+      #betceoPanicBanner .panic-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+      #betceoPanicBanner .panic-btn,
+      #betceoPanicOverlay .panic-btn {
+        background: #1e1f26 !important;
+        color: #fff !important;
+        border: 1px solid rgba(255,255,255,0.26) !important;
+        padding: 6px 10px !important;
+        margin: 0 !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        cursor: pointer !important;
+      }
+      #betceoPanicOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100001;
+        display: none;
+        background: rgba(0,0,0,0.82);
+        padding: max(14px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom));
+      }
+      #betceoPanicOverlay.open {
+        display: block;
+      }
+      #betceoPanicOverlay .panic-shell {
+        max-width: 900px;
+        margin: 0 auto;
+        background: #190000;
+        color: #fff;
+        border: 2px solid #ff2b2b;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+      }
+      #betceoPanicOverlay .panic-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 14px;
+        background: #8f0000;
+        border-bottom: 1px solid rgba(255,255,255,0.14);
+        font-weight: 900;
+      }
+      #betceoPanicOverlay .panic-body {
+        padding: 12px 14px 14px;
+      }
+      #betceoPanicOverlay .panic-help {
+        color: #ffd7d7;
+        font-size: 11px;
+        line-height: 1.45;
+        margin-bottom: 10px;
+        font-weight: 700;
+      }
+      #betceoPanicDump {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.45;
+        background: #0b0b0f;
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.14);
+        padding: 10px;
+        max-height: 70vh;
+        overflow: auto;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -2590,10 +2660,21 @@ body.dark-mode .tracker-analytics-section-head {
     if (banner) return banner;
     banner = document.createElement("div");
     banner.id = "betceoPanicBanner";
-    banner.innerHTML = '<div class="panic-title">ENGINE PANIC</div><div class="panic-detail">Engine boot failure detected.</div>';
+    banner.innerHTML = ''
+      + '<div class="panic-title">ENGINE PANIC</div>'
+      + '<div class="panic-detail">Engine boot failure detected.</div>'
+      + '<div class="panic-actions">'
+      + '  <button type="button" id="betceoPanicOpen" class="panic-btn">Open panic details</button>'
+      + '</div>';
+
     function attach() {
       if (!document.body) return false;
       if (!banner.parentNode) document.body.appendChild(banner);
+      var openBtn = document.getElementById("betceoPanicOpen");
+      if (openBtn && !openBtn.__betceoBound) {
+        openBtn.__betceoBound = true;
+        openBtn.addEventListener("click", openOverlay);
+      }
       return true;
     }
     if (!attach()) {
@@ -2602,11 +2683,100 @@ body.dark-mode .tracker-analytics-section-head {
     return banner;
   }
 
-  function panic(message) {
+  function ensureOverlay() {
+    ensureStyles();
+    var overlay = document.getElementById("betceoPanicOverlay");
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.id = "betceoPanicOverlay";
+    overlay.innerHTML = ''
+      + '<div class="panic-shell">'
+      + '  <div class="panic-head">'
+      + '    <span>Engine panic details</span>'
+      + '    <button type="button" id="betceoPanicClose" class="panic-btn">Close</button>'
+      + '  </div>'
+      + '  <div class="panic-body">'
+      + '    <div class="panic-help">This catches hard boot failures too. Screenshot this when the engine goes red so we can trace the exact browser error instead of guessing like cavemen.</div>'
+      + '    <pre id="betceoPanicDump">No panic details recorded yet.</pre>'
+      + '  </div>'
+      + '</div>';
+    function attach() {
+      if (!document.body) return false;
+      if (!overlay.parentNode) document.body.appendChild(overlay);
+      var closeBtn = document.getElementById("betceoPanicClose");
+      if (closeBtn && !closeBtn.__betceoBound) {
+        closeBtn.__betceoBound = true;
+        closeBtn.addEventListener("click", closeOverlay);
+      }
+      overlay.addEventListener("click", function (ev) {
+        if (ev.target === overlay) closeOverlay();
+      });
+      return true;
+    }
+    if (!attach()) {
+      document.addEventListener("DOMContentLoaded", attach, { once: true });
+    }
+    setTimeout(refreshPanicDump, 0);
+    return overlay;
+  }
+
+  function openOverlay() {
+    var overlay = ensureOverlay();
+    refreshPanicDump();
+    if (overlay) overlay.classList.add("open");
+  }
+
+  function closeOverlay() {
+    var overlay = document.getElementById("betceoPanicOverlay");
+    if (overlay) overlay.classList.remove("open");
+  }
+
+  function formatPanicLogs() {
+    if (!window.__BETCEO_PANIC_LOGS.length) return "No panic details recorded yet.";
+    return window.__BETCEO_PANIC_LOGS.map(function (entry, idx) {
+      var lines = [];
+      lines.push("#" + (idx + 1) + "  " + new Date(entry.ts).toISOString());
+      lines.push("PHASE: " + (entry.phase || "unknown"));
+      lines.push("MESSAGE: " + (entry.msg || "Unknown engine failure"));
+      if (entry.filename) lines.push("FILE: " + entry.filename);
+      if (entry.line || entry.col) lines.push("AT: line " + (entry.line || "?") + ", col " + (entry.col || "?"));
+      if (entry.stack) {
+        lines.push("STACK:");
+        lines.push(String(entry.stack));
+      }
+      if (entry.extra) {
+        lines.push("EXTRA:");
+        lines.push(String(entry.extra));
+      }
+      return lines.join("\n");
+    }).join("\n\n────────────────────────\n\n");
+  }
+
+  function refreshPanicDump() {
+    var dump = document.getElementById("betceoPanicDump");
+    if (dump) dump.textContent = formatPanicLogs();
+  }
+
+  function normalizeMessage(raw) {
+    var msg = String(raw || "Unknown engine failure");
+    return msg.replace(/\s+/g, " ").trim();
+  }
+
+  function panic(message, meta) {
     try {
-      var msg = String(message || "Unknown engine failure");
-      window.__BETCEO_PANIC_LOGS.push({ ts: Date.now(), msg: msg });
-      ensureBanner().querySelector(".panic-detail").textContent = msg;
+      var payload = Object.assign({
+        ts: Date.now(),
+        msg: normalizeMessage(message),
+        phase: meta && meta.phase ? meta.phase : "runtime",
+        filename: meta && meta.filename ? meta.filename : "",
+        line: meta && meta.line ? meta.line : 0,
+        col: meta && meta.col ? meta.col : 0,
+        stack: meta && meta.stack ? String(meta.stack) : "",
+        extra: meta && meta.extra ? String(meta.extra) : ""
+      }, meta || {});
+      window.__BETCEO_PANIC_LOGS.push(payload);
+      ensureBanner().querySelector(".panic-detail").textContent = payload.msg;
+      refreshPanicDump();
       if (document.body) document.body.classList.add("engine-panic");
       else {
         document.addEventListener("DOMContentLoaded", function () {
@@ -2619,36 +2789,55 @@ body.dark-mode .tracker-analytics-section-head {
   window.__BETCEO_WATCHDOG_PANIC = panic;
 
   window.addEventListener("error", function (event) {
-    var msg = event && event.message ? event.message : "";
+    var msg = event && event.message ? event.message : "Unknown script error";
     var filename = event && event.filename ? event.filename.split("/").pop() : "";
-    var line = event && event.lineno ? " line " + event.lineno : "";
-    var detail = msg || "Unknown script error";
-    if (filename) detail += " @ " + filename + line;
-    panic(detail);
+    var line = event && event.lineno ? event.lineno : 0;
+    var col = event && event.colno ? event.colno : 0;
+    var detail = msg;
+    if (filename) detail += " @ " + filename;
+    if (line || col) detail += " line " + (line || "?") + ":" + (col || "?");
+    panic(detail, {
+      phase: "window-error",
+      filename: filename,
+      line: line,
+      col: col,
+      stack: event && event.error && event.error.stack ? event.error.stack : ""
+    });
   });
 
   window.addEventListener("unhandledrejection", function (event) {
     var reason = event && event.reason;
     var detail = "Unhandled promise rejection";
+    var stack = "";
     if (reason) {
       if (typeof reason === "string") detail += ": " + reason;
       else if (reason && reason.message) detail += ": " + reason.message;
       else detail += ": " + String(reason);
+      if (reason && reason.stack) stack = reason.stack;
     }
-    panic(detail);
+    panic(detail, {
+      phase: "promise-rejection",
+      stack: stack
+    });
   });
 
   window.addEventListener("load", function () {
     setTimeout(function () {
       if (!window.__BETCEO_ENGINE_BOOT_SEEN) {
-        panic("Main engine script failed to boot. Likely syntax error or broken script block.");
+        if (!window.__BETCEO_PANIC_LOGS.length) {
+          panic("Main engine script failed to boot. The loader never saw a successful engine start.", {
+            phase: "boot-timeout"
+          });
+        } else {
+          refreshPanicDump();
+        }
       }
     }, 700);
   });
 })();
 </script>
 
-<script>
+<script type="text/plain" id="betceoEngineSource">
 window.__BETCEO_ENGINE_BOOT_SEEN = true;
 /*
 GLOBAL AUDIT INSTRUCTION
@@ -2764,7 +2953,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v21_buffer_output_only";
+    const APP_BUILD_VERSION = "tracker_cleanup_v23_manual_refresh_quiet";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -7893,6 +8082,11 @@ function handleTrackedPicksActionClick(event) {
       const eventMap = new Map(eventResults);
 
       pendingPicks.forEach(pick => {
+        const manualTrackedId = String(pick.eventId || "").startsWith("manual:");
+        const trackedBase = getTrackedLeagueBase(pick.league);
+        if (manualTrackedId || !trackedBase) {
+          return;
+        }
         const data = eventMap.get(`${pick.league}:${pick.eventId}`);
         const competition = data?.header?.competitions?.[0];
         if (!competition) {
@@ -13153,6 +13347,45 @@ window.addEventListener("unhandledrejection", event => {
 });
     });
   </script>
+<script>
+(function () {
+  var panic = window.__BETCEO_WATCHDOG_PANIC || function () {};
+  var sourceNode = document.getElementById("betceoEngineSource");
+  if (!sourceNode) {
+    panic("Engine source block is missing.", { phase: "engine-loader" });
+    return;
+  }
+  var source = sourceNode.textContent || "";
+  if (!source.trim()) {
+    panic("Engine source block is empty.", { phase: "engine-loader" });
+    return;
+  }
+
+  try {
+    var blob = new Blob([source + "\n//# sourceURL=betceo-engine-inline.js"], { type: "text/javascript" });
+    var blobUrl = URL.createObjectURL(blob);
+    var script = document.createElement("script");
+    script.src = blobUrl;
+    script.async = false;
+    script.onload = function () {
+      try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+    };
+    script.onerror = function () {
+      try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+      panic("Engine script failed to load or parse. Check panic details for the browser-reported file and line.", {
+        phase: "engine-loader",
+        filename: "betceo-engine-inline.js"
+      });
+    };
+    (document.body || document.documentElement).appendChild(script);
+  } catch (err) {
+    panic("Engine loader failed: " + (err && err.message ? err.message : String(err)), {
+      phase: "engine-loader",
+      stack: err && err.stack ? err.stack : ""
+    });
+  }
+})();
+</script>
 
 </body>
 </html>
