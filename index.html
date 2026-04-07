@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v16_bb_audited" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_bb_audited" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v16_bb_audited" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_buffer_output_only_manual_track" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2953,7 +2953,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v16_bb_audited";
+    const APP_BUILD_VERSION = "tracker_cleanup_v21_buffer_output_only";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -8082,11 +8082,6 @@ function handleTrackedPicksActionClick(event) {
       const eventMap = new Map(eventResults);
 
       pendingPicks.forEach(pick => {
-        const manualTrackedId = String(pick.eventId || "").startsWith("manual:");
-        const trackedBase = getTrackedLeagueBase(pick.league);
-        if (manualTrackedId || !trackedBase) {
-          return;
-        }
         const data = eventMap.get(`${pick.league}:${pick.eventId}`);
         const competition = data?.header?.competitions?.[0];
         if (!competition) {
@@ -13383,145 +13378,6 @@ window.addEventListener("unhandledrejection", event => {
       phase: "engine-loader",
       stack: err && err.stack ? err.stack : ""
     });
-  }
-})();
-</script>
-
-<script>
-(function () {
-  var retryBudget = 18;
-  var retryTimer = null;
-  var observer = null;
-
-  function tryUpdateSectionLocks() {
-    if (typeof window.updateSectionLocks === "function") {
-      try { window.updateSectionLocks(); } catch (err) {}
-    }
-  }
-
-  function sectionsReady() {
-    var sections = document.querySelectorAll(".section");
-    if (!sections.length) return false;
-    return Array.prototype.every.call(sections, function (section) {
-      return section && section.dataset.collapsibleReady === "1";
-    });
-  }
-
-  function applyDefaultSectionState() {
-    document.querySelectorAll(".section").forEach(function (section) {
-      if (!section || section.dataset.collapsibleReady !== "1") return;
-      section.classList.add("collapsed");
-      section.classList.remove("locked");
-    });
-
-    var league = document.getElementById("leagueSection");
-    if (league && league.dataset.collapsibleReady === "1") {
-      league.classList.remove("collapsed");
-    }
-
-    var espnEl = document.getElementById("espnSection");
-    var leagueSelect = document.getElementById("leagueSelect");
-    if (espnEl && leagueSelect && !String(leagueSelect.value || "").trim()) {
-      espnEl.style.display = "none";
-    }
-
-    tryUpdateSectionLocks();
-  }
-
-  function transformSection(section) {
-    if (!section || section.dataset.collapsibleReady === "1") return;
-    var heading = section.querySelector("h3");
-    if (!heading) return;
-
-    var titleHTML = heading.innerHTML;
-    var body = document.createElement("div");
-    body.className = "section-body";
-
-    Array.prototype.slice.call(section.childNodes).forEach(function (node) {
-      if (node !== heading) body.appendChild(node);
-    });
-
-    var btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "section-toggle";
-
-    var titleSpan = document.createElement("span");
-    titleSpan.className = "toggle-title";
-    titleSpan.innerHTML = titleHTML;
-
-    var iconSpan = document.createElement("span");
-    iconSpan.className = "toggle-icon";
-    iconSpan.innerHTML = "&#9662;";
-
-    btn.appendChild(titleSpan);
-    btn.appendChild(iconSpan);
-    btn.addEventListener("click", function () {
-      section.classList.toggle("collapsed");
-      tryUpdateSectionLocks();
-    });
-
-    section.innerHTML = "";
-    section.appendChild(btn);
-    section.appendChild(body);
-    section.classList.add("collapsed");
-    section.dataset.collapsibleReady = "1";
-  }
-
-  function safeCollapseInit() {
-    try {
-      document.querySelectorAll(".section").forEach(transformSection);
-      applyDefaultSectionState();
-
-      if (sectionsReady()) {
-        if (retryTimer) {
-          clearTimeout(retryTimer);
-          retryTimer = null;
-        }
-        if (observer) {
-          observer.disconnect();
-          observer = null;
-        }
-        return;
-      }
-
-      if (retryBudget > 0) {
-        retryBudget -= 1;
-        if (retryTimer) clearTimeout(retryTimer);
-        retryTimer = setTimeout(safeCollapseInit, 180);
-      }
-    } catch (err) {
-      if (window.__BETCEO_WATCHDOG_PANIC) {
-        window.__BETCEO_WATCHDOG_PANIC("Fallback collapse initializer failed: " + (err && err.message ? err.message : String(err)), {
-          phase: "collapse-fallback",
-          stack: err && err.stack ? err.stack : ""
-        });
-      }
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", safeCollapseInit, { once: true });
-  } else {
-    safeCollapseInit();
-  }
-
-  window.addEventListener("load", safeCollapseInit, { once: true });
-  setTimeout(safeCollapseInit, 0);
-  setTimeout(safeCollapseInit, 120);
-  setTimeout(safeCollapseInit, 350);
-  setTimeout(safeCollapseInit, 900);
-
-  if (typeof MutationObserver === "function") {
-    observer = new MutationObserver(function () {
-      if (!sectionsReady()) safeCollapseInit();
-    });
-    if (document.body) {
-      observer.observe(document.body, { childList: true, subtree: true });
-    } else {
-      document.addEventListener("DOMContentLoaded", function () {
-        if (document.body && observer) observer.observe(document.body, { childList: true, subtree: true });
-      }, { once: true });
-    }
   }
 })();
 </script>
