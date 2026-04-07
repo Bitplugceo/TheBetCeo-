@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v21_buffer_output_only" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_buffer_output_only" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_buffer_output_only" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v21_nba_ncaa_tracker_only" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_nba_ncaa_tracker_only" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_nba_ncaa_tracker_only" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2764,7 +2764,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v21_buffer_output_only";
+    const APP_BUILD_VERSION = "tracker_cleanup_v21_nba_ncaa_tracker_only";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -5491,11 +5491,19 @@ function normalizeTrackerState(raw) {
     ? raw.lineMemory
     : {};
 
+  const supportedTrackerPick = pick => isTrackerSupportedLeague(pick?.league);
+
   const normalizedActive = Array.isArray(raw?.activePicks)
-    ? raw.activePicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKED_PICKS_LIMIT)
+    ? raw.activePicks
+        .map(p => ensureTrackedPickKeys(p))
+        .filter(supportedTrackerPick)
+        .slice(0, TRACKED_PICKS_LIMIT)
     : [];
   const normalizedArchived = Array.isArray(raw?.archivedPicks)
-    ? raw.archivedPicks.map(p => ensureTrackedPickKeys(p)).slice(0, TRACKER_ARCHIVED_LIMIT)
+    ? raw.archivedPicks
+        .map(p => ensureTrackedPickKeys(p))
+        .filter(supportedTrackerPick)
+        .slice(0, TRACKER_ARCHIVED_LIMIT)
     : [];
   const reconciled = reconcileTrackerBucketConflicts(normalizedActive, normalizedArchived);
 
@@ -6284,7 +6292,10 @@ function loadTrackedPicks() {
 
 function saveTrackedPicks(picks) {
   g_trackerState.activePicks = Array.isArray(picks)
-    ? picks.map(p => ensureTrackedPickKeys({ ...p })).slice(0, TRACKED_PICKS_LIMIT)
+    ? picks
+        .map(p => ensureTrackedPickKeys({ ...p }))
+        .filter(p => isTrackerSupportedLeague(p?.league))
+        .slice(0, TRACKED_PICKS_LIMIT)
     : [];
 
   if (!Array.isArray(g_trackerState.archivedPicks)) {
@@ -7665,8 +7676,12 @@ function getTrackedLeagueBase(league) {
   return "";
 }
 
+function isTrackerSupportedLeague(league) {
+  return !!getTrackedLeagueBase(String(league || "").toLowerCase());
+}
+
 function isManualSettlementLeague(league) {
-  return !getTrackedLeagueBase(String(league || "").toLowerCase());
+  return !isTrackerSupportedLeague(league);
 }
 
 function canManuallySettleTrackedPick(pick) {
@@ -7862,10 +7877,16 @@ function handleTrackedPicksActionClick(event) {
     }
 
     let changed = false;
-    const pendingPicks = allBuckets.filter(p => p && p.eventId && (!p.resultStatus || p.resultStatus === "pending"));
+    const pendingPicks = allBuckets.filter(p => (
+      p &&
+      p.eventId &&
+      (!p.resultStatus || p.resultStatus === "pending") &&
+      isTrackerSupportedLeague(p.league)
+    ));
     trackerDebug("refresh started", {
       totalBuckets: allBuckets.length,
       pendingPicks: pendingPicks.length,
+      skippedUnsupported: allBuckets.filter(p => p && p.eventId && !isTrackerSupportedLeague(p.league)).length,
       key: getTrackerUserKey()
     });
 
@@ -11809,7 +11830,8 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
   pickRow.pick === "NO PLAY" ||
   pickRow.note ||
   !isFinite(pickRow.line) ||
-  !fixtureMeta?.eventId
+  !fixtureMeta?.eventId ||
+  !isTrackerSupportedLeague(league)
 ) {
   return null;
 }
@@ -12604,8 +12626,11 @@ if (trackedToSave.length) {
     trackerStateAfterSave: getTrackerStateDebugScore(g_trackerState)
   });
 } else if (actionablePicks.length) {
+  const trackerReason = isTrackerSupportedLeague(league)
+    ? "no valid fixture event is linked."
+    : "tracker is enabled for NBA and NCAA leagues only.";
   setStatusText(
-    "⚠ Picks were generated, but they were not saved to tracker because no valid fixture event is linked.",
+    `⚠ Picks were generated, but they were not saved to tracker because ${trackerReason}`,
     "err"
   );
 }
