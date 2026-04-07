@@ -13387,5 +13387,72 @@ window.addEventListener("unhandledrejection", event => {
 })();
 </script>
 
+<script>
+(function () {
+  function safeCollapseInit() {
+    try {
+      document.querySelectorAll(".section").forEach(function (section) {
+        if (!section || section.dataset.collapsibleReady === "1") return;
+        var heading = section.querySelector("h3");
+        if (!heading) return;
+        var titleHTML = heading.innerHTML;
+        var body = document.createElement("div");
+        body.className = "section-body";
+        Array.prototype.slice.call(section.childNodes).forEach(function (node) {
+          if (node !== heading) body.appendChild(node);
+        });
+
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "section-toggle";
+
+        var titleSpan = document.createElement("span");
+        titleSpan.className = "toggle-title";
+        titleSpan.innerHTML = titleHTML;
+
+        var iconSpan = document.createElement("span");
+        iconSpan.className = "toggle-icon";
+        iconSpan.innerHTML = "&#9662;";
+
+        btn.appendChild(titleSpan);
+        btn.appendChild(iconSpan);
+        btn.addEventListener("click", function () {
+          section.classList.toggle("collapsed");
+          if (typeof window.updateSectionLocks === "function") {
+            try { window.updateSectionLocks(); } catch (err) {}
+          }
+        });
+
+        section.innerHTML = "";
+        section.appendChild(btn);
+        section.appendChild(body);
+        section.classList.add("collapsed");
+        section.dataset.collapsibleReady = "1";
+      });
+
+      var league = document.getElementById("leagueSection");
+      if (league && league.dataset.collapsibleReady === "1") {
+        league.classList.remove("collapsed");
+      }
+    } catch (err) {
+      if (window.__BETCEO_WATCHDOG_PANIC) {
+        window.__BETCEO_WATCHDOG_PANIC("Fallback collapse initializer failed: " + (err && err.message ? err.message : String(err)), {
+          phase: "collapse-fallback",
+          stack: err && err.stack ? err.stack : ""
+        });
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", safeCollapseInit, { once: true });
+  } else {
+    safeCollapseInit();
+  }
+  window.addEventListener("load", safeCollapseInit, { once: true });
+  setTimeout(safeCollapseInit, 250);
+})();
+</script>
+
 </body>
 </html>
