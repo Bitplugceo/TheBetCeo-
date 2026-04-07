@@ -4172,7 +4172,7 @@ function trackerDebug(message, extra = null) {
       g_trackerDebugLog = g_trackerDebugLog.slice(0, TRACKER_DEBUG_LIMIT);
     }
     console.log("[BB Tracker Debug]", message, extra ?? "");
-    if (getDebugSeverity(line) === "error") {
+    if (shouldTriggerEngineAlert(line)) {
       triggerGlobalEngineAlert(line);
     }
     renderTrackerDebugPanel();
@@ -4342,9 +4342,24 @@ function buildReportDebugCard(title, lines = [], limit = 10, emptyText = "No deb
   `;
 }
 
+function isIgnoredEngineWatchLine(line = "") {
+  const text = String(line || "").toLowerCase().trim();
+  if (!text) return false;
+
+  return text.includes("validation failed") ||
+    text.includes("run blocked missing league") ||
+    text.includes("run blocked duplicate teams");
+}
+
+function shouldTriggerEngineAlert(line = "") {
+  return isImportantDebugLine(line, "engine") && getDebugSeverity(line) === "error";
+}
+
 function isImportantDebugLine(line = "", scope = "engine") {
   const text = String(line || "").toLowerCase().trim();
   if (!text) return false;
+
+  if (scope === "engine" && isIgnoredEngineWatchLine(text)) return false;
 
   const fatalSignals = [
     "runtime error",
@@ -4364,8 +4379,6 @@ function isImportantDebugLine(line = "", scope = "engine") {
 
   const actionableSignals = [
     "run failed",
-    "run blocked",
-    "validation failed",
     "fetch worker failed",
     "fetch direct failed",
     "summary worker fetch failed",
@@ -4375,7 +4388,6 @@ function isImportantDebugLine(line = "", scope = "engine") {
     "tracker push failed",
     "missing competition data",
     "refresh final game still returned pending",
-    "invalid",
     "nan",
     "mismatch",
     "rejected"
@@ -4385,7 +4397,7 @@ function isImportantDebugLine(line = "", scope = "engine") {
   if (actionableSignals.some(signal => text.includes(signal))) return true;
 
   const severity = getDebugSeverity(text);
-  if (severity === "error") return true;
+  if (severity === "error" && scope !== "engine") return true;
 
   if (scope === "tracker") {
     return text.includes("refresh missing competition data") ||
@@ -4397,12 +4409,12 @@ function isImportantDebugLine(line = "", scope = "engine") {
 
   if (scope === "engine") {
     return text.includes("run failed") ||
-      text.includes("run blocked") ||
-      text.includes("validation failed") ||
       text.includes("fetch worker failed") ||
       text.includes("fetch direct failed") ||
       text.includes("summary worker fetch failed") ||
-      text.includes("summary direct fetch failed");
+      text.includes("summary direct fetch failed") ||
+      text.includes("nan") ||
+      text.includes("mismatch");
   }
 
   return false;
@@ -7185,7 +7197,7 @@ function renderTrackerAnalytics() {
           <div class="tracker-analytics-heading">
             <div class="tracker-analytics-kicker">Engine debug</div>
             <div class="tracker-analytics-title">Error watch</div>
-            <div class="tracker-analytics-subtitle">Only real engine or tracker problems show here. Healthy activity stays hidden in the backend logs.</div>
+            <div class="tracker-analytics-subtitle">Only actual engine or tracker failures show here. Input validation and user-entry issues stay out of this watch.</div>
           </div>
         </div>
         ${debugBodyHtml}
