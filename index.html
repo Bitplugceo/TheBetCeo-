@@ -1349,11 +1349,13 @@ body.dark-mode .tracker-analytics-panel {
 
 .tracker-report-table-wrap {
   margin: 0;
+  overflow-x: hidden;
 }
 
 .tracker-report-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 11px;
   background: var(--panel);
 }
@@ -1364,13 +1366,15 @@ body.dark-mode .tracker-analytics-panel {
   padding: 7px 6px;
   text-align: left;
   vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .tracker-report-table th {
   background: var(--table-head);
   color: #fff;
   font-weight: 800;
-  white-space: nowrap;
 }
 
 .tracker-report-table td {
@@ -1382,14 +1386,13 @@ body.dark-mode .tracker-analytics-panel {
 .tracker-report-table td.num,
 .tracker-report-table th.num {
   text-align: center;
-  width: 58px;
+  width: 12%;
 }
 
 .tracker-report-table td.rate,
 .tracker-report-table th.rate {
   text-align: center;
-  white-space: nowrap;
-  width: 86px;
+  width: 16%;
 }
 
 .tracker-report-table td.note {
@@ -1412,6 +1415,15 @@ body.dark-mode .tracker-analytics-panel {
 
 .tracker-report-empty-row {
   color: var(--tracker-subtext);
+}
+
+.tracker-report-table th,
+.tracker-report-table td,
+.tracker-analytics-table th,
+.tracker-analytics-table td,
+.tracker-rate-table th,
+.tracker-rate-table td {
+  max-width: 0;
 }
 
 @media (min-width: 700px) {
@@ -1781,6 +1793,7 @@ body.dark-mode .tracker-bar-stage {
 .tracker-analytics-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 11px;
   background: var(--panel);
 }
@@ -1790,6 +1803,9 @@ body.dark-mode .tracker-bar-stage {
   padding: 7px 6px;
   text-align: left;
   vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .tracker-analytics-table th {
   background: var(--table-head);
@@ -1806,7 +1822,6 @@ body.dark-mode .tracker-bar-stage {
 .tracker-analytics-table td.rate,
 .tracker-analytics-table th.rate {
   text-align: center;
-  white-space: nowrap;
 }
 .tracker-analytics-table td.note {
   color: var(--tracker-subtext);
@@ -2058,6 +2073,7 @@ body.dark-mode .tracker-analytics-section-head {
 .tracker-rate-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 11px;
 }
 .tracker-rate-table th,
@@ -2066,6 +2082,9 @@ body.dark-mode .tracker-analytics-section-head {
   padding: 7px 6px;
   text-align: left;
   vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .tracker-rate-table th {
   background: var(--table-head);
@@ -2080,7 +2099,6 @@ body.dark-mode .tracker-analytics-section-head {
 .tracker-rate-table td.center,
 .tracker-rate-table th.center {
   text-align: center;
-  white-space: nowrap;
 }
 .tracker-horizontal-bars {
   display: grid;
