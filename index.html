@@ -2127,11 +2127,82 @@ body.dark-mode .tracker-analytics-section-head {
   padding: 4px 6px;
 }
 
+.league-trust-desktop-table {
+  display: block;
+}
+
+.league-trust-mobile-list {
+  display: none;
+}
+
+.league-trust-mobile-card {
+  border: 1px solid var(--table-border);
+  background: var(--panel-soft);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.league-trust-mobile-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.league-trust-mobile-league {
+  color: var(--tracker-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.league-trust-mobile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.league-trust-mobile-stat {
+  border: 1px solid var(--table-border);
+  background: var(--panel);
+  padding: 6px 5px;
+  display: grid;
+  gap: 3px;
+}
+
+.league-trust-mobile-stat strong {
+  color: var(--tracker-subtext);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.league-trust-mobile-stat span {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.league-trust-mobile-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.league-trust-mobile-guidance {
+  color: var(--tracker-strong);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
 @media (max-width: 560px) {
   .tracker-report-table,
   .tracker-analytics-table,
   .tracker-rate-table {
-    font-size: 9px;
+    font-size: 8.5px;
     line-height: 1.15;
   }
 
@@ -2144,14 +2215,42 @@ body.dark-mode .tracker-analytics-section-head {
     padding: 4px 3px;
   }
 
+  .tracker-analytics-table th {
+    white-space: nowrap;
+  }
+
+  .tracker-analytics-table td.note,
+  .tracker-analytics-table td:first-child {
+    white-space: normal;
+  }
+
   .tracker-analytics-section-head,
   .tracker-analytics-card-head {
     padding: 7px 8px;
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+  }
+
+  .tracker-analytics-card-title {
+    letter-spacing: 0.5px;
   }
 
   .tracker-analytics-section-meta,
   .tracker-analytics-card-meta {
     font-size: 9px;
+    line-height: 1.2;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .league-trust-desktop-table {
+    display: none;
+  }
+
+  .league-trust-mobile-list {
+    display: grid;
+    gap: 8px;
   }
 
   .league-trust-pill {
@@ -7626,7 +7725,7 @@ function renderTrackerAnalytics() {
           <div class="tracker-analytics-card-meta">Usage labels for the selected and tracked leagues</div>
         </div>
         <div class="tracker-analytics-card-body">
-          <div class="table-wrap tracker-report-table-wrap">
+          <div class="table-wrap tracker-report-table-wrap league-trust-desktop-table">
             <table class="tracker-analytics-table">
               <thead>
                 <tr>
@@ -7661,6 +7760,43 @@ function renderTrackerAnalytics() {
                 `}
               </tbody>
             </table>
+          </div>
+          <div class="league-trust-mobile-list">
+            ${leagueTrustRows.length ? leagueTrustRows.map(row => `
+              <div class="league-trust-mobile-card">
+                <div class="league-trust-mobile-top">
+                  <div class="league-trust-mobile-league">${safeText(row.label)}</div>
+                  <span class="league-trust-pill ${safeText(getLeagueTrustCssClass(row.trust.level))}">${safeText(row.trust.label)}</span>
+                </div>
+                <div class="league-trust-mobile-grid">
+                  <div class="league-trust-mobile-stat">
+                    <strong>Settled</strong>
+                    <span>${Number(row.settled || 0)}</span>
+                  </div>
+                  <div class="league-trust-mobile-stat">
+                    <strong>Wins</strong>
+                    <span>${Number(row.wins || 0)}</span>
+                  </div>
+                  <div class="league-trust-mobile-stat">
+                    <strong>Losses</strong>
+                    <span>${Number(row.losses || 0)}</span>
+                  </div>
+                  <div class="league-trust-mobile-stat">
+                    <strong>Pushes</strong>
+                    <span>${Number(row.pushes || 0)}</span>
+                  </div>
+                  <div class="league-trust-mobile-stat">
+                    <strong>Win rate</strong>
+                    <span>${row.settled ? safeText(formatPct(row.winPct)) : "—"}</span>
+                  </div>
+                  <div class="league-trust-mobile-stat">
+                    <strong>Action</strong>
+                    <span>${safeText(row.action.label)}</span>
+                  </div>
+                </div>
+                <div class="league-trust-mobile-guidance">${safeText(row.trust.guidance)}</div>
+              </div>
+            `).join("") : `<div class="tracker-empty-note">Pick a league or settle some results to start building the trust board.</div>`}
           </div>
           <div class="league-trust-note">Trusted = full plays allowed. Needs retune = advisory-only. Do not use = blocked to no-play until recalibrated.</div>
           <div class="league-trust-note">Non-NBA / non-NCAA picks can now be settled manually from Tracked Picks so Report can learn from them too.</div>
