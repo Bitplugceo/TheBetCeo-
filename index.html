@@ -12,9 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="BB Engine" />
   <meta name="theme-color" content="#d4af37" />
 
-  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v21_nba_ncaa_tracker_only" />
-  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_nba_ncaa_tracker_only" />
-  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v21_nba_ncaa_tracker_only" />
+  <link rel="manifest" href="manifest.json?v=tracker_cleanup_v22_measurement_lab" />
+  <link rel="apple-touch-icon" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
+  <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
 
   <title>Basketball Prediction Engine</title>
 
@@ -2764,7 +2764,7 @@ CLOSED — DO NOT TOUCH.
 
 ANY AUDIT THAT COMMENTS ON THIS BLOCK WITHOUT THAT PROOF IS INVALID.
 */
-    const APP_BUILD_VERSION = "tracker_cleanup_v21_nba_ncaa_tracker_only";
+    const APP_BUILD_VERSION = "tracker_cleanup_v22_measurement_lab";
 const STANDALONE_BUILD_MARKER = "bb_engine_standalone_build";
 const WORKER_URL = "https://thebetceo-engine.ridwantunde636.workers.dev/";
 const WORKER_BASE_URL = String(WORKER_URL || "").replace(/\/+$/, "");
@@ -3369,7 +3369,7 @@ function resolveLineWithMemory({ eventId, league, marketKey, currentLine, side =
     };
   }
 
-  const savedLine = Number(entry.line);
+  const savedLine = Number(entry.bestLine ?? entry.line);
 
   if (!isFinite(savedLine) || savedLine <= 0) {
     return {
@@ -3424,10 +3424,13 @@ function upsertEngineLineMemory({
       marketKey,
       side: cleanSide,
       line: cleanLine,
+      bestLine: cleanLine,
+      latestLine: cleanLine,
       homeTeam: homeTeam || "",
       awayTeam: awayTeam || "",
       createdAt: nowIso,
-      updatedAt: nowIso
+      updatedAt: nowIso,
+      lastSeenAt: nowIso
     };
     saveEngineLineMemory();
     return g_engineLineMemory[key];
@@ -3437,15 +3440,19 @@ function upsertEngineLineMemory({
     return existing;
   }
 
-  if (isBetterLineForSide(cleanSide, cleanLine, existing.line)) {
+  existing.latestLine = cleanLine;
+  existing.lastSeenAt = nowIso;
+
+  if (isBetterLineForSide(cleanSide, cleanLine, existing.bestLine ?? existing.line)) {
     existing.line = cleanLine;
+    existing.bestLine = cleanLine;
     existing.eventDate = eventDate || existing.eventDate || "";
     existing.homeTeam = homeTeam || existing.homeTeam || "";
     existing.awayTeam = awayTeam || existing.awayTeam || "";
     existing.updatedAt = nowIso;
-    saveEngineLineMemory();
   }
 
+  saveEngineLineMemory();
   return existing;
 }
 
@@ -3476,10 +3483,13 @@ function mergeLineMemoryFromSource(source = {}) {
         marketKey,
         side: cleanSide,
         line: cleanLine,
+        bestLine: Number(entry.bestLine ?? cleanLine),
+        latestLine: Number(entry.latestLine ?? cleanLine),
         homeTeam: entry.homeTeam || "",
         awayTeam: entry.awayTeam || "",
         createdAt: entry.createdAt || new Date().toISOString(),
-        updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString()
+        updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
+        lastSeenAt: entry.lastSeenAt || entry.updatedAt || entry.createdAt || new Date().toISOString()
       };
       dirty = true;
       return;
@@ -3487,8 +3497,18 @@ function mergeLineMemoryFromSource(source = {}) {
 
     if (String(existing.side || "").toLowerCase() !== cleanSide) return;
 
-    if (isBetterLineForSide(cleanSide, cleanLine, existing.line)) {
-      existing.line = cleanLine;
+    const incomingBestLine = Number(entry.bestLine ?? cleanLine);
+    const incomingLatestLine = Number(entry.latestLine ?? cleanLine);
+
+    if (isFinite(incomingLatestLine) && incomingLatestLine > 0) {
+      existing.latestLine = incomingLatestLine;
+      existing.lastSeenAt = entry.lastSeenAt || entry.updatedAt || new Date().toISOString();
+      dirty = true;
+    }
+
+    if (isBetterLineForSide(cleanSide, incomingBestLine, existing.bestLine ?? existing.line)) {
+      existing.line = incomingBestLine;
+      existing.bestLine = incomingBestLine;
       existing.eventDate = entry.eventDate || existing.eventDate || "";
       existing.homeTeam = entry.homeTeam || existing.homeTeam || "";
       existing.awayTeam = entry.awayTeam || existing.awayTeam || "";
@@ -3530,10 +3550,13 @@ function backfillLineMemoryFromTrackedPicks() {
         marketKey,
         side,
         line,
+        bestLine: line,
+        latestLine: line,
         homeTeam: pick.homeTeam || "",
         awayTeam: pick.awayTeam || "",
         createdAt: pick.createdAt || new Date().toISOString(),
-        updatedAt: pick.createdAt || new Date().toISOString()
+        updatedAt: pick.createdAt || new Date().toISOString(),
+        lastSeenAt: pick.createdAt || new Date().toISOString()
       };
       dirty = true;
       return;
@@ -3541,8 +3564,15 @@ function backfillLineMemoryFromTrackedPicks() {
 
     if (String(existing.side || "").toLowerCase() !== side) return;
 
-    if (isBetterLineForSide(side, line, existing.line)) {
+    if (!isFinite(Number(existing.latestLine)) || Number(existing.latestLine) <= 0) {
+      existing.latestLine = line;
+      existing.lastSeenAt = new Date().toISOString();
+      dirty = true;
+    }
+
+    if (isBetterLineForSide(side, line, existing.bestLine ?? existing.line)) {
       existing.line = line;
+      existing.bestLine = line;
       existing.updatedAt = new Date().toISOString();
       dirty = true;
     }
@@ -5467,13 +5497,199 @@ function ensureTrackedPickKeys(pick = {}) {
   next.confidenceGrade = String(
     next.confidenceGrade || next.confidence || next?.diagnostics?.confidenceGrade || ""
   ).toUpperCase();
+  next.originalConfidenceGrade = String(
+    next.originalConfidenceGrade || next?.diagnostics?.shadowTrackerFeedback?.originalConfidence || next.confidenceGrade || ""
+  ).toUpperCase();
+  next.projection = isFinite(Number(next.projection)) ? Number(next.projection) : (isFinite(Number(next.proj)) ? Number(next.proj) : null);
+  next.lineAtPick = isFinite(Number(next.lineAtPick)) ? Number(next.lineAtPick) : (isFinite(Number(next.line)) ? Number(next.line) : null);
+  next.edge = isFinite(Number(next.edge)) ? Number(next.edge) : null;
+  next.edgePct = isFinite(Number(next.edgePct)) ? Number(next.edgePct) : (isFinite(Number(next.edge)) && isFinite(Number(next.lineAtPick)) && Number(next.lineAtPick) ? (Number(next.edge) / Number(next.lineAtPick)) * 100 : null);
+  next.trackerSoftInfluence = next.trackerSoftInfluence || next?.diagnostics?.trackerSoftInfluence || null;
+  next.trackerFeedback = next.trackerFeedback || next?.diagnostics?.trackerFeedback || null;
+  next.shadowTrackerFeedback = next.shadowTrackerFeedback || next?.diagnostics?.shadowTrackerFeedback || null;
+  next.teamMemory = next.teamMemory || next?.diagnostics?.teamMemory || null;
+  next.lockRestricted = !!next.lockRestricted;
+  next.trackerImpactKey = next.trackerImpactKey || next?.diagnostics?.trackerImpactKey || getTrackerImpactKeyFromPickLike(next);
+  next.trackerImpactLabel = next.trackerImpactLabel || next?.diagnostics?.trackerImpactLabel || getTrackerImpactLabel(next.trackerImpactKey);
 
-    next.resultStatus = String(next.resultStatus || "pending").toLowerCase();
+  next.resultStatus = String(next.resultStatus || "pending").toLowerCase();
   next.modelVersion = normalizeModelVersion(next.modelVersion);
   next.createdAt = next.createdAt || new Date().toISOString();
   next.signature = next.signature || makeTrackedSignature(next);
+  next.pickId = next.pickId || next.signature;
 
   return next;
+}
+
+function getConfidenceRank(grade = "") {
+  const raw = String(grade || "").toUpperCase();
+  if (raw === "A") return 4;
+  if (raw === "B") return 3;
+  if (raw === "C") return 2;
+  if (raw === "D") return 1;
+  return 0;
+}
+
+function getTrackedPickEdgeAbsPct(pick = {}) {
+  const pct = Number(pick?.edgePct);
+  if (isFinite(pct)) return Math.abs(pct);
+
+  const edge = Number(pick?.edge);
+  const line = Number(pick?.lineAtPick ?? pick?.line);
+  if (!isFinite(edge) || !isFinite(line) || !line) return NaN;
+
+  return Math.abs((edge / line) * 100);
+}
+
+function getEdgeBucketSortRank(key = "") {
+  const map = {
+    micro: 0,
+    small: 1,
+    medium: 2,
+    strong: 3,
+    extreme: 4,
+    unknown: 9
+  };
+  return map[String(key || "unknown").toLowerCase()] ?? 9;
+}
+
+function getTrackedPickEdgeBucketLabel(key = "") {
+  const clean = String(key || "unknown").toLowerCase();
+  if (clean === "micro") return "0–3% edge";
+  if (clean === "small") return "3–5% edge";
+  if (clean === "medium") return "5–7.5% edge";
+  if (clean === "strong") return "7.5–10% edge";
+  if (clean === "extreme") return "10%+ edge";
+  return "Unknown edge";
+}
+
+function getTrackerImpactKeyFromPickLike(pick = {}) {
+  const action = String(pick?.trackerSoftInfluence?.action || "").toLowerCase();
+  const advisoryOnly = !!pick?.trackerSoftInfluence?.advisoryOnly || String(pick?.shadowTrackerFeedback?.mode || "").toLowerCase() === "advisory";
+
+  if (action === "no_play" || action === "shadow_no_play") return "blocked";
+  if (action.includes("downgrade")) return "downgraded";
+  if (action.includes("boost")) return "boosted";
+  if (action.includes("lock_restrict") || pick?.lockRestricted) return "restricted";
+  if (advisoryOnly && (pick?.trackerFeedback || pick?.teamMemory || pick?.shadowTrackerFeedback)) return "shadow";
+  if (pick?.trackerFeedback || pick?.teamMemory || pick?.shadowTrackerFeedback) return "observed";
+  return "none";
+}
+
+function getTrackerImpactLabel(key = "") {
+  const clean = String(key || "none").toLowerCase();
+  if (clean === "blocked") return "Blocked";
+  if (clean === "downgraded") return "Downgraded";
+  if (clean === "boosted") return "Boosted";
+  if (clean === "restricted") return "Lock restricted";
+  if (clean === "shadow") return "Shadow only";
+  if (clean === "observed") return "Observed";
+  return "No tracker change";
+}
+
+function getLatestSeenLineForTrackedPick(pick = {}) {
+  const eventId = String(pick?.eventId || "").trim();
+  const marketKey = String(pick?.marketKey || "").trim();
+  const side = String(pick?.side || getPickSideFromText(pick?.predictionText || "")).toLowerCase();
+
+  if (!eventId || !marketKey || !["over", "under"].includes(side)) return null;
+
+  const key = makeEngineLineMemoryKey(eventId, pick?.league, marketKey, side);
+  const entry = g_engineLineMemory?.[key];
+  const latest = Number(entry?.latestLine ?? entry?.line);
+  return isFinite(latest) && latest > 0 ? latest : null;
+}
+
+function getTrackedPickLineMoveProxy(pick = {}) {
+  const lineAtPick = Number(pick?.lineAtPick ?? pick?.line);
+  const latestLine = getLatestSeenLineForTrackedPick(pick);
+  const side = String(pick?.side || getPickSideFromText(pick?.predictionText || "")).toLowerCase();
+
+  if (!isFinite(lineAtPick) || lineAtPick <= 0 || !isFinite(latestLine) || !["over", "under"].includes(side)) {
+    return {
+      state: "unknown",
+      delta: null,
+      latestLine: isFinite(latestLine) ? latestLine : null,
+      favorable: null
+    };
+  }
+
+  const delta = Number((latestLine - lineAtPick).toFixed(2));
+  if (Math.abs(delta) < 0.24) {
+    return {
+      state: "flat",
+      delta,
+      latestLine,
+      favorable: null
+    };
+  }
+
+  const favorable = side === "over" ? latestLine > lineAtPick : latestLine < lineAtPick;
+  return {
+    state: favorable ? "favorable" : "unfavorable",
+    delta,
+    latestLine,
+    favorable
+  };
+}
+
+function buildSettledPickRecord(items = []) {
+  const base = { settled: 0, wins: 0, losses: 0, pushes: 0, winPct: NaN, netWins: 0 };
+  (Array.isArray(items) ? items : []).forEach(pick => {
+    const status = String(pick?.resultStatus || "").toLowerCase();
+    if (!["win", "loss", "push"].includes(status)) return;
+    base.settled++;
+    if (status === "win") base.wins++;
+    else if (status === "loss") base.losses++;
+    else if (status === "push") base.pushes++;
+  });
+  const winEq = base.wins + base.pushes * 0.5;
+  base.winPct = base.settled ? (winEq / base.settled) * 100 : NaN;
+  base.netWins = Number((base.wins - base.losses).toFixed(2));
+  return base;
+}
+
+function getBestPickShadowSortScore(pick = {}) {
+  const lockScore = pick?.isLock ? 1000 : 0;
+  const confidenceScore = getConfidenceRank(pick?.confidenceGrade || pick?.confidence) * 100;
+  const edgeScore = isFinite(getTrackedPickEdgeAbsPct(pick)) ? getTrackedPickEdgeAbsPct(pick) : 0;
+  return lockScore + confidenceScore + edgeScore;
+}
+
+function buildBestPickOnlyShadowExperiment(items = []) {
+  const settledItems = (Array.isArray(items) ? items : []).filter(pick => {
+    const status = String(pick?.resultStatus || "").toLowerCase();
+    return ["win", "loss", "push"].includes(status);
+  });
+
+  const grouped = new Map();
+  settledItems.forEach(pick => {
+    const eventKey = String(pick?.eventId || pick?.matchupKey || `${pick?.homeTeam || "—"}_${pick?.awayTeam || "—"}_${pick?.eventDate || ""}`);
+    const groupKey = [String(pick?.league || "unknown"), eventKey].join("|");
+    if (!grouped.has(groupKey)) grouped.set(groupKey, []);
+    grouped.get(groupKey).push(pick);
+  });
+
+  const bestOnly = [];
+  grouped.forEach(rows => {
+    const winner = rows.slice().sort((a, b) => {
+      const scoreDiff = getBestPickShadowSortScore(b) - getBestPickShadowSortScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      return Number(getTrackedPickEdgeAbsPct(b) || 0) - Number(getTrackedPickEdgeAbsPct(a) || 0);
+    })[0];
+    if (winner) bestOnly.push(winner);
+  });
+
+  const allRecord = buildSettledPickRecord(settledItems);
+  const bestRecord = buildSettledPickRecord(bestOnly);
+
+  return {
+    gameCount: grouped.size,
+    rows: [
+      { mode: "All tracked picks", gameCount: grouped.size, ...allRecord },
+      { mode: "Best pick only", gameCount: grouped.size, ...bestRecord }
+    ]
+  };
 }
 
 function safeWinRate(wins, settled) {
@@ -6760,6 +6976,39 @@ function renderTrackerAnalytics() {
   ).filter(row => row.key !== "unknown")
    .sort((a, b) => b.settled - a.settled || b.winPct - a.winPct);
 
+  const confidenceRows = buildGroupedRows(
+    learningPicks,
+    pick => String(pick.confidenceGrade || pick.confidence || "—").toUpperCase() || "—",
+    key => key === "—" ? "Unrated" : `Grade ${key}`,
+    1
+  ).sort((a, b) => getConfidenceRank(b.key) - getConfidenceRank(a.key) || b.settled - a.settled);
+
+  const edgeRows = buildGroupedRows(
+    learningPicks,
+    pick => pick.edgeBucket || "unknown",
+    key => getTrackedPickEdgeBucketLabel(key),
+    1
+  ).sort((a, b) => getEdgeBucketSortRank(a.key) - getEdgeBucketSortRank(b.key) || b.settled - a.settled);
+
+  const trackerImpactRows = buildGroupedRows(
+    learningPicks,
+    pick => getTrackerImpactKeyFromPickLike(pick),
+    key => getTrackerImpactLabel(key),
+    1
+  ).sort((a, b) => b.settled - a.settled || b.winPct - a.winPct);
+
+  const lineMoveRows = buildGroupedRows(
+    learningPicks.filter(pick => getTrackedPickLineMoveProxy(pick).state !== "unknown"),
+    pick => getTrackedPickLineMoveProxy(pick).state,
+    key => key === "favorable" ? "Favorable latest-line move" : key === "unfavorable" ? "Unfavorable latest-line move" : "Flat latest-line move",
+    1
+  ).sort((a, b) => {
+    const rank = { favorable: 0, flat: 1, unfavorable: 2 };
+    return (rank[a.key] ?? 9) - (rank[b.key] ?? 9) || b.settled - a.settled;
+  });
+
+  const bestPickShadow = buildBestPickOnlyShadowExperiment(learningPicks);
+
   const selectedLeagueKey = normalizeLeagueTrustKey(document.getElementById("leagueSelect")?.value || "unknown");
   const trackedLeagueKeys = [...new Set(allReportPicks
     .map(p => normalizeLeagueTrustKey(p?.league || "unknown"))
@@ -7026,6 +7275,210 @@ function renderTrackerAnalytics() {
                 <div class="tracker-review-action">${safeText(row.action)}</div>
               </div>
             `).join("")}
+          </div>
+        </div>
+      </div>
+
+      <div class="tracker-analytics-card">
+        <div class="tracker-analytics-card-head">
+          <div class="tracker-analytics-card-title">Measurement lab</div>
+          <div class="tracker-analytics-card-meta">Tracked-pick evidence only</div>
+        </div>
+        <div class="tracker-analytics-card-body">
+          <div class="tracker-report-subtitle">This layer measures what the engine actually saved to tracker. "Latest-line move" is a proxy built from the most recent line the engine has seen for that exact event/market/side. It is useful, but it is not guaranteed closing-line truth.</div>
+          <div class="table-wrap tracker-report-table-wrap">
+            <table class="tracker-analytics-table">
+              <thead>
+                <tr>
+                  <th>Experiment</th>
+                  <th class="num">Games</th>
+                  <th class="num">Settled</th>
+                  <th class="num">Wins</th>
+                  <th class="num">Losses</th>
+                  <th class="num">Pushes</th>
+                  <th class="rate">Win rate</th>
+                  <th class="num">Net wins</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${bestPickShadow.rows.length ? bestPickShadow.rows.map(row => `
+                  <tr>
+                    <td>${safeText(row.mode)}</td>
+                    <td class="num">${Number(row.gameCount || 0)}</td>
+                    <td class="num">${Number(row.settled || 0)}</td>
+                    <td class="num">${Number(row.wins || 0)}</td>
+                    <td class="num">${Number(row.losses || 0)}</td>
+                    <td class="num">${Number(row.pushes || 0)}</td>
+                    <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                    <td class="num">${isFinite(row.netWins) ? safeText(Number(row.netWins).toFixed(0)) : "—"}</td>
+                  </tr>
+                `).join("") : `
+                  <tr>
+                    <td colspan="8" class="note">Need settled tracked picks before the best-pick-only shadow test can say anything useful.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="tracker-analytics-grid two">
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Confidence performance</div>
+            <div class="tracker-analytics-card-meta">Do higher grades actually win more?</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="table-wrap tracker-report-table-wrap">
+              <table class="tracker-analytics-table">
+                <thead>
+                  <tr>
+                    <th>Grade</th>
+                    <th class="num">Settled</th>
+                    <th class="num">Wins</th>
+                    <th class="num">Losses</th>
+                    <th class="num">Pushes</th>
+                    <th class="rate">Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${confidenceRows.length ? confidenceRows.map(row => `
+                    <tr>
+                      <td>${safeText(row.label)}</td>
+                      <td class="num">${Number(row.settled || 0)}</td>
+                      <td class="num">${Number(row.wins || 0)}</td>
+                      <td class="num">${Number(row.losses || 0)}</td>
+                      <td class="num">${Number(row.pushes || 0)}</td>
+                      <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                    </tr>
+                  `).join("") : `
+                    <tr>
+                      <td colspan="6" class="note">No confidence-grade data yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Edge bucket performance</div>
+            <div class="tracker-analytics-card-meta">Check whether bigger edges are actually stronger</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="table-wrap tracker-report-table-wrap">
+              <table class="tracker-analytics-table">
+                <thead>
+                  <tr>
+                    <th>Edge bucket</th>
+                    <th class="num">Settled</th>
+                    <th class="num">Wins</th>
+                    <th class="num">Losses</th>
+                    <th class="num">Pushes</th>
+                    <th class="rate">Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${edgeRows.length ? edgeRows.map(row => `
+                    <tr>
+                      <td>${safeText(row.label)}</td>
+                      <td class="num">${Number(row.settled || 0)}</td>
+                      <td class="num">${Number(row.wins || 0)}</td>
+                      <td class="num">${Number(row.losses || 0)}</td>
+                      <td class="num">${Number(row.pushes || 0)}</td>
+                      <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                    </tr>
+                  `).join("") : `
+                    <tr>
+                      <td colspan="6" class="note">No settled edge-bucket data yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tracker-analytics-grid two">
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Tracker impact performance</div>
+            <div class="tracker-analytics-card-meta">See whether tracker influence is helping</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="table-wrap tracker-report-table-wrap">
+              <table class="tracker-analytics-table">
+                <thead>
+                  <tr>
+                    <th>Tracker action</th>
+                    <th class="num">Settled</th>
+                    <th class="num">Wins</th>
+                    <th class="num">Losses</th>
+                    <th class="num">Pushes</th>
+                    <th class="rate">Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${trackerImpactRows.length ? trackerImpactRows.map(row => `
+                    <tr>
+                      <td>${safeText(row.label)}</td>
+                      <td class="num">${Number(row.settled || 0)}</td>
+                      <td class="num">${Number(row.wins || 0)}</td>
+                      <td class="num">${Number(row.losses || 0)}</td>
+                      <td class="num">${Number(row.pushes || 0)}</td>
+                      <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                    </tr>
+                  `).join("") : `
+                    <tr>
+                      <td colspan="6" class="note">Tracker has not influenced any settled picks yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tracker-analytics-card">
+          <div class="tracker-analytics-card-head">
+            <div class="tracker-analytics-card-title">Latest-line move check</div>
+            <div class="tracker-analytics-card-meta">Proxy for line movement, not guaranteed CLV</div>
+          </div>
+          <div class="tracker-analytics-card-body">
+            <div class="table-wrap tracker-report-table-wrap">
+              <table class="tracker-analytics-table">
+                <thead>
+                  <tr>
+                    <th>Line move</th>
+                    <th class="num">Settled</th>
+                    <th class="num">Wins</th>
+                    <th class="num">Losses</th>
+                    <th class="num">Pushes</th>
+                    <th class="rate">Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${lineMoveRows.length ? lineMoveRows.map(row => `
+                    <tr>
+                      <td>${safeText(row.label)}</td>
+                      <td class="num">${Number(row.settled || 0)}</td>
+                      <td class="num">${Number(row.wins || 0)}</td>
+                      <td class="num">${Number(row.losses || 0)}</td>
+                      <td class="num">${Number(row.pushes || 0)}</td>
+                      <td class="rate">${safeText(formatPct(row.winPct))}</td>
+                    </tr>
+                  `).join("") : `
+                    <tr>
+                      <td colspan="6" class="note">The engine has not seen enough later line updates for a movement check yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -11999,7 +12452,14 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     gameVolatilityBlock ? "vol_block" : "vol_ok"
   ].join("|");
 
+  const trackerImpactKey = getTrackerImpactKeyFromPickLike(pickRow);
+  const trackerImpactLabel = getTrackerImpactLabel(trackerImpactKey);
+  const nowIso = new Date().toISOString();
+
   return {
+    pickId: (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+      ? crypto.randomUUID()
+      : (`pick_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`),
     eventId: fixtureMeta.eventId || "",
     eventDate: fixtureMeta.eventDate || "",
     league,
@@ -12007,19 +12467,36 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
     awayTeam: fixtureMeta.awayTeam || "—",
     homeId: fixtureMeta.homeId || "",
     awayId: fixtureMeta.awayId || "",
+    fixtureLabel: `${fixtureMeta.homeTeam || "—"} vs ${fixtureMeta.awayTeam || "—"}`,
     marketKey,
     marketName: pickRow.name,
+    projection: isFinite(pickRow.proj) ? Number(pickRow.proj) : null,
     line: trackedLine,
+    lineAtPick: trackedLine,
     decisionLine: isFinite(pickRow.decisionLine) ? Number(pickRow.decisionLine) : Number(pickRow.line),
+    rawLine: isFinite(pickRow.line) ? Number(pickRow.line) : null,
     smartLineApplied: false,
     smartLineMeta: null,
     side,
     predictionText: pickRow.displayPick || pickRow.pick,
+    originalPredictionText: pickRow.shadowTrackerFeedback?.originalPick || pickRow.pick,
     inputSource: getTrackedInputSource(marketKey),
     edge: trackedEdge,
+    rawEdge: isFinite(pickRow.edge) ? Number(pickRow.edge) : trackedEdge,
     edgePct: isFinite(trackedEdge) && trackedLine ? (trackedEdge / trackedLine) * 100 : null,
+    latestSeenLine: null,
+    latestSeenAt: null,
+    lineMoveProxy: null,
+    trackerImpactKey,
+    trackerImpactLabel,
+    trackerSoftInfluence: pickRow.trackerSoftInfluence || null,
+    trackerFeedback: pickRow.trackerFeedback || null,
+    shadowTrackerFeedback: pickRow.shadowTrackerFeedback || null,
+    teamMemory: pickRow.teamMemory || null,
+    lockRestricted: !!pickRow.lockRestricted,
         confidence: grade,
     confidenceGrade: grade,
+    originalConfidenceGrade: String(pickRow.shadowTrackerFeedback?.originalConfidence || grade || "").toUpperCase(),
     modelVersion: getCurrentModelVersion(),
     isLock,
     isABQualified,
@@ -12044,12 +12521,15 @@ function buildTrackedPickPayload({ pickRow, isLock, fixtureMeta, league, diagnos
       phase2Mode: diagnostics?.phase2Activation?.phase2Mode || (isPhase2ShadowMode() ? "shadow" : "live"),
       phase2Activation: diagnostics?.phase2Activation || null,
       confidenceGrade: grade,
+      trackerImpactKey,
+      trackerImpactLabel,
+      trackerSoftInfluence: pickRow.trackerSoftInfluence || null,
       trackerFeedback: pickRow.trackerFeedback || null,
       shadowTrackerFeedback: pickRow.shadowTrackerFeedback || null,
       teamMemory: pickRow.teamMemory || null,
       massacre: pickRow.massacre || null
     },
-    createdAt: new Date().toISOString()
+    createdAt: nowIso
   };
 }
 function resolveStoredLineBeforeDecision({
