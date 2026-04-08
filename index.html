@@ -1355,20 +1355,22 @@ body.dark-mode .tracker-analytics-panel {
 .tracker-report-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 11px;
+  table-layout: auto;
+  font-size: 10px;
+  line-height: 1.2;
   background: var(--panel);
 }
 
 .tracker-report-table th,
 .tracker-report-table td {
   border: 1px solid var(--table-border);
-  padding: 7px 6px;
+  padding: 5px 4px;
   text-align: left;
   vertical-align: top;
   white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
 }
 
 .tracker-report-table th {
@@ -1423,7 +1425,7 @@ body.dark-mode .tracker-analytics-panel {
 .tracker-analytics-table td,
 .tracker-rate-table th,
 .tracker-rate-table td {
-  max-width: 0;
+  max-width: none;
 }
 
 @media (min-width: 700px) {
@@ -1793,19 +1795,21 @@ body.dark-mode .tracker-bar-stage {
 .tracker-analytics-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 11px;
+  table-layout: auto;
+  font-size: 10px;
+  line-height: 1.2;
   background: var(--panel);
 }
 .tracker-analytics-table th,
 .tracker-analytics-table td {
   border: 1px solid var(--table-border);
-  padding: 7px 6px;
+  padding: 5px 4px;
   text-align: left;
   vertical-align: top;
   white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
 }
 .tracker-analytics-table th {
   background: var(--table-head);
@@ -2073,18 +2077,20 @@ body.dark-mode .tracker-analytics-section-head {
 .tracker-rate-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 11px;
+  table-layout: auto;
+  font-size: 10px;
+  line-height: 1.2;
 }
 .tracker-rate-table th,
 .tracker-rate-table td {
   border: 1px solid var(--table-border);
-  padding: 7px 6px;
+  padding: 5px 4px;
   text-align: left;
   vertical-align: middle;
   white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
 }
 .tracker-rate-table th {
   background: var(--table-head);
@@ -2099,6 +2105,59 @@ body.dark-mode .tracker-analytics-section-head {
 .tracker-rate-table td.center,
 .tracker-rate-table th.center {
   text-align: center;
+}
+
+.tracker-report-table td.num,
+.tracker-report-table th.num,
+.tracker-report-table td.rate,
+.tracker-report-table th.rate,
+.tracker-analytics-table td.num,
+.tracker-analytics-table th.num,
+.tracker-analytics-table td.rate,
+.tracker-analytics-table th.rate,
+.tracker-rate-table td.center,
+.tracker-rate-table th.center {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.league-trust-pill {
+  font-size: 9px;
+  line-height: 1.1;
+  padding: 4px 6px;
+}
+
+@media (max-width: 560px) {
+  .tracker-report-table,
+  .tracker-analytics-table,
+  .tracker-rate-table {
+    font-size: 9px;
+    line-height: 1.15;
+  }
+
+  .tracker-report-table th,
+  .tracker-report-table td,
+  .tracker-analytics-table th,
+  .tracker-analytics-table td,
+  .tracker-rate-table th,
+  .tracker-rate-table td {
+    padding: 4px 3px;
+  }
+
+  .tracker-analytics-section-head,
+  .tracker-analytics-card-head {
+    padding: 7px 8px;
+  }
+
+  .tracker-analytics-section-meta,
+  .tracker-analytics-card-meta {
+    font-size: 9px;
+  }
+
+  .league-trust-pill {
+    font-size: 8px;
+    padding: 3px 5px;
+  }
 }
 .tracker-horizontal-bars {
   display: grid;
