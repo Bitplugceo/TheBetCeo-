@@ -17,6 +17,8 @@
   <link rel="icon" type="image/jpeg" href="0A45F320-A89F-4851-AA4E-CE22138FD52F.jpeg?v=tracker_cleanup_v22_measurement_lab" />
 
   <title>Basketball Prediction Engine</title>
+<!-- BB loosened thresholds build: v2 relaxed no-play gates -->
+
 
   <style>
         /* ── CSS custom properties ── */
@@ -3108,19 +3110,19 @@ function getPhase2ActivationState() {
   };
 }
     const PICK_RULES = {
-  default: { over: 0.045, under: 0.072, underExtra: 0, underBlockRatio: 0.56 },
-  ft:      { over: 0.045, under: 0.075, underExtra: 0, underBlockRatio: 0.56 },
-  team:    { over: 0.050, under: 0.080, underExtra: 0, underBlockRatio: 0.57 },
-  h1:      { underExtra: 0.028, underBlockRatio: 0.56 },
-  h2:      { underExtra: 0.028, underBlockRatio: 0.56 }
+  default: { over: 0.042, under: 0.060, underExtra: 0, underBlockRatio: 0.66 },
+  ft:      { over: 0.042, under: 0.060, underExtra: 0, underBlockRatio: 0.66 },
+  team:    { over: 0.045, under: 0.065, underExtra: 0, underBlockRatio: 0.68 },
+  h1:      { underExtra: 0.018, underBlockRatio: 0.66 },
+  h2:      { underExtra: 0.018, underBlockRatio: 0.66 }
 };
 
     const LEAGUE_EDGE_THRESHOLDS = {
-      nba:     { h1: 0.050 },
-      ncaa:    { h1: 0.058 },
-      europe:  { h1: 0.059 },
-      asia:    { h1: 0.063 },
-      default: { h1: 0.067 }
+      nba:     { h1: 0.042 },
+      ncaa:    { h1: 0.050 },
+      europe:  { h1: 0.052 },
+      asia:    { h1: 0.055 },
+      default: { h1: 0.058 }
     };
 
     const EUROPE_EDGE_LEAGUES = [
@@ -8486,22 +8488,202 @@ function handleTrackedPicksActionClick(event) {
       return total;
     }
 
-    function settleTrackedPickFromCompetition(pick, competition) {
-      if (!pick || !competition) return "pending";
-      const competitors = competition.competitors || [];
-      if (competitors.length < 2) return "pending";
+    function getTrackerCompetitionCompetitors(competition) {
+      return Array.isArray(competition?.competitors) ? competition.competitors : [];
+    }
 
-      const home = competitors.find(c => c.homeAway === "home") || competitors[0];
-      const away = competitors.find(c => c.homeAway === "away") || competitors[1];
+    function getTrackerCompetitionHomeAway(competition) {
+      const competitors = getTrackerCompetitionCompetitors(competition);
+      const home = competitors.find(c => c?.homeAway === "home") || competitors[0] || null;
+      const away = competitors.find(c => c?.homeAway === "away") || competitors[1] || competitors[0] || null;
+      return { home, away };
+    }
+
+    function getTrackerCompetitorNameKey(competitor) {
+      return normalizeTeamName(
+        competitor?.team?.displayName ||
+        competitor?.team?.shortDisplayName ||
+        competitor?.team?.name ||
+        competitor?.displayName ||
+        competitor?.shortDisplayName ||
+        ""
+      );
+    }
+
+    function getTrackerCompetitionPeriodDepth(competition) {
+      const { home, away } = getTrackerCompetitionHomeAway(competition);
+      const homeLines = Array.isArray(home?.linescores) ? home.linescores : [];
+      const awayLines = Array.isArray(away?.linescores) ? away.linescores : [];
+      return Math.min(homeLines.length, awayLines.length);
+    }
+
+    function isTrackerCompetitionFinal(competition) {
+      return !!(
+        competition?.status?.type?.completed ||
+        competition?.status?.type?.state === "post" ||
+        competition?.status?.type?.name === "STATUS_FINAL"
+      );
+    }
+
+    function getTrackerRequiredPeriodDepth(league, marketKey) {
+      if (marketKey === "h1") return league === "ncaa" ? 1 : 2;
+      if (marketKey === "h2") return league === "ncaa" ? 2 : 4;
+      return 0;
+    }
+
+    function getTrackerSummaryCompetitionCandidates(payload) {
+      const out = [];
+      const seen = new Set();
+
+      function pushCompetition(comp) {
+        if (!comp || typeof comp !== "object") return;
+        const competitors = getTrackerCompetitionCompetitors(comp);
+        if (competitors.length < 2) return;
+        const { home, away } = getTrackerCompetitionHomeAway(comp);
+        const key = [
+          String(comp?.id || comp?.uid || ""),
+          String(comp?.date || comp?.startDate || ""),
+          getTrackerCompetitorNameKey(home),
+          getTrackerCompetitorNameKey(away)
+        ].join('|');
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(comp);
+      }
+
+      function walk(node, depth = 0) {
+        if (!node || depth > 7) return;
+        if (Array.isArray(node)) {
+          node.forEach(item => walk(item, depth + 1));
+          return;
+        }
+        if (typeof node !== "object") return;
+
+        if (Array.isArray(node.competitions)) {
+          node.competitions.forEach(pushCompetition);
+        }
+        if (Array.isArray(node.events)) {
+          node.events.forEach(event => {
+            if (Array.isArray(event?.competitions)) event.competitions.forEach(pushCompetition);
+            walk(event, depth + 1);
+          });
+        }
+
+        Object.keys(node).forEach(key => {
+          if (key === 'competitions' || key === 'events') return;
+          walk(node[key], depth + 1);
+        });
+      }
+
+      walk(payload, 0);
+      return out;
+    }
+
+    function scoreTrackerCompetitionForEntry(entry, competition) {
+      if (!competition) return -Infinity;
+      let score = 0;
+      const competitionId = String(competition?.id || "");
+      const { home, away } = getTrackerCompetitionHomeAway(competition);
+      const homeKey = getTrackerCompetitorNameKey(home);
+      const awayKey = getTrackerCompetitorNameKey(away);
+      const periodDepth = getTrackerCompetitionPeriodDepth(competition);
       const finalHomeScore = parseFloat(home?.score);
       const finalAwayScore = parseFloat(away?.score);
-      const homeLines = home?.linescores || [];
-      const awayLines = away?.linescores || [];
+
+      if (competitionId && entry.eventId && competitionId === String(entry.eventId)) score += 1000;
+      if (entry.homeTeamKey && entry.awayTeamKey) {
+        if (homeKey === entry.homeTeamKey && awayKey === entry.awayTeamKey) score += 300;
+        else if (homeKey === entry.awayTeamKey && awayKey === entry.homeTeamKey) score += 120;
+      }
+      if (isTrackerCompetitionFinal(competition)) score += 80;
+      if (isFinite(finalHomeScore) && isFinite(finalAwayScore)) score += 25;
+
+      const uniqueMarkets = Array.isArray(entry.markets) ? [...new Set(entry.markets)] : [];
+      uniqueMarkets.forEach(marketKey => {
+        const need = getTrackerRequiredPeriodDepth(entry.league, marketKey);
+        if (!need) return;
+        if (periodDepth >= need) score += 40;
+        else score -= 60;
+      });
+
+      score += Math.min(periodDepth, 8);
+      return score;
+    }
+
+    function buildTrackerScoreboardDateKeys(rawDate) {
+      const ms = Date.parse(String(rawDate || ""));
+      if (!Number.isFinite(ms) || ms <= 0) return [];
+      const oneDay = 24 * 60 * 60 * 1000;
+      const keys = [];
+      [-1, 0, 1, 2].forEach(offset => {
+        const d = new Date(ms + (offset * oneDay));
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        keys.push(`${yyyy}${mm}${dd}`);
+      });
+      return [...new Set(keys)];
+    }
+
+    async function fetchTrackerCompetitionForEntry(entry) {
+      const tries = [];
+
+      const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
+      const summaryData = await proxyFetch(summaryUrl, 15000).catch(() => null);
+      if (summaryData) {
+        const summaryCandidates = getTrackerSummaryCompetitionCandidates(summaryData);
+        if (summaryCandidates.length) {
+          const bestSummary = summaryCandidates
+            .map(comp => ({ comp, score: scoreTrackerCompetitionForEntry(entry, comp) }))
+            .sort((a, b) => b.score - a.score)[0];
+          if (bestSummary?.comp) {
+            return { competition: bestSummary.comp, source: 'summary', score: bestSummary.score };
+          }
+        }
+        tries.push({ source: 'summary', candidates: summaryCandidates.length });
+      } else {
+        tries.push({ source: 'summary', candidates: 0 });
+      }
+
+      const dateKeys = buildTrackerScoreboardDateKeys(entry.eventDate);
+      for (const dateKey of dateKeys) {
+        const boardUrl = `${entry.base}/scoreboard?dates=${dateKey}&limit=300&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
+        const boardData = await proxyFetch(boardUrl, 15000).catch(() => null);
+        if (!boardData) {
+          tries.push({ source: `scoreboard:${dateKey}`, candidates: 0 });
+          continue;
+        }
+        const boardCandidates = getTrackerSummaryCompetitionCandidates(boardData);
+        tries.push({ source: `scoreboard:${dateKey}`, candidates: boardCandidates.length });
+        if (!boardCandidates.length) continue;
+
+        const bestBoard = boardCandidates
+          .map(comp => ({ comp, score: scoreTrackerCompetitionForEntry(entry, comp) }))
+          .sort((a, b) => b.score - a.score)[0];
+
+        if (bestBoard?.comp && bestBoard.score > 0) {
+          return { competition: bestBoard.comp, source: `scoreboard:${dateKey}`, score: bestBoard.score };
+        }
+      }
+
+      return { competition: null, source: 'none', score: -Infinity, tries };
+    }
+
+    function settleTrackedPickFromCompetition(pick, competition) {
+      if (!pick || !competition) return { status: "pending", actual: null, reason: "missing-competition" };
+      const competitors = getTrackerCompetitionCompetitors(competition);
+      if (competitors.length < 2) return { status: "pending", actual: null, reason: "missing-competitors" };
+
+      const { home, away } = getTrackerCompetitionHomeAway(competition);
+      const finalHomeScore = parseFloat(home?.score);
+      const finalAwayScore = parseFloat(away?.score);
+      const homeLines = Array.isArray(home?.linescores) ? home.linescores : [];
+      const awayLines = Array.isArray(away?.linescores) ? away.linescores : [];
 
       let actual = NaN;
 
       if (pick.marketKey === "ft") {
-        if (!isFinite(finalHomeScore) || !isFinite(finalAwayScore)) return "pending";
+        if (!isFinite(finalHomeScore) || !isFinite(finalAwayScore)) return { status: "pending", actual: null, reason: "missing-final-score" };
         actual = finalHomeScore + finalAwayScore;
       } else if (pick.marketKey === "team_a") {
         actual = isNaN(finalHomeScore) ? NaN : finalHomeScore;
@@ -8509,31 +8691,31 @@ function handleTrackedPicksActionClick(event) {
         actual = isNaN(finalAwayScore) ? NaN : finalAwayScore;
       } else if (pick.marketKey === "h1") {
         if (pick.league === "ncaa") {
-          if (!homeLines.length || !awayLines.length) return "pending";
+          if (!homeLines.length || !awayLines.length) return { status: "pending", actual: null, reason: "missing-h1-lines" };
           const [homeH1, awayH1] = extractFirstHalf(homeLines, awayLines);
           actual = homeH1 + awayH1;
         } else {
-          if (homeLines.length < 2 || awayLines.length < 2) return "pending";
+          if (homeLines.length < 2 || awayLines.length < 2) return { status: "pending", actual: null, reason: "missing-h1-lines" };
           actual = sumLineScores(homeLines, 2) + sumLineScores(awayLines, 2);
         }
       } else if (pick.marketKey === "h2") {
         if (pick.league === "ncaa") {
-          if (homeLines.length < 2 || awayLines.length < 2) return "pending";
+          if (homeLines.length < 2 || awayLines.length < 2) return { status: "pending", actual: null, reason: "missing-h2-lines" };
           const [homeH2, awayH2] = extractSecondHalf(homeLines, awayLines);
           actual = homeH2 + awayH2;
         } else {
-          if (homeLines.length < 4 || awayLines.length < 4) return "pending";
+          if (homeLines.length < 4 || awayLines.length < 4) return { status: "pending", actual: null, reason: "missing-h2-lines" };
           actual = sumLineScores(homeLines.slice(2, 4), 2) + sumLineScores(awayLines.slice(2, 4), 2);
         }
       }
 
-      if (!isFinite(actual)) return "pending";
+      if (!isFinite(actual)) return { status: "pending", actual: null, reason: "actual-nan" };
       const line = Number(pick.line);
-      if (!isFinite(line)) return "pending";
-      if (Math.abs(actual - line) < 0.001) return "push";
-      if (pick.side === "over") return actual > line ? "win" : "loss";
-      if (pick.side === "under") return actual < line ? "win" : "loss";
-      return "pending";
+      if (!isFinite(line)) return { status: "pending", actual: actual, reason: "invalid-line" };
+      if (Math.abs(actual - line) < 0.001) return { status: "push", actual: actual, reason: "push" };
+      if (pick.side === "over") return { status: actual > line ? "win" : "loss", actual: actual, reason: "graded" };
+      if (pick.side === "under") return { status: actual < line ? "win" : "loss", actual: actual, reason: "graded" };
+      return { status: "pending", actual: actual, reason: "invalid-side" };
     }
 
     async function refreshTrackedPickResults() {
@@ -8575,39 +8757,48 @@ function handleTrackedPicksActionClick(event) {
             const base = getTrackedLeagueBase(p.league);
             if (!base) return null;
             const cacheKey = `${p.league}:${p.eventId}`;
-            return [cacheKey, { cacheKey, base, eventId: p.eventId }];
+            return [cacheKey, {
+              cacheKey,
+              base,
+              eventId: p.eventId,
+              league: p.league,
+              eventDate: p.eventDate || p.createdAt || "",
+              homeTeamKey: normalizeTeamName(p.homeTeam || ""),
+              awayTeamKey: normalizeTeamName(p.awayTeam || ""),
+              markets: pendingPicks.filter(x => `${x.league}:${x.eventId}` === cacheKey).map(x => x.marketKey)
+            }];
           })
           .filter(Boolean)
       ).values()];
 
-      trackerDebug("refresh fetching event summaries", { uniqueEvents: eventEntries.length });
+      trackerDebug("refresh fetching tracker competitions", { uniqueEvents: eventEntries.length });
       const eventResults = await Promise.all(
         eventEntries.map(async entry => {
-          const summaryUrl = `${entry.base}/summary?event=${entry.eventId}&_=${Date.now()}&cb=${Math.random().toString(36).slice(2)}`;
-          const data = await proxyFetch(summaryUrl, 15000).catch(() => null);
-          return [entry.cacheKey, data];
+          const result = await fetchTrackerCompetitionForEntry(entry).catch(err => ({ competition: null, source: 'error', error: String(err?.message || err), score: -Infinity }));
+          return [entry.cacheKey, result];
         })
       );
 
       const eventMap = new Map(eventResults);
 
       pendingPicks.forEach(pick => {
-        const data = eventMap.get(`${pick.league}:${pick.eventId}`);
-        const competition = data?.header?.competitions?.[0];
+        const result = eventMap.get(`${pick.league}:${pick.eventId}`) || {};
+        const competition = result.competition;
         if (!competition) {
-          trackerDebug("refresh missing competition data", { eventId: pick.eventId, market: pick.marketKey, league: pick.league });
+          trackerDebug("refresh missing competition data", {
+            eventId: pick.eventId,
+            market: pick.marketKey,
+            league: pick.league,
+            source: result.source || 'none'
+          });
           return;
         }
 
-        const isFinal =
-          competition?.status?.type?.completed ||
-          competition?.status?.type?.state === "post" ||
-          competition?.status?.type?.name === "STATUS_FINAL";
-
-        if (!isFinal) {
+        if (!isTrackerCompetitionFinal(competition)) {
           trackerDebug("refresh game not final yet", {
             eventId: pick.eventId,
             market: pick.marketKey,
+            source: result.source || 'unknown',
             state: competition?.status?.type?.state || "",
             name: competition?.status?.type?.name || ""
           });
@@ -8615,13 +8806,31 @@ function handleTrackedPicksActionClick(event) {
         }
 
         const settled = settleTrackedPickFromCompetition(pick, competition);
-        if (settled !== "pending" && pick.resultStatus !== settled) {
-          pick.resultStatus = settled;
+        if (settled.status !== "pending" && pick.resultStatus !== settled.status) {
+          pick.resultStatus = settled.status;
           pick.settledAt = new Date().toISOString();
+          pick.updatedAt = pick.settledAt;
+          pick.actual = settled.actual;
+          pick.settlementSource = result.source || 'summary';
           changed = true;
-          trackerDebug("refresh settled pick", { eventId: pick.eventId, market: pick.marketKey, result: settled, line: pick.line, side: pick.side });
-        } else if (settled === "pending") {
-          trackerDebug("refresh final game still returned pending", { eventId: pick.eventId, market: pick.marketKey, line: pick.line, side: pick.side });
+          trackerDebug("refresh settled pick", {
+            eventId: pick.eventId,
+            market: pick.marketKey,
+            result: settled.status,
+            actual: settled.actual,
+            line: pick.line,
+            side: pick.side,
+            source: result.source || 'summary'
+          });
+        } else if (settled.status === "pending") {
+          trackerDebug("refresh final game still returned pending", {
+            eventId: pick.eventId,
+            market: pick.marketKey,
+            line: pick.line,
+            side: pick.side,
+            reason: settled.reason || 'pending',
+            source: result.source || 'summary'
+          });
         }
       });
     }
@@ -8661,6 +8870,7 @@ function handleTrackedPicksActionClick(event) {
     g_refreshTrackedPicksInFlight = false;
   }
 }
+
 
     function addTrackedPicks(newPicks) {
   if (!Array.isArray(newPicks) || !newPicks.length) {
@@ -8862,7 +9072,7 @@ function handleTrackedPicksActionClick(event) {
   if (edge > 0 && pct < overMin) return "NO PLAY";
   if (edge < 0 && pct < underMin) return "NO PLAY";
 
-  if (marketType === "h2" && Math.abs(edge) < 1.5) return "NO PLAY";
+  if (marketType === "h2" && Math.abs(edge) < 1.0) return "NO PLAY";
 
   if (edge < 0) {
     if (
@@ -13029,7 +13239,15 @@ const { ftLine, h1Line, h2Line, aLine, bLine } = resolvedLines;
 
     if (h1Calc.h1SampleTier === "insufficient") h1Pick = "NO PLAY";
     if (h2Calc.h2SampleTier === "insufficient") h2Pick = "NO PLAY";
-    if (h2Calc.h2SampleTier === "thin" && !h2Calc.h2HasH2H) h2Pick = "NO PLAY";
+    if (
+      h2Calc.h2SampleTier === "thin" &&
+      !h2Calc.h2HasH2H &&
+      (
+        !isFinite(h2Calc.h2Edge) ||
+        !isFinite(h2Line) ||
+        Math.abs(h2Calc.h2Edge / Math.max(1, h2Line)) < 0.055
+      )
+    ) h2Pick = "NO PLAY";
 
     const ftTrap = ftPick !== "NO PLAY" && detectTrap(ftCalc.ftEdge, ftLine, ftPick, league, "ft", (ftCalc.aVol || 0) + (ftCalc.bVol || 0));
     const h1Trap = h1Pick !== "NO PLAY" && detectTrap(h1Calc.h1Edge, h1Line, h1Pick, league, "h1", (h1Calc.aVol1 || 0) + (h1Calc.bVol1 || 0));
